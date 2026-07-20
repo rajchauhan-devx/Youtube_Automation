@@ -31,7 +31,9 @@ import {
   MoreVertical,
   Upload,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
+import type { PromptType } from './data';
 import { channels, channelData } from './data';
 import type { Section, Tab, Channel, Script } from './data';
 
@@ -379,13 +381,6 @@ function ScriptsTab({
 }
 
 function ScriptDetailPanel({ script, onClose }: { script: Script; onClose: () => void }) {
-  const fields = [
-    { label: 'Research Prompt', value: script.researchPrompt },
-    { label: 'Image Prompt', value: script.imagePrompt },
-    { label: 'TTS Prompt', value: script.ttsPrompt },
-    { label: 'Video Rules', value: script.videoRules },
-    { label: 'Metadata Prompt', value: script.metadataPrompt },
-  ];
   return (
     <div className="w-80 shrink-0 rounded-lg border border-border bg-surface p-4">
       <div className="mb-4 flex items-center justify-between">
@@ -395,20 +390,38 @@ function ScriptDetailPanel({ script, onClose }: { script: Script; onClose: () =>
         </button>
       </div>
       <div className="space-y-3">
-        {fields.map((f) => (
-          <div key={f.label}>
-            <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-              {f.label}
-            </div>
-            <div className="rounded-md bg-bg p-2 text-sm text-gray-300">{f.value}</div>
+        <div>
+          <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+            Prompts
           </div>
-        ))}
+          <div className="space-y-2">
+            {script.prompts.map((p) => (
+              <div key={p.id} className="rounded-md bg-bg p-2">
+                <div className="mb-1 flex items-center gap-2">
+                  <span className="rounded bg-surface2 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+                    {p.type}
+                  </span>
+                  <span className="text-xs font-medium text-white">{p.name}</span>
+                </div>
+                <div className="text-sm text-gray-300">{p.content}</div>
+              </div>
+            ))}
+          </div>
+        </div>
         <div>
           <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
             Duration
           </div>
           <div className="rounded-md bg-bg p-2 text-sm text-gray-300">{script.duration}s</div>
         </div>
+        {script.howItWorks && (
+          <div>
+            <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+              How It Works
+            </div>
+            <div className="rounded-md bg-bg p-2 text-sm text-gray-300">{script.howItWorks}</div>
+          </div>
+        )}
       </div>
       <div className="mt-4 flex gap-2">
         <button className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-gray-200 hover:bg-surface2">
@@ -424,23 +437,33 @@ function ScriptDetailPanel({ script, onClose }: { script: Script; onClose: () =>
   );
 }
 
+const PROMPT_TYPES: PromptType[] = ['Research', 'Image', 'Script', 'TTS', 'Metadata', 'Custom'];
+
+let blockCounter = 0;
+function newBlockId() {
+  blockCounter += 1;
+  return `nb${Date.now()}_${blockCounter}`;
+}
+
 function NewScriptModal({ onClose, section }: { onClose: () => void; section: Section }) {
   const [name, setName] = useState('');
   const [duration, setDuration] = useState<15 | 30 | 60>(15);
-  const [research, setResearch] = useState('');
-  const [image, setImage] = useState('');
-  const [tts, setTts] = useState('');
-  const [video, setVideo] = useState('');
-  const [metadata, setMetadata] = useState('');
-  const [chapters, setChapters] = useState('');
+  const [prompts, setPrompts] = useState<
+    { id: string; name: string; type: PromptType; content: string }[]
+  >([
+    { id: newBlockId(), name: '', type: 'Research', content: '' },
+  ]);
+  const [howItWorks, setHowItWorks] = useState('');
 
-  const fields = [
-    { label: 'Research Prompt', val: research, set: setResearch, ph: 'What to research...' },
-    { label: 'Image Prompt', val: image, set: setImage, ph: 'Visual style...' },
-    { label: 'TTS Prompt', val: tts, set: setTts, ph: 'Voice style...' },
-    { label: 'Video Rules', val: video, set: setVideo, ph: 'Editing rules...' },
-    { label: 'Metadata Prompt', val: metadata, set: setMetadata, ph: 'Title/desc rules...' },
-  ];
+  function updatePrompt(id: string, patch: Partial<{ name: string; type: PromptType; content: string }>) {
+    setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+  }
+  function addPrompt() {
+    setPrompts((prev) => [...prev, { id: newBlockId(), name: '', type: 'Custom', content: '' }]);
+  }
+  function deletePrompt(id: string) {
+    setPrompts((prev) => (prev.length > 1 ? prev.filter((p) => p.id !== id) : prev));
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
@@ -460,22 +483,75 @@ function NewScriptModal({ onClose, section }: { onClose: () => void; section: Se
               className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-accent"
             />
           </Field>
-          {fields.map((f) => (
-            <Field key={f.label} label={f.label}>
+
+          <div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
+              Prompts
+            </div>
+            <div className="space-y-3">
+              {prompts.map((p, i) => (
+                <div key={p.id} className="rounded-md border border-border bg-bg p-3">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="text-xs text-gray-500">#{i + 1}</span>
+                    <input
+                      value={p.name}
+                      onChange={(e) => updatePrompt(p.id, { name: e.target.value })}
+                      placeholder="Prompt name"
+                      className="flex-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
+                    />
+                    <select
+                      value={p.type}
+                      onChange={(e) => updatePrompt(p.id, { type: e.target.value as PromptType })}
+                      className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
+                    >
+                      {PROMPT_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => deletePrompt(p.id)}
+                      disabled={prompts.length === 1}
+                      className="rounded-md p-1.5 text-gray-400 hover:bg-surface2 hover:text-white disabled:opacity-30 disabled:hover:bg-transparent"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <textarea
+                    value={p.content}
+                    onChange={(e) => updatePrompt(p.id, { content: e.target.value })}
+                    placeholder="Prompt content..."
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
+                  />
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={addPrompt}
+              className="mt-2 flex items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-1.5 text-sm text-gray-300 hover:bg-surface2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Prompt
+            </button>
+          </div>
+
+          {prompts.length >= 2 && (
+            <Field label="How It Works">
               <textarea
-                value={f.val}
-                onChange={(e) => f.set(e.target.value)}
-                placeholder={f.ph}
+                value={howItWorks}
+                onChange={(e) => setHowItWorks(e.target.value)}
+                placeholder="Explain execution flow between prompts"
                 rows={2}
                 className="w-full resize-none rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-accent"
               />
             </Field>
-          ))}
+          )}
+
           {section === 'long' && (
             <Field label="Chapter Outline">
               <textarea
-                value={chapters}
-                onChange={(e) => setChapters(e.target.value)}
                 placeholder="One chapter per line..."
                 rows={3}
                 className="w-full resize-none rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-accent"
@@ -533,47 +609,26 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 /* ============ PREVIEW TAB ============ */
 
 function PreviewTab({ data, section }: { data: typeof channelData[string]; section: Section }) {
-  const [expanded, setExpanded] = useState<string | null>(data.pipeline[0]?.id ?? null);
+  const [openStep, setOpenStep] = useState<(typeof data.pipeline)[number] | null>(null);
+
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-3xl">
       <div className="space-y-2">
-        {data.pipeline.map((step, i) => {
-          const isOpen = expanded === step.id;
-          return (
-            <div key={step.id} className="rounded-lg border border-border bg-surface">
-              <button
-                onClick={() => setExpanded(isOpen ? null : step.id)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface2"
-              >
-                <StatusIcon status={step.status} />
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-500">{i + 1}</span>
-                  <span className="text-sm font-medium">{step.label}</span>
-                </div>
-                <ChevronDown
-                  className={`ml-auto h-4 w-4 text-gray-500 transition-transform ${
-                    isOpen ? 'rotate-180' : ''
-                  }`}
-                />
-              </button>
-              {isOpen && (
-                <div className="border-t border-border px-4 py-3">
-                  <p className="text-sm text-gray-300">{step.content}</p>
-                  <div className="mt-3 flex gap-2">
-                    <button className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-gray-300 hover:bg-surface2">
-                      <Pencil className="h-3 w-3" />
-                      Edit
-                    </button>
-                    <button className="flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs text-gray-300 hover:bg-surface2">
-                      <RotateCcw className="h-3 w-3" />
-                      Regenerate
-                    </button>
-                  </div>
-                </div>
-              )}
+        {data.pipeline.map((step, i) => (
+          <button
+            key={step.id}
+            onClick={() => setOpenStep(step)}
+            className="flex w-full items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3.5 text-left transition-colors hover:bg-surface2"
+          >
+            <span className="w-6 text-xs text-gray-600">{i + 1}</span>
+            <StageStatusIcon status={step.status} />
+            <div className="flex-1">
+              <div className="text-sm font-medium text-white">{step.label}</div>
+              <div className="truncate text-xs text-gray-500">{step.summary}</div>
             </div>
-          );
-        })}
+            <ChevronRight className="h-4 w-4 text-gray-600" />
+          </button>
+        ))}
       </div>
 
       {section === 'long' && (
@@ -603,18 +658,78 @@ function PreviewTab({ data, section }: { data: typeof channelData[string]; secti
           Run Pipeline
         </button>
       </div>
+
+      {openStep && (
+        <StepModal step={openStep} onClose={() => setOpenStep(null)} />
+      )}
     </div>
   );
 }
 
-function StatusIcon({ status }: { status: 'done' | 'pending' | 'running' }) {
-  if (status === 'done') return <Check className="h-4 w-4 text-green-500" />;
-  if (status === 'running') return (
-    <span className="flex h-4 w-4 items-center justify-center">
-      <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-600 border-t-accent" />
-    </span>
+function StepModal({
+  step,
+  onClose,
+}: {
+  step: { label: string; status: string; inputLog: string; outputPreview: string };
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto thin-scrollbar rounded-lg border border-border bg-surface p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <StageStatusIcon status={step.status as 'done' | 'pending' | 'running' | 'error'} />
+            <h3 className="text-base font-semibold">{step.label}</h3>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-white">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
+              Input Log
+            </div>
+            <pre className="max-h-40 overflow-y-auto thin-scrollbar whitespace-pre-wrap rounded-md border border-border bg-bg p-3 text-sm text-gray-300">
+              {step.inputLog || 'No input recorded.'}
+            </pre>
+          </div>
+          <div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
+              Output Preview
+            </div>
+            <pre className="max-h-40 overflow-y-auto thin-scrollbar whitespace-pre-wrap rounded-md border border-border bg-bg p-3 text-sm text-gray-300">
+              {step.outputPreview || 'No output yet.'}
+            </pre>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-gray-200 hover:bg-surface2">
+            <Pencil className="h-4 w-4" />
+            Edit
+          </button>
+          <button className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
+            <RotateCcw className="h-4 w-4" />
+            Regenerate
+          </button>
+        </div>
+      </div>
+    </div>
   );
-  return <span className="h-2 w-2 rounded-full bg-gray-600" />;
+}
+
+function StageStatusIcon({ status }: { status: 'done' | 'pending' | 'running' | 'error' }) {
+  if (status === 'done') return <Check className="h-4 w-4 shrink-0 text-green-500" />;
+  if (status === 'running')
+    return (
+      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+        <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-600 border-t-accent" />
+      </span>
+    );
+  if (status === 'error') return <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />;
+  return <span className="h-2 w-2 shrink-0 rounded-full bg-gray-600" />;
 }
 
 /* ============ ASSETS TAB ============ */

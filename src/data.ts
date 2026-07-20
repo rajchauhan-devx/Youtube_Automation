@@ -2,6 +2,14 @@ export type Section = 'shorts' | 'long';
 export type Tab = 'scripts' | 'preview' | 'assets' | 'editor' | 'export';
 export type ScriptStatus = 'active' | 'draft';
 export type AssetKind = 'image' | 'audio' | 'video';
+export type PromptType = 'Research' | 'Image' | 'Script' | 'TTS' | 'Metadata' | 'Custom';
+
+export interface PromptBlock {
+  id: string;
+  name: string;
+  type: PromptType;
+  content: string;
+}
 
 export interface Channel {
   id: string;
@@ -16,11 +24,8 @@ export interface Script {
   lastUsed: string;
   status: ScriptStatus;
   locked: boolean;
-  researchPrompt: string;
-  imagePrompt: string;
-  ttsPrompt: string;
-  videoRules: string;
-  metadataPrompt: string;
+  prompts: PromptBlock[];
+  howItWorks: string;
   duration: 15 | 30 | 60;
   chapters?: string[];
 }
@@ -28,8 +33,10 @@ export interface Script {
 export interface PipelineStep {
   id: string;
   label: string;
-  status: 'done' | 'pending' | 'running';
-  content: string;
+  status: 'done' | 'pending' | 'running' | 'error';
+  summary: string;
+  inputLog: string;
+  outputPreview: string;
 }
 
 export interface Asset {
@@ -72,11 +79,14 @@ export const channelData: Record<string, ChannelData> = {
         lastUsed: '2h ago',
         status: 'active',
         locked: true,
-        researchPrompt: 'Find trending AI news from the last 24 hours',
-        imagePrompt: 'Futuristic AI visuals, blue tones, clean',
-        ttsPrompt: 'Energetic male voice, fast pace',
-        videoRules: 'Cut every 2s, captions always on',
-        metadataPrompt: 'Clickable title under 60 chars',
+        howItWorks: 'Research feeds the script, which drives image generation and TTS in parallel, then storyboards the cut.',
+        prompts: [
+          { id: 'pr1', name: 'Trending Research', type: 'Research', content: 'Find trending AI news from the last 24 hours' },
+          { id: 'pr2', name: 'Hook Script', type: 'Script', content: 'Write a 30s hook + 3 key points + CTA' },
+          { id: 'pr3', name: 'AI Visuals', type: 'Image', content: 'Futuristic AI visuals, blue tones, clean' },
+          { id: 'pr4', name: 'Energetic VO', type: 'TTS', content: 'Energetic male voice, fast pace' },
+          { id: 'pr5', name: 'Clickable Title', type: 'Metadata', content: 'Clickable title under 60 chars' },
+        ],
         duration: 30,
       },
       {
@@ -85,11 +95,12 @@ export const channelData: Record<string, ChannelData> = {
         lastUsed: '1d ago',
         status: 'draft',
         locked: false,
-        researchPrompt: 'Search productivity hacks',
-        imagePrompt: 'Minimal desk setup shots',
-        ttsPrompt: 'Calm female voice',
-        videoRules: 'Cut every 3s',
-        metadataPrompt: 'How-to style title',
+        howItWorks: '',
+        prompts: [
+          { id: 'pr1', name: 'Productivity Research', type: 'Research', content: 'Search productivity hacks' },
+          { id: 'pr2', name: 'Desk Visuals', type: 'Image', content: 'Minimal desk setup shots' },
+          { id: 'pr3', name: 'Calm VO', type: 'TTS', content: 'Calm female voice' },
+        ],
         duration: 15,
       },
       {
@@ -98,20 +109,22 @@ export const channelData: Record<string, ChannelData> = {
         lastUsed: '4d ago',
         status: 'draft',
         locked: false,
-        researchPrompt: 'Latest gadget releases',
-        imagePrompt: 'Product on white',
-        ttsPrompt: 'Neutral voice',
-        videoRules: 'Cut every 2s',
-        metadataPrompt: 'Review title',
+        howItWorks: '',
+        prompts: [
+          { id: 'pr1', name: 'Gadget Research', type: 'Research', content: 'Latest gadget releases' },
+          { id: 'pr2', name: 'Product Shots', type: 'Image', content: 'Product on white' },
+          { id: 'pr3', name: 'Neutral VO', type: 'TTS', content: 'Neutral voice' },
+          { id: 'pr4', name: 'Review Title', type: 'Metadata', content: 'Review title' },
+        ],
         duration: 60,
       },
     ],
     pipeline: [
-      { id: 'p1', label: 'Research', status: 'done', content: 'Found 12 trending topics. Top: "GPT-5 announced", "Apple Vision Pro 2 leaks", "Tesla robotaxi launch"' },
-      { id: 'p2', label: 'Script', status: 'done', content: 'Hook: "AI just changed everything..." Body: 3 key points. CTA: subscribe.' },
-      { id: 'p3', label: 'Images', status: 'done', content: '8 images generated, 9:16 format, blue tech aesthetic' },
-      { id: 'p4', label: 'Audio', status: 'running', content: 'Generating TTS... 65% complete' },
-      { id: 'p5', label: 'Storyboard', status: 'pending', content: 'Waiting for audio' },
+      { id: 'p1', label: 'Research', status: 'done', summary: 'Found 12 trending AI topics', inputLog: 'Query: trending AI news last 24h\nSources: 8 news APIs, 3 Reddit feeds', outputPreview: '1. GPT-5 announced\n2. Apple Vision Pro 2 leaks\n3. Tesla robotaxi launch\n...+9 more' },
+      { id: 'p2', label: 'Script', status: 'done', summary: '30s script with hook + 3 points', inputLog: 'Topic: GPT-5 announcement\nStyle: energetic, 30s', outputPreview: 'Hook: "AI just changed everything..."\nPoint 1: ...\nPoint 2: ...\nCTA: subscribe' },
+      { id: 'p3', label: 'Images', status: 'done', summary: '8 images generated, 9:16 blue tech', inputLog: 'Prompt: futuristic AI visuals, blue tones\nCount: 8, ratio: 9:16', outputPreview: '8 images saved to assets' },
+      { id: 'p4', label: 'Audio', status: 'running', summary: 'Generating TTS... 65% complete', inputLog: 'Script: 30s\nVoice: energetic male', outputPreview: 'Processing... 65%' },
+      { id: 'p5', label: 'Storyboard', status: 'pending', summary: 'Waiting for audio', inputLog: '', outputPreview: '' },
     ],
     images: [
       { id: 'i1', kind: 'image', name: 'AI brain render', color: '#3b82f6' },
@@ -146,11 +159,14 @@ export const channelData: Record<string, ChannelData> = {
         lastUsed: '5h ago',
         status: 'active',
         locked: true,
-        researchPrompt: 'Trending travel destinations 2026',
-        imagePrompt: 'Cinematic travel shots, warm tones',
-        ttsPrompt: 'Adventurous voice, medium pace',
-        videoRules: 'Cut every 3s, text overlays',
-        metadataPrompt: 'Destination + hook title',
+        howItWorks: 'Research picks destinations, script structures the vlog, images and audio generate in parallel, then storyboard assembles the cut.',
+        prompts: [
+          { id: 'pr1', name: 'Destination Research', type: 'Research', content: 'Trending travel destinations 2026' },
+          { id: 'pr2', name: 'Vlog Script', type: 'Script', content: '60s vlog: hook + 3 destinations + CTA' },
+          { id: 'pr3', name: 'Cinematic Shots', type: 'Image', content: 'Cinematic travel shots, warm tones' },
+          { id: 'pr4', name: 'Adventurous VO', type: 'TTS', content: 'Adventurous voice, medium pace' },
+          { id: 'pr5', name: 'Destination Title', type: 'Metadata', content: 'Destination + hook title' },
+        ],
         duration: 60,
       },
       {
@@ -159,11 +175,12 @@ export const channelData: Record<string, ChannelData> = {
         lastUsed: '2d ago',
         status: 'draft',
         locked: false,
-        researchPrompt: 'Best street food cities',
-        imagePrompt: 'Food closeups, vibrant',
-        ttsPrompt: 'Friendly voice',
-        videoRules: 'Cut every 2s',
-        metadataPrompt: 'Food list title',
+        howItWorks: '',
+        prompts: [
+          { id: 'pr1', name: 'Street Food Research', type: 'Research', content: 'Best street food cities' },
+          { id: 'pr2', name: 'Food Visuals', type: 'Image', content: 'Food closeups, vibrant' },
+          { id: 'pr3', name: 'Friendly VO', type: 'TTS', content: 'Friendly voice' },
+        ],
         duration: 30,
       },
       {
@@ -172,11 +189,13 @@ export const channelData: Record<string, ChannelData> = {
         lastUsed: '1w ago',
         status: 'draft',
         locked: false,
-        researchPrompt: 'Hidden gems in major cities',
-        imagePrompt: 'City aerial shots',
-        ttsPrompt: 'Informative voice',
-        videoRules: 'Cut every 4s',
-        metadataPrompt: 'City name + guide',
+        howItWorks: '',
+        prompts: [
+          { id: 'pr1', name: 'Hidden Gems Research', type: 'Research', content: 'Hidden gems in major cities' },
+          { id: 'pr2', name: 'Aerial Shots', type: 'Image', content: 'City aerial shots' },
+          { id: 'pr3', name: 'Informative VO', type: 'TTS', content: 'Informative voice' },
+          { id: 'pr4', name: 'City Guide Title', type: 'Metadata', content: 'City name + guide' },
+        ],
         duration: 60,
       },
       {
@@ -185,20 +204,21 @@ export const channelData: Record<string, ChannelData> = {
         lastUsed: '2w ago',
         status: 'draft',
         locked: false,
-        researchPrompt: 'Cheap travel hacks',
-        imagePrompt: 'Budget-friendly visuals',
-        ttsPrompt: 'Casual voice',
-        videoRules: 'Cut every 2s',
-        metadataPrompt: 'Budget + destination',
+        howItWorks: '',
+        prompts: [
+          { id: 'pr1', name: 'Budget Hacks', type: 'Research', content: 'Cheap travel hacks' },
+          { id: 'pr2', name: 'Budget Visuals', type: 'Image', content: 'Budget-friendly visuals' },
+          { id: 'pr3', name: 'Casual VO', type: 'TTS', content: 'Casual voice' },
+        ],
         duration: 15,
       },
     ],
     pipeline: [
-      { id: 'p1', label: 'Research', status: 'done', content: 'Found 8 trending destinations. Top: "Bali hidden beaches", "Lisbon cafes", "Tokyo at night"' },
-      { id: 'p2', label: 'Script', status: 'done', content: 'Hook: "This place will blow your mind..." 3 destinations, CTA.' },
-      { id: 'p3', label: 'Images', status: 'running', content: 'Generating 6 images... 40% complete' },
-      { id: 'p4', label: 'Audio', status: 'pending', content: 'Waiting for images' },
-      { id: 'p5', label: 'Storyboard', status: 'pending', content: 'Waiting for audio' },
+      { id: 'p1', label: 'Research', status: 'done', summary: 'Found 8 trending destinations', inputLog: 'Query: trending travel 2026\nSources: travel blogs, Google Trends', outputPreview: '1. Bali hidden beaches\n2. Lisbon cafes\n3. Tokyo at night\n...+5 more' },
+      { id: 'p2', label: 'Script', status: 'done', summary: '60s vlog script, 3 destinations', inputLog: 'Topic: trending destinations\nStyle: adventurous, 60s', outputPreview: 'Hook: "This place will blow your mind..."\nDest 1: ...\nDest 2: ...\nCTA: subscribe' },
+      { id: 'p3', label: 'Images', status: 'running', summary: 'Generating 6 images... 40% complete', inputLog: 'Prompt: cinematic travel, warm tones\nCount: 6, ratio: 9:16', outputPreview: 'Processing... 40%' },
+      { id: 'p4', label: 'Audio', status: 'error', summary: 'TTS API rate limited, retry needed', inputLog: 'Script: 60s\nVoice: adventurous', outputPreview: 'Error: 429 Too Many Requests' },
+      { id: 'p5', label: 'Storyboard', status: 'pending', summary: 'Waiting for audio', inputLog: '', outputPreview: '' },
     ],
     images: [
       { id: 'i1', kind: 'image', name: 'Bali beach', color: '#10b981' },
