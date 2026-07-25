@@ -1,5 +1,5 @@
 export type Section = 'shorts' | 'long';
-export type Tab = 'scripts' | 'preview' | 'assets' | 'editor' | 'export';
+export type Tab = 'scripts' | 'preview' | 'assets' | 'generation' | 'editor' | 'export';
 export type ScriptStatus = 'active' | 'draft';
 export type AssetKind = 'image' | 'audio' | 'video';
 export type PromptType = 'Research' | 'Image' | 'Script' | 'TTS' | 'Metadata' | 'Custom';
@@ -28,6 +28,14 @@ export interface Script {
   howItWorks: string;
   duration: 15 | 30 | 60;
   chapters?: string[];
+  topicName?: string;
+  aiInstructions?: string;
+  aiResponse?: string;
+  extractedScript?: string;
+  imagePrompts?: string[];
+  narration?: string;
+  generatedImages?: any[];
+  pipeline?: PipelineStep[];
 }
 
 export interface PipelineStep {

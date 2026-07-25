@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Zap,
   Clapperboard,
@@ -32,6 +32,7 @@ import {
   Upload,
   Sparkles,
   AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
 import type { PromptType } from './data';
 import { channels, channelData } from './data';
@@ -60,6 +61,33 @@ const SIDEBAR_ICONS = [
 
 type SidebarId = Section | 'queue' | 'library' | 'settings';
 
+function parseAIResponse(text: string) {
+  const scriptMatch = text.match(/## SCRIPT\n([\s\S]*?)(?=\n## |$)/i) || text.match(/## SECTION 3[^\n]*\n([\s\S]*?)(?=\n## |$)/i);
+  const narrationMatch = text.match(/## ELEVENLABS PASTE-READY SCRIPT\n([\s\S]*?)(?=\n## |$)/i) || text.match(/## SECTION 4[^\n]*\n([\s\S]*?)(?=\n## |$)/i);
+  const promptsMatch = text.match(/## AI IMAGE PROMPTS\n([\s\S]*?)(?=\n## |$)/i) || text.match(/## SECTION 8[^\n]*\n([\s\S]*?)(?=\n## |$)/i);
+
+  const imagePrompts: string[] = [];
+  if (promptsMatch) {
+    const lines = promptsMatch[1].split('\n');
+    let currentPrompt = '';
+    for (const line of lines) {
+      if (line.startsWith('IMAGE ') || line.startsWith('Prompt:')) {
+        if (currentPrompt.trim()) imagePrompts.push(currentPrompt.trim());
+        currentPrompt = line.replace(/^Prompt:\s*/i, '');
+      } else if (currentPrompt) {
+        currentPrompt += ' ' + line;
+      }
+    }
+    if (currentPrompt.trim()) imagePrompts.push(currentPrompt.trim());
+  }
+
+  return {
+    script: scriptMatch ? scriptMatch[1].trim() : text,
+    ttsText: narrationMatch ? narrationMatch[1].trim() : '',
+    imagePrompts: imagePrompts.length > 0 ? imagePrompts : [],
+  };
+}
+
 export default function App() {
   const [activeChannel, setActiveChannel] = useState<Channel>(channels[0]);
   const [channelSwitcherOpen, setChannelSwitcherOpen] = useState(false);
@@ -68,11 +96,159 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('scripts');
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
   const [newScriptOpen, setNewScriptOpen] = useState(false);
+  const [userScripts, setUserScripts] = useState<Script[]>([]);
+  const [runModalScript, setRunModalScript] = useState<Script | null>(null);
+
+  useEffect(() => {
+    fetch('/api/scripts').then(res => res.json()).then(data => {
+      setUserScripts(data);
+    }).catch(console.error);
+  }, []);
+
+  async function handleRunScriptSubmit(topic: string, instructions: string) {
+    if (!runModalScript) return;
+    const script = runModalScript;
+    setRunModalScript(null);
+    setSelectedScriptId(script.id);
+    setTab('preview');
+    
+    let updatedScript = { 
+      ...script, 
+      topicName: topic, 
+      aiInstructions: instructions, 
+      aiResponse: '', 
+      extractedScript: '', 
+      imagePrompts: [], 
+      narration: '', 
+      lastUsed: new Date().toISOString(),
+      status: 'active' as const,
+      pipeline: [
+        { id: 'p1', label: 'Response', status: 'running' as const, summary: 'Generating AI response...', inputLog: topic, outputPreview: '' }
+      ]
+    };
+
+    // Optimistic UI update
+    setUserScripts(prev => prev.map(s => s.id === script.id ? updatedScript : s));
+
+    const promptText = `You are an expert YouTube automation assistant. Generate a highly engaging YouTube script.
+Follow the exact instructions in the user's template.
+Topic: ${topic}
+Additional Instructions: ${instructions}
+Template/How it works: ${script.howItWorks}
+
+CRITICAL: You MUST wrap your outputs in the following XML tags so they can be extracted by our system:
+<script>
+[The main script text goes here]
+</script>
+
+<tts>
+[The narration text to be spoken by AI goes here, without stage directions]
+</tts>
+
+<images>
+[List each image prompt on a new line here]
+</images>`;
+
+    try {
+      const res = await fetch('/api/llm/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'anthropic/claude-3-haiku', // Default fallback
+          messages: [{ role: 'user', content: promptText }]
+        })
+      });
+
+      if (!res.ok) throw new Error('Streaming request failed');
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No readable stream');
+      const decoder = new TextDecoder();
+      
+      let fullResponse = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6).trim();
+            if (dataStr === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(dataStr);
+              if (parsed.token) {
+                fullResponse += parsed.token;
+                
+                // Update React state incrementally
+                updatedScript = { ...updatedScript, aiResponse: fullResponse };
+                setUserScripts(prev => prev.map(s => s.id === script.id ? updatedScript : s));
+              }
+            } catch (e) {
+              // Ignore JSON parse errors for incomplete chunks
+            }
+          }
+        }
+      }
+
+      // 1. Stream is complete, extract assets
+      const extracted = parseAIResponse(fullResponse);
+      updatedScript = {
+        ...updatedScript,
+        aiResponse: fullResponse,
+        extractedScript: extracted.script,
+        imagePrompts: extracted.imagePrompts as any,
+        narration: extracted.ttsText,
+      };
+
+      // 2. Mark pipeline stage as done
+      if (updatedScript.pipeline && updatedScript.pipeline.length > 0) {
+        (updatedScript.pipeline[0] as any).status = 'done';
+        updatedScript.pipeline[0].summary = 'Generation complete';
+        updatedScript.pipeline[0].outputPreview = extracted.script.substring(0, 100) + '...';
+      }
+
+      // 3. Final state update
+      setUserScripts(prev => prev.map(s => s.id === script.id ? updatedScript : s));
+
+      // 4. Save entire state to backend
+      await fetch('/api/scripts/' + script.id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedScript)
+      });
+      
+    } catch (err) {
+      console.error('Streaming failed:', err);
+      // Mark pipeline as error
+      updatedScript = { ...updatedScript, pipeline: [{ id: 'p1', label: 'Response', status: 'error' as any, summary: 'Failed to generate', inputLog: topic, outputPreview: 'Error' }] };
+      setUserScripts(prev => prev.map(s => s.id === script.id ? updatedScript : s));
+    }
+  }
+
+  async function updateScript(id: string, patch: Partial<Script>) {
+    const target = userScripts.find((s) => s.id === id);
+    if (!target) return;
+    const updated = { ...target, ...patch, lastUsed: new Date().toISOString() };
+    setUserScripts((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    try {
+      await fetch('/api/scripts/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  const pipeline = userScripts.find(s => s.id === selectedScriptId)?.pipeline || [];
 
   const data = useMemo(() => channelData[activeChannel.id], [activeChannel]);
   const selectedScript = useMemo(
-    () => data.scripts.find((s) => s.id === selectedScriptId) ?? null,
-    [data, selectedScriptId],
+    () => userScripts.find((s) => s.id === selectedScriptId) || data.scripts.find((s) => s.id === selectedScriptId) || null,
+    [userScripts, data, selectedScriptId],
   );
 
   function selectSidebar(id: SidebarId) {
@@ -193,13 +369,17 @@ export default function App() {
                     section={section}
                     selectedId={selectedScriptId}
                     onSelect={setSelectedScriptId}
-                    onNew={() => setNewScriptOpen(true)}
+                    onNewScript={() => setNewScriptOpen(true)}
+                    onRunScript={(s) => setRunModalScript(s)}
                     selectedScript={selectedScript}
                     onClosePanel={() => setSelectedScriptId(null)}
                   />
                 )}
-                {tab === 'preview' && <PreviewTab data={data} section={section} />}
-                {tab === 'assets' && <AssetsTab data={data} section={section} />}
+                {tab === 'preview' && <PreviewTab pipeline={pipeline} script={selectedScript} />}
+                {tab === 'assets' && <AssetsTab data={data} section={section} onProceedToGeneration={() => setTab('generation')} />}
+                {tab === 'generation' && selectedScript && (
+                  <GenerationTab script={selectedScript} onUpdate={(patch) => updateScript(selectedScript.id, patch)} />
+                )}
                 {tab === 'editor' && <EditorTab data={data} section={section} />}
                 {tab === 'export' && <ExportTab section={section} />}
               </div>
@@ -209,6 +389,14 @@ export default function App() {
       </div>
 
       {newScriptOpen && <NewScriptModal onClose={() => setNewScriptOpen(false)} section={section} />}
+    
+      {runModalScript && (
+        <ScriptRunModal
+          script={runModalScript}
+          onClose={() => setRunModalScript(null)}
+          onSubmit={handleRunScriptSubmit}
+        />
+      )}
     </div>
   );
 }
@@ -311,25 +499,31 @@ function ScriptsTab({
   section,
   selectedId,
   onSelect,
-  onNew,
+  onNewScript,
+  onRunScript,
   selectedScript,
   onClosePanel,
+  userScripts,
 }: {
   data: typeof channelData[string];
   section: Section;
   selectedId: string | null;
-  onSelect: (id: string) => void;
-  onNew: () => void;
+  onSelect: (id: string | null) => void;
+  onNewScript: () => void;
+  onRunScript?: (script: Script) => void;
   selectedScript: Script | null;
   onClosePanel: () => void;
+  userScripts?: Script[];
 }) {
+  const allScripts = [...(userScripts || []), ...data.scripts];
+
   return (
     <div className="flex gap-6">
       <div className="flex-1">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">Scripts</h2>
           <button
-            onClick={onNew}
+            onClick={onNewScript}
             className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-gray-200 hover:bg-surface2"
           >
             <Plus className="h-4 w-4" />
@@ -608,133 +802,85 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 /* ============ PREVIEW TAB ============ */
 
-function PreviewTab({ data, section }: { data: typeof channelData[string]; section: Section }) {
-  const [openStep, setOpenStep] = useState<(typeof data.pipeline)[number] | null>(null);
+function PreviewTab({ pipeline, script }: { pipeline: any[]; script: Script | null }) {
+  const [innerTab, setInnerTab] = useState<'response' | 'extraction'>('response');
+
+  if (!script) {
+    return <div className="flex h-full items-center justify-center text-gray-500">No script selected.</div>;
+  }
+
+  const responseStage = pipeline[0] || {};
+  const extractionStage = pipeline[1] || {};
 
   return (
-    <div className="max-w-3xl">
-      <div className="space-y-2">
-        {data.pipeline.map((step, i) => (
-          <button
-            key={step.id}
-            onClick={() => setOpenStep(step)}
-            className="flex w-full items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3.5 text-left transition-colors hover:bg-surface2"
-          >
-            <span className="w-6 text-xs text-gray-600">{i + 1}</span>
-            <StageStatusIcon status={step.status} />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-white">{step.label}</div>
-              <div className="truncate text-xs text-gray-500">{step.summary}</div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-gray-600" />
-          </button>
-        ))}
-      </div>
-
-      {section === 'long' && (
-        <div className="mt-4 rounded-lg border border-border bg-surface p-4">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-            Chapter Markers
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {['Intro', 'Setup', 'Main', 'Demo', 'Outro'].map((c, i) => (
-              <span
-                key={c}
-                className="rounded-md border border-border bg-bg px-2.5 py-1 text-xs text-gray-300"
-              >
-                {i}:00 {c}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-6 flex items-center justify-between rounded-lg border border-border bg-surface p-4">
-        <div className="text-sm text-gray-400">
-          Est. cost: <span className="text-white">$0.42</span>
-        </div>
-        <button className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
-          <Play className="h-4 w-4" />
-          Run Pipeline
+    <div className="flex h-full flex-col">
+      <div className="flex gap-4 border-b border-border p-4">
+        <button
+          onClick={() => setInnerTab('response')}
+          className={`px-3 py-1.5 text-sm font-medium transition-colors ${innerTab === 'response' ? 'bg-surface2 text-white' : 'text-gray-400 hover:text-white'}`}
+        >
+          AI Response
+        </button>
+        <button
+          onClick={() => setInnerTab('extraction')}
+          className={`px-3 py-1.5 text-sm font-medium transition-colors ${innerTab === 'extraction' ? 'bg-surface2 text-white' : 'text-gray-400 hover:text-white'}`}
+        >
+          Assets & Extraction
         </button>
       </div>
-
-      {openStep && (
-        <StepModal step={openStep} onClose={() => setOpenStep(null)} />
-      )}
-    </div>
-  );
-}
-
-function StepModal({
-  step,
-  onClose,
-}: {
-  step: { label: string; status: string; inputLog: string; outputPreview: string };
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto thin-scrollbar rounded-lg border border-border bg-surface p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <StageStatusIcon status={step.status as 'done' | 'pending' | 'running' | 'error'} />
-            <h3 className="text-base font-semibold">{step.label}</h3>
-          </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
-              Input Log
+      <div className="flex-1 overflow-y-auto p-6">
+        {innerTab === 'response' && (
+          <div className="rounded-lg bg-surface p-6">
+            <h3 className="mb-4 text-lg font-semibold">Raw Output</h3>
+            <div className="whitespace-pre-wrap text-sm text-gray-300">
+              {script.aiResponse || responseStage?.outputPreview || 'No response generated yet.'}
             </div>
-            <pre className="max-h-40 overflow-y-auto thin-scrollbar whitespace-pre-wrap rounded-md border border-border bg-bg p-3 text-sm text-gray-300">
-              {step.inputLog || 'No input recorded.'}
-            </pre>
           </div>
-          <div>
-            <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
-              Output Preview
+        )}
+        {innerTab === 'extraction' && (
+          <div className="flex flex-col gap-6">
+            <div className="rounded-lg border border-border bg-surface p-6">
+              <h3 className="mb-4 text-lg font-semibold">Extracted Script</h3>
+              {script.extractedScript ? (
+                <div className="rounded-lg bg-surface p-4 text-sm whitespace-pre-wrap text-gray-300 border border-border">
+                  {script.extractedScript}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No script extracted yet.</p>
+              )}
             </div>
-            <pre className="max-h-40 overflow-y-auto thin-scrollbar whitespace-pre-wrap rounded-md border border-border bg-bg p-3 text-sm text-gray-300">
-              {step.outputPreview || 'No output yet.'}
-            </pre>
+            <div className="rounded-lg border border-border bg-surface p-6">
+              <h3 className="mb-4 text-lg font-semibold">Narration (TTS)</h3>
+              {script.narration ? (
+                <div className="rounded-lg bg-surface p-4 text-sm whitespace-pre-wrap text-gray-300 border border-border">
+                  {script.narration}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No narration extracted yet.</p>
+              )}
+            </div>
+            <div className="rounded-lg border border-border bg-surface p-6">
+              <h3 className="mb-4 text-lg font-semibold">Image Prompts</h3>
+              {script.imagePrompts && script.imagePrompts.length > 0 ? (
+                <div className="flex flex-col gap-2">
+                  {script.imagePrompts.map((p, i) => (
+                    <div key={i} className="rounded-lg bg-surface2 p-3 text-sm text-gray-300 flex items-center justify-between">
+                      <span>{p}</span>
+                      <button className="text-xs bg-accent px-2 py-1 rounded text-white" onClick={() => navigator.clipboard.writeText(p)}>Copy</button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No image prompts extracted yet.</p>
+              )}
+            </div>
           </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-2">
-          <button className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-gray-200 hover:bg-surface2">
-            <Pencil className="h-4 w-4" />
-            Edit
-          </button>
-          <button className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
-            <RotateCcw className="h-4 w-4" />
-            Regenerate
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
 }
-
-function StageStatusIcon({ status }: { status: 'done' | 'pending' | 'running' | 'error' }) {
-  if (status === 'done') return <Check className="h-4 w-4 shrink-0 text-green-500" />;
-  if (status === 'running')
-    return (
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-        <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-600 border-t-accent" />
-      </span>
-    );
-  if (status === 'error') return <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />;
-  return <span className="h-2 w-2 shrink-0 rounded-full bg-gray-600" />;
-}
-
-/* ============ ASSETS TAB ============ */
-
-function AssetsTab({ data, section }: { data: typeof channelData[string]; section: Section }) {
+function AssetsTab({ data, section, onProceedToGeneration }: { data: typeof channelData[string]; section: Section; onProceedToGeneration?: () => void }) {
   const [sub, setSub] = useState<'images' | 'audio' | 'video'>('images');
   const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
@@ -1193,6 +1339,380 @@ function ExportTab({ section }: { section: Section }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ScriptRunModal({ script, onClose, onSubmit }: { script: Script; onClose: () => void; onSubmit: (topic: string, instructions: string) => void }) {
+  const [topic, setTopic] = useState('');
+  const [instructions, setInstructions] = useState('');
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-[500px] rounded-2xl border border-border bg-bg shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border p-4">
+          <h2 className="text-lg font-semibold">Run AI Script</h2>
+          <button onClick={onClose} className="rounded-lg p-2 hover:bg-surface"><X className="h-4 w-4" /></button>
+        </div>
+        <div className="p-6">
+          <p className="mb-6 text-sm text-gray-400">
+            Running <strong>{script.name}</strong>. Provide a topic and optional instructions.
+          </p>
+          <div className="mb-4 space-y-2">
+            <label className="text-sm font-medium">Topic Name (Required)</label>
+            <input
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. History of Rome"
+              className="w-full rounded-lg border border-border bg-surface px-4 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
+          <div className="mb-6 space-y-2">
+            <label className="text-sm font-medium">AI Instructions (Optional)</label>
+            <textarea
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder="e.g. Make it dramatic, focus on Caesar..."
+              className="h-24 w-full rounded-lg border border-border bg-surface px-4 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm hover:bg-surface">Cancel</button>
+            <button
+              onClick={() => onSubmit(topic, instructions)}
+              disabled={!topic.trim()}
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Generate Script
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+/* ============ GENERATION TAB (FLUX.2 Klein / ComfyUI) ============ */
+
+interface GeneratedImage {
+  index: number;
+  prompt: string;
+  status: 'pending' | 'generating' | 'done' | 'error';
+  url?: string;
+  seed?: number;
+  error?: string;
+  errorCode?: string;
+  attempts?: number;
+  elapsedMs?: number;
+}
+
+function GenerationTab({
+  script,
+  onUpdate,
+}: {
+  script: Script;
+  onUpdate: (patch: Partial<Script>) => void;
+}) {
+  const defaultPrompts: string[] = useMemo(() => {
+    if (script.imagePrompts && script.imagePrompts.length > 0) return script.imagePrompts;
+    return [
+      `Atmospheric cinematic scene for topic: ${script.topicName || script.name}, photorealistic depth`,
+      `Detailed macro shot, epic dramatic lighting, hyperrealistic details`,
+      `Wide dynamic landscape framing, masterpiece cinematic atmosphere`,
+    ];
+  }, [script]);
+
+  const [images, setImages] = useState<GeneratedImage[]>(() => {
+    if (script.generatedImages && script.generatedImages.length > 0) return script.generatedImages;
+    return defaultPrompts.map((prompt, idx) => ({
+      index: idx,
+      prompt,
+      status: 'pending',
+    }));
+  });
+
+  const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [lightbox, setLightbox] = useState<string | null>(null);
+  const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline'>('checking');
+
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
+
+  const pausedRef = useRef(isPaused);
+  pausedRef.current = isPaused;
+
+  const runTokenRef = useRef(0);
+
+  const checkServer = useCallback(async () => {
+    setServerStatus('checking');
+    try {
+      const res = await fetch('/api/generate/status');
+      const data = await res.json();
+      if (data.online) {
+        setServerStatus('online');
+      } else {
+        setServerStatus('offline');
+      }
+    } catch {
+      setServerStatus('offline');
+    }
+  }, []);
+
+  useEffect(() => {
+    checkServer();
+    const interval = setInterval(checkServer, 5000);
+    return () => clearInterval(interval);
+  }, [checkServer]);
+
+  function updateImage(index: number, patch: Partial<GeneratedImage>) {
+    const next = imagesRef.current.map((im) => (im.index === index ? { ...im, ...patch } : im));
+    imagesRef.current = next;
+    setImages(next);
+    onUpdate({ generatedImages: next });
+  }
+
+  async function generateOne(item: GeneratedImage) {
+    if (!script) return;
+    updateImage(item.index, { status: 'generating', error: undefined, errorCode: undefined });
+    try {
+      const res = await fetch('/api/generate/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptId: script.id, index: item.index, prompt: item.prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw Object.assign(new Error(data.error || 'Generation failed'), { code: data.code });
+      updateImage(item.index, {
+        status: 'done',
+        url: data.url,
+        seed: data.seed,
+        elapsedMs: data.elapsedMs,
+        attempts: (item.attempts || 0) + 1,
+      });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorCode = err instanceof Error && 'code' in err ? (err as { code: string }).code : undefined;
+      updateImage(item.index, {
+        status: 'error',
+        error: errorMessage,
+        errorCode,
+        attempts: (item.attempts || 0) + 1,
+      });
+    }
+  }
+
+  async function runQueue(items: GeneratedImage[]) {
+    const myToken = ++runTokenRef.current;
+    setIsRunning(true);
+    for (const item of items) {
+      if (myToken !== runTokenRef.current) return;
+      if (item.status === 'done') continue;
+      while (pausedRef.current) {
+        await new Promise((r) => setTimeout(r, 300));
+        if (myToken !== runTokenRef.current) return;
+      }
+      await generateOne(item);
+    }
+    if (myToken === runTokenRef.current) {
+      setIsRunning(false);
+      setIsPaused(false);
+    }
+  }
+
+  function handleStart() {
+    setIsPaused(false);
+    runQueue(imagesRef.current);
+  }
+
+  function handlePause() {
+    setIsPaused(true);
+  }
+
+  function handleResume() {
+    setIsPaused(false);
+  }
+
+  function handleCancel() {
+    runTokenRef.current++;
+    setIsRunning(false);
+    setIsPaused(false);
+  }
+
+  function handleRetryFailed() {
+    const failed = imagesRef.current.filter((im) => im.status === 'error');
+    if (failed.length === 0) return;
+    setIsPaused(false);
+    runQueue(failed);
+  }
+
+  async function handleRegenerateOne(index: number) {
+    if (isRunning) return;
+    const target = imagesRef.current.find((im) => im.index === index);
+    if (!target) return;
+    setIsRunning(true);
+    const myToken = ++runTokenRef.current;
+    await generateOne({ ...target, status: 'pending' });
+    if (myToken === runTokenRef.current) setIsRunning(false);
+  }
+
+  const doneCount = images.filter((i) => i.status === 'done').length;
+  const errorCount = images.filter((i) => i.status === 'error').length;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border p-4">
+        <div className="flex items-center gap-4">
+          <h3 className="text-sm font-semibold">Image Generation</h3>
+          <span className="text-xs text-gray-500">
+            {doneCount}/{images.length} done{errorCount > 0 ? `, ${errorCount} failed` : ''}
+          </span>
+          {serverStatus === 'online' && (
+            <span className="flex items-center gap-1.5 text-[10px] text-green-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> FLUX.2 Klein server online
+            </span>
+          )}
+          {serverStatus === 'offline' && (
+            <span className="flex items-center gap-1.5 text-[10px] text-amber-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Server Offline (Manual Run Required)
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {serverStatus === 'offline' && (
+            <button
+              onClick={checkServer}
+              className="flex items-center gap-1.5 rounded-md bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-500"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Check / Connect Image Server
+            </button>
+          )}
+
+          {serverStatus === 'online' && (!isRunning ? (
+            <button
+              onClick={handleStart}
+              disabled={doneCount === images.length}
+              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
+            >
+              <Play className="h-3.5 w-3.5" />
+              {doneCount === 0 ? 'Start Generation' : 'Resume Generation'}
+            </button>
+          ) : isPaused ? (
+            <button onClick={handleResume} className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80">
+              <Play className="h-3.5 w-3.5" /> Resume
+            </button>
+          ) : (
+            <button onClick={handlePause} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2">
+              <Pause className="h-3.5 w-3.5" /> Pause
+            </button>
+          ))}
+          {isRunning && (
+            <button onClick={handleCancel} className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10">
+              <X className="h-3.5 w-3.5" /> Cancel
+            </button>
+          )}
+          {!isRunning && errorCount > 0 && (
+            <button onClick={handleRetryFailed} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2">
+              <RefreshCw className="h-3.5 w-3.5" /> Retry Failed ({errorCount})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {serverStatus === 'offline' && (
+        <div className="mx-4 mt-4 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+          <div className="flex items-start gap-2">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+            <div className="flex-1">
+              <p className="font-medium text-amber-300">Image Generation Server Not Connected</p>
+              <p className="mt-1 text-amber-200/80">To run image generation locally, start ComfyUI in your terminal:</p>
+              <div className="mt-2 font-mono text-[11px] bg-black/40 p-2 rounded text-emerald-400 select-all border border-amber-500/20">
+                cd ComfyUI ; python main.py --listen 127.0.0.1 --port 8188 --cpu
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <button onClick={checkServer} className="rounded bg-amber-600/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-amber-600">
+                  Click here once server is running
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {images.map((img) => (
+            <div key={img.index} className="rounded-lg border border-border bg-surface p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-medium text-white">Image {img.index + 1}</span>
+                {img.status === 'pending' && (
+                  <span className="rounded-full bg-gray-500/10 px-2 py-0.5 text-[10px] text-gray-400">Pending</span>
+                )}
+                {img.status === 'generating' && (
+                  <span className="flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> Rendering...
+                  </span>
+                )}
+                {img.status === 'done' && (
+                  <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] text-green-400">
+                    <Check className="h-3 w-3" /> Done
+                  </span>
+                )}
+                {img.status === 'error' && (
+                  <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-400">
+                    <AlertCircle className="h-3 w-3" /> Failed
+                  </span>
+                )}
+              </div>
+
+              <div className="mb-2 flex aspect-square items-center justify-center overflow-hidden rounded-md bg-surface2">
+                {img.status === 'done' && img.url ? (
+                  <img
+                    src={img.url}
+                    alt={`Generated ${img.index + 1}`}
+                    className="h-full w-full cursor-pointer object-cover"
+                    onClick={() => setLightbox(img.url!)}
+                  />
+                ) : img.status === 'generating' ? (
+                  <div className="flex flex-col items-center gap-2 text-gray-500">
+                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                    <span className="text-[10px]">Rendering image...</span>
+                  </div>
+                ) : (
+                  <ImageIcon className="h-8 w-8 text-gray-600" />
+                )}
+              </div>
+
+              <p className="mb-2 line-clamp-3 text-[11px] leading-relaxed text-gray-400">{img.prompt}</p>
+              {img.status === 'error' && <p className="mb-2 text-[11px] text-red-400">{img.error}</p>}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleRegenerateOne(img.index)}
+                  disabled={isRunning}
+                  className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2 disabled:opacity-40"
+                >
+                  <Undo2 className="h-3 w-3" /> {img.status === 'done' ? 'Regenerate' : 'Retry'}
+                </button>
+                {img.status === 'done' && img.url && (
+                  <a href={img.url} download className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2">
+                    <Download className="h-3 w-3" /> Download
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {lightbox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8" onClick={() => setLightbox(null)}>
+          <img src={lightbox} className="max-h-full max-w-full rounded-lg" />
+        </div>
+      )}
     </div>
   );
 }
