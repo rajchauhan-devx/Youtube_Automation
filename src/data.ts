@@ -2,12 +2,9 @@ export type Section = 'shorts' | 'long';
 export type Tab = 'scripts' | 'preview' | 'assets' | 'editor' | 'export';
 export type ScriptStatus = 'active' | 'draft';
 export type AssetKind = 'image' | 'audio' | 'video';
-export type PromptType = 'Research' | 'Image' | 'Script' | 'TTS' | 'Metadata' | 'Custom';
-
 export interface PromptBlock {
   id: string;
   name: string;
-  type: PromptType;
   content: string;
 }
 
@@ -28,6 +25,14 @@ export interface Script {
   howItWorks: string;
   duration: 15 | 30 | 60;
   chapters?: string[];
+  content?: string;
+  topicName?: string;
+  aiInstructions?: string;
+  aiResponse?: string;
+  extractedScript?: string;
+  imagePrompts?: string[];
+  narration?: string;
+  pipeline?: PipelineStep[];
 }
 
 export interface PipelineStep {
@@ -74,47 +79,47 @@ export const channelData: Record<string, ChannelData> = {
   ch1: {
     scripts: [
       {
-        id: 's1',
+        id: 'ch1-s1',
         name: 'AI News in 30s',
         lastUsed: '2h ago',
         status: 'active',
         locked: true,
         howItWorks: 'Research feeds the script, which drives image generation and TTS in parallel, then storyboards the cut.',
         prompts: [
-          { id: 'pr1', name: 'Trending Research', type: 'Research', content: 'Find trending AI news from the last 24 hours' },
-          { id: 'pr2', name: 'Hook Script', type: 'Script', content: 'Write a 30s hook + 3 key points + CTA' },
-          { id: 'pr3', name: 'AI Visuals', type: 'Image', content: 'Futuristic AI visuals, blue tones, clean' },
-          { id: 'pr4', name: 'Energetic VO', type: 'TTS', content: 'Energetic male voice, fast pace' },
-          { id: 'pr5', name: 'Clickable Title', type: 'Metadata', content: 'Clickable title under 60 chars' },
+          { id: 'pr1', name: 'Trending Research', content: 'Find trending AI news from the last 24 hours' },
+          { id: 'pr2', name: 'Hook Script', content: 'Write a 30s hook + 3 key points + CTA' },
+          { id: 'pr3', name: 'AI Visuals', content: 'Futuristic AI visuals, blue tones, clean' },
+          { id: 'pr4', name: 'Energetic VO', content: 'Energetic male voice, fast pace' },
+          { id: 'pr5', name: 'Clickable Title', content: 'Clickable title under 60 chars' },
         ],
         duration: 30,
       },
       {
-        id: 's2',
+        id: 'ch1-s2',
         name: 'Tech Tips Quick',
         lastUsed: '1d ago',
         status: 'draft',
         locked: false,
         howItWorks: '',
         prompts: [
-          { id: 'pr1', name: 'Productivity Research', type: 'Research', content: 'Search productivity hacks' },
-          { id: 'pr2', name: 'Desk Visuals', type: 'Image', content: 'Minimal desk setup shots' },
-          { id: 'pr3', name: 'Calm VO', type: 'TTS', content: 'Calm female voice' },
+          { id: 'pr1', name: 'Productivity Research', content: 'Search productivity hacks' },
+          { id: 'pr2', name: 'Desk Visuals', content: 'Minimal desk setup shots' },
+          { id: 'pr3', name: 'Calm VO', content: 'Calm female voice' },
         ],
         duration: 15,
       },
       {
-        id: 's3',
+        id: 'ch1-s3',
         name: 'Gadget Reviews',
         lastUsed: '4d ago',
         status: 'draft',
         locked: false,
         howItWorks: '',
         prompts: [
-          { id: 'pr1', name: 'Gadget Research', type: 'Research', content: 'Latest gadget releases' },
-          { id: 'pr2', name: 'Product Shots', type: 'Image', content: 'Product on white' },
-          { id: 'pr3', name: 'Neutral VO', type: 'TTS', content: 'Neutral voice' },
-          { id: 'pr4', name: 'Review Title', type: 'Metadata', content: 'Review title' },
+          { id: 'pr1', name: 'Gadget Research', content: 'Latest gadget releases' },
+          { id: 'pr2', name: 'Product Shots', content: 'Product on white' },
+          { id: 'pr3', name: 'Neutral VO', content: 'Neutral voice' },
+          { id: 'pr4', name: 'Review Title', content: 'Review title' },
         ],
         duration: 60,
       },
@@ -154,61 +159,61 @@ export const channelData: Record<string, ChannelData> = {
   ch2: {
     scripts: [
       {
-        id: 's1',
+        id: 'ch2-s1',
         name: 'Travel Vlog Script',
         lastUsed: '5h ago',
         status: 'active',
         locked: true,
         howItWorks: 'Research picks destinations, script structures the vlog, images and audio generate in parallel, then storyboard assembles the cut.',
         prompts: [
-          { id: 'pr1', name: 'Destination Research', type: 'Research', content: 'Trending travel destinations 2026' },
-          { id: 'pr2', name: 'Vlog Script', type: 'Script', content: '60s vlog: hook + 3 destinations + CTA' },
-          { id: 'pr3', name: 'Cinematic Shots', type: 'Image', content: 'Cinematic travel shots, warm tones' },
-          { id: 'pr4', name: 'Adventurous VO', type: 'TTS', content: 'Adventurous voice, medium pace' },
-          { id: 'pr5', name: 'Destination Title', type: 'Metadata', content: 'Destination + hook title' },
+          { id: 'pr1', name: 'Destination Research', content: 'Trending travel destinations 2026' },
+          { id: 'pr2', name: 'Vlog Script', content: '60s vlog: hook + 3 destinations + CTA' },
+          { id: 'pr3', name: 'Cinematic Shots', content: 'Cinematic travel shots, warm tones' },
+          { id: 'pr4', name: 'Adventurous VO', content: 'Adventurous voice, medium pace' },
+          { id: 'pr5', name: 'Destination Title', content: 'Destination + hook title' },
         ],
         duration: 60,
       },
       {
-        id: 's2',
+        id: 'ch2-s2',
         name: 'Food Spots',
         lastUsed: '2d ago',
         status: 'draft',
         locked: false,
         howItWorks: '',
         prompts: [
-          { id: 'pr1', name: 'Street Food Research', type: 'Research', content: 'Best street food cities' },
-          { id: 'pr2', name: 'Food Visuals', type: 'Image', content: 'Food closeups, vibrant' },
-          { id: 'pr3', name: 'Friendly VO', type: 'TTS', content: 'Friendly voice' },
+          { id: 'pr1', name: 'Street Food Research', content: 'Best street food cities' },
+          { id: 'pr2', name: 'Food Visuals', content: 'Food closeups, vibrant' },
+          { id: 'pr3', name: 'Friendly VO', content: 'Friendly voice' },
         ],
         duration: 30,
       },
       {
-        id: 's3',
+        id: 'ch2-s3',
         name: 'City Guides',
         lastUsed: '1w ago',
         status: 'draft',
         locked: false,
         howItWorks: '',
         prompts: [
-          { id: 'pr1', name: 'Hidden Gems Research', type: 'Research', content: 'Hidden gems in major cities' },
-          { id: 'pr2', name: 'Aerial Shots', type: 'Image', content: 'City aerial shots' },
-          { id: 'pr3', name: 'Informative VO', type: 'TTS', content: 'Informative voice' },
-          { id: 'pr4', name: 'City Guide Title', type: 'Metadata', content: 'City name + guide' },
+          { id: 'pr1', name: 'Hidden Gems Research', content: 'Hidden gems in major cities' },
+          { id: 'pr2', name: 'Aerial Shots', content: 'City aerial shots' },
+          { id: 'pr3', name: 'Informative VO', content: 'Informative voice' },
+          { id: 'pr4', name: 'City Guide Title', content: 'City name + guide' },
         ],
         duration: 60,
       },
       {
-        id: 's4',
+        id: 'ch2-s4',
         name: 'Budget Travel',
         lastUsed: '2w ago',
         status: 'draft',
         locked: false,
         howItWorks: '',
         prompts: [
-          { id: 'pr1', name: 'Budget Hacks', type: 'Research', content: 'Cheap travel hacks' },
-          { id: 'pr2', name: 'Budget Visuals', type: 'Image', content: 'Budget-friendly visuals' },
-          { id: 'pr3', name: 'Casual VO', type: 'TTS', content: 'Casual voice' },
+          { id: 'pr1', name: 'Budget Hacks', content: 'Cheap travel hacks' },
+          { id: 'pr2', name: 'Budget Visuals', content: 'Budget-friendly visuals' },
+          { id: 'pr3', name: 'Casual VO', content: 'Casual voice' },
         ],
         duration: 15,
       },

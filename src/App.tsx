@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Zap,
   Clapperboard,
@@ -11,7 +11,6 @@ import {
   ChevronDown,
   Play,
   Pause,
-  RotateCcw,
   Pencil,
   Undo2,
   Redo2,
@@ -28,14 +27,15 @@ import {
   Search,
   Lock,
   X,
-  MoreVertical,
   Upload,
   Sparkles,
   AlertCircle,
+  Loader2,
 } from 'lucide-react';
-import type { PromptType } from './data';
 import { channels, channelData } from './data';
-import type { Section, Tab, Channel, Script } from './data';
+import type { Section, Tab, Channel, Script, PipelineStep } from './data';
+import { parseAIResponse } from './lib/parseAIResponse.js';
+import { apiPost, getApiKey } from './services/api.js';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'scripts', label: 'Scripts' },
@@ -43,11 +43,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'assets', label: 'Assets' },
   { id: 'editor', label: 'Editor' },
   { id: 'export', label: 'Export' },
-];
-
-const SECTIONS: { id: Section; label: string; icon: typeof Zap }[] = [
-  { id: 'shorts', label: 'Shorts', icon: Zap },
-  { id: 'long', label: 'Long', icon: Clapperboard },
 ];
 
 const SIDEBAR_ICONS = [
@@ -58,22 +53,305 @@ const SIDEBAR_ICONS = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ] as const;
 
+const LS_KEY = 'tubeflow:v1';
+
+interface PersistedUiState {
+  channelId: string;
+  section: Section;
+  tab: Tab;
+  selectedScriptId: string | null;
+}
+
+function loadUiState(): PersistedUiState | null {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as PersistedUiState;
+  } catch {
+    return null;
+  }
+}
+
+function saveUiState(state: PersistedUiState) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(state));
+  } catch {
+    // ignore
+  }
+}
+
+function mergeScript(base: Script, persisted?: Script): Script {
+  if (!persisted) return base;
+  return {
+    ...base,
+    ...persisted,
+    prompts: persisted.prompts && persisted.prompts.length > 0 ? persisted.prompts : base.prompts,
+  };
+}
+
 type SidebarId = Section | 'queue' | 'library' | 'settings';
 
 export default function App() {
-  const [activeChannel, setActiveChannel] = useState<Channel>(channels[0]);
+  const initialUi = loadUiState();
+  const [activeChannel, setActiveChannel] = useState<Channel>(
+    channels.find((c) => c.id === initialUi?.channelId) ?? channels[0]
+  );
   const [channelSwitcherOpen, setChannelSwitcherOpen] = useState(false);
-  const [sidebar, setSidebar] = useState<SidebarId>('shorts');
-  const [section, setSection] = useState<Section>('shorts');
-  const [tab, setTab] = useState<Tab>('scripts');
-  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(null);
+  const [sidebar, setSidebar] = useState<SidebarId>(initialUi?.section ?? 'shorts');
+  const [section, setSection] = useState<Section>(initialUi?.section ?? 'shorts');
+  const [tab, setTab] = useState<Tab>(initialUi?.tab ?? 'scripts');
+  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(initialUi?.selectedScriptId ?? null);
   const [newScriptOpen, setNewScriptOpen] = useState(false);
+  const [userScripts, setUserScripts] = useState<Script[]>([]);
+  const [runModalScript, setRunModalScript] = useState<Script | null>(null);
+
+  // Persist lightweight UI state so a refresh restores the workspace.
+  useEffect(() => {
+    saveUiState({
+      channelId: activeChannel.id,
+      section,
+      tab,
+      selectedScriptId,
+    });
+  }, [activeChannel.id, section, tab, selectedScriptId]);
+
+  // Make sure the selected script still belongs to the active channel/section.
+  useEffect(() => {
+    if (!selectedScriptId) return;
+    const persistedExists = userScripts.some((s) => s.id === selectedScriptId);
+    if (!persistedExists) setSelectedScriptId(null);
+  }, [userScripts, selectedScriptId]);
+
+  useEffect(() => {
+    fetch('/api/scripts')
+      .then((res) => res.json())
+      .then((data: Script[]) => {
+        // If a saved run is in an unfinished running state, reset it so the UI
+        // does not stay stuck after a refresh.
+        const normalized = data.map((s) => {
+          const isUnfinished =
+            (s.pipeline?.[0]?.status === 'running' && !s.aiResponse) ||
+            (s.pipeline?.some((p) => p.status === 'running') && !s.aiResponse);
+          if (isUnfinished) {
+            return {
+              ...s,
+              pipeline: [{ id: 'response', label: 'Response', status: 'pending' as const, summary: 'Waiting to start', inputLog: s.topicName || '', outputPreview: '' }],
+            };
+          }
+          return s;
+        });
+        setUserScripts(normalized);
+      })
+      .catch(console.error);
+  }, []);
+
+  function patchScriptState(id: string, patch: Partial<Script>) {
+    setUserScripts((prev) => {
+      const idx = prev.findIndex((s) => s.id === id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = { ...next[idx], ...patch };
+        return next;
+      }
+      const base = channelData[activeChannel.id].scripts.find((s) => s.id === id);
+      if (!base) return prev;
+      return [...prev, { ...base, ...patch }];
+    });
+  }
+
+  async function persistScript(id: string, patch: Partial<Script>) {
+    const base = channelData[activeChannel.id].scripts.find((s) => s.id === id);
+    const persisted = userScripts.find((s) => s.id === id);
+    const full = base ? mergeScript(base, persisted) : persisted;
+    if (!full) {
+      console.error('Cannot persist script: no template or saved state for', id);
+      return;
+    }
+    const updated = { ...full, ...patch };
+    patchScriptState(id, patch);
+    try {
+      await fetch('/api/scripts/' + id, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated),
+      });
+    } catch (err) {
+      console.error('Failed to persist script state:', err);
+    }
+  }
+
+  function buildPrompt(template: string, topic: string, instructions: string): string {
+    const optionalInstructions = instructions.trim()
+      ? `Additional Instructions: ${instructions.trim()}`
+      : '';
+
+    return `${template}
+
+Topic: ${topic}
+${optionalInstructions}`;
+  }
+
+  async function handleRunScriptSubmit(topic: string, instructions: string) {
+    if (!runModalScript) return;
+    const script = runModalScript;
+    const scriptId = script.id;
+
+    setRunModalScript(null);
+    setSelectedScriptId(scriptId);
+    setTab('preview');
+
+    const template = script.prompts
+      .filter((p) => p.content.trim())
+      .map((p) => p.content)
+      .join('\n\n');
+    const promptText = buildPrompt(template || script.howItWorks || '', topic, instructions);
+
+    const initialPatch: Partial<Script> = {
+      id: scriptId,
+      topicName: topic,
+      aiInstructions: instructions,
+      aiResponse: '',
+      extractedScript: '',
+      imagePrompts: [],
+      narration: '',
+      lastUsed: new Date().toISOString(),
+      status: 'active',
+      pipeline: [
+        {
+          id: 'response',
+          label: 'Response',
+          status: 'running' as const,
+          summary: 'Generating AI response...',
+          inputLog: topic,
+          outputPreview: '',
+        },
+      ],
+    };
+
+    patchScriptState(scriptId, initialPatch);
+    await persistScript(scriptId, initialPatch);
+
+    try {
+      const res = await fetch('/api/llm/chat/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'deepseek/deepseek-v4-flash',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are an expert YouTube automation assistant. Generate a highly engaging YouTube script and follow the exact instructions in the user\'s template.',
+            },
+            { role: 'user', content: promptText },
+          ],
+        }),
+      });
+
+      if (!res.ok) throw new Error('Streaming request failed');
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No readable stream');
+      const decoder = new TextDecoder();
+
+      let fullResponse = '';
+      let sseBuffer = '';
+      let truncated = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        sseBuffer += decoder.decode(value, { stream: true });
+        const lines = sseBuffer.split('\n');
+        sseBuffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.slice(6).trim();
+            if (dataStr === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(dataStr);
+              if (parsed.token) {
+                fullResponse += parsed.token;
+                patchScriptState(scriptId, {
+                  aiResponse: fullResponse,
+                  pipeline: [
+                    {
+                      id: 'response',
+                      label: 'Response',
+                      status: 'running' as const,
+                      summary: 'Receiving AI response...',
+                      inputLog: topic,
+                      outputPreview: fullResponse.slice(0, 200) + '...',
+                    },
+                  ],
+                });
+              }
+              if (parsed.finishReason && parsed.finishReason !== 'stop') {
+                truncated = true;
+              }
+              if (parsed.error) {
+                throw new Error(parsed.error);
+              }
+            } catch {
+              // ignore parse errors
+            }
+          }
+        }
+      }
+
+      // Stream complete: save raw response, don't extract yet
+      const donePatch: Partial<Script> = {
+        aiResponse: fullResponse,
+        pipeline: [
+          {
+            id: 'response',
+            label: 'Response',
+            status: truncated ? ('warning' as const) : ('done' as const),
+            summary: truncated
+              ? 'Response was cut off (hit token limit) — consider shortening the prompt or continuing generation'
+              : 'Response complete — click Extract Assets to process',
+            inputLog: topic,
+            outputPreview: fullResponse.slice(0, 120) + '...',
+          },
+        ],
+      };
+
+      patchScriptState(scriptId, donePatch);
+      await persistScript(scriptId, donePatch);
+    } catch (err) {
+      console.error('Streaming failed:', err);
+      const errorPatch: Partial<Script> = {
+        pipeline: [
+          {
+            id: 'response',
+            label: 'Response',
+            status: 'error' as const,
+            summary: 'Failed to generate',
+            inputLog: topic,
+            outputPreview: String(err),
+          },
+        ],
+      };
+      patchScriptState(scriptId, errorPatch);
+      await persistScript(scriptId, errorPatch);
+    }
+  }
 
   const data = useMemo(() => channelData[activeChannel.id], [activeChannel]);
-  const selectedScript = useMemo(
-    () => data.scripts.find((s) => s.id === selectedScriptId) ?? null,
-    [data, selectedScriptId],
+
+  const persistedScript = useMemo(
+    () => userScripts.find((s) => s.id === selectedScriptId),
+    [userScripts, selectedScriptId]
   );
+
+  const selectedScript = useMemo(() => {
+    const base = data.scripts.find((s) => s.id === selectedScriptId) ?? null;
+    if (!base) return persistedScript ?? null;
+    return mergeScript(base, persistedScript);
+  }, [data, persistedScript, selectedScriptId]);
+
+  const pipeline = selectedScript?.pipeline || [];
 
   function selectSidebar(id: SidebarId) {
     setSidebar(id);
@@ -89,6 +367,72 @@ export default function App() {
     setChannelSwitcherOpen(false);
     setSelectedScriptId(null);
     setTab('scripts');
+  }
+
+  async function handleExtractAssets() {
+    if (!selectedScript?.aiResponse || !selectedScriptId) return;
+    const scriptId = selectedScriptId;
+
+    patchScriptState(scriptId, {
+      pipeline: [
+        {
+          id: 'response',
+          label: 'Response',
+          status: 'running' as const,
+          summary: 'Extracting assets with AI...',
+          inputLog: selectedScript.topicName || '',
+          outputPreview: '',
+        },
+      ],
+    });
+    setTab('assets');
+
+    let extracted: { script: string; ttsText: string; imagePrompts: string[] };
+
+    try {
+      const result = await apiPost(
+        '/api/llm/extract',
+        { rawText: selectedScript.aiResponse },
+        getApiKey()
+      );
+      extracted = {
+        script: result.script || '',
+        ttsText: result.ttsText || '',
+        imagePrompts: result.imagePrompts || [],
+      };
+    } catch (err) {
+      console.error('AI extraction failed, falling back to regex parser:', err);
+      extracted = parseAIResponse(selectedScript.aiResponse);
+    }
+
+    const patch: Partial<Script> = {
+      extractedScript: extracted.script,
+      imagePrompts: extracted.imagePrompts,
+      narration: extracted.ttsText,
+      pipeline: [
+        {
+          id: 'response',
+          label: 'Response',
+          status: 'done' as const,
+          summary: 'Assets extracted',
+          inputLog: selectedScript.topicName || '',
+          outputPreview: extracted.script.slice(0, 120) + '...',
+        },
+      ],
+    };
+    patchScriptState(scriptId, patch);
+    await persistScript(scriptId, patch);
+    setTab('assets');
+  }
+
+  async function handleDeleteScript(id: string) {
+    try {
+      await fetch(`/api/scripts/${id}`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Delete script API error:', err);
+    }
+    setUserScripts((prev) => prev.filter((s) => s.id !== id));
+    if (selectedScriptId === id) setSelectedScriptId(null);
   }
 
   const isMainSection = sidebar === 'shorts' || sidebar === 'long';
@@ -189,17 +533,19 @@ export default function App() {
 
                 {tab === 'scripts' && (
                   <ScriptsTab
-                    data={data}
+                    scripts={userScripts}
                     section={section}
                     selectedId={selectedScriptId}
                     onSelect={setSelectedScriptId}
-                    onNew={() => setNewScriptOpen(true)}
+                    onNewScript={() => setNewScriptOpen(true)}
+                    onRunScript={(s) => setRunModalScript(s)}
                     selectedScript={selectedScript}
                     onClosePanel={() => setSelectedScriptId(null)}
+                    onDelete={handleDeleteScript}
                   />
                 )}
-                {tab === 'preview' && <PreviewTab data={data} section={section} />}
-                {tab === 'assets' && <AssetsTab data={data} section={section} />}
+                {tab === 'preview' && <PreviewTab pipeline={pipeline} script={selectedScript} onExtractAssets={handleExtractAssets} />}
+                {tab === 'assets' && <AssetsTab script={selectedScript} />}
                 {tab === 'editor' && <EditorTab data={data} section={section} />}
                 {tab === 'export' && <ExportTab section={section} />}
               </div>
@@ -208,8 +554,24 @@ export default function App() {
         </main>
       </div>
 
-      {newScriptOpen && <NewScriptModal onClose={() => setNewScriptOpen(false)} section={section} />}
-    </div>
+      {newScriptOpen && (
+        <NewScriptModal
+          onClose={() => setNewScriptOpen(false)}
+          section={section}
+          onCreated={(newScript) => {
+            setUserScripts((prev) => [...prev, newScript]);
+          }}
+        />
+      )}
+    
+      {runModalScript && (
+        <ScriptRunModal
+          script={runModalScript}
+          onClose={() => setRunModalScript(null)}
+          onSubmit={handleRunScriptSubmit}
+        />
+      )}
+</div>
   );
 }
 
@@ -307,21 +669,25 @@ function PlaceholderPage({ label }: { label: string }) {
 /* ============ SCRIPTS TAB ============ */
 
 function ScriptsTab({
-  data,
+  scripts,
   section,
   selectedId,
   onSelect,
-  onNew,
+  onNewScript,
+  onRunScript,
   selectedScript,
   onClosePanel,
+  onDelete,
 }: {
-  data: typeof channelData[string];
+  scripts: Script[];
   section: Section;
   selectedId: string | null;
   onSelect: (id: string) => void;
-  onNew: () => void;
+  onNewScript: () => void;
+  onRunScript: (script: Script) => void;
   selectedScript: Script | null;
   onClosePanel: () => void;
+  onDelete: (id: string) => void;
 }) {
   return (
     <div className="flex gap-6">
@@ -329,60 +695,107 @@ function ScriptsTab({
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold">Scripts</h2>
           <button
-            onClick={onNew}
+            onClick={onNewScript}
             className="flex items-center gap-2 rounded-lg border border-border px-3 py-1.5 text-sm text-gray-200 hover:bg-surface2"
           >
             <Plus className="h-4 w-4" />
             New Script
           </button>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {data.scripts.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => onSelect(s.id)}
-              className={`rounded-lg border bg-surface p-4 text-left transition-colors hover:bg-surface2 ${
-                s.locked ? 'border-accent' : 'border-border'
-              } ${selectedId === s.id ? 'ring-1 ring-accent' : ''}`}
-            >
-              <div className="flex items-start justify-between">
-                <span className="text-sm font-medium text-white">{s.name}</span>
-                {s.locked && (
-                  <span className="flex items-center gap-1 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">
-                    <Lock className="h-2.5 w-2.5" />
-                    Locked
-                  </span>
-                )}
-              </div>
-              <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    s.status === 'active' ? 'bg-green-500' : 'bg-gray-600'
-                  }`}
-                />
-                <span className="capitalize">{s.status}</span>
-                <span>·</span>
-                <span>Used {s.lastUsed}</span>
-              </div>
-              <div className="mt-2 text-xs text-gray-500">{s.duration}s duration</div>
-              {section === 'long' && s.chapters && (
-                <div className="mt-2 text-xs text-gray-500">{s.chapters.length} chapters</div>
-              )}
-            </button>
-          ))}
-        </div>
+        {scripts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16 text-gray-500">
+            <Sparkles className="mb-3 h-8 w-8 text-gray-600" />
+            <p className="text-sm">No scripts yet.</p>
+            <p className="mt-1 text-xs">Create your first script template to get started.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {scripts.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => onSelect(s.id)}
+                className={`rounded-lg border bg-surface p-4 text-left transition-colors hover:bg-surface2 ${
+                  s.locked ? 'border-accent' : 'border-border'
+                } ${selectedId === s.id ? 'ring-1 ring-accent' : ''}`}
+              >
+                <div className="flex items-start justify-between">
+                  <span className="text-sm font-medium text-white">{s.name}</span>
+                  {s.locked && (
+                    <span className="flex items-center gap-1 rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                      <Lock className="h-2.5 w-2.5" />
+                      Locked
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      s.status === 'active' ? 'bg-green-500' : 'bg-gray-600'
+                    }`}
+                  />
+                  <span className="capitalize">{s.status}</span>
+                  <span>·</span>
+                  <span>Used {s.lastUsed}</span>
+                </div>
+                <div className="mt-2 text-xs text-gray-500">{s.duration}s duration</div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {selectedScript && (
-        <ScriptDetailPanel script={selectedScript} onClose={onClosePanel} />
+        <ScriptDetailPanel script={selectedScript} onClose={onClosePanel} onRun={() => onRunScript(selectedScript)} onDelete={() => onDelete(selectedScript.id)} />
       )}
     </div>
   );
 }
 
-function ScriptDetailPanel({ script, onClose }: { script: Script; onClose: () => void }) {
+function ScriptDetailPanel({
+  script,
+  onClose,
+  onRun,
+  onDelete,
+}: {
+  script: Script;
+  onClose: () => void;
+  onRun: () => void;
+  onDelete: () => void;
+}) {
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  function handleDelete() {
+    setShowDeleteConfirm(true);
+  }
+
+  function confirmDelete() {
+    onDelete();
+    setShowDeleteConfirm(false);
+  }
+
   return (
     <div className="w-80 shrink-0 rounded-lg border border-border bg-surface p-4">
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="rounded-lg border border-border bg-surface p-6 shadow-lg">
+            <p className="mb-4 text-sm text-gray-200">Delete "{script.name}"?</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-gray-300 hover:bg-surface2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold">{script.name}</h3>
         <button onClick={onClose} className="text-gray-500 hover:text-white">
@@ -428,16 +841,17 @@ function ScriptDetailPanel({ script, onClose }: { script: Script; onClose: () =>
           <Pencil className="h-4 w-4" />
           Edit
         </button>
-        <button className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-blue-500">
+        <button onClick={onRun} className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-blue-500">
           <Play className="h-4 w-4" />
-          Run
+          Run Script
+        </button>
+        <button onClick={handleDelete} className="flex items-center justify-center rounded-lg border border-border px-3 py-2 text-sm text-red-400 hover:bg-red-500/10">
+          <Trash2 className="h-4 w-4" />
         </button>
       </div>
     </div>
   );
 }
-
-const PROMPT_TYPES: PromptType[] = ['Research', 'Image', 'Script', 'TTS', 'Metadata', 'Custom'];
 
 let blockCounter = 0;
 function newBlockId() {
@@ -445,17 +859,17 @@ function newBlockId() {
   return `nb${Date.now()}_${blockCounter}`;
 }
 
-function NewScriptModal({ onClose, section }: { onClose: () => void; section: Section }) {
+function NewScriptModal({ onClose, section, onCreated }: { onClose: () => void; section: Section; onCreated?: (script: Script) => void }) {
   const [name, setName] = useState('');
-  const [duration, setDuration] = useState<15 | 30 | 60>(15);
   const [prompts, setPrompts] = useState<
-    { id: string; name: string; type: PromptType; content: string }[]
+    { id: string; name: string; content: string }[]
   >([
-    { id: newBlockId(), name: '', type: 'Research', content: '' },
+    { id: newBlockId(), name: '', content: '' },
   ]);
   const [howItWorks, setHowItWorks] = useState('');
+  const [saving, setSaving] = useState(false);
 
-  function updatePrompt(id: string, patch: Partial<{ name: string; type: PromptType; content: string }>) {
+  function updatePrompt(id: string, patch: Partial<{ name: string; content: string }>) {
     setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
   }
   function addPrompt() {
@@ -463,6 +877,36 @@ function NewScriptModal({ onClose, section }: { onClose: () => void; section: Se
   }
   function deletePrompt(id: string) {
     setPrompts((prev) => (prev.length > 1 ? prev.filter((p) => p.id !== id) : prev));
+  }
+
+  async function handleCreate() {
+    if (!name.trim()) return;
+    setSaving(true);
+    const newScript: Script = {
+      id: `usr_${Date.now()}`,
+      name: name.trim(),
+      lastUsed: 'now',
+      status: 'draft',
+      locked: false,
+      prompts: prompts.map((p) => ({ id: p.id, name: p.name, content: p.content })),
+      howItWorks,
+    };
+    try {
+      const res = await fetch('/api/scripts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newScript),
+      });
+      if (!res.ok) throw new Error('Failed to save script');
+      const saved = await res.json();
+      onCreated?.(saved);
+      onClose();
+    } catch (err) {
+      console.error('Error saving script:', err);
+      alert('Failed to save script. Please try again.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -499,17 +943,6 @@ function NewScriptModal({ onClose, section }: { onClose: () => void; section: Se
                       placeholder="Prompt name"
                       className="flex-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
                     />
-                    <select
-                      value={p.type}
-                      onChange={(e) => updatePrompt(p.id, { type: e.target.value as PromptType })}
-                      className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm text-white outline-none focus:border-accent"
-                    >
-                      {PROMPT_TYPES.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
                     <button
                       onClick={() => deletePrompt(p.id)}
                       disabled={prompts.length === 1}
@@ -558,36 +991,21 @@ function NewScriptModal({ onClose, section }: { onClose: () => void; section: Se
               />
             </Field>
           )}
-          <Field label="Duration">
-            <div className="flex gap-2">
-              {([15, 30, 60] as const).map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setDuration(d)}
-                  className={`rounded-md border px-4 py-2 text-sm transition-colors ${
-                    duration === d
-                      ? 'border-accent bg-accent/10 text-accent'
-                      : 'border-border text-gray-300 hover:bg-surface2'
-                  }`}
-                >
-                  {d}s
-                </button>
-              ))}
-            </div>
-          </Field>
         </div>
         <div className="mt-6 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-gray-200 hover:bg-surface2"
+            disabled={saving}
+            className="rounded-lg border border-border px-4 py-2 text-sm text-gray-200 hover:bg-surface2 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            onClick={onClose}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+            onClick={handleCreate}
+            disabled={!name.trim() || saving}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
           >
-            Create Script
+            {saving ? 'Saving...' : 'Create Script'}
           </button>
         </div>
       </div>
@@ -608,305 +1026,255 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 /* ============ PREVIEW TAB ============ */
 
-function PreviewTab({ data, section }: { data: typeof channelData[string]; section: Section }) {
-  const [openStep, setOpenStep] = useState<(typeof data.pipeline)[number] | null>(null);
+function PreviewTab({ pipeline, script, onExtractAssets }: { pipeline: PipelineStep[]; script: Script | null; onExtractAssets?: () => void }) {
+  const responseEndRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (responseEndRef.current) {
+      responseEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [script?.aiResponse]);
+
+  function handleCopy() {
+    if (script?.aiResponse) {
+      navigator.clipboard.writeText(script.aiResponse).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
+  }
+
+  if (!script) {
+    return <div className="flex h-full items-center justify-center text-gray-500">No script selected.</div>;
+  }
+
+  const responseStage = pipeline.find((p) => p.id === 'response') || ({} as PipelineStep);
+  const isDone = responseStage.status === 'done';
+  const hasAssets = (script.imagePrompts?.length ?? 0) > 0 || script.narration;
 
   return (
-    <div className="max-w-3xl">
-      <div className="space-y-2">
-        {data.pipeline.map((step, i) => (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border p-4">
+        <div className="flex items-center gap-4">
+          <h3 className="text-sm font-semibold">Preview</h3>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-gray-600" />
+            <span className="text-xs text-gray-500">Topic:</span>
+            <span className="text-xs text-white">{script.topicName || 'Not set'}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isDone && !hasAssets && onExtractAssets && (
+            <button
+              onClick={onExtractAssets}
+              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Extract Assets
+            </button>
+          )}
           <button
-            key={step.id}
-            onClick={() => setOpenStep(step)}
-            className="flex w-full items-center gap-4 rounded-lg border border-border bg-surface px-4 py-3.5 text-left transition-colors hover:bg-surface2"
+            onClick={handleCopy}
+            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2"
           >
-            <span className="w-6 text-xs text-gray-600">{i + 1}</span>
-            <StageStatusIcon status={step.status} />
-            <div className="flex-1">
-              <div className="text-sm font-medium text-white">{step.label}</div>
-              <div className="truncate text-xs text-gray-500">{step.summary}</div>
-            </div>
-            <ChevronRight className="h-4 w-4 text-gray-600" />
+            <Copy className="h-3.5 w-3.5" />
+            {copied ? 'Copied' : 'Copy Response'}
           </button>
-        ))}
+        </div>
       </div>
-
-      {section === 'long' && (
-        <div className="mt-4 rounded-lg border border-border bg-surface p-4">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
-            Chapter Markers
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {['Intro', 'Setup', 'Main', 'Demo', 'Outro'].map((c, i) => (
-              <span
-                key={c}
-                className="rounded-md border border-border bg-bg px-2.5 py-1 text-xs text-gray-300"
-              >
-                {i}:00 {c}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="rounded-lg bg-surface p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <h4 className="text-sm font-medium text-gray-400">AI Response</h4>
+            {responseStage.status === 'running' && (
+              <span className="flex items-center gap-2 text-xs text-accent">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
+                Streaming...
               </span>
-            ))}
+            )}
+            {responseStage.status === 'done' && (
+              <span className="flex items-center gap-2 text-xs text-green-400">
+                <Check className="h-3 w-3" />
+                Complete
+              </span>
+            )}
+            {responseStage.status === 'error' && (
+              <span className="flex items-center gap-2 text-xs text-red-400">
+                <AlertCircle className="h-3 w-3" />
+                Error
+              </span>
+            )}
           </div>
-        </div>
-      )}
-
-      <div className="mt-6 flex items-center justify-between rounded-lg border border-border bg-surface p-4">
-        <div className="text-sm text-gray-400">
-          Est. cost: <span className="text-white">$0.42</span>
-        </div>
-        <button className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
-          <Play className="h-4 w-4" />
-          Run Pipeline
-        </button>
-      </div>
-
-      {openStep && (
-        <StepModal step={openStep} onClose={() => setOpenStep(null)} />
-      )}
-    </div>
-  );
-}
-
-function StepModal({
-  step,
-  onClose,
-}: {
-  step: { label: string; status: string; inputLog: string; outputPreview: string };
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto thin-scrollbar rounded-lg border border-border bg-surface p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <StageStatusIcon status={step.status as 'done' | 'pending' | 'running' | 'error'} />
-            <h3 className="text-base font-semibold">{step.label}</h3>
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
+            {script.aiResponse || responseStage?.outputPreview || (
+              <span className="text-gray-500 italic">No response generated yet. Run a script to begin.</span>
+            )}
+            <div ref={responseEndRef} />
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-white">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
-              Input Log
-            </div>
-            <pre className="max-h-40 overflow-y-auto thin-scrollbar whitespace-pre-wrap rounded-md border border-border bg-bg p-3 text-sm text-gray-300">
-              {step.inputLog || 'No input recorded.'}
-            </pre>
-          </div>
-          <div>
-            <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-gray-500">
-              Output Preview
-            </div>
-            <pre className="max-h-40 overflow-y-auto thin-scrollbar whitespace-pre-wrap rounded-md border border-border bg-bg p-3 text-sm text-gray-300">
-              {step.outputPreview || 'No output yet.'}
-            </pre>
-          </div>
-        </div>
-
-        <div className="mt-6 flex justify-end gap-2">
-          <button className="flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-gray-200 hover:bg-surface2">
-            <Pencil className="h-4 w-4" />
-            Edit
-          </button>
-          <button className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-blue-500">
-            <RotateCcw className="h-4 w-4" />
-            Regenerate
-          </button>
         </div>
       </div>
     </div>
   );
 }
+function AssetsTab({ script }: { script: Script | null }) {
+  const [activeSubTab, setActiveSubTab] = useState<'images' | 'narration'>('images');
 
-function StageStatusIcon({ status }: { status: 'done' | 'pending' | 'running' | 'error' }) {
-  if (status === 'done') return <Check className="h-4 w-4 shrink-0 text-green-500" />;
-  if (status === 'running')
+  if (!script) {
     return (
-      <span className="flex h-4 w-4 shrink-0 items-center justify-center">
-        <span className="h-3 w-3 animate-spin rounded-full border-2 border-gray-600 border-t-accent" />
-      </span>
+      <div className="flex h-full flex-col items-center justify-center text-gray-500">
+        <p className="text-sm">No script selected.</p>
+        <p className="mt-1 text-xs">Run a script to see extracted assets.</p>
+      </div>
     );
-  if (status === 'error') return <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />;
-  return <span className="h-2 w-2 shrink-0 rounded-full bg-gray-600" />;
-}
+  }
 
-/* ============ ASSETS TAB ============ */
+  const responseStep = script.pipeline?.find((p) => p.id === 'response');
+  const isExtracting = responseStep?.status === 'running';
+  const hasAssets = (script.imagePrompts?.length ?? 0) > 0 || script.narration;
 
-function AssetsTab({ data, section }: { data: typeof channelData[string]; section: Section }) {
-  const [sub, setSub] = useState<'images' | 'audio' | 'video'>('images');
-  const [menuOpen, setMenuOpen] = useState<string | null>(null);
-  const [lightbox, setLightbox] = useState<string | null>(null);
-
-  const subTabs = section === 'long'
-    ? [
-        { id: 'images' as const, label: 'Images', icon: ImageIcon },
-        { id: 'audio' as const, label: 'Audio', icon: Music },
-        { id: 'video' as const, label: 'Video Clips', icon: Film },
-      ]
-    : [
-        { id: 'images' as const, label: 'Images', icon: ImageIcon },
-        { id: 'audio' as const, label: 'Audio', icon: Music },
-      ];
+  if (isExtracting) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center text-gray-500">
+        <Loader2 className="mb-3 h-8 w-8 animate-spin text-accent" />
+        <p className="text-sm">Extracting assets with AI...</p>
+        <p className="mt-1 text-xs">Please wait while we parse the response</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <div className="mb-4 flex gap-1">
-        {subTabs.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setSub(t.id)}
-              className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                sub === t.id ? 'bg-surface2 text-white' : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {t.label}
-            </button>
-          );
-        })}
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border p-4">
+        <div className="flex gap-4">
+          <button
+            onClick={() => setActiveSubTab('images')}
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeSubTab === 'images' ? 'bg-surface2 text-white' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <ImageIcon className="h-4 w-4" />
+            Image Prompts
+            {script.imagePrompts && script.imagePrompts.length > 0 && (
+              <span className="ml-1 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] text-accent">
+                {script.imagePrompts.length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setActiveSubTab('narration')}
+            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeSubTab === 'narration' ? 'bg-surface2 text-white' : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            <Music className="h-4 w-4" />
+            Narration
+            {script.narration && (
+              <span className="ml-1 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] text-accent">
+                1
+              </span>
+            )}
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">
+            {script.imagePrompts?.length ?? 0} images, {script.narration ? '1 narration' : 'no narration'}
+          </span>
+        </div>
       </div>
-
-      {sub === 'images' && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {data.images.map((img) => (
-            <div
-              key={img.id}
-              className="group relative aspect-[9/16] overflow-hidden rounded-lg border border-border bg-surface"
-              style={{ background: `linear-gradient(135deg, ${img.color}33, ${img.color}11)` }}
-            >
-              <button
-                onClick={() => setLightbox(img.name)}
-                className="flex h-full w-full items-center justify-center"
-              >
-                <ImageIcon className="h-6 w-6 text-white/40" />
-              </button>
-              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-black/80 to-transparent p-2 opacity-0 group-hover:opacity-100">
-                <span className="truncate text-xs text-white">{img.name}</span>
-                <button
-                  onClick={() => setMenuOpen(menuOpen === img.id ? null : img.id)}
-                  className="text-gray-300 hover:text-white"
-                >
-                  <MoreVertical className="h-4 w-4" />
-                </button>
-              </div>
-              {menuOpen === img.id && (
-                <AssetMenu onClose={() => setMenuOpen(null)} />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {sub === 'audio' && (
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <tbody>
-              {data.audio.map((a) => (
-                <tr key={a.id} className="border-b border-border last:border-0">
-                  <td className="w-10 px-3 py-3">
-                    <button className="flex h-8 w-8 items-center justify-center rounded-full border border-border text-gray-300 hover:bg-surface2">
-                      <Play className="h-3.5 w-3.5" />
-                    </button>
-                  </td>
-                  <td className="px-3 py-3 text-gray-200">{a.name}</td>
-                  <td className="px-3 py-3">
-                    <Waveform color={a.color} />
-                  </td>
-                  <td className="w-20 px-3 py-3 text-right text-gray-500">{a.duration}</td>
-                  <td className="w-10 px-3 py-3">
-                    <button className="text-gray-400 hover:text-white">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {sub === 'video' && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {data.videos.map((v) => (
-            <div
-              key={v.id}
-              className="group relative aspect-video overflow-hidden rounded-lg border border-border bg-surface"
-              style={{ background: `linear-gradient(135deg, ${v.color}33, ${v.color}11)` }}
-            >
-              <button className="flex h-full w-full items-center justify-center">
-                <Film className="h-6 w-6 text-white/40" />
-              </button>
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
-                <span className="text-xs text-white">{v.name}</span>
-                <span className="ml-2 text-xs text-gray-400">{v.duration}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {lightbox && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8"
-          onClick={() => setLightbox(null)}
-        >
-          <div className="relative aspect-[9/16] h-full max-h-[80vh] rounded-lg border border-border bg-surface">
-            <button
-              onClick={() => setLightbox(null)}
-              className="absolute right-3 top-3 text-gray-400 hover:text-white"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <div className="flex h-full items-center justify-center text-gray-500">
-              {lightbox}
-            </div>
+      <div className="flex-1 overflow-y-auto p-6">
+        {!hasAssets ? (
+          <div className="flex h-full flex-col items-center justify-center text-gray-500">
+            <ImageIcon className="mb-3 h-8 w-8 text-gray-600" />
+            <p className="text-sm">No assets extracted yet.</p>
+            <p className="mt-1 text-xs">Run a script and assets will appear here automatically.</p>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AssetMenu({ onClose }: { onClose: () => void }) {
-  return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div className="absolute right-2 top-8 z-50 w-40 rounded-lg border border-border bg-surface py-1">
-        <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-surface2">
-          <RotateCcw className="h-4 w-4" />
-          Regenerate
-        </button>
-        <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-surface2">
-          <Download className="h-4 w-4" />
-          Download
-        </button>
-        <button className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-surface2">
-          <Trash2 className="h-4 w-4" />
-          Delete
-        </button>
+        ) : activeSubTab === 'images' ? (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white">Image Prompts</h3>
+              <span className="text-xs text-gray-500">Pending generation</span>
+            </div>
+            {script.imagePrompts && script.imagePrompts.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {script.imagePrompts.map((prompt, i) => (
+                  <div key={i} className="rounded-lg border border-border bg-surface p-4">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-accent/20 text-[10px] font-bold text-accent">
+                          {i + 1}
+                        </span>
+                        <span className="text-xs font-medium text-white">Image {i + 1}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] text-yellow-500">
+                          <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+                          Pending
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
+                      {prompt}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => navigator.clipboard.writeText(prompt)}
+                        className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy
+                      </button>
+                      <button className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2">
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No image prompts found in the response.</p>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-white">Narration (TTS)</h3>
+              <span className="text-xs text-gray-500">Pending generation</span>
+            </div>
+            {script.narration ? (
+              <div className="rounded-lg border border-border bg-surface p-4">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-medium text-white">Narration Script</span>
+                  <span className="flex items-center gap-1 rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] text-yellow-500">
+                    <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" />
+                    Pending
+                  </span>
+                </div>
+                <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
+                  {script.narration}
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => navigator.clipboard.writeText(script.narration!)}
+                    className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No narration found in the response.</p>
+            )}
+          </div>
+        )}
       </div>
-    </>
-  );
-}
-
-function Waveform({ color }: { color: string }) {
-  const bars = [40, 70, 30, 90, 50, 75, 35, 60, 45, 80, 55, 65, 40, 85, 30, 70, 50, 60, 35, 75];
-  return (
-    <div className="flex h-8 items-center gap-0.5">
-      {bars.map((h, i) => (
-        <div
-          key={i}
-          className="w-0.5 rounded-full"
-          style={{ height: `${h}%`, backgroundColor: color, opacity: 0.7 }}
-        />
-      ))}
     </div>
   );
 }
+
+
 
 /* ============ EDITOR TAB ============ */
 
@@ -1192,6 +1560,82 @@ function ExportTab({ section }: { section: Section }) {
             Start New
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ScriptRunModal({
+  script,
+  onClose,
+  onSubmit,
+}: {
+  script: Script;
+  onClose: () => void;
+  onSubmit: (topic: string, instructions: string) => void;
+}) {
+  const [topic, setTopic] = useState(script.topicName || '');
+  const [instructions, setInstructions] = useState(script.aiInstructions || '');
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const cleaned = topic.trim();
+    if (!cleaned) return;
+    onSubmit(cleaned, instructions.trim());
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+      <div className="w-[500px] rounded-2xl border border-border bg-bg shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border p-4">
+          <h2 className="text-lg font-semibold">Run AI Script</h2>
+          <button onClick={onClose} className="rounded-lg p-2 hover:bg-surface">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6">
+          <p className="mb-6 text-sm text-gray-400">
+            Running <strong>{script.name}</strong>. Provide a topic and optional instructions.
+          </p>
+          <div className="mb-4 space-y-2">
+            <label htmlFor="run-topic" className="text-sm font-medium">
+              Topic Name (Required)
+            </label>
+            <input
+              id="run-topic"
+              type="text"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. History of Rome"
+              className="w-full rounded-lg border border-border bg-surface px-4 py-2 text-sm focus:border-accent focus:outline-none"
+              required
+            />
+          </div>
+          <div className="mb-6 space-y-2">
+            <label htmlFor="run-instructions" className="text-sm font-medium">
+              AI Instructions (Optional)
+            </label>
+            <textarea
+              id="run-instructions"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder="e.g. Make it dramatic, focus on Caesar..."
+              className="h-24 w-full resize-none rounded-lg border border-border bg-surface px-4 py-2 text-sm focus:border-accent focus:outline-none"
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm hover:bg-surface">
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!topic.trim()}
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Run Script
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
