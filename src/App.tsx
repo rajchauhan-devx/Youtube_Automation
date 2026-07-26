@@ -1495,10 +1495,14 @@ function GenerationTab({
     if (myToken === runTokenRef.current) setIsRunning(false);
   }
 
+  const narrationText = script?.narration || script?.extractedScript || script?.content || '';
+  const wordCount = narrationText ? narrationText.trim().split(/\s+/).length : 0;
+  const estimatedSec = Math.round((wordCount / 150) * 60);
+
   if (!script) {
     return <div className="flex h-full items-center justify-center text-gray-500">No script selected.</div>;
   }
-  if (images.length === 0) {
+  if (images.length === 0 && generationSubTab === 'image') {
     return (
       <div className="flex h-full flex-col items-center justify-center text-gray-500">
         <ImageIcon className="mb-3 h-8 w-8 text-gray-600" />
@@ -1506,9 +1510,7 @@ function GenerationTab({
         <p className="mt-1 text-xs">Extract assets first from the Preview tab.</p>
       </div>
     );
-    const narrationText = script?.narration || script?.extractedScript || script?.content || '';
-  const wordCount = narrationText ? narrationText.trim().split(/\s+/).length : 0;
-  const estimatedSec = Math.round((wordCount / 150) * 60);
+  }
 
   return (
     <div className="flex h-full flex-col">
