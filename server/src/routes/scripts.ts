@@ -1,5 +1,8 @@
 import { Router } from 'express';
+import fs from 'fs';
+import path from 'path';
 import { store } from '../services/store.js';
+import { GENERATED_DIR, sanitizeSegment } from '../services/comfyui.js';
 
 export const scriptsRouter = Router();
 
@@ -47,8 +50,22 @@ scriptsRouter.put('/:id', (req, res) => {
 });
 
 scriptsRouter.delete('/:id', (req, res) => {
+  const scriptId = sanitizeSegment(req.params.id);
   store.remove('scripts', req.params.id);
   store.set(`pipeline_${req.params.id}`, []);
+
+  // Delete generated images folder for this script if it exists
+  if (scriptId) {
+    const dirPath = path.join(GENERATED_DIR, scriptId);
+    if (fs.existsSync(dirPath)) {
+      try {
+        fs.rmSync(dirPath, { recursive: true, force: true });
+      } catch (err) {
+        console.error(`Failed to delete generated images folder for ${scriptId}:`, err);
+      }
+    }
+  }
+
   res.json({ ok: true });
 });
 
