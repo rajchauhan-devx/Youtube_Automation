@@ -5,6 +5,7 @@ import { healthRouter } from './routes/health.js';
 import { llmRouter } from './routes/llm.js';
 import { scriptsRouter } from './routes/scripts.js';
 import { generateRouter } from './routes/generate.js';
+import { ttsRouter } from './routes/tts.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -16,6 +17,10 @@ app.use('/api/health', healthRouter);
 app.use('/api/llm', llmRouter);
 app.use('/api/scripts', scriptsRouter);
 app.use('/api/generate', generateRouter);
+import { renderRouter } from './routes/render.js';
+
+app.use('/api/tts', ttsRouter);
+app.use('/api/render', renderRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });

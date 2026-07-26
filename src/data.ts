@@ -5,6 +5,7 @@ export type AssetKind = 'image' | 'audio' | 'video';
 export interface PromptBlock {
   id: string;
   name: string;
+  type?: string;
   content: string;
 }
 
@@ -33,13 +34,14 @@ export interface Script {
   imagePrompts?: string[];
   narration?: string;
   generatedImages?: GeneratedImage[];
+  generatedAudio?: GeneratedAudio[];
   pipeline?: PipelineStep[];
 }
 
 export interface PipelineStep {
   id: string;
   label: string;
-  status: 'done' | 'pending' | 'running' | 'error';
+  status: 'done' | 'pending' | 'running' | 'error' | 'warning';
   summary: string;
   inputLog: string;
   outputPreview: string;
@@ -54,6 +56,14 @@ export interface GeneratedImage {
   error?: string;
   errorCode?: string;
   attempts?: number;
+  elapsedMs?: number;
+}
+
+export interface GeneratedAudio {
+  language: 'hi' | 'en';
+  voice?: string;
+  url: string;
+  filename: string;
   elapsedMs?: number;
 }
 

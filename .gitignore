@@ -22,4 +22,6 @@ dist-ssr
 *.sw?
 .env
 server/data/generated/
+server/data/output/
+server/data/rendered/
 server/data/pipeline_*.json

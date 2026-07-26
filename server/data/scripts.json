@@ -77,10 +77,11 @@
       {
         "index": 4,
         "prompt": "Vertical 9:16 shot of a vintage car rusting inside a stone garage, half-collapsed roof, weeds growing through the floorboards, faded paint, empty driver's seat visible through broken windshield, muted gray light, cinematic documentary realism, dark muted color grade, natural film grain, no people. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
-        "status": "error",
-        "error": "ComfyUI rejected the workflow (HTTP 400). This usually means the exported workflow JSON doesn't match the nodes you have installed.",
-        "errorCode": "QUEUE_FAILED",
-        "attempts": 7
+        "status": "done",
+        "attempts": 13,
+        "url": "/api/generate/file/usr_1784980792935/image-04-1785072782306.png",
+        "seed": 1295687465,
+        "elapsedMs": 67596
       },
       {
         "index": 5,
@@ -201,6 +202,22 @@
         "seed": 2016666271,
         "elapsedMs": 58538,
         "attempts": 2
+      }
+    ],
+    "generatedAudio": [
+      {
+        "language": "hi",
+        "voice": "hi_female_casual",
+        "url": "/api/generate/file/usr_1785062582736/narration_hi_1785077079949.wav",
+        "filename": "narration_hi_1785077079949.wav",
+        "elapsedMs": 130
+      },
+      {
+        "language": "en",
+        "voice": "nova",
+        "url": "/api/generate/file/usr_1785062582736/narration_en_1785078342849.wav",
+        "filename": "narration_en_1785078342849.wav",
+        "elapsedMs": 58625
       }
     ]
   }
