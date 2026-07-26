@@ -143,19 +143,19 @@
         "index": 0,
         "prompt": "A very old, dusty, hand-written document from 1781, the title \"President of the United States\" is visible but ink is slightly faded, dark wooden table, quill inkwell in the background, dramatic side lighting, cinematic documentary style, 9:16 vertical, realistic textures, grain, serious historical mood. cartoon, anime, glossy, fake, modern, neon, smiling faces, toy, exaggerated, colorized fake, child's drawing.",
         "status": "done",
-        "url": "/api/generate/file/usr_1785062582736/image-00-1785062915898.png",
-        "seed": 1526894552,
-        "elapsedMs": 66529,
-        "attempts": 1
+        "url": "/api/generate/file/usr_1785062582736/image-00-1785065294007.png",
+        "seed": 766702385,
+        "elapsedMs": 56513,
+        "attempts": 3
       },
       {
         "index": 1,
         "prompt": "A dimly lit 18th-century meeting room, Independence Hall style, long wooden table with scattered papers and candlelight, empty chairs, a single portrait of Samuel Huntington on the wall, shadowy corners, archival feel, black and white with sepia tone, 9:16 vertical, cinematic documentary. cartoon, anime, fake, modern, neon, smiling faces, toy, people, glossy.",
         "status": "done",
-        "url": "/api/generate/file/usr_1785062582736/image-01-1785062982445.png",
-        "seed": 1134583818,
-        "elapsedMs": 66502,
-        "attempts": 1
+        "url": "/api/generate/file/usr_1785062582736/image-01-1785065359363.png",
+        "seed": 121374964,
+        "elapsedMs": 47378,
+        "attempts": 2
       },
       {
         "index": 2,
@@ -169,7 +169,7 @@
       {
         "index": 3,
         "prompt": "Close-up of an old, engraved portrait of Samuel Huntington, grainy and slightly damaged, as if from a 19th-century book, his face is stern, the image is partially faded, dark vignette, sense of forgotten history, 9:16 vertical, documentary style. cartoon, anime, glossy, smiling, toy, modern, clean, fake.",
-        "status": "done",
+        "status": "generating",
         "url": "/api/generate/file/usr_1785062582736/image-03-1785063116570.png",
         "seed": 1468965358,
         "elapsedMs": 68553,

@@ -55,7 +55,7 @@ export async function checkComfyStatus(): Promise<{ online: boolean; detail?: st
   }
 }
 
-function buildWorkflow(prompt: string, seed: number): any {
+function buildWorkflow(promptStr: string, seed: number): any {
   const wf = loadTemplate();
 
   // Auto-detect downloaded checkpoint in ComfyUI/models/checkpoints
@@ -70,13 +70,30 @@ function buildWorkflow(prompt: string, seed: number): any {
     }
   }
 
-  if (!wf[PROMPT_NODE_ID]) {
-    throw new ComfyError(
-      'CONFIG',
-      `Prompt node id "${PROMPT_NODE_ID}" doesn't exist in the workflow template. Open the template JSON, find your positive CLIPTextEncode node's id, and set COMFYUI_PROMPT_NODE_ID.`
-    );
+  let positivePrompt = promptStr;
+  let extraNegative = '';
+
+  // Separate inline "Negative prompt:" if present
+  const negMatch = promptStr.match(/Negative prompt:\s*(.*)/i);
+  if (negMatch) {
+    positivePrompt = promptStr.replace(/Negative prompt:\s*.*/i, '').trim();
+    extraNegative = negMatch[1].trim();
   }
-  wf[PROMPT_NODE_ID].inputs.text = prompt;
+
+  // Prepend quality booster for SDXL photorealism if not a graphic card
+  if (!positivePrompt.toLowerCase().includes('card') && !positivePrompt.toLowerCase().includes('cinematic photo')) {
+    positivePrompt = `cinematic photo, 8k uhd, highly detailed, film grain, ${positivePrompt}`;
+  }
+
+  if (wf['6']) {
+    wf['6'].inputs.text = positivePrompt;
+  }
+
+  if (wf['15']) {
+    const defaultNeg = 'ugly, blurry, low quality, distorted, bad hands, deformed, noise, artifacts, cropped, out of frame, low resolution, bad anatomy, cartoon, anime, 3d render, illustration';
+    wf['15'].inputs.text = extraNegative ? `${defaultNeg}, ${extraNegative}` : defaultNeg;
+  }
+
   if (SEED_NODE_ID && wf[SEED_NODE_ID]) {
     wf[SEED_NODE_ID].inputs[SEED_INPUT_KEY] = seed;
   }
