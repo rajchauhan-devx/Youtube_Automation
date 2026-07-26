@@ -1301,6 +1301,7 @@ function GenerationTab({
   script: Script | null;
   onUpdate: (patch: Partial<Script>) => void;
 }) {
+  const [generationSubTab, setGenerationSubTab] = useState<'image' | 'audio'>('image');
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -1505,174 +1506,279 @@ function GenerationTab({
         <p className="mt-1 text-xs">Extract assets first from the Preview tab.</p>
       </div>
     );
-  }
-
-  const doneCount = images.filter((i) => i.status === 'done').length;
-  const errorCount = images.filter((i) => i.status === 'error').length;
+    const narrationText = script?.narration || script?.extractedScript || script?.content || '';
+  const wordCount = narrationText ? narrationText.trim().split(/\s+/).length : 0;
+  const estimatedSec = Math.round((wordCount / 150) * 60);
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border p-4">
-        <div className="flex items-center gap-4">
-          <h3 className="text-sm font-semibold">Image Generation</h3>
-          <span className="text-xs text-gray-500">
-            {doneCount}/{images.length} done{errorCount > 0 ? `, ${errorCount} failed` : ''}
-          </span>
-          {serverStatus === 'online' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-green-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> FLUX.2 Klein server online
-            </span>
-          )}
-          {serverStatus === 'offline' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-red-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> Server offline
-            </span>
-          )}
-          {serverStatus === 'starting' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-accent">
-              <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Starting model...
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {serverStatus === 'online' && (
-            <button
-              onClick={handleStopModel}
-              className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
-            >
-              <Square className="h-3.5 w-3.5" /> Stop Model
-            </button>
-          )}
-          {!isRunning ? (
-            <button
-              onClick={handleStart}
-              disabled={serverStatus === 'starting' || doneCount === images.length}
-              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
-            >
-              {serverStatus === 'starting' ? (
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <Play className="h-3.5 w-3.5" />
+      {/* Sub-Tabs Selector */}
+      <div className="flex border-b border-border bg-surface px-4 pt-2">
+        <button
+          onClick={() => setGenerationSubTab('image')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2 text-xs font-medium transition-colors ${
+            generationSubTab === 'image'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <ImageIcon className="h-4 w-4" />
+          Image Generation
+        </button>
+        <button
+          onClick={() => setGenerationSubTab('audio')}
+          className={`flex items-center gap-2 border-b-2 px-4 py-2 text-xs font-medium transition-colors ${
+            generationSubTab === 'audio'
+              ? 'border-accent text-accent'
+              : 'border-transparent text-gray-400 hover:text-gray-200'
+          }`}
+        >
+          <Music className="h-4 w-4" />
+          Text to Audio
+        </button>
+      </div>
+
+      {generationSubTab === 'image' ? (
+        <>
+          <div className="flex items-center justify-between border-b border-border p-4">
+            <div className="flex items-center gap-4">
+              <h3 className="text-sm font-semibold">Image Generation</h3>
+              <span className="text-xs text-gray-500">
+                {doneCount}/{images.length} done{errorCount > 0 ? `, ${errorCount} failed` : ''}
+              </span>
+              {serverStatus === 'online' && (
+                <span className="flex items-center gap-1.5 text-[10px] text-green-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> FLUX.2 Klein server online
+                </span>
               )}
-              {serverStatus === 'starting' ? 'Starting model...' : doneCount === 0 ? 'Start Generation' : 'Resume Generation'}
-            </button>
-          ) : isPaused ? (
-            <button onClick={handleResume} className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80">
-              <Play className="h-3.5 w-3.5" /> Resume
-            </button>
-          ) : (
-            <button onClick={handlePause} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2">
-              <Pause className="h-3.5 w-3.5" /> Pause
-            </button>
-          )}
-          {isRunning && (
-            <button onClick={handleCancel} className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10">
-              <X className="h-3.5 w-3.5" /> Cancel
-            </button>
-          )}
-          {!isRunning && errorCount > 0 && (
-            <button onClick={handleRetryFailed} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2">
-              <Undo2 className="h-3.5 w-3.5" /> Retry Failed ({errorCount})
-            </button>
-          )}
-        </div>
-      </div>
-
-      {serverStatus === 'starting' && (
-        <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-accent/30 bg-accent/10 p-3 text-xs text-accent">
-          <span className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-          <div>
-            <p className="font-medium">Starting Image Model...</p>
-            <p className="mt-1 text-accent/80">Launching ComfyUI, this may take up to 2 minutes.</p>
-          </div>
-        </div>
-      )}
-
-      {serverStatus === 'offline' && (
-        <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div className="flex-1">
-            <p className="font-medium">Image Model is offline</p>
-            <p className="mt-1 text-red-300/80">{serverError}</p>
-            <div className="mt-2 flex gap-2">
-              <button
-                onClick={handleStartModel}
-                className="flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-[11px] font-medium text-white hover:bg-accent/80"
-              >
-                <Zap className="h-3.5 w-3.5" />
-                Run Image Model
-              </button>
-              <button onClick={checkServer} className="rounded border border-red-500/40 px-2 py-1 text-[11px] hover:bg-red-500/10">
-                Retry connection
-              </button>
+              {serverStatus === 'offline' && (
+                <span className="flex items-center gap-1.5 text-[10px] text-red-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> Server offline
+                </span>
+              )}
+              {serverStatus === 'starting' && (
+                <span className="flex items-center gap-1.5 text-[10px] text-accent">
+                  <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Starting model...
+                </span>
+              )}
             </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {images.map((img) => (
-            <div key={img.index} className="rounded-lg border border-border bg-surface p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-medium text-white">Image {img.index + 1}</span>
-                {img.status === 'pending' && <span className="rounded-full bg-gray-500/10 px-2 py-0.5 text-[10px] text-gray-400">Pending</span>}
-                {img.status === 'generating' && (
-                  <span className="flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> Generating...
-                  </span>
-                )}
-                {img.status === 'done' && (
-                  <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] text-green-400">
-                    <Check className="h-3 w-3" /> Done
-                  </span>
-                )}
-                {img.status === 'error' && (
-                  <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-400">
-                    <AlertCircle className="h-3 w-3" /> Failed
-                  </span>
-                )}
-              </div>
-
-              <div className="mb-2 flex aspect-square items-center justify-center overflow-hidden rounded-md bg-surface2">
-                {img.status === 'done' && img.url ? (
-                  <img
-                    src={img.url}
-                    alt={`Generated ${img.index + 1}`}
-                    className="h-full w-full cursor-pointer object-cover"
-                    onClick={() => setLightbox(img.url!)}
-                  />
-                ) : img.status === 'generating' ? (
-                  <div className="flex flex-col items-center gap-2 text-gray-500">
-                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-                    <span className="text-[10px]">Rendering...</span>
-                  </div>
-                ) : (
-                  <ImageIcon className="h-8 w-8 text-gray-600" />
-                )}
-              </div>
-
-              <p className="mb-2 line-clamp-3 text-[11px] leading-relaxed text-gray-400">{img.prompt}</p>
-              {img.status === 'error' && <p className="mb-2 text-[11px] text-red-400">{img.error}</p>}
-
-              <div className="flex gap-2">
+            <div className="flex items-center gap-2">
+              {serverStatus === 'online' && (
                 <button
-                  onClick={() => handleRegenerateOne(img.index)}
-                  disabled={isRunning}
-                  className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2 disabled:opacity-40"
+                  onClick={handleStopModel}
+                  className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
                 >
-                  <Undo2 className="h-3 w-3" /> {img.status === 'done' ? 'Regenerate' : 'Retry'}
+                  <Square className="h-3.5 w-3.5" /> Stop Model
                 </button>
-                {img.status === 'done' && img.url && (
-                  <a href={img.url} download className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2">
-                    <Download className="h-3 w-3" /> Download
-                  </a>
-                )}
+              )}
+              {!isRunning ? (
+                <button
+                  onClick={handleStart}
+                  disabled={serverStatus === 'starting' || doneCount === images.length}
+                  className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
+                >
+                  {serverStatus === 'starting' ? (
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  ) : (
+                    <Play className="h-3.5 w-3.5" />
+                  )}
+                  {serverStatus === 'starting' ? 'Starting model...' : doneCount === 0 ? 'Start Generation' : 'Resume Generation'}
+                </button>
+              ) : isPaused ? (
+                <button onClick={handleResume} className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80">
+                  <Play className="h-3.5 w-3.5" /> Resume
+                </button>
+              ) : (
+                <button onClick={handlePause} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2">
+                  <Pause className="h-3.5 w-3.5" /> Pause
+                </button>
+              )}
+              {isRunning && (
+                <button onClick={handleCancel} className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10">
+                  <X className="h-3.5 w-3.5" /> Cancel
+                </button>
+              )}
+              {!isRunning && errorCount > 0 && (
+                <button onClick={handleRetryFailed} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2">
+                  <Undo2 className="h-3 w-3" /> Retry Failed ({errorCount})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {serverStatus === 'starting' && (
+            <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-accent/30 bg-accent/10 p-3 text-xs text-accent">
+              <span className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+              <div>
+                <p className="font-medium">Starting Image Model...</p>
+                <p className="mt-1 text-accent/80">Launching ComfyUI, this may take up to 2 minutes.</p>
               </div>
             </div>
-          ))}
+          )}
+
+          {serverStatus === 'offline' && (
+            <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="flex-1">
+                <p className="font-medium">Image Model is offline</p>
+                <p className="mt-1 text-red-300/80">{serverError}</p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={handleStartModel}
+                    className="flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-[11px] font-medium text-white hover:bg-accent/80"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Run Image Model
+                  </button>
+                  <button onClick={checkServer} className="rounded border border-red-500/40 px-2 py-1 text-[11px] hover:bg-red-500/10">
+                    Retry connection
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {images.map((img) => (
+                <div key={img.index} className="rounded-lg border border-border bg-surface p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className="text-xs font-medium text-white">Image {img.index + 1}</span>
+                    {img.status === 'pending' && <span className="rounded-full bg-gray-500/10 px-2 py-0.5 text-[10px] text-gray-400">Pending</span>}
+                    {img.status === 'generating' && (
+                      <span className="flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
+                        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> Generating...
+                      </span>
+                    )}
+                    {img.status === 'done' && (
+                      <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] text-green-400">
+                        <Check className="h-3 w-3" /> Done
+                      </span>
+                    )}
+                    {img.status === 'error' && (
+                      <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-400">
+                        <AlertCircle className="h-3 w-3" /> Failed
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mb-2 flex aspect-square items-center justify-center overflow-hidden rounded-md bg-surface2">
+                    {img.status === 'done' && img.url ? (
+                      <img
+                        src={img.url}
+                        alt={`Generated ${img.index + 1}`}
+                        className="h-full w-full cursor-pointer object-cover"
+                        onClick={() => setLightbox(img.url!)}
+                      />
+                    ) : img.status === 'generating' ? (
+                      <div className="flex flex-col items-center gap-2 text-gray-500">
+                        <span className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                        <span className="text-[10px]">Rendering...</span>
+                      </div>
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-gray-600" />
+                    )}
+                  </div>
+
+                  <p className="mb-2 line-clamp-3 text-[11px] leading-relaxed text-gray-400">{img.prompt}</p>
+                  {img.status === 'error' && <p className="mb-2 text-[11px] text-red-400">{img.error}</p>}
+
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleRegenerateOne(img.index)}
+                      disabled={isRunning}
+                      className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2 disabled:opacity-40"
+                    >
+                      <Undo2 className="h-3 w-3" /> {img.status === 'done' ? 'Regenerate' : 'Retry'}
+                    </button>
+                    {img.status === 'done' && img.url && (
+                      <a href={img.url} download className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2">
+                        <Download className="h-3 w-3" /> Download
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-1 flex-col overflow-y-auto p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-semibold text-white">Text to Audio Generation</h3>
+              <p className="mt-1 text-xs text-gray-400">
+                Extracted narration script from assets ({wordCount} words • ~{estimatedSec}s audio duration)
+              </p>
+            </div>
+            {narrationText && (
+              <button
+                onClick={() => navigator.clipboard.writeText(narrationText)}
+                className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2"
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy Narration Script
+              </button>
+            )}
+          </div>
+
+          {narrationText ? (
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+              <div className="lg:col-span-2 rounded-lg border border-border bg-surface p-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                  Extracted Narration Script
+                </h4>
+                <textarea
+                  value={narrationText}
+                  readOnly
+                  className="h-96 w-full resize-none rounded-md border border-border bg-surface2 p-3 text-xs leading-relaxed text-gray-200 focus:outline-none"
+                />
+              </div>
+
+              <div className="rounded-lg border border-border bg-surface p-4 flex flex-col justify-between">
+                <div>
+                  <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                    Voiceover & Audio Settings
+                  </h4>
+
+                  <div className="mb-4">
+                    <label className="mb-1 block text-xs text-gray-400">Voice Persona</label>
+                    <select className="w-full rounded-md border border-border bg-surface2 px-3 py-2 text-xs text-white">
+                      <option>Adam — Deep Male Documentary Voice</option>
+                      <option>Rachel — Calm Female Narrative Voice</option>
+                      <option>Antoni — Cinematic Mystery Accent</option>
+                    </select>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="mb-1 block text-xs text-gray-400">Speech Rate</label>
+                    <input type="range" min="0.8" max="1.3" step="0.05" defaultValue="1.0" className="w-full accent-accent" />
+                  </div>
+
+                  <div className="rounded-md border border-border/60 bg-surface2/50 p-3 text-xs text-gray-400">
+                    <p className="font-medium text-gray-300 mb-1">🎙️ Narration Engine Status</p>
+                    <p className="text-[11px] leading-relaxed text-gray-500">
+                      Narration script is automatically extracted from your active script assets.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  disabled
+                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 text-xs font-medium text-white opacity-60 cursor-not-allowed"
+                >
+                  <Music className="h-4 w-4" /> Generate Audio (Coming Soon)
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-64 flex-col items-center justify-center text-gray-500">
+              <Music className="mb-3 h-8 w-8 text-gray-600" />
+              <p className="text-sm">No narration text found for this script.</p>
+              <p className="mt-1 text-xs">Extract assets first from the Preview tab.</p>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {lightbox && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8" onClick={() => setLightbox(null)}>
