@@ -4,6 +4,7 @@ import cors from 'cors';
 import { healthRouter } from './routes/health.js';
 import { llmRouter } from './routes/llm.js';
 import { scriptsRouter } from './routes/scripts.js';
+import { generateRouter } from './routes/generate.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -14,6 +15,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use('/api/health', healthRouter);
 app.use('/api/llm', llmRouter);
 app.use('/api/scripts', scriptsRouter);
+app.use('/api/generate', generateRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });

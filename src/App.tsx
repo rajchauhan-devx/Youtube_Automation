@@ -31,9 +31,10 @@ import {
   Sparkles,
   AlertCircle,
   Loader2,
+  Square,
 } from 'lucide-react';
 import { channels, channelData } from './data';
-import type { Section, Tab, Channel, Script, PipelineStep } from './data';
+import type { Section, Tab, Channel, Script, PipelineStep, GeneratedImage } from './data';
 import { parseAIResponse } from './lib/parseAIResponse.js';
 import { apiPost, getApiKey } from './services/api.js';
 
@@ -41,6 +42,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'scripts', label: 'Scripts' },
   { id: 'preview', label: 'Preview' },
   { id: 'assets', label: 'Assets' },
+  { id: 'generation', label: 'Generation' },
   { id: 'editor', label: 'Editor' },
   { id: 'export', label: 'Export' },
 ];
@@ -545,7 +547,13 @@ ${optionalInstructions}`;
                   />
                 )}
                 {tab === 'preview' && <PreviewTab pipeline={pipeline} script={selectedScript} onExtractAssets={handleExtractAssets} />}
-                {tab === 'assets' && <AssetsTab script={selectedScript} />}
+                {tab === 'assets' && <AssetsTab script={selectedScript} onProceedToGeneration={() => setTab('generation')} />}
+                {tab === 'generation' && (
+                  <GenerationTab
+                    script={selectedScript}
+                    onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
+                  />
+                )}
                 {tab === 'editor' && <EditorTab data={data} section={section} />}
                 {tab === 'export' && <ExportTab section={section} />}
               </div>
@@ -1117,7 +1125,7 @@ function PreviewTab({ pipeline, script, onExtractAssets }: { pipeline: PipelineS
     </div>
   );
 }
-function AssetsTab({ script }: { script: Script | null }) {
+function AssetsTab({ script, onProceedToGeneration }: { script: Script | null; onProceedToGeneration?: () => void }) {
   const [activeSubTab, setActiveSubTab] = useState<'images' | 'narration'>('images');
 
   if (!script) {
@@ -1180,6 +1188,15 @@ function AssetsTab({ script }: { script: Script | null }) {
           <span className="text-xs text-gray-500">
             {script.imagePrompts?.length ?? 0} images, {script.narration ? '1 narration' : 'no narration'}
           </span>
+          {hasAssets && (script.imagePrompts?.length ?? 0) > 0 && onProceedToGeneration && (
+            <button
+              onClick={onProceedToGeneration}
+              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80"
+            >
+              <Play className="h-3.5 w-3.5" />
+              Proceed to Generation
+            </button>
+          )}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-6">
@@ -1274,6 +1291,387 @@ function AssetsTab({ script }: { script: Script | null }) {
   );
 }
 
+
+/* ============ GENERATION TAB ============ */
+
+function GenerationTab({
+  script,
+  onUpdate,
+}: {
+  script: Script | null;
+  onUpdate: (patch: Partial<Script>) => void;
+}) {
+  const [images, setImages] = useState<GeneratedImage[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline' | 'starting'>('checking');
+  const [serverError, setServerError] = useState('');
+  const [lightbox, setLightbox] = useState<string | null>(null);
+
+  const runTokenRef = useRef(0);
+  const pausedRef = useRef(false);
+  const imagesRef = useRef<GeneratedImage[]>([]);
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
+  useEffect(() => {
+    pausedRef.current = isPaused;
+  }, [isPaused]);
+
+  useEffect(() => {
+    runTokenRef.current++;
+    setIsRunning(false);
+    setIsPaused(false);
+    if (!script) {
+      setImages([]);
+      return;
+    }
+    const prompts = script.imagePrompts || [];
+    const existing = script.generatedImages || [];
+    const merged: GeneratedImage[] = prompts.map((prompt, i) => {
+      const prior = existing.find((e) => e.index === i && e.prompt === prompt);
+      return prior ?? { index: i, prompt, status: 'pending' as const };
+    });
+    setImages(merged);
+  }, [script?.id, script?.imagePrompts]);
+
+  async function checkServer() {
+    setServerStatus('checking');
+    const status = await fetch('/api/generate/status')
+      .then((r) => r.json())
+      .catch((err) => ({ online: false, detail: err.message }));
+    setServerStatus(status.online ? 'online' : 'offline');
+    setServerError(status.detail || '');
+    return status.online as boolean;
+  }
+
+  useEffect(() => {
+    checkServer();
+  }, []);
+
+  function updateImage(index: number, patch: Partial<GeneratedImage>) {
+    const next = imagesRef.current.map((im) => (im.index === index ? { ...im, ...patch } : im));
+    imagesRef.current = next;
+    setImages(next);
+    onUpdate({ generatedImages: next });
+  }
+
+  async function generateOne(item: GeneratedImage) {
+    if (!script) return;
+    updateImage(item.index, { status: 'generating', error: undefined, errorCode: undefined });
+    try {
+      const res = await fetch('/api/generate/image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptId: script.id, index: item.index, prompt: item.prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw Object.assign(new Error(data.error || 'Generation failed'), { code: data.code });
+      updateImage(item.index, {
+        status: 'done',
+        url: data.url,
+        seed: data.seed,
+        elapsedMs: data.elapsedMs,
+        attempts: (item.attempts || 0) + 1,
+      });
+    } catch (err: any) {
+      updateImage(item.index, {
+        status: 'error',
+        error: err.message || 'Unknown error',
+        errorCode: err.code,
+        attempts: (item.attempts || 0) + 1,
+      });
+    }
+  }
+
+  async function runQueue(items: GeneratedImage[]) {
+    const myToken = ++runTokenRef.current;
+    setIsRunning(true);
+    for (const item of items) {
+      if (myToken !== runTokenRef.current) return;
+      if (item.status === 'done') continue;
+      while (pausedRef.current) {
+        await new Promise((r) => setTimeout(r, 300));
+        if (myToken !== runTokenRef.current) return;
+      }
+      await generateOne(item);
+    }
+    if (myToken === runTokenRef.current) setIsRunning(false);
+  }
+
+  async function handleStartModel() {
+    setServerStatus('starting');
+    setServerError('');
+    try {
+      const res = await fetch('/api/generate/start', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        setServerStatus('online');
+      } else {
+        setServerStatus('offline');
+        setServerError(data.message || 'Failed to start ComfyUI');
+      }
+    } catch (err: any) {
+      setServerStatus('offline');
+      setServerError(err.message || 'Could not reach the server');
+    }
+  }
+
+  async function handleStopModel() {
+    setServerStatus('offline');
+    try {
+      await fetch('/api/generate/stop', { method: 'POST' });
+    } catch {
+      // ignore
+    }
+  }
+
+  async function handleStart() {
+    if (!script || images.length === 0 || isRunning) return;
+    const online = await checkServer();
+    if (!online) return;
+    runQueue(imagesRef.current);
+  }
+
+  function handlePause() {
+    setIsPaused(true);
+  }
+  function handleResume() {
+    setIsPaused(false);
+  }
+
+  function handleCancel() {
+    runTokenRef.current++;
+    setIsRunning(false);
+    setIsPaused(false);
+    const generating = imagesRef.current.find((im) => im.status === 'generating');
+    if (generating && script) {
+      fetch('/api/generate/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptId: script.id, index: generating.index }),
+      }).catch(() => {});
+      updateImage(generating.index, { status: 'pending' });
+    }
+  }
+
+  function handleRetryFailed() {
+    if (isRunning) return;
+    runQueue(imagesRef.current);
+  }
+
+  async function handleRegenerateOne(index: number) {
+    if (isRunning) return;
+    const target = imagesRef.current.find((im) => im.index === index);
+    if (!target) return;
+    setIsRunning(true);
+    const myToken = ++runTokenRef.current;
+    await generateOne({ ...target, status: 'pending' });
+    if (myToken === runTokenRef.current) setIsRunning(false);
+  }
+
+  if (!script) {
+    return <div className="flex h-full items-center justify-center text-gray-500">No script selected.</div>;
+  }
+  if (images.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center text-gray-500">
+        <ImageIcon className="mb-3 h-8 w-8 text-gray-600" />
+        <p className="text-sm">No image prompts to generate.</p>
+        <p className="mt-1 text-xs">Extract assets first from the Preview tab.</p>
+      </div>
+    );
+  }
+
+  const doneCount = images.filter((i) => i.status === 'done').length;
+  const errorCount = images.filter((i) => i.status === 'error').length;
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center justify-between border-b border-border p-4">
+        <div className="flex items-center gap-4">
+          <h3 className="text-sm font-semibold">Image Generation</h3>
+          <span className="text-xs text-gray-500">
+            {doneCount}/{images.length} done{errorCount > 0 ? `, ${errorCount} failed` : ''}
+          </span>
+          {serverStatus === 'online' && (
+            <span className="flex items-center gap-1.5 text-[10px] text-green-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> FLUX.2 Klein server online
+            </span>
+          )}
+          {serverStatus === 'offline' && (
+            <span className="flex items-center gap-1.5 text-[10px] text-red-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> Server offline
+            </span>
+          )}
+          {serverStatus === 'starting' && (
+            <span className="flex items-center gap-1.5 text-[10px] text-accent">
+              <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Starting model...
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {serverStatus === 'online' && (
+            <button
+              onClick={async () => {
+                const res = await fetch('/api/generate/stop', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) setServerStatus('offline');
+              }}
+              className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
+            >
+              <Square className="h-3.5 w-3.5" /> Stop Model
+            </button>
+          )}
+          {serverStatus === 'online' && (
+            <button
+              onClick={handleStopModel}
+              className="flex items-center gap-1.5 rounded-md border border-orange-500/40 px-3 py-1.5 text-xs text-orange-400 hover:bg-orange-500/10"
+            >
+              <Square className="h-3.5 w-3.5" /> Stop Model
+            </button>
+          )}
+          {!isRunning ? (
+            <button
+              onClick={handleStart}
+              disabled={serverStatus !== 'online' || doneCount === images.length}
+              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
+            >
+              {serverStatus === 'starting' ? (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              ) : (
+                <Play className="h-3.5 w-3.5" />
+              )}
+              {serverStatus === 'starting' ? 'Starting model...' : doneCount === 0 ? 'Start Generation' : 'Resume Generation'}
+            </button>
+          ) : isPaused ? (
+            <button onClick={handleResume} className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80">
+              <Play className="h-3.5 w-3.5" /> Resume
+            </button>
+          ) : (
+            <button onClick={handlePause} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2">
+              <Pause className="h-3.5 w-3.5" /> Pause
+            </button>
+          )}
+          {isRunning && (
+            <button onClick={handleCancel} className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10">
+              <X className="h-3.5 w-3.5" /> Cancel
+            </button>
+          )}
+          {!isRunning && errorCount > 0 && (
+            <button onClick={handleRetryFailed} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2">
+              <Undo2 className="h-3.5 w-3.5" /> Retry Failed ({errorCount})
+            </button>
+          )}
+        </div>
+      </div>
+
+      {serverStatus === 'starting' && (
+        <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-accent/30 bg-accent/10 p-3 text-xs text-accent">
+          <span className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          <div>
+            <p className="font-medium">Starting Image Model...</p>
+            <p className="mt-1 text-accent/80">Launching ComfyUI, this may take up to 2 minutes.</p>
+          </div>
+        </div>
+      )}
+
+      {serverStatus === 'offline' && (
+        <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="flex-1">
+            <p className="font-medium">Image Model is offline</p>
+            <p className="mt-1 text-red-300/80">{serverError}</p>
+            <div className="mt-2 flex gap-2">
+              <button
+                onClick={handleStartModel}
+                className="flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-[11px] font-medium text-white hover:bg-accent/80"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                Run Image Model
+              </button>
+              <button onClick={checkServer} className="rounded border border-red-500/40 px-2 py-1 text-[11px] hover:bg-red-500/10">
+                Retry connection
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {images.map((img) => (
+            <div key={img.index} className="rounded-lg border border-border bg-surface p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-medium text-white">Image {img.index + 1}</span>
+                {img.status === 'pending' && <span className="rounded-full bg-gray-500/10 px-2 py-0.5 text-[10px] text-gray-400">Pending</span>}
+                {img.status === 'generating' && (
+                  <span className="flex items-center gap-1 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] text-accent">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" /> Generating...
+                  </span>
+                )}
+                {img.status === 'done' && (
+                  <span className="flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-[10px] text-green-400">
+                    <Check className="h-3 w-3" /> Done
+                  </span>
+                )}
+                {img.status === 'error' && (
+                  <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] text-red-400">
+                    <AlertCircle className="h-3 w-3" /> Failed
+                  </span>
+                )}
+              </div>
+
+              <div className="mb-2 flex aspect-square items-center justify-center overflow-hidden rounded-md bg-surface2">
+                {img.status === 'done' && img.url ? (
+                  <img
+                    src={img.url}
+                    alt={`Generated ${img.index + 1}`}
+                    className="h-full w-full cursor-pointer object-cover"
+                    onClick={() => setLightbox(img.url!)}
+                  />
+                ) : img.status === 'generating' ? (
+                  <div className="flex flex-col items-center gap-2 text-gray-500">
+                    <span className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                    <span className="text-[10px]">Rendering...</span>
+                  </div>
+                ) : (
+                  <ImageIcon className="h-8 w-8 text-gray-600" />
+                )}
+              </div>
+
+              <p className="mb-2 line-clamp-3 text-[11px] leading-relaxed text-gray-400">{img.prompt}</p>
+              {img.status === 'error' && <p className="mb-2 text-[11px] text-red-400">{img.error}</p>}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleRegenerateOne(img.index)}
+                  disabled={isRunning}
+                  className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2 disabled:opacity-40"
+                >
+                  <Undo2 className="h-3 w-3" /> {img.status === 'done' ? 'Regenerate' : 'Retry'}
+                </button>
+                {img.status === 'done' && img.url && (
+                  <a href={img.url} download className="flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2">
+                    <Download className="h-3 w-3" /> Download
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {lightbox && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8" onClick={() => setLightbox(null)}>
+          <img src={lightbox} className="max-h-full max-w-full rounded-lg" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 
 /* ============ EDITOR TAB ============ */

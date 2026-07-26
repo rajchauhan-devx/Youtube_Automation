@@ -1,5 +1,5 @@
 export type Section = 'shorts' | 'long';
-export type Tab = 'scripts' | 'preview' | 'assets' | 'editor' | 'export';
+export type Tab = 'scripts' | 'preview' | 'assets' | 'generation' | 'editor' | 'export';
 export type ScriptStatus = 'active' | 'draft';
 export type AssetKind = 'image' | 'audio' | 'video';
 export interface PromptBlock {
@@ -32,6 +32,7 @@ export interface Script {
   extractedScript?: string;
   imagePrompts?: string[];
   narration?: string;
+  generatedImages?: GeneratedImage[];
   pipeline?: PipelineStep[];
 }
 
@@ -42,6 +43,18 @@ export interface PipelineStep {
   summary: string;
   inputLog: string;
   outputPreview: string;
+}
+
+export interface GeneratedImage {
+  index: number;
+  prompt: string;
+  status: 'pending' | 'generating' | 'done' | 'error';
+  url?: string;
+  seed?: number;
+  error?: string;
+  errorCode?: string;
+  attempts?: number;
+  elapsedMs?: number;
 }
 
 export interface Asset {

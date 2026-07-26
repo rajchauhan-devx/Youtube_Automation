@@ -119,6 +119,62 @@
       "Vertical 9:16 shot of a memorial plaque on a stone wall in Oradour-sur-Glane, weathered stone, engraved text partially visible, ivy growing around the edges, soft natural light, cinematic documentary realism, dark muted color grade, natural film grain, serious documentary mood. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
       "Final Signal Card — Dark paper/archive style with subtle grain. Text reads: \"WHAT WOULD YOU LEAVE BEHIND?\" in large bold letters. Below in smaller text: \"Oradour-sur-Glane — Frozen since 1944.\" Lost Frequency branding in bottom corner. Clean readable text, muted sepia tones, subtle film grain overlay, dark background, haunting atmosphere."
     ],
-    "narration": "There's a village in France where the cars still sit in the garages—and nobody has touched them since 1944. This is Oradour-sur-Glane. On June 10, 1944, it was destroyed. But here's what makes it different from every other war ruin. The French government made a decision. They would not rebuild. They would not clear the rubble. They ordered the village preserved exactly as it was left. Today, you can walk through streets where bicycles still lean against walls. Sewing machines sit in abandoned homes. A car rusts in a garage, its owner never returning to drive it again. The village stands as a permanent memorial. But the question remains—what would you leave behind if your life stopped in a single afternoon?"
+    "narration": "There's a village in France where the cars still sit in the garages—and nobody has touched them since 1944. This is Oradour-sur-Glane. On June 10, 1944, it was destroyed. But here's what makes it different from every other war ruin. The French government made a decision. They would not rebuild. They would not clear the rubble. They ordered the village preserved exactly as it was left. Today, you can walk through streets where bicycles still lean against walls. Sewing machines sit in abandoned homes. A car rusts in a garage, its owner never returning to drive it again. The village stands as a permanent memorial. But the question remains—what would you leave behind if your life stopped in a single afternoon?",
+    "generatedImages": [
+      {
+        "index": 0,
+        "prompt": "A haunting vertical 9:16 shot of a rusted vintage bicycle leaning against a stone wall in a destroyed French village, overgrown with weeds, muted gray sky, cinematic documentary realism, dark muted color grade, natural film grain, abandoned atmosphere, no people visible. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
+        "status": "error",
+        "error": "Image generation timed out after 300s.",
+        "errorCode": "TIMEOUT",
+        "attempts": 8
+      },
+      {
+        "index": 1,
+        "prompt": "Source Card — Dark paper/archive style with subtle grain. Text reads: \"ORADOUR-SUR-GLANE — June 10, 1944.\" Below in smaller text: \"French village preserved as permanent memorial.\" Lost Frequency branding in bottom corner. Clean readable text, muted sepia tones, subtle film grain overlay, dark background.",
+        "status": "error",
+        "error": "Image generation timed out after 120s.",
+        "errorCode": "TIMEOUT",
+        "attempts": 4
+      },
+      {
+        "index": 2,
+        "prompt": "Vertical 9:16 shot looking down a narrow cobblestone street in a destroyed French village, ruined stone buildings on both sides, collapsed roofs, rusted metal debris, overgrown vegetation, empty street leading into mist, cinematic documentary realism, dark muted color grade, natural film grain, no people. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
+        "status": "generating",
+        "attempts": 3
+      },
+      {
+        "index": 3,
+        "prompt": "Vertical 9:16 interior shot of a destroyed room in a French village, a rusted sewing machine on a wooden table, collapsed ceiling beams, faded wallpaper peeling from walls, dust and debris on floor, muted gray light filtering through broken windows, cinematic documentary realism, dark muted color grade, natural film grain. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
+        "status": "error",
+        "error": "ComfyUI rejected the workflow (HTTP 400). This usually means the exported workflow JSON doesn't match the nodes you have installed.",
+        "errorCode": "QUEUE_FAILED",
+        "attempts": 3
+      },
+      {
+        "index": 4,
+        "prompt": "Vertical 9:16 shot of a vintage car rusting inside a stone garage, half-collapsed roof, weeds growing through the floorboards, faded paint, empty driver's seat visible through broken windshield, muted gray light, cinematic documentary realism, dark muted color grade, natural film grain, no people. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
+        "status": "error",
+        "error": "ComfyUI rejected the workflow (HTTP 400). This usually means the exported workflow JSON doesn't match the nodes you have installed.",
+        "errorCode": "QUEUE_FAILED",
+        "attempts": 3
+      },
+      {
+        "index": 5,
+        "prompt": "Vertical 9:16 shot of a memorial plaque on a stone wall in Oradour-sur-Glane, weathered stone, engraved text partially visible, ivy growing around the edges, soft natural light, cinematic documentary realism, dark muted color grade, natural film grain, serious documentary mood. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
+        "status": "error",
+        "error": "ComfyUI rejected the workflow (HTTP 400). This usually means the exported workflow JSON doesn't match the nodes you have installed.",
+        "errorCode": "QUEUE_FAILED",
+        "attempts": 3
+      },
+      {
+        "index": 6,
+        "prompt": "Final Signal Card — Dark paper/archive style with subtle grain. Text reads: \"WHAT WOULD YOU LEAVE BEHIND?\" in large bold letters. Below in smaller text: \"Oradour-sur-Glane — Frozen since 1944.\" Lost Frequency branding in bottom corner. Clean readable text, muted sepia tones, subtle film grain overlay, dark background, haunting atmosphere.",
+        "status": "error",
+        "error": "ComfyUI rejected the workflow (HTTP 400). This usually means the exported workflow JSON doesn't match the nodes you have installed.",
+        "errorCode": "QUEUE_FAILED",
+        "attempts": 3
+      }
+    ]
   }
 ]
