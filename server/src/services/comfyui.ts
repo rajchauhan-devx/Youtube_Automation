@@ -158,9 +158,9 @@ export async function startComfyUI(): Promise<{ success: boolean; message: strin
     comfyProcess = null;
   }
 
-  comfyProcess = spawn('python', [mainPy, '--listen', '--port', '8188', '--cpu'], {
+  comfyProcess = spawn('python', [mainPy, '--listen', '--port', '8188'], {
     cwd: comfyPath,
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
     detached: true,
   });
   comfyProcess.unref();

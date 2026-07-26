@@ -124,32 +124,38 @@
       {
         "index": 0,
         "prompt": "A haunting vertical 9:16 shot of a rusted vintage bicycle leaning against a stone wall in a destroyed French village, overgrown with weeds, muted gray sky, cinematic documentary realism, dark muted color grade, natural film grain, abandoned atmosphere, no people visible. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
-        "status": "error",
-        "error": "Image generation timed out after 300s.",
-        "errorCode": "TIMEOUT",
-        "attempts": 8
+        "status": "done",
+        "attempts": 37,
+        "url": "/api/generate/file/usr_1784980792935/image-00-1785058985144.png",
+        "seed": 1976919422,
+        "elapsedMs": 53574
       },
       {
         "index": 1,
         "prompt": "Source Card — Dark paper/archive style with subtle grain. Text reads: \"ORADOUR-SUR-GLANE — June 10, 1944.\" Below in smaller text: \"French village preserved as permanent memorial.\" Lost Frequency branding in bottom corner. Clean readable text, muted sepia tones, subtle film grain overlay, dark background.",
-        "status": "error",
-        "error": "Image generation timed out after 120s.",
-        "errorCode": "TIMEOUT",
-        "attempts": 4
+        "status": "done",
+        "attempts": 14,
+        "url": "/api/generate/file/usr_1784980792935/image-01-1785059667185.png",
+        "seed": 1997097183,
+        "elapsedMs": 47434
       },
       {
         "index": 2,
         "prompt": "Vertical 9:16 shot looking down a narrow cobblestone street in a destroyed French village, ruined stone buildings on both sides, collapsed roofs, rusted metal debris, overgrown vegetation, empty street leading into mist, cinematic documentary realism, dark muted color grade, natural film grain, no people. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
-        "status": "generating",
-        "attempts": 3
+        "status": "done",
+        "attempts": 8,
+        "url": "/api/generate/file/usr_1784980792935/image-02-1785059719669.png",
+        "seed": 1377010176,
+        "elapsedMs": 39376
       },
       {
         "index": 3,
         "prompt": "Vertical 9:16 interior shot of a destroyed room in a French village, a rusted sewing machine on a wooden table, collapsed ceiling beams, faded wallpaper peeling from walls, dust and debris on floor, muted gray light filtering through broken windows, cinematic documentary realism, dark muted color grade, natural film grain. Style: grounded atmosphere, realistic abandoned place, serious documentary mood. Negative prompt: cartoon, anime, Pixar, toy-like, glossy CGI, fake news graphics, gore, distorted faces, extra fingers, unreadable text, watermark, logo, modern neon HUD, cheap horror style, overdramatic red arrows",
-        "status": "error",
-        "error": "ComfyUI rejected the workflow (HTTP 400). This usually means the exported workflow JSON doesn't match the nodes you have installed.",
-        "errorCode": "QUEUE_FAILED",
-        "attempts": 3
+        "status": "done",
+        "attempts": 8,
+        "url": "/api/generate/file/usr_1784980792935/image-03-1785059850881.png",
+        "seed": 770735618,
+        "elapsedMs": 110226
       },
       {
         "index": 4,
@@ -157,7 +163,7 @@
         "status": "error",
         "error": "ComfyUI rejected the workflow (HTTP 400). This usually means the exported workflow JSON doesn't match the nodes you have installed.",
         "errorCode": "QUEUE_FAILED",
-        "attempts": 3
+        "attempts": 7
       },
       {
         "index": 5,
@@ -165,7 +171,7 @@
         "status": "error",
         "error": "ComfyUI rejected the workflow (HTTP 400). This usually means the exported workflow JSON doesn't match the nodes you have installed.",
         "errorCode": "QUEUE_FAILED",
-        "attempts": 3
+        "attempts": 7
       },
       {
         "index": 6,
@@ -173,7 +179,7 @@
         "status": "error",
         "error": "ComfyUI rejected the workflow (HTTP 400). This usually means the exported workflow JSON doesn't match the nodes you have installed.",
         "errorCode": "QUEUE_FAILED",
-        "attempts": 3
+        "attempts": 7
       }
     ]
   }
