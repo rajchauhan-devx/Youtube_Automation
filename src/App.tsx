@@ -1430,7 +1430,28 @@ function GenerationTab({
 
   async function handleStart() {
     if (!script || images.length === 0 || isRunning) return;
-    const online = await checkServer();
+    let online = await checkServer();
+    if (!online) {
+      // Auto-start the model if offline
+      setServerStatus('starting');
+      setServerError('');
+      try {
+        const res = await fetch('/api/generate/start', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          setServerStatus('online');
+          online = true;
+        } else {
+          setServerStatus('offline');
+          setServerError(data.message || 'Failed to start ComfyUI');
+          return;
+        }
+      } catch (err: any) {
+        setServerStatus('offline');
+        setServerError(err.message || 'Could not reach the server');
+        return;
+      }
+    }
     if (!online) return;
     runQueue(imagesRef.current);
   }
@@ -1456,6 +1477,7 @@ function GenerationTab({
       updateImage(generating.index, { status: 'pending' });
     }
   }
+
 
   function handleRetryFailed() {
     if (isRunning) return;
@@ -1515,20 +1537,8 @@ function GenerationTab({
         <div className="flex items-center gap-2">
           {serverStatus === 'online' && (
             <button
-              onClick={async () => {
-                const res = await fetch('/api/generate/stop', { method: 'POST' });
-                const data = await res.json();
-                if (data.success) setServerStatus('offline');
-              }}
-              className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
-            >
-              <Square className="h-3.5 w-3.5" /> Stop Model
-            </button>
-          )}
-          {serverStatus === 'online' && (
-            <button
               onClick={handleStopModel}
-              className="flex items-center gap-1.5 rounded-md border border-orange-500/40 px-3 py-1.5 text-xs text-orange-400 hover:bg-orange-500/10"
+              className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
             >
               <Square className="h-3.5 w-3.5" /> Stop Model
             </button>
@@ -1536,7 +1546,7 @@ function GenerationTab({
           {!isRunning ? (
             <button
               onClick={handleStart}
-              disabled={serverStatus !== 'online' || doneCount === images.length}
+              disabled={serverStatus === 'starting' || doneCount === images.length}
               className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
             >
               {serverStatus === 'starting' ? (
