@@ -1502,15 +1502,6 @@ function GenerationTab({
   if (!script) {
     return <div className="flex h-full items-center justify-center text-gray-500">No script selected.</div>;
   }
-  if (images.length === 0 && generationSubTab === 'image') {
-    return (
-      <div className="flex h-full flex-col items-center justify-center text-gray-500">
-        <ImageIcon className="mb-3 h-8 w-8 text-gray-600" />
-        <p className="text-sm">No image prompts to generate.</p>
-        <p className="mt-1 text-xs">Extract assets first from the Preview tab.</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -1541,8 +1532,15 @@ function GenerationTab({
       </div>
 
       {generationSubTab === 'image' ? (
-        <>
-          <div className="flex items-center justify-between border-b border-border p-4">
+        images.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center text-gray-500">
+            <ImageIcon className="mb-3 h-8 w-8 text-gray-600" />
+            <p className="text-sm">No image prompts to generate.</p>
+            <p className="mt-1 text-xs">Extract assets first from the Preview tab.</p>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between border-b border-border p-4">
             <div className="flex items-center gap-4">
               <h3 className="text-sm font-semibold">Image Generation</h3>
               <span className="text-xs text-gray-500">
@@ -1704,6 +1702,7 @@ function GenerationTab({
             </div>
           </div>
         </>
+      )
       ) : (
         <div className="flex flex-1 flex-col overflow-y-auto p-6">
           <div className="mb-4 flex items-center justify-between">
