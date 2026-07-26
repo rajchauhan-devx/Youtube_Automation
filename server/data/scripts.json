@@ -169,11 +169,11 @@
       {
         "index": 3,
         "prompt": "Close-up of an old, engraved portrait of Samuel Huntington, grainy and slightly damaged, as if from a 19th-century book, his face is stern, the image is partially faded, dark vignette, sense of forgotten history, 9:16 vertical, documentary style. cartoon, anime, glossy, smiling, toy, modern, clean, fake.",
-        "status": "generating",
-        "url": "/api/generate/file/usr_1785062582736/image-03-1785063116570.png",
-        "seed": 1468965358,
-        "elapsedMs": 68553,
-        "attempts": 1
+        "status": "done",
+        "url": "/api/generate/file/usr_1785062582736/image-03-1785065729003.png",
+        "seed": 1131201763,
+        "elapsedMs": 63527,
+        "attempts": 3
       },
       {
         "index": 4,
@@ -188,19 +188,19 @@
         "index": 5,
         "prompt": "A stylistic, dark, empty room in a historic building, a single chair sits alone under a single beam of light, representing a forgotten throne, dust motes in the light, a sense of absence, 9:16 vertical, cinematic noir documentary style, muted browns and blacks. cartoon, anime, fantasy, monster, gore, modern, fake, glossy.",
         "status": "done",
-        "url": "/api/generate/file/usr_1785062582736/image-05-1785063253679.png",
-        "seed": 1998746604,
-        "elapsedMs": 68719,
-        "attempts": 1
+        "url": "/api/generate/file/usr_1785062582736/image-05-1785065922988.png",
+        "seed": 758956777,
+        "elapsedMs": 59600,
+        "attempts": 2
       },
       {
         "index": 6,
         "prompt": "Final Signal Card — Dark background with subtle grain. Text: \"The first President of the United States was Samuel Huntington. His name is now silent. A ghost of a forgotten government.\" 9:16 vertical, white serif text, centered.",
         "status": "done",
-        "url": "/api/generate/file/usr_1785062582736/image-06-1785063322411.png",
-        "seed": 1037504824,
-        "elapsedMs": 68476,
-        "attempts": 1
+        "url": "/api/generate/file/usr_1785062582736/image-06-1785066790527.png",
+        "seed": 2016666271,
+        "elapsedMs": 58538,
+        "attempts": 2
       }
     ]
   }
