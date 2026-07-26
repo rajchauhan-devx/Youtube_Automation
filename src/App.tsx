@@ -1336,7 +1336,7 @@ function GenerationTab({
       return prior ?? { index: i, prompt, status: 'pending' as const };
     });
     setImages(merged);
-  }, [script?.id, script?.imagePrompts]);
+  }, [script?.id, script?.imagePrompts?.length]);
 
   async function checkServer() {
     setServerStatus('checking');
