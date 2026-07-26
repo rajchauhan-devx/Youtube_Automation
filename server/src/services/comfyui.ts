@@ -190,7 +190,8 @@ export async function startComfyUI(): Promise<{ success: boolean; message: strin
 
   comfyProcess = spawn('python', [mainPy, '--listen', '--port', '8188'], {
     cwd: comfyPath,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, TQDM_DISABLE: '1' },
+    stdio: 'ignore',
     detached: true,
   });
   comfyProcess.unref();
