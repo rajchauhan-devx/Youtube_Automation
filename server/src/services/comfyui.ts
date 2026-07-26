@@ -57,6 +57,19 @@ export async function checkComfyStatus(): Promise<{ online: boolean; detail?: st
 
 function buildWorkflow(prompt: string, seed: number): any {
   const wf = loadTemplate();
+
+  // Auto-detect downloaded checkpoint in ComfyUI/models/checkpoints
+  const comfyPath = process.env.COMFYUI_PATH || 'C:\\Users\\zrajc\\Youtube_Automation\\ComfyUI';
+  const ckptDir = path.join(comfyPath, 'models', 'checkpoints');
+  if (fs.existsSync(ckptDir)) {
+    const ckpts = fs.readdirSync(ckptDir).filter(
+      (f) => (f.endsWith('.safetensors') || f.endsWith('.ckpt')) && f !== 'put_checkpoints_here'
+    );
+    if (ckpts.length > 0 && wf['4'] && wf['4'].class_type === 'CheckpointLoaderSimple') {
+      wf['4'].inputs.ckpt_name = ckpts[0];
+    }
+  }
+
   if (!wf[PROMPT_NODE_ID]) {
     throw new ComfyError(
       'CONFIG',
