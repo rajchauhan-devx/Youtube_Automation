@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { generateTTS, previewTTS, checkOmniVoiceStatus, startOmniVoice, stopOmniVoice, getVoices, TtsError } from '../services/omnivoice.js';
+import { generateTTS, previewTTS, checkOmniVoiceStatus, startOmniVoice, stopOmniVoice, getVoices, TTS_PROVIDER_NAME, TtsError } from '../services/omnivoice.js';
 
 export const ttsRouter = Router();
 
@@ -7,12 +7,13 @@ const statusCode: Record<string, number> = {
   API_ERROR: 502,
   TIMEOUT: 504,
   CONNECTION_REFUSED: 503,
+  CONFIG: 500,
   UNKNOWN: 500,
 };
 
 ttsRouter.get('/status', async (_req, res) => {
   const online = await checkOmniVoiceStatus();
-  res.json({ online });
+  res.json({ online, provider: TTS_PROVIDER_NAME });
 });
 
 ttsRouter.get('/voices', async (req, res) => {
@@ -40,10 +41,10 @@ ttsRouter.post('/preview', async (req, res) => {
   }
 
   try {
-    const audioBuffer = await previewTTS({ voice, language });
-    res.set('Content-Type', 'audio/wav');
-    res.set('Content-Length', String(audioBuffer.length));
-    res.send(audioBuffer);
+    const { buffer, contentType } = await previewTTS({ voice, language });
+    res.set('Content-Type', contentType);
+    res.set('Content-Length', String(buffer.length));
+    res.send(buffer);
   } catch (err: any) {
     console.error(`TTS preview failed:`, err.message);
     if (err instanceof TtsError) {

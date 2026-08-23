@@ -2,25 +2,29 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
+import { TtsError, concatWavs, splitIntoChunks, type VoiceInfo } from './tts-shared.js';
+import { checkOpenRouterStatus, synthesizeOpenRouter, generateCloudAudio } from './openrouter-tts.js';
+import { checkEdgeTtsStatus, synthesizeEdgeTts, generateEdgeAudio } from './edge-tts.js';
+
+export { TtsError, type VoiceInfo } from './tts-shared.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OMNIVOICE_URL = (process.env.OMNIVOICE_URL || 'http://127.0.0.1:3900').replace(/\/+$/, '');
+const OMNIVOICE_URL = (process.env.TTS_SERVER_URL || process.env.OMNIVOICE_URL || 'http://localhost:8880').replace(/\/+$/, '');
 const GENERATED_DIR = path.join(__dirname, '..', '..', 'data', 'generated');
-const OMNIVOICE_START_CMD = (process.env.OMNIVOICE_START_CMD || 'python -m omnivoice_server --port 3900 --num-step 6');
+const OMNIVOICE_START_CMD = (process.env.TTS_START_CMD || process.env.OMNIVOICE_START_CMD || 'python -m omnivoice_server --port 8880');
 
-const TTS_TIMEOUT_MS = parseInt(process.env.TTS_TIMEOUT_MS || '120000', 10);
+// 'edge' (default, free Microsoft Edge neural voices), 'openrouter' (cloud, needs OPENROUTER_API_KEY) or 'omni' (local OmniVoice server)
+export const TTS_PROVIDER = (process.env.TTS_PROVIDER || 'edge').toLowerCase();
+export const TTS_PROVIDER_NAME =
+  TTS_PROVIDER === 'omni' ? 'OmniVoice' : TTS_PROVIDER === 'openrouter' ? 'OpenRouter TTS' : 'Edge TTS';
+
+const TTS_TIMEOUT_MS = parseInt(process.env.TTS_TIMEOUT_MS || '300000', 10);
+const TTS_NUM_STEP = parseInt(process.env.TTS_NUM_STEP || '4', 10);
+// Local OmniVoice model quality collapses for inputs beyond ~100-110 chars
+// (output becomes near-silence/noise). Keep chunks at ~85 chars when using it.
+const TTS_CHUNK_MAX_CHARS = parseInt(process.env.TTS_CHUNK_MAX_CHARS || '85', 10);
 
 let omniProcess: any = null;
-
-export interface VoiceInfo {
-  id: string;
-  name: string;
-  description: string;
-  gender: 'male' | 'female' | 'neutral';
-  language: 'en' | 'hi';
-  sampleText: string;
-  pitch: number; // For voice preview synthesis
-}
 
 export const ENGLISH_VOICES: VoiceInfo[] = [
   {
@@ -109,31 +113,46 @@ export const HINDI_VOICES: VoiceInfo[] = [
   },
 ];
 
+const OPENAI_PRESETS = new Set([
+  'nova', 'onyx', 'shimmer', 'fable', 'alloy',
+  'ash', 'ballad', 'cedar', 'coral', 'echo', 'marin', 'sage', 'verse',
+]);
+
 const VOICE_MAP: Record<string, { voice?: string; instructions?: string }> = {
   nova: { voice: 'nova' },
   onyx: { voice: 'onyx' },
   shimmer: { voice: 'shimmer' },
   fable: { voice: 'fable' },
   alloy: { voice: 'alloy' },
-  hi_female: { voice: 'nova', instructions: 'female,young adult,clear articulation,indian accent' },
-  hi_male: { voice: 'onyx', instructions: 'male,young adult,energetic,indian accent' },
-  hi_female_casual: { voice: 'shimmer', instructions: 'female,casual conversational,indian accent' },
-  hi_male_deep: { voice: 'echo', instructions: 'male,deep voice,narrator,indian accent' },
+  ash: { voice: 'ash' },
+  ballad: { voice: 'ballad' },
+  cedar: { voice: 'cedar' },
+  coral: { voice: 'coral' },
+  echo: { voice: 'echo' },
+  marin: { voice: 'marin' },
+  sage: { voice: 'sage' },
+  verse: { voice: 'verse' },
+  hi_female: { instructions: 'female, young adult, high pitch, indian accent' },
+  hi_male: { instructions: 'male, young adult, moderate pitch, indian accent' },
+  hi_female_casual: { instructions: 'female, young adult, moderate pitch, indian accent' },
+  hi_male_deep: { instructions: 'male, middle-aged, low pitch, indian accent' },
 };
-
-export class TtsError extends Error {
-  code: string;
-  detail?: unknown;
-  constructor(code: string, message: string, detail?: unknown) {
-    super(message);
-    this.code = code;
-    this.detail = detail;
-  }
-}
 
 export async function getVoices(language?: string): Promise<VoiceInfo[]> {
   const lang = language === 'hi' ? 'hi' : 'en';
   const baseList = lang === 'hi' ? HINDI_VOICES : ENGLISH_VOICES;
+
+  // Cloud/free providers: fixed character catalog, no local server query.
+  if (TTS_PROVIDER !== 'omni') {
+    return baseList;
+  }
+
+  function normalizeGender(g?: unknown): VoiceInfo['gender'] {
+    const gStr = String(g || '').toLowerCase();
+    if (gStr.startsWith('female') || gStr === 'woman') return 'female';
+    if (gStr.startsWith('male') || gStr === 'man') return 'male';
+    return 'neutral';
+  }
 
   try {
     const res = await fetch(`${OMNIVOICE_URL}/v1/voices`, { signal: AbortSignal.timeout(2000) });
@@ -143,13 +162,15 @@ export async function getVoices(language?: string): Promise<VoiceInfo[]> {
         const customVoices: VoiceInfo[] = [];
         for (const sv of data.voices) {
           if (!sv.id || baseList.some((b) => b.id === sv.id)) continue;
+          const voiceLang = String(sv.language || sv.lang || '').toLowerCase();
+          if (voiceLang && !voiceLang.startsWith(lang)) continue;
           customVoices.push({
             id: String(sv.id),
             name: String(sv.name || sv.id),
             description: sv.description || `Custom ${lang.toUpperCase()} OmniVoice Model`,
-            gender: sv.gender || 'neutral',
+            gender: normalizeGender(sv.gender),
             language: lang,
-            sampleText: lang === 'hi' ? 'नमस्ते! यह वॉयस मॉडल का सैंपल है।' : 'Hello! This is a custom voice sample.',
+            sampleText: lang === 'hi' ? 'नमस्ते! यह मेरी आवाज़ का नमूना है।' : 'Hello! This is a custom voice sample.',
             pitch: 1.0,
           });
         }
@@ -170,13 +191,26 @@ async function callOmniVoice(text: string, voice?: string, language?: string): P
     input: text,
     response_format: 'wav',
     language: language || 'en',
+    num_step: TTS_NUM_STEP,
   };
 
-  if (cfg.voice) body.voice = cfg.voice;
-  if (cfg.instructions) body.instructions = cfg.instructions;
+  if (cfg.instructions) {
+    body.instructions = cfg.instructions;
+  } else if (cfg.voice && OPENAI_PRESETS.has(cfg.voice)) {
+    body.voice = cfg.voice;
+  } else if (OPENAI_PRESETS.has(targetVoice)) {
+    body.voice = targetVoice;
+  } else if (targetVoice.startsWith('design:')) {
+    body.instructions = targetVoice.slice(7);
+  } else if (targetVoice && targetVoice !== 'default' && targetVoice !== 'undefined') {
+    // Custom voice registered on the OmniVoice server — pass its id straight through
+    body.voice = targetVoice;
+  } else {
+    body.voice = 'nova';
+  }
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+  const timeoutId = setTimeout(() => controller.abort(), TTS_TIMEOUT_MS);
 
   try {
     const res = await fetch(`${OMNIVOICE_URL}/v1/audio/speech`, {
@@ -199,7 +233,7 @@ async function callOmniVoice(text: string, voice?: string, language?: string): P
     return audioBuffer;
   } catch (err: any) {
     if (err instanceof TtsError) throw err;
-    if (err.name === 'AbortError') throw new TtsError('TIMEOUT', 'OmniVoice TTS generation timed out');
+    if (err.name === 'AbortError') throw new TtsError('TIMEOUT', `OmniVoice TTS generation timed out after ${Math.round(TTS_TIMEOUT_MS / 1000)}s. The narration may be too long — try a shorter script, or increase TTS_TIMEOUT_MS in server/.env.`);
     throw new TtsError('CONNECTION_REFUSED', `Cannot connect to OmniVoice at ${OMNIVOICE_URL}. Ensure OmniVoice server is running.`);
   } finally {
     clearTimeout(timeoutId);
@@ -213,9 +247,32 @@ export async function generateTTS(params: {
   scriptId: string;
 }): Promise<{ filename: string; publicUrl: string; elapsedMs: number }> {
   const start = Date.now();
-  const audioBuffer = await callOmniVoice(params.text, params.voice, params.language);
 
-  const filename = `narration_${params.language}_${Date.now()}.wav`;
+  let audioBuffer: Buffer;
+  let ext: 'mp3' | 'wav' = 'wav';
+
+  if (TTS_PROVIDER === 'openrouter') {
+    const result = await generateCloudAudio(params.text, params.voice);
+    audioBuffer = result.buffer;
+    ext = result.ext;
+  } else if (TTS_PROVIDER === 'edge') {
+    const result = await generateEdgeAudio(params.text, params.voice);
+    audioBuffer = result.buffer;
+    ext = result.ext;
+  } else {
+    const chunks = splitIntoChunks(params.text, TTS_CHUNK_MAX_CHARS);
+    if (chunks.length === 1) {
+      audioBuffer = await callOmniVoice(chunks[0], params.voice, params.language);
+    } else {
+      const parts: Buffer[] = [];
+      for (const chunk of chunks) {
+        parts.push(await callOmniVoice(chunk, params.voice, params.language));
+      }
+      audioBuffer = concatWavs(parts);
+    }
+  }
+
+  const filename = `narration_${params.language}_${Date.now()}.${ext}`;
   const dir = path.join(GENERATED_DIR, params.scriptId);
   fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, filename);
@@ -231,15 +288,31 @@ export async function generateTTS(params: {
 export async function previewTTS(params: {
   voice?: string;
   language: 'hi' | 'en';
-}): Promise<Buffer> {
-  const allVoices = params.language === 'hi' ? HINDI_VOICES : ENGLISH_VOICES;
+}): Promise<{ buffer: Buffer; contentType: string }> {
+  const allVoices = await getVoices(params.language);
   const matched = allVoices.find((v) => v.id === params.voice) || allVoices[0];
   const sampleText = matched?.sampleText || (params.language === 'hi' ? 'नमस्ते! यह मेरी आवाज़ का नमूना है।' : 'Hello! This is a sample of my voice.');
 
-  return callOmniVoice(sampleText, params.voice, params.language);
+  if (TTS_PROVIDER === 'openrouter') {
+    return { buffer: await synthesizeOpenRouter(sampleText, params.voice), contentType: 'audio/mpeg' };
+  }
+  if (TTS_PROVIDER === 'edge') {
+    return { buffer: await synthesizeEdgeTts(sampleText, params.voice), contentType: 'audio/mpeg' };
+  }
+  return { buffer: await callOmniVoice(sampleText, params.voice, params.language), contentType: 'audio/wav' };
 }
 
 export async function checkOmniVoiceStatus(): Promise<boolean> {
+  if (TTS_PROVIDER === 'openrouter') {
+    return (await checkOpenRouterStatus()).online;
+  }
+  if (TTS_PROVIDER === 'edge') {
+    return checkEdgeTtsStatus();
+  }
+  try {
+    const res = await fetch(`${OMNIVOICE_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) return true;
+  } catch {}
   try {
     const res = await fetch(`${OMNIVOICE_URL}/v1/models`, { signal: AbortSignal.timeout(3000) });
     return res.ok;
@@ -249,10 +322,18 @@ export async function checkOmniVoiceStatus(): Promise<boolean> {
 }
 
 export async function startOmniVoice(): Promise<{ success: boolean; message: string }> {
+  if (TTS_PROVIDER !== 'omni') {
+    return { success: true, message: `${TTS_PROVIDER_NAME} — no local server to start.` };
+  }
   const already = await checkOmniVoiceStatus();
   if (already) return { success: true, message: 'OmniVoice is already running' };
 
-  const [cmd, ...args] = parseCommand(OMNIVOICE_START_CMD);
+  // Kill any orphaned process occupying port 8880 before launching a new one
+  await stopOmniVoice();
+  await new Promise((r) => setTimeout(r, 1000));
+
+  const startCmd = OMNIVOICE_START_CMD;
+  console.log(`[OmniVoice] Starting with command: ${startCmd}`);
 
   try {
     if (omniProcess) {
@@ -261,16 +342,58 @@ export async function startOmniVoice(): Promise<{ success: boolean; message: str
     }
 
     let spawnError: string | null = null;
-    omniProcess = spawn(cmd, args, {
-      stdio: 'ignore',
-      detached: true,
+    let stderrOutput = '';
+
+    fs.mkdirSync(GENERATED_DIR, { recursive: true });
+
+    // Strip custom env vars that cause pydantic-settings in omnivoice_server to throw extra_forbidden error
+    const spawnEnv = { ...process.env };
+    delete spawnEnv.OMNIVOICE_URL;
+    delete spawnEnv.OMNIVOICE_START_CMD;
+    delete spawnEnv.COMFYUI_PATH;
+    delete spawnEnv.PORT;
+    delete spawnEnv.CORS_ORIGIN;
+    delete spawnEnv.OPENROUTER_API_KEY;
+    delete spawnEnv.COMFYUI_BASE_URL;
+    delete spawnEnv.COMFYUI_WORKFLOW_PATH;
+
+    // On Windows, spawn with shell:true so python/pip scripts resolve correctly.
+    // Use GENERATED_DIR as cwd so pydantic-settings won't pick up server/.env.
+    omniProcess = spawn(startCmd, [], {
+      cwd: GENERATED_DIR,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: true,
+      detached: false,
+      env: spawnEnv,
     });
+
+    omniProcess.stdout?.on('data', (data: Buffer) => {
+      const line = data.toString().trim();
+      if (line) console.log(`[OmniVoice stdout] ${line}`);
+    });
+
+    omniProcess.stderr?.on('data', (data: Buffer) => {
+      const line = data.toString().trim();
+      if (line) {
+        console.log(`[OmniVoice stderr] ${line}`);
+        stderrOutput += line + '\n';
+      }
+    });
+
     omniProcess.on('error', (err: any) => {
+      console.error(`[OmniVoice] spawn error:`, err.message);
       spawnError = err.message;
     });
-    omniProcess.unref();
 
-    await new Promise((r) => setTimeout(r, 800));
+    omniProcess.on('exit', (code: number | null) => {
+      console.log(`[OmniVoice] process exited with code ${code}`);
+      if (code !== null && code !== 0) {
+        spawnError = `Process exited with code ${code}. ${stderrOutput.slice(-300)}`;
+      }
+    });
+
+    // Wait 2 seconds and check if process crashed immediately
+    await new Promise((r) => setTimeout(r, 2000));
     if (spawnError) {
       return {
         success: false,
@@ -279,23 +402,30 @@ export async function startOmniVoice(): Promise<{ success: boolean; message: str
     }
 
     const start = Date.now();
-    const timeout = 60000;
+    const timeout = 90000; // 90s — model loading can take 10-20s on CPU
     while (Date.now() - start < timeout) {
       const s = await checkOmniVoiceStatus();
-      if (s) return { success: true, message: 'OmniVoice started successfully' };
+      if (s) {
+        console.log(`[OmniVoice] Server is online after ${Math.round((Date.now() - start) / 1000)}s`);
+        return { success: true, message: 'OmniVoice started successfully' };
+      }
       await new Promise((r) => setTimeout(r, 2000));
       if (spawnError) {
         return { success: false, message: `OmniVoice process exited: ${spawnError}` };
       }
     }
 
-    return { success: false, message: 'Timed out waiting for OmniVoice to start (60s).' };
+    return { success: false, message: 'Timed out waiting for OmniVoice to start (90s). Check console for errors.' };
   } catch (err: any) {
+    console.error(`[OmniVoice] startOmniVoice exception:`, err);
     return { success: false, message: `Failed to start OmniVoice: ${err.message}` };
   }
 }
 
 export async function stopOmniVoice(): Promise<{ success: boolean; message: string }> {
+  if (TTS_PROVIDER !== 'omni') {
+    return { success: true, message: `${TTS_PROVIDER_NAME} — no local server to stop.` };
+  }
   let killed = false;
   if (omniProcess) {
     try {
@@ -303,19 +433,27 @@ export async function stopOmniVoice(): Promise<{ success: boolean; message: stri
       omniProcess = null;
       killed = true;
     } catch (e: any) {
-      return { success: false, message: e.message };
+      // ignore
     }
   }
-  const port = new URL(OMNIVOICE_URL).port || '3900';
+
   try {
-    const { spawn: sp } = await import('child_process');
-    await new Promise<void>((resolve) => {
-      const proc = sp('cmd', ['/c', `for /f "tokens=5" %a in ('netstat -ano ^| findstr :${port}') do taskkill /f /pid %a 2>nul`], { shell: true });
-      proc.on('close', () => resolve());
-      setTimeout(() => resolve(), 2000);
-    });
-    killed = true;
+    const { execSync } = await import('child_process');
+    const port = new URL(OMNIVOICE_URL).port || '8880';
+    const out = execSync('netstat -ano', { encoding: 'utf8' });
+    const lines = out.split('\n').filter((l) => l.includes(`:${port}`));
+    for (const line of lines) {
+      const parts = line.trim().split(/\s+/);
+      const pid = parts[parts.length - 1];
+      if (pid && /^\d+$/.test(pid) && pid !== '0') {
+        try {
+          execSync(`taskkill /F /PID ${pid}`);
+          killed = true;
+        } catch {}
+      }
+    }
   } catch {}
+
   return { success: true, message: killed ? 'OmniVoice stopped' : 'No OmniVoice process found' };
 }
 

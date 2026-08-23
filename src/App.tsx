@@ -15,6 +15,7 @@ import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { parseAIResponse } from './lib/parseAIResponse.js';
 import { apiPost, getApiKey } from './services/api.js';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'scripts', label: 'Scripts' },
@@ -95,12 +96,21 @@ export default function App() {
     });
   }, [activeChannel.id, section, tab, selectedScriptId]);
 
-  // Make sure the selected script still belongs to the active channel/section.
+  // Make sure a script is selected by default so Generation & Preview tabs are active
   useEffect(() => {
-    if (!selectedScriptId) return;
+    if (!selectedScriptId) {
+      const channelScripts = channelData[activeChannel.id]?.scripts || [];
+      const fallbackId = userScripts[0]?.id || channelScripts[0]?.id || 'ch1-s1';
+      setSelectedScriptId(fallbackId);
+      return;
+    }
     const persistedExists = userScripts.some((s) => s.id === selectedScriptId);
-    if (!persistedExists) setSelectedScriptId(null);
-  }, [userScripts, selectedScriptId]);
+    const channelExists = channelData[activeChannel.id]?.scripts.some((s) => s.id === selectedScriptId);
+    if (!persistedExists && !channelExists) {
+      const fallbackId = userScripts[0]?.id || channelData[activeChannel.id]?.scripts[0]?.id || 'ch1-s1';
+      setSelectedScriptId(fallbackId);
+    }
+  }, [userScripts, selectedScriptId, activeChannel.id]);
 
   useEffect(() => {
     fetch('/api/scripts')
@@ -511,29 +521,31 @@ ${optionalInstructions}`;
                   ))}
                 </div>
 
-                {tab === 'scripts' && (
-                  <ScriptsTab
-                    scripts={userScripts}
-                    section={section}
-                    selectedId={selectedScriptId}
-                    onSelect={setSelectedScriptId}
-                    onNewScript={() => setNewScriptOpen(true)}
-                    onRunScript={(s) => setRunModalScript(s)}
-                    selectedScript={selectedScript}
-                    onClosePanel={() => setSelectedScriptId(null)}
-                    onDelete={handleDeleteScript}
-                  />
-                )}
-                {tab === 'preview' && <PreviewTab pipeline={pipeline} script={selectedScript} onExtractAssets={handleExtractAssets} />}
-                {tab === 'assets' && <AssetsTab script={selectedScript} onProceedToGeneration={() => setTab('generation')} />}
-                {tab === 'generation' && (
-                  <GenerationTab
-                    script={selectedScript}
-                    onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
-                  />
-                )}
-                {tab === 'editor' && <EditorTab data={data} section={section} />}
-                {tab === 'export' && <ExportTab section={section} script={selectedScript} generatedImages={selectedScript?.generatedImages || []} />}
+                <ErrorBoundary fallbackLabel={`${tab.toUpperCase()} Tab Error`}>
+                  {tab === 'scripts' && (
+                    <ScriptsTab
+                      scripts={userScripts}
+                      section={section}
+                      selectedId={selectedScriptId}
+                      onSelect={setSelectedScriptId}
+                      onNewScript={() => setNewScriptOpen(true)}
+                      onRunScript={(s) => setRunModalScript(s)}
+                      selectedScript={selectedScript}
+                      onClosePanel={() => setSelectedScriptId(null)}
+                      onDelete={handleDeleteScript}
+                    />
+                  )}
+                  {tab === 'preview' && <PreviewTab pipeline={pipeline} script={selectedScript} onExtractAssets={handleExtractAssets} />}
+                  {tab === 'assets' && <AssetsTab script={selectedScript} onProceedToGeneration={() => setTab('generation')} />}
+                  {tab === 'generation' && (
+                    <GenerationTab
+                      script={selectedScript}
+                      onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
+                    />
+                  )}
+                  {tab === 'editor' && <EditorTab data={data} section={section} />}
+                  {tab === 'export' && <ExportTab section={section} script={selectedScript} generatedImages={selectedScript?.generatedImages || []} />}
+                </ErrorBoundary>
               </div>
             )}
           </div>

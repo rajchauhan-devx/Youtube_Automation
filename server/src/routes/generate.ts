@@ -81,5 +81,27 @@ generateRouter.get('/file/:scriptId/:filename', (req, res) => {
     res.status(404).end();
     return;
   }
+
+  // Determine Content-Type from extension for proper browser playback
+  const ext = path.extname(filename).toLowerCase();
+  const mimeTypes: Record<string, string> = {
+    '.wav': 'audio/wav',
+    '.mp3': 'audio/mpeg',
+    '.ogg': 'audio/ogg',
+    '.webm': 'audio/webm',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+  };
+  const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+  const stat = fs.statSync(filePath);
+  res.set({
+    'Content-Type': contentType,
+    'Content-Length': String(stat.size),
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'no-cache',
+  });
   res.sendFile(filePath);
 });

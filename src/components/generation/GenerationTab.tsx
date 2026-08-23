@@ -14,8 +14,10 @@ import {
   Copy,
   Loader2,
   Volume2,
+  RefreshCw,
 } from 'lucide-react';
 import type { Script, GeneratedImage, GeneratedAudio } from '../../data';
+import { ErrorBoundary } from '../ErrorBoundary';
 
 export function GenerationTab({
   script,
@@ -27,38 +29,40 @@ export function GenerationTab({
   const [generationSubTab, setGenerationSubTab] = useState<'images' | 'audio'>('images');
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-4 border-b border-border px-4">
-        <button
-          onClick={() => setGenerationSubTab('images')}
-          className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-            generationSubTab === 'images'
-              ? 'border-accent text-white'
-              : 'border-transparent text-gray-400 hover:text-white'
-          }`}
-        >
-          <ImageIcon className="h-4 w-4" />
-          Image Generation
-        </button>
-        <button
-          onClick={() => setGenerationSubTab('audio')}
-          className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-            generationSubTab === 'audio'
-              ? 'border-accent text-white'
-              : 'border-transparent text-gray-400 hover:text-white'
-          }`}
-        >
-          <Music className="h-4 w-4" />
-          Audio Generation
-        </button>
-      </div>
+    <ErrorBoundary fallbackLabel="Generation Tab Error">
+      <div className="flex h-full flex-col">
+        <div className="flex items-center gap-4 border-b border-border px-4">
+          <button
+            onClick={() => setGenerationSubTab('images')}
+            className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+              generationSubTab === 'images'
+                ? 'border-accent text-white'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <ImageIcon className="h-4 w-4" />
+            Image Generation
+          </button>
+          <button
+            onClick={() => setGenerationSubTab('audio')}
+            className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+              generationSubTab === 'audio'
+                ? 'border-accent text-white'
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <Music className="h-4 w-4" />
+            Audio Generation
+          </button>
+        </div>
 
-      {generationSubTab === 'images' ? (
-        <ImageGenerationContent script={script} onUpdate={onUpdate} />
-      ) : (
-        <AudioGenerationContent script={script} onUpdate={onUpdate} />
-      )}
-    </div>
+        {generationSubTab === 'images' ? (
+          <ImageGenerationContent script={script} onUpdate={onUpdate} />
+        ) : (
+          <AudioGenerationContent script={script} onUpdate={onUpdate} />
+        )}
+      </div>
+    </ErrorBoundary>
   );
 }
 
@@ -449,6 +453,17 @@ function ImageGenerationContent({
   );
 }
 
+interface VoiceItem {
+  id?: string;
+  name?: string;
+  description?: string;
+  gender?: string;
+  language?: string;
+  sampleText?: string;
+  pitch?: number;
+  tags?: string[];
+}
+
 function AudioGenerationContent({
   script,
   onUpdate,
@@ -458,43 +473,131 @@ function AudioGenerationContent({
 }) {
   const [copied, setCopied] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<'hi' | 'en'>('en');
-  const [voices, setVoices] = useState<any[]>([]);
+  const [voices, setVoices] = useState<VoiceItem[]>([]);
+  const [voicesLoading, setVoicesLoading] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState<string>('');
   const [previewVoiceId, setPreviewVoiceId] = useState<string | null>(null);
-  
+  const [previewSource, setPreviewSource] = useState<'server' | 'system' | null>(null);
+  const [previewError, setPreviewError] = useState('');
+
   const [generating, setGenerating] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressElapsed, setProgressElapsed] = useState(0);
   const [progressStage, setProgressStage] = useState('');
-  
-  const [error, setError] = useState('');
+
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
   const [serverStarting, setServerStarting] = useState(false);
+  const [providerName, setProviderName] = useState('OpenRouter TTS');
+  const [error, setError] = useState('');
 
-  const generatedAudio = script?.generatedAudio || [];
+  const [narrationText, setNarrationText] = useState<string>(
+    script?.narration || 'Welcome back to Pixel Pulse! Today we are exploring incredible breakthroughs in artificial intelligence and automation that will re-define how content is created in 2026. Subscribe for daily tech updates!'
+  );
+
+  useEffect(() => {
+    if (script?.narration) {
+      setNarrationText(script.narration);
+    }
+  }, [script?.id, script?.narration]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const previewVoiceIdRef = useRef<string | null>(null);
+  const fetchTokenRef = useRef(0);
+  const [systemVoices, setSystemVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  // Preload browser speech synthesis voices on mount
+  // getVoices() returns [] on first call in Chrome — must wait for onvoiceschanged
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+
+    function loadSystemVoices() {
+      const sv = window.speechSynthesis.getVoices();
+      if (sv.length > 0) setSystemVoices(sv);
+    }
+
+    // Try immediately (works in Firefox / already-loaded)
+    loadSystemVoices();
+
+    // Also listen for the async event (Chrome/Edge)
+    window.speechSynthesis.onvoiceschanged = loadSystemVoices;
+
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
+  const generatedAudio = script?.generatedAudio || [];
+  const isCloudProvider = providerName !== 'OmniVoice';
+
+  function stopPreview() {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    utteranceRef.current = null;
+    previewVoiceIdRef.current = null;
+    setPreviewVoiceId(null);
+    setPreviewSource(null);
+  }
+
+  // Cleanup preview audio on unmount
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+        audioRef.current = null;
+      }
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      utteranceRef.current = null;
+    };
+  }, []);
 
   async function checkStatus() {
-    const { data } = await fetchJson('/api/tts/status');
-    setServerOnline(data?.online === true);
+    try {
+      const { data } = await fetchJson('/api/tts/status');
+      setServerOnline(data?.online === true);
+      if (data?.provider) setProviderName(String(data.provider));
+    } catch {
+      setServerOnline(false);
+    }
   }
 
   async function fetchVoices(lang: string) {
+    const token = ++fetchTokenRef.current;
+    setVoicesLoading(true);
     try {
       const { data } = await fetchJson(`/api/tts/voices?language=${lang}`);
+      if (token !== fetchTokenRef.current) return;
       const voiceList = Array.isArray(data?.voices) ? data.voices : [];
       setVoices(voiceList);
-      if (voiceList.length > 0) {
-        const firstVoiceId = typeof voiceList[0] === 'string' ? voiceList[0] : (voiceList[0]?.id || 'default');
-        setSelectedVoice(firstVoiceId);
-      } else {
-        setSelectedVoice('');
-      }
-    } catch {
+      setSelectedVoice((prev) => {
+        if (voiceList.some((v: VoiceItem) => v?.id === prev)) return prev;
+        return voiceList[0]?.id || '';
+      });
+    } catch (err) {
+      if (token !== fetchTokenRef.current) return;
       setVoices([]);
       setSelectedVoice('');
+      setError(err instanceof Error ? err.message : 'Failed to load voices');
+    } finally {
+      if (token === fetchTokenRef.current) setVoicesLoading(false);
     }
   }
 
@@ -507,40 +610,29 @@ function AudioGenerationContent({
   }, [selectedLanguage]);
 
   function handleLanguageSwitch(lang: 'hi' | 'en') {
+    stopPreview();
+    setPreviewError('');
+    setError('');
     setSelectedLanguage(lang);
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    setPreviewVoiceId(null);
-    fetchVoices(lang);
   }
 
-  async function handlePreviewVoice(v: any, e: React.MouseEvent) {
+  async function handlePreviewVoice(v: VoiceItem, e: React.MouseEvent) {
     e.stopPropagation();
-    const vId = typeof v === 'string' ? v : (v?.id || 'voice');
+    const vId = typeof v === 'string' ? v : (v?.id || '');
+    if (!vId) return;
 
+    // Toggle off if already playing this voice
     if (previewVoiceId === vId) {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-      setPreviewVoiceId(null);
+      stopPreview();
       return;
     }
 
+    stopPreview();
+    setPreviewError('');
     setPreviewVoiceId(vId);
+    previewVoiceIdRef.current = vId;
 
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-
+    // 1) Try server-side preview first ({providerName} renders the real character voice)
     try {
       const res = await fetch('/api/tts/preview', {
         method: 'POST',
@@ -548,91 +640,120 @@ function AudioGenerationContent({
         body: JSON.stringify({ voice: vId, language: selectedLanguage }),
       });
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('audio')) {
         const blob = await res.blob();
+        if (previewVoiceIdRef.current !== vId) return;
         const url = URL.createObjectURL(blob);
+        audioUrlRef.current = url;
         const audio = new Audio(url);
         audioRef.current = audio;
+        setPreviewSource('server');
 
         audio.onended = () => {
-          setPreviewVoiceId(null);
-          URL.revokeObjectURL(url);
-          audioRef.current = null;
+          if (previewVoiceIdRef.current === vId) stopPreview();
         };
         audio.onerror = () => {
-          setPreviewVoiceId(null);
-          URL.revokeObjectURL(url);
-          audioRef.current = null;
+          if (previewVoiceIdRef.current === vId) {
+            stopPreview();
+            setPreviewError(`${providerName} could not render a preview for this voice.`);
+          }
         };
 
-        await audio.play();
+        try {
+          await audio.play();
+        } catch {
+          stopPreview();
+          setPreviewError('Browser blocked audio playback. Try clicking Listen again.');
+        }
         return;
       }
-    } catch {}
+      if (previewVoiceIdRef.current !== vId) return;
+    } catch {
+      // Server unreachable — fall through to system voice preview below
+    }
 
-    // Fallback: Speech Synthesis with character pitch
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.resume();
-
-      const sampleText = typeof v === 'object' && v?.sampleText
-        ? v.sampleText
-        : (vId === 'hi_female' ? 'नमस्ते! मैं अनन्या हूँ, यह मेरी आवाज़ का नमूना है।'
-          : vId === 'hi_male' ? 'नमस्ते! मैं रोहन हूँ, यह मेरी आवाज़ का नमूना है।'
-          : vId === 'hi_female_casual' ? 'हे दोस्तों! मैं प्रिया हूँ, यह मेरी आवाज़ का नमूना है।'
-          : vId === 'hi_male_deep' ? 'नमस्कार! मैं विक्रम हूँ, यह मेरी आवाज़ का नमूना है।'
-          : selectedLanguage === 'hi' ? 'नमस्ते! यह हिंदी वॉयस सैंपल है।'
-          : 'Hello! Welcome to OmniVoice audio generation.');
-
-      const utterance = new SpeechSynthesisUtterance(sampleText);
-      utteranceRef.current = utterance;
-
-      const sysVoices = window.speechSynthesis.getVoices();
-      const targetLang = selectedLanguage === 'hi' ? 'hi' : 'en';
-      const langVoices = sysVoices.filter((sv) => sv.lang.toLowerCase().includes(targetLang));
-
-      const isFemale = typeof v === 'object' && v?.gender === 'female';
-      const isMale = typeof v === 'object' && v?.gender === 'male';
-
-      if (langVoices.length > 0) {
-        const genderMatch = langVoices.find((sv) => 
-          isFemale ? (sv.name.toLowerCase().includes('female') || sv.name.toLowerCase().includes('zira') || sv.name.toLowerCase().includes('kalpana') || sv.name.toLowerCase().includes('swara') || sv.name.toLowerCase().includes('google'))
-          : isMale ? (sv.name.toLowerCase().includes('male') || sv.name.toLowerCase().includes('david') || sv.name.toLowerCase().includes('mark') || sv.name.toLowerCase().includes('hemant') || sv.name.toLowerCase().includes('madhur'))
-          : true
-        );
-        utterance.voice = genderMatch || langVoices[0];
-      }
-
-      utterance.lang = selectedLanguage === 'hi' ? 'hi-IN' : 'en-US';
-
-      if (isFemale) {
-        utterance.pitch = 1.25;
-        utterance.rate = 1.0;
-      } else if (isMale) {
-        utterance.pitch = 0.8;
-        utterance.rate = 0.95;
-      } else {
-        utterance.pitch = 1.0;
-        utterance.rate = 1.0;
-      }
-
-      utterance.onend = () => {
-        setPreviewVoiceId(null);
-        utteranceRef.current = null;
-      };
-      utterance.onerror = () => {
-        setPreviewVoiceId(null);
-        utteranceRef.current = null;
-      };
-
-      setTimeout(() => {
-        window.speechSynthesis.speak(utterance);
-      }, 50);
-    } else {
-      setPreviewVoiceId(null);
+    // 2) Fallback: browser speech synthesis with the character's own sample text.
+    //    Only used when a voice for the target language exists — never a silent wrong voice.
+    if (!playSystemPreview(v, vId)) {
+      stopPreview();
+      setPreviewError(
+        selectedLanguage === 'hi'
+          ? `${providerName} is unavailable and no Hindi system voice is installed. ${isCloudProvider ? 'Check the connection and try again.' : 'Start OmniVoice, or install a Hindi voice (e.g. Microsoft Heera) in Windows voice settings.'}`
+          : `${providerName} is unavailable and no suitable English system voice is available. ${isCloudProvider ? 'Check the connection and try again.' : 'Start OmniVoice to hear accurate character previews.'}`
+      );
     }
   }
 
-  async function fetchJson(path: string, options?: RequestInit): Promise<any> {
+  function playSystemPreview(v: VoiceItem, vId: string): boolean {
+    if (!('speechSynthesis' in window)) return false;
+    const sysVoices = systemVoices.length > 0 ? systemVoices : window.speechSynthesis.getVoices();
+    if (!sysVoices || sysVoices.length === 0) return false;
+
+    const targetLang = selectedLanguage === 'hi' ? 'hi' : 'en';
+
+    // 1st choice: voices of the target language
+    let langPool = sysVoices.filter((sv) => sv.lang.toLowerCase().startsWith(targetLang));
+    // 2nd choice for Hindi: Indian-accented voices (en-IN)
+    if (langPool.length === 0 && selectedLanguage === 'hi') {
+      langPool = sysVoices.filter((sv) => sv.lang.toLowerCase().includes('in'));
+    }
+    // Only fall back to English voices for Hindi if the browser cannot pronounce Hindi at all — still label it
+    if (langPool.length === 0 && selectedLanguage === 'hi') {
+      langPool = sysVoices.filter((sv) => sv.lang.toLowerCase().startsWith('en'));
+    }
+    if (langPool.length === 0) return false;
+
+    const gender = typeof v === 'object' ? String(v.gender || '').toLowerCase() : '';
+    const femaleKeywords = ['female', 'zira', 'kalpana', 'swara', 'heera', 'sabina', 'hazel', 'susan', 'google', 'heami', 'huihui'];
+    const maleKeywords = ['male', 'david', 'mark', 'hemant', 'madhur', 'ravi', 'george', 'james', 'richard', 'daniel'];
+
+    let genderPool = langPool;
+    if (gender === 'female') {
+      const f = langPool.filter((sv) => femaleKeywords.some((kw) => sv.name.toLowerCase().includes(kw)));
+      if (f.length > 0) genderPool = f;
+    } else if (gender === 'male') {
+      const m = langPool.filter((sv) => maleKeywords.some((kw) => sv.name.toLowerCase().includes(kw)));
+      if (m.length > 0) genderPool = m;
+    }
+
+    // Deterministic: same character always maps to the same system voice
+    const voiceIdx = voices.findIndex((lv: VoiceItem) => lv?.id === vId);
+    const picked = genderPool[voiceIdx >= 0 ? voiceIdx % genderPool.length : 0];
+    if (!picked) return false;
+
+    const sampleText = typeof v === 'object' && v?.sampleText
+      ? v.sampleText
+      : (selectedLanguage === 'hi' ? 'नमस्ते! यह मेरी आवाज़ का नमूना है।' : 'Hello! This is a sample of my voice.');
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(sampleText);
+    utterance.voice = picked;
+    utterance.lang = picked.lang;
+    utterance.pitch = typeof v === 'object' && typeof v?.pitch === 'number' ? v.pitch : 1.0;
+    utterance.rate = gender === 'male' ? 0.92 : 1.0;
+    utteranceRef.current = utterance;
+    setPreviewSource('system');
+
+    utterance.onend = () => {
+      if (previewVoiceIdRef.current === vId) stopPreview();
+    };
+    utterance.onerror = (ev) => {
+      if (previewVoiceIdRef.current !== vId) return;
+      if (ev.error !== 'interrupted' && ev.error !== 'canceled') {
+        setPreviewError('System voice playback failed: ' + ev.error);
+      }
+      stopPreview();
+    };
+
+    // Delay to ensure cancel() has taken effect before speaking
+    setTimeout(() => {
+      if (previewVoiceIdRef.current === vId) window.speechSynthesis.speak(utterance);
+    }, 80);
+    return true;
+  }
+
+  async function fetchJson(path: string, options?: RequestInit) {
     const res = await fetch(path, options);
     const text = await res.text();
     try {
@@ -647,16 +768,17 @@ function AudioGenerationContent({
     setServerOnline(null);
     setError('');
     try {
-      const { ok, data } = await fetchJson('/api/tts/start', { method: 'POST' });
+      const { data } = await fetchJson('/api/tts/start', { method: 'POST' });
       if (data?.success) {
         setServerOnline(true);
+        fetchVoices(selectedLanguage);
       } else {
         setServerOnline(false);
         setError(data?.message || 'Failed to start OmniVoice');
       }
-    } catch (err: any) {
+    } catch (err) {
       setServerOnline(false);
-      setError(err.message || 'Could not reach the server');
+      setError(err instanceof Error ? err.message : 'Could not reach the server');
     } finally {
       setServerStarting(false);
     }
@@ -665,14 +787,17 @@ function AudioGenerationContent({
   async function handleStopServer() {
     setServerOnline(false);
     setServerStarting(false);
+    stopPreview();
     try {
       await fetch('/api/tts/stop', { method: 'POST' });
-    } catch {}
+    } catch {
+      // ignore
+    }
   }
 
   function handleCopy() {
-    if (script?.narration) {
-      navigator.clipboard.writeText(script.narration).then(() => {
+    if (narrationText) {
+      navigator.clipboard.writeText(narrationText).then(() => {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       });
@@ -680,12 +805,18 @@ function AudioGenerationContent({
   }
 
   async function handleGenerate() {
-    if (!script?.narration || generating) return;
+    const textToGenerate = narrationText.trim();
+    if (!textToGenerate || generating || !script) return;
+    if (!selectedVoice) {
+      setError('Please select a voice character first.');
+      return;
+    }
     setGenerating(true);
     setError('');
+    setPreviewError('');
     setProgressPercent(5);
     setProgressElapsed(0);
-    setProgressStage('Initializing OmniVoice neural model...');
+    setProgressStage(isCloudProvider ? `Calling ${providerName}...` : 'Initializing OmniVoice neural model...');
 
     const timer = setInterval(() => {
       setProgressElapsed((prev) => prev + 1);
@@ -697,7 +828,7 @@ function AudioGenerationContent({
           setProgressStage('Rendering neural speech tokens...');
           return prev + 4;
         } else if (prev < 92) {
-          setProgressStage('Encoding WAV audio stream & finalizing file...');
+          setProgressStage('Encoding audio stream & finalizing file...');
           return prev + 2;
         }
         return prev;
@@ -709,7 +840,7 @@ function AudioGenerationContent({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text: script.narration,
+          text: textToGenerate,
           language: selectedLanguage,
           voice: selectedVoice,
           scriptId: script.id,
@@ -725,15 +856,16 @@ function AudioGenerationContent({
       const entry: GeneratedAudio = {
         language: selectedLanguage,
         voice: selectedVoice,
+        voiceName: activeVoiceObj?.name || selectedVoice,
         url: data.publicUrl,
         filename: data.filename,
         elapsedMs: data.elapsedMs,
       };
 
-      const existing = generatedAudio.filter((a) => a.language !== selectedLanguage);
+      const existing = (script.generatedAudio || []).filter((a) => a.language !== selectedLanguage);
       onUpdate({ generatedAudio: [...existing, entry] });
-    } catch (err: any) {
-      setError(err.message || 'Failed to generate audio');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to generate audio');
     } finally {
       clearInterval(timer);
       setGenerating(false);
@@ -741,13 +873,14 @@ function AudioGenerationContent({
   }
 
   function handleRegenerate() {
-    const existing = generatedAudio.filter((a) => a.language !== selectedLanguage);
+    if (!script) return;
+    const existing = (script.generatedAudio || []).filter((a) => a.language !== selectedLanguage);
     onUpdate({ generatedAudio: existing });
     handleGenerate();
   }
 
   const currentAudio = generatedAudio.find((a) => a.language === selectedLanguage);
-  const activeVoiceObj = voices.find((v: any) => (typeof v === 'string' ? v === selectedVoice : v?.id === selectedVoice));
+  const activeVoiceObj = voices.find((v: VoiceItem) => (typeof v === 'string' ? v === selectedVoice : v?.id === selectedVoice));
   const activeVoiceName = typeof activeVoiceObj === 'string' ? activeVoiceObj : (activeVoiceObj?.name || selectedVoice || 'Default Voice');
 
   if (!script) {
@@ -758,30 +891,20 @@ function AudioGenerationContent({
     );
   }
 
-  if (!script.narration) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center text-gray-500">
-        <Music className="mb-3 h-8 w-8 text-gray-600" />
-        <p className="text-sm">No narration script available.</p>
-        <p className="mt-1 text-xs">Extract assets first from the Preview tab to generate a narration script.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="flex flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-border p-4">
         <div className="flex items-center gap-2">
           <Music className="h-4 w-4 text-gray-400" />
-          <h3 className="text-sm font-semibold">Audio Generation (OmniVoice)</h3>
+          <h3 className="text-sm font-semibold">Audio Generation ({providerName})</h3>
           {serverOnline === true && (
             <span className="flex items-center gap-1.5 text-[10px] text-green-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> OmniVoice connected
+              <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> {providerName} connected
             </span>
           )}
           {serverOnline === false && (
             <span className="flex items-center gap-1.5 text-[10px] text-red-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> OmniVoice offline
+              <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> {providerName} offline
             </span>
           )}
           {serverStarting && (
@@ -790,7 +913,7 @@ function AudioGenerationContent({
             </span>
           )}
         </div>
-        {serverOnline === true && (
+        {serverOnline === true && !isCloudProvider && (
           <button
             onClick={handleStopServer}
             className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
@@ -815,18 +938,22 @@ function AudioGenerationContent({
           <div className="mb-4 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <div className="flex-1">
-              <p className="font-medium">OmniVoice model server is offline</p>
+              <p className="font-medium">{providerName} is unavailable</p>
               <p className="mt-1 text-red-300/80">
-                {error || 'Start OmniVoice to run voice synthesis locally.'}
+                {isCloudProvider
+                  ? error || 'Check your internet connection and try again.'
+                  : error || 'Start OmniVoice to run voice synthesis locally.'}
               </p>
               <div className="mt-2 flex gap-2">
-                <button
-                  onClick={checkOrStartServer}
-                  className="flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-[11px] font-medium text-white hover:bg-accent/80"
-                >
-                  <Zap className="h-3.5 w-3.5" />
-                  Start OmniVoice Server
-                </button>
+                {!isCloudProvider && (
+                  <button
+                    onClick={checkOrStartServer}
+                    className="flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-[11px] font-medium text-white hover:bg-accent/80"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Start OmniVoice Server
+                  </button>
+                )}
                 <button
                   onClick={checkStatus}
                   className="rounded border border-red-500/40 px-2 py-1 text-[11px] hover:bg-red-500/10"
@@ -871,15 +998,39 @@ function AudioGenerationContent({
         <div className="mb-6 rounded-lg border border-border bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              2. Select Voice Model ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
+              2. Select Voice Character ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
             </label>
-            <span className="text-[11px] text-gray-500">
-              {voices.length} voice models available
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-gray-500">
+                {voicesLoading ? 'Loading voices...' : `${voices.length} character${voices.length === 1 ? '' : 's'} available`}
+              </span>
+              <button
+                onClick={() => fetchVoices(selectedLanguage)}
+                disabled={voicesLoading}
+                className="flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2 disabled:opacity-40"
+              >
+                <RefreshCw className={`h-3 w-3 ${voicesLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
           </div>
 
+          {voicesLoading ? (
+            <div className="flex items-center gap-2 py-6 text-xs text-gray-400">
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+              Fetching available voice characters...
+            </div>
+          ) : voices.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 rounded-md border border-border bg-surface2/50 py-6 text-center text-xs text-gray-400">
+              <Volume2 className="h-5 w-5 text-gray-600" />
+              <p>No voice characters found for {selectedLanguage === 'en' ? 'English' : 'Hindi'}.</p>
+              <p className="text-[11px] text-gray-500">
+                {isCloudProvider ? 'Check your connection and try Refresh.' : 'Start the OmniVoice server and try Refresh.'}
+              </p>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {voices.map((v: any, idx: number) => {
+            {voices.map((v: VoiceItem, idx: number) => {
               const vId = typeof v === 'string' ? v : (v?.id || `voice_${idx}`);
               const vName = typeof v === 'string' ? v : (v?.name || v?.id || `Voice ${idx + 1}`);
               const rawGender = typeof v === 'object' && v?.gender ? String(v.gender) : 'VOICE';
@@ -919,7 +1070,7 @@ function AudioGenerationContent({
                       >
                         {rawGender.toUpperCase()}
                       </span>
-                      {vTags.map((t: any) => (
+                      {vTags.map((t: string) => (
                         <span key={String(t)} className="rounded bg-gray-700/50 px-1.5 py-0.5 text-[10px] text-gray-300">
                           {String(t)}
                         </span>
@@ -933,35 +1084,53 @@ function AudioGenerationContent({
                     ) : null}
                   </div>
 
-                  <div className="pt-2 border-t border-border/40 flex items-center justify-between mt-auto">
-                    <button
-                      onClick={(e) => handlePreviewVoice(v, e)}
-                      className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium transition-all ${
-                        isPlayingPreview
-                          ? 'bg-accent text-white animate-pulse'
-                          : 'border border-accent/40 text-accent hover:bg-accent/20'
-                      }`}
-                    >
-                      {isPlayingPreview ? (
-                        <>
-                          <Volume2 className="h-3.5 w-3.5 animate-bounce" />
-                          Playing...
-                        </>
-                      ) : (
-                        <>
-                          <Play className="h-3 w-3 fill-current" />
-                          Listen Voice
-                        </>
-                      )}
-                    </button>
-                    <span className="text-[10px] text-gray-500 font-mono">
-                      {selectedLanguage.toUpperCase()}
-                    </span>
+                  <div className="pt-2 border-t border-border/40 mt-auto">
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={(e) => handlePreviewVoice(v, e)}
+                        className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium transition-all ${
+                          isPlayingPreview
+                            ? 'bg-accent text-white animate-pulse'
+                            : 'border border-accent/40 text-accent hover:bg-accent/20'
+                        }`}
+                      >
+                        {isPlayingPreview ? (
+                          <>
+                            <Volume2 className="h-3.5 w-3.5 animate-bounce" />
+                            Playing...
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-3 w-3 fill-current" />
+                            Listen Voice
+                          </>
+                        )}
+                      </button>
+                      <span className="flex items-center gap-1.5">
+                        {isPlayingPreview && previewSource === 'server' && (
+                          <span className="rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] font-medium text-green-400">
+                            {providerName}
+                          </span>
+                        )}
+                        {isPlayingPreview && previewSource === 'system' && (
+                          <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
+                            System Voice
+                          </span>
+                        )}
+                        <span className="text-[10px] text-gray-500 font-mono">
+                          {selectedLanguage.toUpperCase()}
+                        </span>
+                      </span>
+                    </div>
+                    {isPlayingPreview && previewError && (
+                      <p className="mt-2 text-[10px] leading-snug text-red-400">{previewError}</p>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
+          )}
         </div>
 
         {/* Step 3: Start Generation Action & Progress Bar */}
@@ -1033,15 +1202,15 @@ function AudioGenerationContent({
         </div>
 
         {/* Generated Audio Audio Player */}
-        {currentAudio && (
+        {currentAudio && currentAudio.url && typeof currentAudio.url === 'string' && (
           <div className="mb-6 rounded-lg border border-border bg-surface p-4">
             <div className="mb-3 flex items-center justify-between">
               <span className="flex items-center gap-2 text-xs font-medium text-gray-300">
                 <Volume2 className="h-3.5 w-3.5 text-accent" />
                 {selectedLanguage === 'en' ? 'English' : 'Hindi'} Audio Result
-                {currentAudio.voice && (
+                {(currentAudio.voiceName || currentAudio.voice) && (
                   <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] text-accent">
-                    {currentAudio.voice}
+                    {currentAudio.voiceName || currentAudio.voice}
                   </span>
                 )}
                 {currentAudio.elapsedMs && (
@@ -1068,29 +1237,56 @@ function AudioGenerationContent({
                 </a>
               </div>
             </div>
-            <audio controls className="w-full" src={currentAudio.url}>
+            <audio
+              key={currentAudio.url}
+              controls
+              preload="auto"
+              className="w-full"
+              src={`${currentAudio.url}${currentAudio.url.includes('?') ? '&' : '?'}t=${Date.now()}`}
+            >
               Your browser does not support the audio element.
             </audio>
           </div>
         )}
 
-        {/* Narration Script View */}
+        {/* Narration Script View & Editor */}
         <div className="rounded-lg border border-border bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <span className="flex items-center gap-2 text-xs font-medium text-gray-300">
               <Copy className="h-3.5 w-3.5 text-gray-400" />
-              Narration Script
+              Narration Script (Editable)
             </span>
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2"
-            >
-              {copied ? 'Copied!' : 'Copy Script'}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (script?.id) {
+                    onUpdate({ narration: narrationText });
+                  }
+                }}
+                className="flex items-center gap-1.5 rounded-md bg-accent/20 px-3 py-1 text-xs font-medium text-accent hover:bg-accent/30"
+              >
+                Save Script
+              </button>
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs text-gray-300 hover:bg-surface2"
+              >
+                {copied ? 'Copied!' : 'Copy Script'}
+              </button>
+            </div>
           </div>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
-            {script.narration}
-          </p>
+          <textarea
+            value={narrationText}
+            onChange={(e) => {
+              setNarrationText(e.target.value);
+              if (script?.id) {
+                onUpdate({ narration: e.target.value });
+              }
+            }}
+            rows={4}
+            className="w-full rounded-md border border-border bg-surface2 p-3 text-sm leading-relaxed text-gray-200 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            placeholder="Type or paste narration script text here to generate audio..."
+          />
         </div>
       </div>
     </div>

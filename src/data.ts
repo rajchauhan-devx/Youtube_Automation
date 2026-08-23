@@ -62,6 +62,7 @@ export interface GeneratedImage {
 export interface GeneratedAudio {
   language: 'hi' | 'en';
   voice?: string;
+  voiceName?: string;
   url: string;
   filename: string;
   elapsedMs?: number;
@@ -115,6 +116,13 @@ export const channelData: Record<string, ChannelData> = {
           { id: 'pr4', name: 'Energetic VO', content: 'Energetic male voice, fast pace' },
           { id: 'pr5', name: 'Clickable Title', content: 'Clickable title under 60 chars' },
         ],
+        narration: 'Welcome back to Pixel Pulse! Today we are exploring incredible breakthroughs in artificial intelligence and automation that will re-define how content is created in 2026. Subscribe for daily tech updates!',
+        extractedScript: 'Welcome back to Pixel Pulse! Today we are exploring incredible breakthroughs in artificial intelligence and automation that will re-define how content is created in 2026. Subscribe for daily tech updates!',
+        imagePrompts: [
+          'Futuristic AI brain render with glowing blue neural network connections',
+          'Robotic hand interacting with holographic data stream in a modern lab',
+          'Microscopic view of advanced quantum computing microchip with blue LED lighting',
+        ],
         duration: 30,
       },
       {
@@ -124,6 +132,9 @@ export const channelData: Record<string, ChannelData> = {
         status: 'draft',
         locked: false,
         howItWorks: '',
+        narration: 'Here are 3 quick productivity hacks to speed up your digital workflow today.',
+        extractedScript: 'Here are 3 quick productivity hacks to speed up your digital workflow today.',
+        imagePrompts: ['Minimal desk setup with sleek workstation and ambient lighting'],
         prompts: [
           { id: 'pr1', name: 'Productivity Research', content: 'Search productivity hacks' },
           { id: 'pr2', name: 'Desk Visuals', content: 'Minimal desk setup shots' },
@@ -138,6 +149,9 @@ export const channelData: Record<string, ChannelData> = {
         status: 'draft',
         locked: false,
         howItWorks: '',
+        narration: 'Checking out the top 5 flagship gadgets releasing this month. Let us dive in.',
+        extractedScript: 'Checking out the top 5 flagship gadgets releasing this month. Let us dive in.',
+        imagePrompts: ['Futuristic wireless earbuds on clean white reflective surface'],
         prompts: [
           { id: 'pr1', name: 'Gadget Research', content: 'Latest gadget releases' },
           { id: 'pr2', name: 'Product Shots', content: 'Product on white' },

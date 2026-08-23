@@ -138,7 +138,7 @@
       "A stylistic, dark, empty room in a historic building, a single chair sits alone under a single beam of light, representing a forgotten throne, dust motes in the light, a sense of absence, 9:16 vertical, cinematic noir documentary style, muted browns and blacks. cartoon, anime, fantasy, monster, gore, modern, fake, glossy.",
       "Final Signal Card — Dark background with subtle grain. Text: \"The first President of the United States was Samuel Huntington. His name is now silent. A ghost of a forgotten government.\" 9:16 vertical, white serif text, centered."
     ],
-    "narration": "America had a first president. It wasn't George Washington.\n\n1781. The Articles of Confederation create a new nation. There is no Constitution yet. No White House. But there is a head of state.\n\nHis name is Samuel Huntington. Elected on March 1st, 1781. This man was the first President of the United States in Congress Assembled. He was America's first leader. For one year.\n\nSo why doesn't anyone know his name? Why did the history books skip him? Some say his legacy was buried because he led a government that failed. Others say the Federalists needed Washington to be the \"first\" for the new Constitution to feel legitimate.\n\nSamuel Huntington died a footnote. But he held the same title before Washington. The first president of the United States is a name you've never heard. And that silence was intentional.",
+    "narration": "America had a first president. It wasn't George Washington.\n\n1781. The Articles of Confederation create a new nation. There is no Constitution yet. No White House. But there is a head of state.\n\nHis name is Samuel Huntington. Elected on March 1st, 1781. This man was the first President of the United States in Congress Assembled. He was America's first leader. For one year.\n\nSo why doesn't anyone know his name? Why did the history books skip him? Some say his legacy was buried because he led a government that failed. Others say the Federalists needed Washington to be the \"first\" for the new Constitution to feel legitimate.\n\nSamuel Huntington died a footnote. But he held the same title before Washington. The first president of the United States is a name you've never heard. And that silence was intentional",
     "generatedImages": [
       {
         "index": 0,
@@ -206,18 +206,20 @@
     ],
     "generatedAudio": [
       {
-        "language": "hi",
-        "voice": "hi_female_casual",
-        "url": "/api/generate/file/usr_1785062582736/narration_hi_1785077079949.wav",
-        "filename": "narration_hi_1785077079949.wav",
-        "elapsedMs": 130
-      },
-      {
         "language": "en",
         "voice": "nova",
-        "url": "/api/generate/file/usr_1785062582736/narration_en_1785078342849.wav",
-        "filename": "narration_en_1785078342849.wav",
-        "elapsedMs": 58625
+        "voiceName": "Emily - Studio Narrator",
+        "url": "/api/generate/file/usr_1785062582736/narration_en_1786281736923.mp3",
+        "filename": "narration_en_1786281736923.mp3",
+        "elapsedMs": 5269
+      },
+      {
+        "language": "hi",
+        "voice": "hi_female_casual",
+        "voiceName": "Priya - Conversational Hinglish",
+        "url": "/api/generate/file/usr_1785062582736/narration_hi_1786281776921.mp3",
+        "filename": "narration_hi_1786281776921.mp3",
+        "elapsedMs": 5826
       }
     ]
   }
