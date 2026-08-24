@@ -1,7 +1,26 @@
 export type Section = 'shorts' | 'long';
-export type Tab = 'scripts' | 'preview' | 'assets' | 'generation' | 'editor' | 'export';
+export type Tab = 'scripts' | 'preview' | 'assets' | 'generation' | 'review' | 'export';
 export type ScriptStatus = 'active' | 'draft';
 export type AssetKind = 'image' | 'audio' | 'video';
+
+export interface TimelineClip {
+  id: string;
+  imageUrl: string;
+  prompt: string;
+  duration: number;
+  transition: 'crossfade' | 'none';
+  transitionDuration: number;
+  caption: string;
+}
+
+export interface TimelineConfig {
+  clips: TimelineClip[];
+  audioUrl: string;
+  totalDuration: number;
+  resolution: { width: number; height: number };
+  zoomFactor: number;
+}
+
 export interface PromptBlock {
   id: string;
   name: string;
@@ -36,6 +55,7 @@ export interface Script {
   generatedImages?: GeneratedImage[];
   generatedAudio?: GeneratedAudio[];
   pipeline?: PipelineStep[];
+  timelineConfig?: TimelineConfig;
 }
 
 export interface PipelineStep {

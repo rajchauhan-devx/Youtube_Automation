@@ -8,7 +8,7 @@ export const renderRouter = Router();
 const activeRenders = new Map<string, { controller: AbortController; status: 'running' | 'done' | 'error'; progress: number; error?: string }>();
 
 renderRouter.post('/start', (req, res) => {
-  const { scriptId, imagePaths, audioPath, duration, resolution, zoomFactor, transitionDuration } = req.body || {};
+  const { scriptId, imagePaths, audioPath, duration, resolution, zoomFactor, transitionDuration, timelineConfig } = req.body || {};
 
   if (!scriptId || typeof scriptId !== 'string') {
     res.status(400).json({ error: 'scriptId (string) is required' });
@@ -40,6 +40,7 @@ renderRouter.post('/start', (req, res) => {
     resolution,
     zoomFactor,
     transitionDuration,
+    timelineConfig,
     onProgress: (percent) => {
       const entry = activeRenders.get(scriptId);
       if (entry) {

@@ -9,8 +9,7 @@ import { ScriptRunModal } from './components/scripts/ScriptRunModal';
 import { PreviewTab } from './components/preview/PreviewTab';
 import { AssetsTab } from './components/assets/AssetsTab';
 import { GenerationTab } from './components/generation/GenerationTab';
-import { EditorTab } from './components/editor/EditorTab';
-import { ExportTab } from './components/export/ExportTab';
+import { ReviewAdjustTab } from './components/editor/ReviewAdjustTab';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { parseAIResponse } from './lib/parseAIResponse.js';
@@ -22,8 +21,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'preview', label: 'Preview' },
   { id: 'assets', label: 'Assets' },
   { id: 'generation', label: 'Generation' },
-  { id: 'editor', label: 'Editor' },
-  { id: 'export', label: 'Export' },
+  { id: 'review', label: 'Review & Export' },
 ];
 
 const SIDEBAR_ICONS = [
@@ -543,8 +541,12 @@ ${optionalInstructions}`;
                       onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
                     />
                   )}
-                  {tab === 'editor' && <EditorTab data={data} section={section} />}
-                  {tab === 'export' && <ExportTab section={section} script={selectedScript} generatedImages={selectedScript?.generatedImages || []} />}
+                  {tab === 'review' && (
+                    <ReviewAdjustTab
+                      script={selectedScript}
+                      onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
+                    />
+                  )}
                 </ErrorBoundary>
               </div>
             )}
