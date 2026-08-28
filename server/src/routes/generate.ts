@@ -1,7 +1,17 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { generateImage, checkComfyStatus, startComfyUI, stopComfyUI, ComfyError, GENERATED_DIR, sanitizeSegment } from '../services/comfyui.js';
+import {
+  generateImage,
+  checkComfyStatus,
+  startComfyUI,
+  stopComfyUI,
+  listAvailableModels,
+  ComfyError,
+  GENERATED_DIR,
+  sanitizeSegment,
+  type QualityPreset,
+} from '../services/comfyui.js';
 
 export const generateRouter = Router();
 
@@ -22,6 +32,15 @@ generateRouter.get('/status', async (_req, res) => {
   res.json(await checkComfyStatus());
 });
 
+generateRouter.get('/models', async (_req, res) => {
+  try {
+    const models = await listAvailableModels();
+    res.json({ models });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to list models', models: ['Juggernaut_XIII_Ragnarok.safetensors'] });
+  }
+});
+
 generateRouter.post('/start', async (_req, res) => {
   const result = await startComfyUI();
   res.json(result);
@@ -33,18 +52,28 @@ generateRouter.post('/stop', async (_req, res) => {
 });
 
 generateRouter.post('/image', async (req, res) => {
-  const { scriptId, index, prompt, seed } = req.body || {};
+  const { scriptId, index, prompt, seed, preset, modelName } = req.body || {};
   if (!scriptId || typeof index !== 'number' || !prompt || typeof prompt !== 'string') {
     res.status(400).json({ error: 'scriptId, index (number), and prompt (string) are required' });
     return;
   }
+
+  const validPreset: QualityPreset = preset === 'fast' || preset === 'high' ? preset : 'standard';
 
   const key = `${scriptId}:${index}`;
   const controller = new AbortController();
   activeControllers.set(key, controller);
 
   try {
-    const result = await generateImage({ prompt, scriptId, index, seed, signal: controller.signal });
+    const result = await generateImage({
+      prompt,
+      scriptId,
+      index,
+      seed,
+      signal: controller.signal,
+      preset: validPreset,
+      modelName: typeof modelName === 'string' ? modelName : undefined,
+    });
     res.json({ ok: true, url: result.publicUrl, seed: result.seed, elapsedMs: result.elapsedMs });
   } catch (err: any) {
     console.error(`Generation failed for ${key}:`, err.message);

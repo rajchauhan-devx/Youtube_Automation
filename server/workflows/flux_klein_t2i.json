@@ -23,7 +23,7 @@
   },
   "15": {
     "inputs": {
-      "text": "ugly, blurry, low quality, distorted, bad hands, deformed, noise, artifacts, cropped, out of frame, low resolution, bad anatomy",
+      "text": "ugly, blurry, low quality, distorted, bad hands, deformed, noise, artifacts, cropped, out of frame, low resolution, bad anatomy, cartoon, anime, 3d render, illustration, oversaturated",
       "clip": [
         "4",
         1
@@ -37,7 +37,7 @@
   "13": {
     "inputs": {
       "seed": 0,
-      "steps": 32,
+      "steps": 20,
       "cfg": 6.0,
       "sampler_name": "dpmpp_2m",
       "scheduler": "karras",
@@ -66,8 +66,8 @@
   },
   "14": {
     "inputs": {
-      "width": 896,
-      "height": 1568,
+      "width": 768,
+      "height": 1344,
       "batch_size": 1
     },
     "class_type": "EmptyLatentImage",

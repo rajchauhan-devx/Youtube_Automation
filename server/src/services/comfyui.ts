@@ -55,18 +55,82 @@ export async function checkComfyStatus(): Promise<{ online: boolean; detail?: st
   }
 }
 
-function buildWorkflow(promptStr: string, seed: number): any {
-  const wf = loadTemplate();
+export type QualityPreset = 'fast' | 'standard' | 'high';
 
-  // Auto-detect downloaded checkpoint in ComfyUI/models/checkpoints
-  const comfyPath = process.env.COMFYUI_PATH || 'C:\\Users\\zrajc\\Youtube_Automation\\ComfyUI';
-  const ckptDir = path.join(comfyPath, 'models', 'checkpoints');
-  if (fs.existsSync(ckptDir)) {
-    const ckpts = fs.readdirSync(ckptDir).filter(
-      (f) => (f.endsWith('.safetensors') || f.endsWith('.ckpt')) && f !== 'put_checkpoints_here'
-    );
-    if (ckpts.length > 0 && wf['4'] && wf['4'].class_type === 'CheckpointLoaderSimple') {
-      wf['4'].inputs.ckpt_name = ckpts[0];
+export const PRESET_CONFIG: Record<QualityPreset, { steps: number; width: number; height: number; label: string; description: string }> = {
+  fast: { steps: 12, width: 768, height: 1344, label: 'Fast', description: '12 steps, 768×1344 (draft mode, ~3s)' },
+  standard: { steps: 20, width: 768, height: 1344, label: 'Standard', description: '20 steps, 768×1344 (default, ~8s)' },
+  high: { steps: 28, width: 768, height: 1344, label: 'High', description: '28 steps, 768×1344 (best quality, ~15s)' },
+};
+
+export async function listAvailableModels(): Promise<string[]> {
+  const models = new Set<string>();
+
+  // 1. Query ComfyUI API directly if server is running
+  try {
+    const res = await fetch(`${COMFY_URL}/object_info/CheckpointLoaderSimple`, { signal: AbortSignal.timeout(2000) });
+    if (res.ok) {
+      const data = await res.json();
+      const ckptList = data?.CheckpointLoaderSimple?.input?.required?.ckpt_name?.[0];
+      if (Array.isArray(ckptList)) {
+        for (const c of ckptList) {
+          if (typeof c === 'string' && c.length > 0 && c !== 'put_checkpoints_here') {
+            models.add(c);
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 2. Scan filesystem checkpoint directories
+  const candidateDirs = [
+    process.env.COMFYUI_PATH ? path.join(process.env.COMFYUI_PATH, 'models', 'checkpoints') : null,
+    path.join(__dirname, '..', '..', 'ComfyUI', 'models', 'checkpoints'),
+    path.join(process.cwd(), 'ComfyUI', 'models', 'checkpoints'),
+    path.join('C:', 'Users', 'zrajc', 'Youtube_Automation', 'ComfyUI', 'models', 'checkpoints'),
+    path.join('C:', 'Users', 'zrajc', 'OneDrive', 'Desktop', 'Youtube_Automation', 'Youtube_Automation', 'ComfyUI', 'models', 'checkpoints'),
+  ].filter(Boolean) as string[];
+
+  for (const dir of candidateDirs) {
+    try {
+      if (fs.existsSync(dir)) {
+        const files = fs.readdirSync(dir).filter(
+          (f) => (f.endsWith('.safetensors') || f.endsWith('.ckpt')) && f !== 'put_checkpoints_here'
+        );
+        for (const file of files) {
+          models.add(file);
+        }
+      }
+    } catch {}
+  }
+
+  if (models.size === 0) {
+    models.add('Juggernaut_XIII_Ragnarok.safetensors');
+  }
+
+  return Array.from(models);
+}
+
+function buildWorkflow(promptStr: string, seed: number, preset: QualityPreset = 'standard', modelName?: string): any {
+  const wf = loadTemplate();
+  const cfg = PRESET_CONFIG[preset] || PRESET_CONFIG.standard;
+
+  // Set model checkpoint
+  if (wf['4'] && wf['4'].class_type === 'CheckpointLoaderSimple') {
+    if (modelName && modelName.trim()) {
+      wf['4'].inputs.ckpt_name = modelName.trim();
+    } else {
+      // Auto-detect downloaded checkpoint in ComfyUI/models/checkpoints
+      const comfyPath = process.env.COMFYUI_PATH || 'C:\\Users\\zrajc\\Youtube_Automation\\ComfyUI';
+      const ckptDir = path.join(comfyPath, 'models', 'checkpoints');
+      if (fs.existsSync(ckptDir)) {
+        const ckpts = fs.readdirSync(ckptDir).filter(
+          (f) => (f.endsWith('.safetensors') || f.endsWith('.ckpt')) && f !== 'put_checkpoints_here'
+        );
+        if (ckpts.length > 0) {
+          wf['4'].inputs.ckpt_name = ckpts[0];
+        }
+      }
     }
   }
 
@@ -90,8 +154,18 @@ function buildWorkflow(promptStr: string, seed: number): any {
   }
 
   if (wf['15']) {
-    const defaultNeg = 'ugly, blurry, low quality, distorted, bad hands, deformed, noise, artifacts, cropped, out of frame, low resolution, bad anatomy, cartoon, anime, 3d render, illustration';
+    const defaultNeg = 'ugly, blurry, low quality, distorted, bad hands, deformed, noise, artifacts, cropped, out of frame, low resolution, bad anatomy, cartoon, anime, 3d render, illustration, oversaturated';
     wf['15'].inputs.text = extraNegative ? `${defaultNeg}, ${extraNegative}` : defaultNeg;
+  }
+
+  if (wf['13']) {
+    wf['13'].inputs.steps = cfg.steps;
+    wf['13'].inputs.seed = seed;
+  }
+
+  if (wf['14']) {
+    wf['14'].inputs.width = cfg.width;
+    wf['14'].inputs.height = cfg.height;
   }
 
   if (SEED_NODE_ID && wf[SEED_NODE_ID]) {
@@ -237,6 +311,8 @@ export async function generateImage(opts: {
   index: number;
   seed?: number;
   signal?: AbortSignal;
+  preset?: QualityPreset;
+  modelName?: string;
 }): Promise<{ publicUrl: string; fileName: string; seed: number; elapsedMs: number }> {
   const started = Date.now();
   const scriptId = sanitizeSegment(opts.scriptId);
@@ -244,7 +320,7 @@ export async function generateImage(opts: {
   const seed = opts.seed ?? Math.floor(Math.random() * 2 ** 31);
   const clientId = `server-${scriptId}-${opts.index}-${started}`;
 
-  const workflow = buildWorkflow(opts.prompt, seed);
+  const workflow = buildWorkflow(opts.prompt, seed, opts.preset || 'standard', opts.modelName);
   const promptId = await queuePrompt(workflow, clientId);
   const historyEntry = await pollHistory(promptId, GEN_TIMEOUT_MS, opts.signal);
   const imageRef = extractImageRef(historyEntry);

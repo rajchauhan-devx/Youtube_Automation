@@ -79,6 +79,9 @@ function ImageGenerationContent({
   const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline' | 'starting'>('checking');
   const [serverError, setServerError] = useState('');
   const [lightbox, setLightbox] = useState<string | null>(null);
+  const [preset, setPreset] = useState<'fast' | 'standard' | 'high'>('standard');
+  const [models, setModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>('');
 
   const runTokenRef = useRef(0);
   const pausedRef = useRef(false);
@@ -119,8 +122,20 @@ function ImageGenerationContent({
     return status.online as boolean;
   }
 
+  async function fetchModels() {
+    try {
+      const res = await fetch('/api/generate/models');
+      const data = await res.json();
+      if (Array.isArray(data.models) && data.models.length > 0) {
+        setModels(data.models);
+        setSelectedModel((prev) => prev || data.models[0]);
+      }
+    } catch {}
+  }
+
   useEffect(() => {
     checkServer();
+    fetchModels();
   }, []);
 
   function updateImage(index: number, patch: Partial<GeneratedImage>) {
@@ -137,7 +152,13 @@ function ImageGenerationContent({
       const res = await fetch('/api/generate/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scriptId: script.id, index: item.index, prompt: item.prompt }),
+        body: JSON.stringify({
+          scriptId: script.id,
+          index: item.index,
+          prompt: item.prompt,
+          preset,
+          modelName: selectedModel || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw Object.assign(new Error(data.error || 'Generation failed'), { code: data.code });
@@ -361,6 +382,68 @@ function ImageGenerationContent({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Quality Presets & Model Selector Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-surface/50 px-4 py-2 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-gray-400">Quality:</span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPreset('fast')}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                preset === 'fast'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
+              }`}
+              title="12 steps, 768×1344 (draft mode, ~3s per image)"
+            >
+              Fast (12s)
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset('standard')}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                preset === 'standard'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
+              }`}
+              title="20 steps, 768×1344 (default, ~8s per image)"
+            >
+              Standard (20s)
+            </button>
+            <button
+              type="button"
+              onClick={() => setPreset('high')}
+              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                preset === 'high'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
+              }`}
+              title="28 steps, 768×1344 (best quality, ~15s per image)"
+            >
+              High (28s)
+            </button>
+          </div>
+        </div>
+
+        {models.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-400">Model:</span>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="rounded border border-border bg-bg px-2.5 py-1 text-xs text-white outline-none focus:border-accent"
+            >
+              {models.map((m) => (
+                <option key={m} value={m}>
+                  {m.replace(/\.(safetensors|ckpt)$/i, '')}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {serverStatus === 'starting' && (
