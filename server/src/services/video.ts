@@ -234,8 +234,8 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
 
   // Subtitles
   if (opts.enableSubtitles && opts.subtitlePath && fs.existsSync(opts.subtitlePath)) {
-    const escapedSub = opts.subtitlePath.replace(/\\/g, '/').replace(/:/g, '\\:');
-    postFilters.push(`ass='${escapedSub}'`);
+    const cleanSubPath = path.resolve(opts.subtitlePath).replace(/\\/g, '/').replace(/:/g, '\\:');
+    postFilters.push(`ass='${cleanSubPath}'`);
   }
 
   // Handle audio filter complex (Voice + BGM + SFX)
