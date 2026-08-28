@@ -118,12 +118,41 @@ const OPENAI_PRESETS = new Set([
   'ash', 'ballad', 'cedar', 'coral', 'echo', 'marin', 'sage', 'verse',
 ]);
 
+export function preprocessForTTS(text: string): string {
+  if (!text) return '';
+  return text
+    // Ensure proper spacing after punctuation
+    .replace(/([.!?])([A-Za-z\u0900-\u097F])/g, '$1 $2')
+    // Add clean pause spacing for commas
+    .replace(/,\s*/g, ', ')
+    // Remove excessive whitespace
+    .replace(/\s+/g, ' ')
+    // Ensure text ends with proper punctuation
+    .replace(/([^.!?\u0964])$/, '$1.')
+    .trim();
+}
+
 const VOICE_MAP: Record<string, { voice?: string; instructions?: string }> = {
-  nova: { voice: 'nova' },
-  onyx: { voice: 'onyx' },
-  shimmer: { voice: 'shimmer' },
-  fable: { voice: 'fable' },
-  alloy: { voice: 'alloy' },
+  nova: { 
+    voice: 'nova', 
+    instructions: 'Speak with the warm, engaging energy of a top YouTube storyteller. Use natural pauses at commas and periods. Vary your pace — speed up for exciting facts, slow down for emphasis. Sound conversational and alive, never robotic or monotone.' 
+  },
+  onyx: { 
+    voice: 'onyx', 
+    instructions: 'Deliver with the authority and gravitas of a documentary narrator. Use deliberate pauses for impact. Lower your tone for mystery, raise it slightly for key revelations. Sound confident and cinematic.' 
+  },
+  shimmer: { 
+    voice: 'shimmer', 
+    instructions: 'Speak with bright, friendly enthusiasm like a popular lifestyle vlogger. Use upbeat pacing with natural breath pauses. Sound genuinely excited about the topic. Inflect upward at questions, warm and inviting at statements.' 
+  },
+  fable: { 
+    voice: 'fable', 
+    instructions: 'Perform with dramatic, expressive storytelling energy. Use theatrical pauses and emotional inflection. Whisper for suspense, project for climaxes. Sound like you are personally invested in every word.' 
+  },
+  alloy: { 
+    voice: 'alloy', 
+    instructions: 'Speak clearly and professionally with subtle warmth. Use measured, natural pacing. Pause briefly between key ideas. Sound approachable but authoritative, like a trusted tech reviewer.' 
+  },
   ash: { voice: 'ash' },
   ballad: { voice: 'ballad' },
   cedar: { voice: 'cedar' },
@@ -132,10 +161,22 @@ const VOICE_MAP: Record<string, { voice?: string; instructions?: string }> = {
   marin: { voice: 'marin' },
   sage: { voice: 'sage' },
   verse: { voice: 'verse' },
-  hi_female: { instructions: 'female, young adult, high pitch, indian accent' },
-  hi_male: { instructions: 'male, young adult, moderate pitch, indian accent' },
-  hi_female_casual: { instructions: 'female, young adult, moderate pitch, indian accent' },
-  hi_male_deep: { instructions: 'male, middle-aged, low pitch, indian accent' },
+  hi_female: { 
+    voice: 'nova', 
+    instructions: 'Speak in smooth, polished Hindi with the warmth of a popular Indian YouTuber. Use natural breath pauses at punctuation. Vary pace for emphasis. Sound conversational and engaging, not like a news anchor.' 
+  },
+  hi_male: { 
+    voice: 'onyx', 
+    instructions: 'Speak in energetic, expressive Hindi like a viral Shorts creator. Use dynamic pacing — fast for excitement, slow for impact. Sound passionate and alive, with natural pauses between phrases.' 
+  },
+  hi_female_casual: { 
+    voice: 'shimmer', 
+    instructions: 'Speak in relatable, conversational Hindi-English mix (Hinglish) with a friendly, modern tone. Use casual pacing with natural pauses. Sound like you are talking to a friend, not reading a script.' 
+  },
+  hi_male_deep: { 
+    voice: 'echo', 
+    instructions: 'Speak in commanding, deep Hindi with the gravitas of a documentary narrator. Use slow, deliberate pacing with dramatic pauses. Lower your tone for mystery and history. Sound powerful and immersive.' 
+  },
 };
 
 export async function getVoices(language?: string): Promise<VoiceInfo[]> {
@@ -183,12 +224,13 @@ export async function getVoices(language?: string): Promise<VoiceInfo[]> {
 }
 
 async function callOmniVoice(text: string, voice?: string, language?: string): Promise<Buffer> {
+  const cleanText = preprocessForTTS(text);
   const targetVoice = voice || (language === 'hi' ? 'hi_female' : 'nova');
   const cfg = VOICE_MAP[targetVoice] || {};
 
   const body: Record<string, any> = {
     model: 'omnivoice',
-    input: text,
+    input: cleanText,
     response_format: 'wav',
     language: language || 'en',
     num_step: TTS_NUM_STEP,
@@ -196,7 +238,8 @@ async function callOmniVoice(text: string, voice?: string, language?: string): P
 
   if (cfg.instructions) {
     body.instructions = cfg.instructions;
-  } else if (cfg.voice && OPENAI_PRESETS.has(cfg.voice)) {
+  }
+  if (cfg.voice && OPENAI_PRESETS.has(cfg.voice)) {
     body.voice = cfg.voice;
   } else if (OPENAI_PRESETS.has(targetVoice)) {
     body.voice = targetVoice;
@@ -247,20 +290,21 @@ export async function generateTTS(params: {
   scriptId: string;
 }): Promise<{ filename: string; publicUrl: string; elapsedMs: number }> {
   const start = Date.now();
+  const processedText = preprocessForTTS(params.text);
 
   let audioBuffer: Buffer;
   let ext: 'mp3' | 'wav' = 'wav';
 
   if (TTS_PROVIDER === 'openrouter') {
-    const result = await generateCloudAudio(params.text, params.voice);
+    const result = await generateCloudAudio(processedText, params.voice);
     audioBuffer = result.buffer;
     ext = result.ext;
   } else if (TTS_PROVIDER === 'edge') {
-    const result = await generateEdgeAudio(params.text, params.voice);
+    const result = await generateEdgeAudio(processedText, params.voice);
     audioBuffer = result.buffer;
     ext = result.ext;
   } else {
-    const chunks = splitIntoChunks(params.text, TTS_CHUNK_MAX_CHARS);
+    const chunks = splitIntoChunks(processedText, TTS_CHUNK_MAX_CHARS);
     if (chunks.length === 1) {
       audioBuffer = await callOmniVoice(chunks[0], params.voice, params.language);
     } else {

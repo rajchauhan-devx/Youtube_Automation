@@ -12,6 +12,8 @@ export function ScriptsTab({
   selectedScript,
   onClosePanel,
   onDelete,
+  onClear,
+  onUpdateDuration,
 }: {
   scripts: Script[];
   section: Section;
@@ -22,6 +24,8 @@ export function ScriptsTab({
   selectedScript: Script | null;
   onClosePanel: () => void;
   onDelete: (id: string) => void;
+  onClear?: (id: string) => void;
+  onUpdateDuration?: (id: string, duration: number) => void;
 }) {
   return (
     <div className="flex gap-6">
@@ -79,7 +83,14 @@ export function ScriptsTab({
       </div>
 
       {selectedScript && (
-        <ScriptDetailPanel script={selectedScript} onClose={onClosePanel} onRun={() => onRunScript(selectedScript)} onDelete={() => onDelete(selectedScript.id)} />
+        <ScriptDetailPanel
+          script={selectedScript}
+          onClose={onClosePanel}
+          onRun={() => onRunScript(selectedScript)}
+          onDelete={() => onDelete(selectedScript.id)}
+          onClear={onClear ? () => onClear(selectedScript.id) : undefined}
+          onUpdateDuration={onUpdateDuration ? (dur) => onUpdateDuration(selectedScript.id, dur) : undefined}
+        />
       )}
     </div>
   );

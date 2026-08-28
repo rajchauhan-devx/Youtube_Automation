@@ -35,6 +35,9 @@ export interface Channel {
   avatar: string;
 }
 
+export const DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
+export type DurationPreset = (typeof DURATION_PRESETS)[number];
+
 export interface Script {
   id: string;
   name: string;
@@ -43,7 +46,7 @@ export interface Script {
   locked: boolean;
   prompts: PromptBlock[];
   howItWorks: string;
-  duration: 15 | 30 | 60;
+  duration: DurationPreset | number;
   chapters?: string[];
   content?: string;
   topicName?: string;
@@ -160,7 +163,7 @@ export const channelData: Record<string, ChannelData> = {
           { id: 'pr2', name: 'Desk Visuals', content: 'Minimal desk setup shots' },
           { id: 'pr3', name: 'Calm VO', content: 'Calm female voice' },
         ],
-        duration: 15,
+        duration: 45,
       },
       {
         id: 'ch1-s3',
@@ -272,7 +275,7 @@ export const channelData: Record<string, ChannelData> = {
           { id: 'pr2', name: 'Budget Visuals', content: 'Budget-friendly visuals' },
           { id: 'pr3', name: 'Casual VO', content: 'Casual voice' },
         ],
-        duration: 15,
+        duration: 45,
       },
     ],
     pipeline: [

@@ -47,7 +47,7 @@ llmRouter.post('/extract', async (req, res) => {
 Return ONLY a single valid JSON object, no markdown fences, no commentary, in this exact shape:
 {
   "script": "the full narrative/scene-by-scene script text — prefer content inside <script> tags if present, otherwise extract by meaning",
-  "ttsText": "the clean, paste-ready narration/voiceover text only — no scene labels, no timestamps, no stage directions",
+  "ttsText": "the narration/voiceover text optimized for text-to-speech (no scene labels, no timestamps, no stage directions). Use commas for natural breath pauses, ellipses for suspense, and exclamation marks for emphasis. Ensure short, punchy sentences that sound conversational and engaging when spoken aloud like a top YouTuber speaking to the camera.",
   "imagePrompts": ["prompt for image 1", "prompt for image 2", ...]
 }
 

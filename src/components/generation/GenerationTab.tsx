@@ -288,6 +288,21 @@ function ImageGenerationContent({
           <span className="text-xs text-gray-500">
             {doneCount}/{images.length} done{errorCount > 0 ? `, ${errorCount} failed` : ''}
           </span>
+          {script?.duration && (
+            <span className="rounded bg-surface2 px-2 py-0.5 text-[11px] text-gray-400">
+              Target: {script.duration}s (
+              {script.duration <= 30
+                ? '3–4 images recommended'
+                : script.duration <= 45
+                ? '4–5 images recommended'
+                : script.duration <= 60
+                ? '5–6 images recommended'
+                : script.duration <= 90
+                ? '6–8 images recommended'
+                : '8–10 images recommended'}
+              )
+            </span>
+          )}
           {serverStatus === 'online' && (
             <span className="flex items-center gap-1.5 text-[10px] text-green-400">
               <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> FLUX.2 Klein server online

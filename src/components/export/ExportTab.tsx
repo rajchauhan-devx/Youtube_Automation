@@ -24,10 +24,16 @@ export function ExportTab({
   const [progress, setProgress] = useState(0);
   const [renderedVideo, setRenderedVideo] = useState<string | null>(null);
   const [error, setError] = useState('');
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(script?.duration || 30);
   const [resolution, setResolution] = useState<'1080x1920' | '1920x1080'>('1080x1920');
   const [zoomFactor, setZoomFactor] = useState(1.15);
   const [transitionDuration, setTransitionDuration] = useState(0.5);
+
+  useEffect(() => {
+    if (script?.duration) {
+      setDuration(script.duration);
+    }
+  }, [script?.id, script?.duration]);
 
   useEffect(() => {
     if (script?.id) {
@@ -179,14 +185,25 @@ export function ExportTab({
         )}
 
         <Field label="Duration (seconds)">
-          <input
-            type="number"
-            min="5"
-            max="300"
-            value={duration}
-            onChange={e => setDuration(parseInt(e.target.value) || 30)}
-            className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-accent"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              min="5"
+              max="300"
+              value={duration}
+              onChange={e => setDuration(parseInt(e.target.value) || 30)}
+              className="flex-1 rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-accent"
+            />
+            {Boolean(script?.duration && duration !== script.duration) && (
+              <button
+                type="button"
+                onClick={() => setDuration(script!.duration)}
+                className="rounded border border-accent/40 bg-accent/10 px-2.5 py-2 text-xs font-medium text-accent hover:bg-accent/20 transition-colors shrink-0"
+              >
+                Reset ({script!.duration}s)
+              </button>
+            )}
+          </div>
         </Field>
 
         <Field label="Resolution">

@@ -168,7 +168,10 @@ export default function App() {
     }
   }
 
-  function buildPrompt(template: string, topic: string, instructions: string): string {
+  function buildPrompt(template: string, topic: string, instructions: string, duration?: number): string {
+    const targetDurationStr = duration
+      ? `Target Duration: ~${duration} seconds. Pace the script naturally for this length — you may go slightly shorter or longer if the content demands it, but aim for this ballpark.`
+      : '';
     const optionalInstructions = instructions.trim()
       ? `Additional Instructions: ${instructions.trim()}`
       : '';
@@ -176,7 +179,8 @@ export default function App() {
     return `${template}
 
 Topic: ${topic}
-${optionalInstructions}`;
+${targetDurationStr}
+${optionalInstructions}`.trim();
   }
 
   async function handleRunScriptSubmit(topic: string, instructions: string) {
@@ -192,7 +196,12 @@ ${optionalInstructions}`;
       .filter((p) => p.content.trim())
       .map((p) => p.content)
       .join('\n\n');
-    const promptText = buildPrompt(template || script.howItWorks || '', topic, instructions);
+    const promptText = buildPrompt(
+      template || script.howItWorks || '',
+      topic,
+      instructions,
+      script.duration || 30
+    );
 
     const initialPatch: Partial<Script> = {
       id: scriptId,
@@ -413,6 +422,41 @@ ${optionalInstructions}`;
     setTab('assets');
   }
 
+  async function handleClearScript(id: string) {
+    const resetPatch: Partial<Script> = {
+      topicName: undefined,
+      aiInstructions: undefined,
+      aiResponse: '',
+      extractedScript: '',
+      imagePrompts: [],
+      narration: '',
+      generatedImages: [],
+      generatedAudio: [],
+      timelineConfig: undefined,
+      pipeline: [
+        {
+          id: 'response',
+          label: 'Response',
+          status: 'pending' as const,
+          summary: 'Waiting to start',
+          inputLog: '',
+          outputPreview: '',
+        },
+      ],
+      lastUsed: 'Never',
+      status: 'draft' as const,
+    };
+
+    patchScriptState(id, resetPatch);
+    await persistScript(id, resetPatch);
+  }
+
+  async function handleUpdateScriptDuration(id: string, duration: number) {
+    const patch: Partial<Script> = { duration };
+    patchScriptState(id, patch);
+    await persistScript(id, patch);
+  }
+
   async function handleDeleteScript(id: string) {
     try {
       await fetch(`/api/scripts/${id}`, { method: 'DELETE' });
@@ -531,6 +575,8 @@ ${optionalInstructions}`;
                       selectedScript={selectedScript}
                       onClosePanel={() => setSelectedScriptId(null)}
                       onDelete={handleDeleteScript}
+                      onClear={handleClearScript}
+                      onUpdateDuration={handleUpdateScriptDuration}
                     />
                   )}
                   {tab === 'preview' && <PreviewTab pipeline={pipeline} script={selectedScript} onExtractAssets={handleExtractAssets} />}

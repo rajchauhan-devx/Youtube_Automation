@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import { Field } from '../layout/Field';
-import type { Section, Script } from '../../data';
+import { DURATION_PRESETS, type Section, type Script, type DurationPreset } from '../../data';
 
 let blockCounter = 0;
 function newBlockId() {
@@ -11,6 +11,7 @@ function newBlockId() {
 
 export function NewScriptModal({ onClose, section, onCreated }: { onClose: () => void; section: Section; onCreated?: (script: Script) => void }) {
   const [name, setName] = useState('');
+  const [duration, setDuration] = useState<number>(section === 'long' ? 120 : 30);
   const [prompts, setPrompts] = useState<
     { id: string; name: string; type?: string; content: string }[]
   >([
@@ -38,7 +39,7 @@ export function NewScriptModal({ onClose, section, onCreated }: { onClose: () =>
       lastUsed: 'now',
       status: 'draft',
       locked: false,
-      duration: 30,
+      duration,
       prompts: prompts.map((p) => ({ id: p.id, name: p.name, type: p.type, content: p.content })),
       howItWorks,
     };
@@ -77,6 +78,28 @@ export function NewScriptModal({ onClose, section, onCreated }: { onClose: () =>
               placeholder="Script name"
               className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-accent"
             />
+          </Field>
+
+          <Field label="Target Duration">
+            <div className="flex flex-wrap gap-2">
+              {DURATION_PRESETS.map((dur) => (
+                <button
+                  key={dur}
+                  type="button"
+                  onClick={() => setDuration(dur)}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                    duration === dur
+                      ? 'bg-accent text-white shadow-sm'
+                      : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
+                  }`}
+                >
+                  {dur >= 60 && dur % 60 === 0 ? `${dur / 60}m (${dur}s)` : `${dur}s`}
+                </button>
+              ))}
+            </div>
+            <p className="mt-1 text-[11px] text-gray-500">
+              Paces script length and pre-fills export render duration.
+            </p>
           </Field>
 
           <div>
