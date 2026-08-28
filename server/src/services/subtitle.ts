@@ -13,6 +13,26 @@ function formatAssTime(seconds: number): string {
   return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(cs).padStart(2, '0')}`;
 }
 
+const POWER_WORDS = new Set([
+  'SECRET', 'WARNING', 'INSANE', 'SHOCKING', 'NEVER', 'ALWAYS', 'TRUTH',
+  'STOP', 'REVEALED', 'MONEY', 'CRAZY', 'FACT', 'REAL', 'WHY', 'HOW',
+  'HIDDEN', 'DANGER', 'BILLION', 'MILLION', 'POWERFUL', 'DEADLY', 'AI', 'NEW', 'BEST'
+]);
+
+function formatHighlightedText(chunk: string): string {
+  const words = chunk.split(/\s+/);
+  return words
+    .map((w) => {
+      const cleanW = w.replace(/[^a-zA-Z0-9$%]/g, '').toUpperCase();
+      const isPower = POWER_WORDS.has(cleanW) || /\d+[%$kKmMbB]?/.test(cleanW);
+      if (isPower) {
+        return `{\\c&H0000FFFF&}{\\b1}${w.toUpperCase()}{\\b0}{\\c&H00FFFFFF&}`;
+      }
+      return w.toUpperCase();
+    })
+    .join(' ');
+}
+
 export function generateSubtitleFile(opts: {
   scriptId: string;
   narration: string;
@@ -52,7 +72,7 @@ export function generateSubtitleFile(opts: {
 
   const chunkDuration = Math.max(0.8, duration / chunks.length);
 
-  // ASS Script Header with bold Yellow font, thick black stroke, centered bottom
+  // ASS Script Header with bold White base font, thick black stroke, centered bottom
   let assContent = `[Script Info]
 Title: Auto-Generated Shorts Subtitles
 ScriptType: v4.00+
@@ -64,8 +84,7 @@ PlayResY: 1920
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: ShortsDefault,Montserrat,68,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,8,2,2,40,40,280,1
-Style: ShortsAlt,Arial,68,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,8,2,2,40,40,280,1
+Style: ShortsDefault,Montserrat,72,&H00FFFFFF,&H000000FF,&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,9,3,2,40,40,280,1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
@@ -76,10 +95,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     const endSec = Math.min(duration, (index + 1) * chunkDuration);
     const startStr = formatAssTime(startSec);
     const endStr = formatAssTime(endSec);
-    const styleName = index % 2 === 0 ? 'ShortsDefault' : 'ShortsAlt';
-    const textUpper = chunk.toUpperCase();
+    const highlighted = formatHighlightedText(chunk);
 
-    assContent += `Dialogue: 0,${startStr},${endStr},${styleName},,0,0,0,,${textUpper}\n`;
+    assContent += `Dialogue: 0,${startStr},${endStr},ShortsDefault,,0,0,0,,${highlighted}\n`;
   });
 
   fs.writeFileSync(filePath, assContent, 'utf-8');

@@ -88,9 +88,11 @@ llmRouter.post('/scene-analysis', async (req, res) => {
       'circleclose', 'dissolve'
     ];
     const allowedEffects = [
+      'crash-zoom', 'slow-zoom-in', 'slow-zoom-out', 'drift-left', 'drift-right',
       'zoom-in', 'zoom-out', 'pan-left', 'pan-right',
-      'pan-up', 'pan-down', 'ken-burns-in', 'hold'
+      'pan-up', 'pan-down', 'ken-burns-in', 'ken-burns-out', 'hold'
     ];
+    const allowedColorGrades = ['teal-orange', 'warm-vintage', 'vibrant', 'dramatic-noir', 'clean'];
 
     function generateFallback(numImages: number, totalDuration: number) {
       const perImage = Math.max(1.5, Math.round((totalDuration / Math.max(1, numImages)) * 10) / 10);
@@ -112,6 +114,7 @@ llmRouter.post('/scene-analysis', async (req, res) => {
         timings: timingsList,
         pacing: perImage < 3 ? 'fast-cut' : 'cinematic',
         mood: 'epic',
+        colorGrade: 'teal-orange',
       };
     }
 
@@ -126,7 +129,7 @@ llmRouter.post('/scene-analysis', async (req, res) => {
     }
 
     try {
-      const prompt = `Given this video script and ${count} scene images, suggest visual pacing, image camera motions, transitions between scenes, and video mood.
+      const prompt = `Given this video script and ${count} scene images, suggest visual pacing, image camera motions, transitions between scenes, cinematic color grade, and video mood.
 
 Target Duration: ~${duration} seconds.
 Script/Narration: "${narration || script || ''}"
@@ -139,7 +142,8 @@ Output JSON format:
   "effects": [array of ${count} motion effect strings picked from: ${allowedEffects.join(', ')}],
   "timings": [array of ${count} duration numbers in seconds summing close to ${duration}],
   "pacing": "fast-cut" or "cinematic",
-  "mood": "epic" | "upbeat" | "calm" | "suspense" | "emotional" | "neutral"
+  "mood": "epic" | "upbeat" | "calm" | "suspense" | "emotional" | "neutral",
+  "colorGrade": "teal-orange" | "warm-vintage" | "vibrant" | "dramatic-noir" | "clean"
 }`;
 
       const result = await chat(apiKey, {
@@ -174,12 +178,17 @@ Output JSON format:
         ? parsed.timings.map((t: any) => Math.max(1, Number(t) || duration / count))
         : Array(count).fill(Math.round((duration / count) * 10) / 10);
 
+      const colorGrade = typeof parsed.colorGrade === 'string' && allowedColorGrades.includes(parsed.colorGrade)
+        ? parsed.colorGrade
+        : (parsed.mood === 'suspense' || parsed.mood === 'epic' ? 'teal-orange' : parsed.mood === 'calm' ? 'warm-vintage' : 'vibrant');
+
       res.json({
         transitions,
         effects,
         timings,
         pacing: parsed.pacing || (duration / count < 3 ? 'fast-cut' : 'cinematic'),
         mood: parsed.mood || 'epic',
+        colorGrade,
       });
     } catch (llmErr) {
       console.warn('Scene analysis LLM fallback used:', llmErr);

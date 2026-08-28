@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import ffmpeg from 'fluent-ffmpeg';
+import { getWhooshSfxPath, getImpactSfxPath, ensureDefaultSfx } from './sfx.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GENERATED_DIR = path.join(__dirname, '..', '..', 'data', 'generated');
@@ -10,6 +11,9 @@ const OUTPUT_DIR = path.join(__dirname, '..', '..', 'data', 'output');
 if (!fs.existsSync(OUTPUT_DIR)) {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 }
+
+// Pre-generate SFX assets
+ensureDefaultSfx().catch(() => {});
 
 ffmpeg.setFfmpegPath('ffmpeg');
 
@@ -30,11 +34,15 @@ export interface RenderOptions {
     timings: number[];
     pacing?: string;
     mood?: string;
+    colorGrade?: string;
   };
   enableSubtitles?: boolean;
   subtitlePath?: string;
   bgmPath?: string;
   bgmVolume?: number;
+  colorGrade?: string;
+  enableVignette?: boolean;
+  enableSfx?: boolean;
   onProgress?: (percent: number) => void;
 }
 
@@ -69,22 +77,41 @@ const VALID_XFADE_TRANSITIONS = new Set([
   'dissolve', 'pixelize', 'horzopen', 'horzclose', 'vertopen', 'vertclose'
 ]);
 
+const COLOR_GRADE_FILTERS: Record<string, string> = {
+  'teal-orange': 'eq=contrast=1.12:saturation=1.18:brightness=-0.02,colorbalance=rs=0.06:gs=-0.01:bs=-0.05:rh=-0.04:gh=0.01:bh=0.06',
+  'warm-vintage': 'eq=contrast=1.08:saturation=1.12,colorbalance=rs=0.08:gs=0.04:bs=-0.06:rh=0.04:gh=0.02:bh=-0.03',
+  'vibrant': 'eq=contrast=1.15:saturation=1.35:brightness=0.01',
+  'dramatic-noir': 'eq=contrast=1.22:saturation=0.85:brightness=-0.04',
+  'clean': 'eq=contrast=1.05:saturation=1.08',
+};
+
 function buildZoompanExpression(effect: string, frameCount: number, width: number, height: number, zoomFactor: number): string {
   const zMax = Math.max(1.15, zoomFactor);
   const step = Math.max(0.0001, (zMax - 1.0) / Math.max(30, frameCount));
   const stepStr = step.toFixed(6);
+  const eff = (effect || 'zoom-in').toLowerCase();
 
-  switch (effect.toLowerCase()) {
+  switch (eff) {
+    case 'crash-zoom':
+      return `zoompan=z='if(lte(on,${Math.max(10, Math.round(frameCount * 0.35))}),min(1.0+on*${(0.3 / Math.max(1, Math.round(frameCount * 0.35))).toFixed(4)},1.3),1.3)':d=${frameCount}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+    case 'slow-zoom-in':
+      return `zoompan=z='min(zoom+0.0006,1.12)':d=${frameCount}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+    case 'slow-zoom-out':
+      return `zoompan=z='if(eq(on,1),1.12,max(1.0,zoom-0.0006))':d=${frameCount}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
     case 'zoom-out':
       return `zoompan=z='if(eq(on,1),${zMax.toFixed(2)},max(1.0,zoom-${stepStr}))':d=${frameCount}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+    case 'drift-left':
     case 'pan-left':
-      return `zoompan=z=1.15:d=${frameCount}:x='(1-on/${frameCount})*(iw-iw/zoom)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+      return `zoompan=z=1.12:d=${frameCount}:x='(1-on/${frameCount})*(iw-iw/zoom)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+    case 'drift-right':
     case 'pan-right':
-      return `zoompan=z=1.15:d=${frameCount}:x='(on/${frameCount})*(iw-iw/zoom)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+      return `zoompan=z=1.12:d=${frameCount}:x='(on/${frameCount})*(iw-iw/zoom)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
     case 'pan-up':
-      return `zoompan=z=1.15:d=${frameCount}:x='iw/2-(iw/zoom/2)':y='(1-on/${frameCount})*(ih-ih/zoom)':s=${width}x${height}`;
+      return `zoompan=z=1.12:d=${frameCount}:x='iw/2-(iw/zoom/2)':y='(1-on/${frameCount})*(ih-ih/zoom)':s=${width}x${height}`;
     case 'pan-down':
-      return `zoompan=z=1.15:d=${frameCount}:x='iw/2-(iw/zoom/2)':y='(on/${frameCount})*(ih-ih/zoom)':s=${width}x${height}`;
+      return `zoompan=z=1.12:d=${frameCount}:x='iw/2-(iw/zoom/2)':y='(on/${frameCount})*(ih-ih/zoom)':s=${width}x${height}`;
+    case 'ken-burns-out':
+      return `zoompan=z='if(eq(on,1),1.22,max(1.0,zoom-0.001))':d=${frameCount}:x='(1-on/${frameCount})*(iw-iw/zoom)':y='(1-on/${frameCount})*(ih-ih/zoom)':s=${width}x${height}`;
     case 'ken-burns-in':
       return `zoompan=z='min(zoom+${stepStr},${zMax.toFixed(2)})':d=${frameCount}:x='(on/${frameCount})*(iw-iw/zoom)':y='(on/${frameCount})*(ih-ih/zoom)':s=${width}x${height}`;
     case 'hold':
@@ -138,7 +165,7 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
     for (let i = 0; i < numImages; i++) {
       clipDurations.push(uniformDuration);
       clipTransitions.push({ type: 'fade', duration: defaultTransitionDuration });
-      clipEffects.push(i % 2 === 0 ? 'zoom-in' : 'pan-left');
+      clipEffects.push(i % 2 === 0 ? 'zoom-in' : 'drift-left');
     }
   }
 
@@ -191,23 +218,52 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
     });
   }
 
-  // Handle burned-in subtitles if enabled
-  if (opts.enableSubtitles && opts.subtitlePath && fs.existsSync(opts.subtitlePath)) {
-    const escapedSub = opts.subtitlePath.replace(/\\/g, '/').replace(/:/g, '\\:');
-    filterParts.push(`[${lastLabel}]trim=duration=${totalVideoDuration},setpts=PTS-STARTPTS,ass='${escapedSub}'[v]`);
-  } else {
-    filterParts.push(`[${lastLabel}]trim=duration=${totalVideoDuration},setpts=PTS-STARTPTS[v]`);
+  // Base video post-processing: Color grading + Vignette
+  let postFilters: string[] = ['setpts=PTS-STARTPTS'];
+
+  // Color grade
+  const colorGradeKey = (opts.colorGrade || sa?.colorGrade || 'teal-orange').toLowerCase();
+  if (COLOR_GRADE_FILTERS[colorGradeKey]) {
+    postFilters.push(COLOR_GRADE_FILTERS[colorGradeKey]);
   }
 
-  // Handle BGM audio mixing in filter complex if BGM is present
-  if (opts.bgmPath && fs.existsSync(opts.bgmPath)) {
-    const voiceIndex = numImages;
-    const bgmIndex = numImages + 1;
-    const bgmVol = (opts.bgmVolume ?? 0.15).toFixed(2);
+  // Vignette shading
+  if (opts.enableVignette !== false) {
+    postFilters.push('vignette=PI/4');
+  }
 
-    filterParts.push(`[${voiceIndex}:a]volume=1.0[voice]`);
+  // Subtitles
+  if (opts.enableSubtitles && opts.subtitlePath && fs.existsSync(opts.subtitlePath)) {
+    const escapedSub = opts.subtitlePath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    postFilters.push(`ass='${escapedSub}'`);
+  }
+
+  // Handle audio filter complex (Voice + BGM + SFX)
+  const audioMixLabels: string[] = [];
+  const voiceIndex = numImages;
+  let nextAudioIndex = voiceIndex + 1;
+
+  filterParts.push(`[${voiceIndex}:a]volume=1.0[voice]`);
+  audioMixLabels.push('[voice]');
+
+  if (opts.bgmPath && fs.existsSync(opts.bgmPath)) {
+    const bgmIndex = nextAudioIndex++;
+    const bgmVol = (opts.bgmVolume ?? 0.15).toFixed(2);
     filterParts.push(`[${bgmIndex}:a]volume=${bgmVol}[bgm]`);
-    filterParts.push(`[voice][bgm]amix=inputs=2:duration=first:dropout_transition=2[a]`);
+    audioMixLabels.push('[bgm]');
+  }
+
+  if (opts.enableSfx) {
+    const whooshPath = getWhooshSfxPath();
+    if (whooshPath) {
+      const sfxIndex = nextAudioIndex++;
+      filterParts.push(`[${sfxIndex}:a]volume=0.20[sfx]`);
+      audioMixLabels.push('[sfx]');
+    }
+  }
+
+  if (audioMixLabels.length > 1) {
+    filterParts.push(`${audioMixLabels.join('')}amix=inputs=${audioMixLabels.length}:duration=first:dropout_transition=2[a]`);
   }
 
   return filterParts.join(';');
@@ -236,6 +292,9 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
   }
 
   const hasBgm = Boolean(opts.bgmPath && fs.existsSync(opts.bgmPath));
+  const whooshPath = opts.enableSfx ? getWhooshSfxPath() : null;
+  const hasSfx = Boolean(opts.enableSfx && whooshPath);
+  const hasMultiAudio = hasBgm || hasSfx;
 
   const filename = `final_${Date.now()}.mp4`;
   const outputPath = path.join(outputDir, filename);
@@ -254,9 +313,13 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
       cmd.input(opts.bgmPath).inputOptions(['-stream_loop', '-1']);
     }
 
+    if (hasSfx && whooshPath) {
+      cmd.input(whooshPath).inputOptions(['-stream_loop', '-1']);
+    }
+
     const outputOptions = [
       '-map', '[v]',
-      '-map', hasBgm ? '[a]' : `${resolvedImages.length}:a`,
+      '-map', hasMultiAudio ? '[a]' : `${resolvedImages.length}:a`,
       '-c:v', 'libx264',
       '-preset', 'fast',
       '-crf', '23',

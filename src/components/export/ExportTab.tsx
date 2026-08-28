@@ -43,6 +43,9 @@ export function ExportTab({
   const [enableSubtitles, setEnableSubtitles] = useState(true);
   const [bgmTrack, setBgmTrack] = useState('auto');
   const [bgmVolume, setBgmVolume] = useState(0.15);
+  const [colorGrade, setColorGrade] = useState('auto');
+  const [enableVignette, setEnableVignette] = useState(true);
+  const [enableSfx, setEnableSfx] = useState(true);
   const [availableTracks, setAvailableTracks] = useState<{ id: string; name: string; mood: string }[]>([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -160,6 +163,9 @@ export function ExportTab({
           enableSubtitles,
           bgmTrack: bgmTrack === 'auto' ? (script.sceneAnalysis?.mood || 'epic') : bgmTrack,
           bgmVolume,
+          colorGrade: colorGrade === 'auto' ? (script.sceneAnalysis?.colorGrade || 'teal-orange') : colorGrade,
+          enableVignette,
+          enableSfx,
         }),
       });
 
@@ -419,6 +425,50 @@ export function ExportTab({
                 <p className="text-xs text-gray-400 mt-1">{Math.round(bgmVolume * 100)}% background volume</p>
               </Field>
             )}
+          </div>
+        </div>
+
+        {/* Cinematic Color Grading & Atmosphere */}
+        <div className="rounded-xl border border-border bg-surface/60 p-4 space-y-3.5">
+          <p className="text-sm font-semibold text-white">Cinematic FX & Audio Polish</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label="Color Grading Look">
+              <select
+                value={colorGrade}
+                onChange={(e) => setColorGrade(e.target.value)}
+                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              >
+                <option value="auto">Auto (AI Mood: {sa?.colorGrade || 'Teal & Orange'})</option>
+                <option value="teal-orange">Teal & Orange (Cinematic standard)</option>
+                <option value="warm-vintage">Warm Golden Hour (Vintage glow)</option>
+                <option value="vibrant">Cyberpunk Vibrant (Electric punch)</option>
+                <option value="dramatic-noir">Dramatic Noir (Moody shadows)</option>
+                <option value="clean">Clean Commercial (Crisp natural)</option>
+                <option value="none">None (Raw original)</option>
+              </select>
+            </Field>
+
+            <div className="flex flex-col justify-end gap-2.5">
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={enableVignette}
+                  onChange={(e) => setEnableVignette(e.target.checked)}
+                  className="rounded border-border bg-surface text-accent focus:ring-0"
+                />
+                <span>Cinematic Vignette Shading</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={enableSfx}
+                  onChange={(e) => setEnableSfx(e.target.checked)}
+                  className="rounded border-border bg-surface text-accent focus:ring-0"
+                />
+                <span>Transition Whooshes & Impact SFX</span>
+              </label>
+            </div>
           </div>
         </div>
 

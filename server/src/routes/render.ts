@@ -36,6 +36,9 @@ renderRouter.post('/start', (req, res) => {
     enableSubtitles,
     bgmTrack,
     bgmVolume,
+    colorGrade,
+    enableVignette,
+    enableSfx,
   } = req.body || {};
 
   if (!scriptId || typeof scriptId !== 'string') {
@@ -91,6 +94,9 @@ renderRouter.post('/start', (req, res) => {
     subtitlePath,
     bgmPath: resolvedBgm || undefined,
     bgmVolume: typeof bgmVolume === 'number' ? bgmVolume : 0.15,
+    colorGrade: typeof colorGrade === 'string' ? colorGrade : undefined,
+    enableVignette: enableVignette !== false,
+    enableSfx: enableSfx !== false,
     onProgress: (percent) => {
       const entry = activeRenders.get(scriptId);
       if (entry) {
