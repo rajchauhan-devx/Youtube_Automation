@@ -111,7 +111,18 @@ export async function listAvailableModels(): Promise<string[]> {
   return Array.from(models);
 }
 
-function buildWorkflow(promptStr: string, seed: number, preset: QualityPreset = 'standard', modelName?: string): any {
+export interface WorkflowOptions {
+  promptStr: string;
+  seed: number;
+  preset?: QualityPreset;
+  modelName?: string;
+  stylePreset?: string;
+  enableQualityBooster?: boolean;
+  enableNegativeGuardrails?: boolean;
+}
+
+function buildWorkflow(opts: WorkflowOptions): any {
+  const { promptStr, seed, preset = 'standard', modelName, stylePreset = 'cinematic', enableQualityBooster = true, enableNegativeGuardrails = true } = opts;
   const wf = loadTemplate();
   const cfg = PRESET_CONFIG[preset] || PRESET_CONFIG.standard;
 
@@ -144,18 +155,46 @@ function buildWorkflow(promptStr: string, seed: number, preset: QualityPreset = 
     extraNegative = negMatch[1].trim();
   }
 
-  // Prepend quality booster for SDXL photorealism if not a graphic card
-  if (!positivePrompt.toLowerCase().includes('card') && !positivePrompt.toLowerCase().includes('cinematic photo')) {
-    positivePrompt = `cinematic photo, 8k uhd, highly detailed, film grain, ${positivePrompt}`;
+  // Style boosters (only when enableQualityBooster is true and not raw mode)
+  const style = (stylePreset || 'cinematic').toLowerCase();
+
+  if (enableQualityBooster && style !== 'raw' && style !== 'none') {
+    if (style === 'cinematic') {
+      if (!positivePrompt.toLowerCase().includes('cinematic photo') && !positivePrompt.toLowerCase().includes('card')) {
+        positivePrompt = `cinematic photo, 8k uhd, highly detailed, film grain, ${positivePrompt}`;
+      }
+    } else if (style === 'anime') {
+      if (!positivePrompt.toLowerCase().includes('anime')) {
+        positivePrompt = `anime artwork, masterpiece, vibrant colors, detailed line art, studio anime aesthetic, ${positivePrompt}`;
+      }
+    } else if (style === 'cartoon') {
+      if (!positivePrompt.toLowerCase().includes('cartoon') && !positivePrompt.toLowerCase().includes('animation')) {
+        positivePrompt = `3d animation style, pixar render, vibrant expressive characters, high quality 3d cartoon, ${positivePrompt}`;
+      }
+    } else if (style === 'digital_art') {
+      if (!positivePrompt.toLowerCase().includes('digital painting')) {
+        positivePrompt = `concept digital painting, highly detailed, dramatic lighting, artstation trending, ${positivePrompt}`;
+      }
+    }
   }
 
   if (wf['6']) {
     wf['6'].inputs.text = positivePrompt;
   }
 
+  // Universal Negative Prompt Guardrails
   if (wf['15']) {
-    const defaultNeg = 'ugly, blurry, low quality, distorted, bad hands, deformed, noise, artifacts, cropped, out of frame, low resolution, bad anatomy, cartoon, anime, 3d render, illustration, oversaturated';
-    wf['15'].inputs.text = extraNegative ? `${defaultNeg}, ${extraNegative}` : defaultNeg;
+    if (!enableNegativeGuardrails) {
+      // Clean mode: Only custom negative prompt, without forced restrictions
+      wf['15'].inputs.text = extraNegative || 'ugly, blurry, low quality, distorted, bad hands, deformed';
+    } else {
+      let defaultNeg = 'ugly, blurry, low quality, distorted, bad hands, deformed, noise, artifacts, cropped, out of frame, low resolution, bad anatomy';
+      // If user wants anime/cartoon, do NOT ban cartoon, anime, or 3d render
+      if (style !== 'anime' && style !== 'cartoon') {
+        defaultNeg += ', cartoon, anime, 3d render, illustration, oversaturated';
+      }
+      wf['15'].inputs.text = extraNegative ? `${defaultNeg}, ${extraNegative}` : defaultNeg;
+    }
   }
 
   if (wf['13']) {
@@ -305,7 +344,7 @@ export async function stopComfyUI(): Promise<{ success: boolean; message: string
   return { success: true, message: killed ? 'ComfyUI stopped' : 'No ComfyUI process found' };
 }
 
-export async function generateImage(opts: {
+export interface GenerateOptions {
   prompt: string;
   scriptId: string;
   index: number;
@@ -313,14 +352,27 @@ export async function generateImage(opts: {
   signal?: AbortSignal;
   preset?: QualityPreset;
   modelName?: string;
-}): Promise<{ publicUrl: string; fileName: string; seed: number; elapsedMs: number }> {
+  stylePreset?: string;
+  enableQualityBooster?: boolean;
+  enableNegativeGuardrails?: boolean;
+}
+
+export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl: string; fileName: string; seed: number; elapsedMs: number }> {
   const started = Date.now();
   const scriptId = sanitizeSegment(opts.scriptId);
   if (!scriptId) throw new ComfyError('CONFIG', 'Invalid scriptId.');
   const seed = opts.seed ?? Math.floor(Math.random() * 2 ** 31);
   const clientId = `server-${scriptId}-${opts.index}-${started}`;
 
-  const workflow = buildWorkflow(opts.prompt, seed, opts.preset || 'standard', opts.modelName);
+  const workflow = buildWorkflow({
+    promptStr: opts.prompt,
+    seed,
+    preset: opts.preset || 'standard',
+    modelName: opts.modelName,
+    stylePreset: opts.stylePreset,
+    enableQualityBooster: opts.enableQualityBooster,
+    enableNegativeGuardrails: opts.enableNegativeGuardrails,
+  });
   const promptId = await queuePrompt(workflow, clientId);
   const historyEntry = await pollHistory(promptId, GEN_TIMEOUT_MS, opts.signal);
   const imageRef = extractImageRef(historyEntry);

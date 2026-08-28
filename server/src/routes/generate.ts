@@ -52,7 +52,18 @@ generateRouter.post('/stop', async (_req, res) => {
 });
 
 generateRouter.post('/image', async (req, res) => {
-  const { scriptId, index, prompt, seed, preset, modelName } = req.body || {};
+  const {
+    scriptId,
+    index,
+    prompt,
+    seed,
+    preset,
+    modelName,
+    stylePreset,
+    enableQualityBooster,
+    enableNegativeGuardrails,
+  } = req.body || {};
+
   if (!scriptId || typeof index !== 'number' || !prompt || typeof prompt !== 'string') {
     res.status(400).json({ error: 'scriptId, index (number), and prompt (string) are required' });
     return;
@@ -69,10 +80,13 @@ generateRouter.post('/image', async (req, res) => {
       prompt,
       scriptId,
       index,
-      seed,
+      seed: typeof seed === 'number' ? seed : undefined,
       signal: controller.signal,
       preset: validPreset,
       modelName: typeof modelName === 'string' ? modelName : undefined,
+      stylePreset: typeof stylePreset === 'string' ? stylePreset : undefined,
+      enableQualityBooster: enableQualityBooster !== false,
+      enableNegativeGuardrails: enableNegativeGuardrails !== false,
     });
     res.json({ ok: true, url: result.publicUrl, seed: result.seed, elapsedMs: result.elapsedMs });
   } catch (err: any) {

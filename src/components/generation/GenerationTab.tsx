@@ -82,6 +82,11 @@ function ImageGenerationContent({
   const [preset, setPreset] = useState<'fast' | 'standard' | 'high'>('standard');
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
+  const [stylePreset, setStylePreset] = useState<'cinematic' | 'anime' | 'cartoon' | 'digital_art' | 'raw'>('cinematic');
+  const [enableQualityBooster, setEnableQualityBooster] = useState(true);
+  const [enableNegativeGuardrails, setEnableNegativeGuardrails] = useState(true);
+  const [seedMode, setSeedMode] = useState<'random' | 'fixed'>('random');
+  const [fixedSeed, setFixedSeed] = useState<number>(42);
 
   const runTokenRef = useRef(0);
   const pausedRef = useRef(false);
@@ -122,27 +127,30 @@ function ImageGenerationContent({
     return status.online as boolean;
   }
 
-  async function fetchModels() {
+  async function loadModels() {
     try {
       const res = await fetch('/api/generate/models');
       const data = await res.json();
       if (Array.isArray(data.models) && data.models.length > 0) {
         setModels(data.models);
-        setSelectedModel((prev) => prev || data.models[0]);
+        if (!selectedModel) {
+          setSelectedModel(data.models[0]);
+        }
       }
     } catch {}
   }
 
   useEffect(() => {
     checkServer();
-    fetchModels();
+    loadModels();
   }, []);
 
   function updateImage(index: number, patch: Partial<GeneratedImage>) {
-    const next = imagesRef.current.map((im) => (im.index === index ? { ...im, ...patch } : im));
-    imagesRef.current = next;
-    setImages(next);
-    onUpdate({ generatedImages: next });
+    setImages((prev) => {
+      const next = prev.map((im) => (im.index === index ? { ...im, ...patch } : im));
+      onUpdate({ generatedImages: next });
+      return next;
+    });
   }
 
   async function generateOne(item: GeneratedImage) {
@@ -158,6 +166,10 @@ function ImageGenerationContent({
           prompt: item.prompt,
           preset,
           modelName: selectedModel || undefined,
+          stylePreset,
+          enableQualityBooster,
+          enableNegativeGuardrails,
+          seed: seedMode === 'fixed' ? fixedSeed : undefined,
         }),
       });
       const data = await res.json();
@@ -444,6 +456,71 @@ function ImageGenerationContent({
             </select>
           </div>
         )}
+      </div>
+
+      {/* Style Presets & Prompt Controls Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-surface/30 px-4 py-2 text-xs">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Style Preset */}
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-gray-400">Art Style:</span>
+            <select
+              value={stylePreset}
+              onChange={(e) => setStylePreset(e.target.value as any)}
+              className="rounded border border-border bg-bg px-2 py-1 text-xs text-white outline-none focus:border-accent"
+            >
+              <option value="cinematic">Cinematic Photo (Photorealistic)</option>
+              <option value="anime">Anime / Manga Style</option>
+              <option value="cartoon">3D Cartoon / Animation (Pixar/Disney)</option>
+              <option value="digital_art">Digital Art / Concept Art</option>
+              <option value="raw">Raw (Exact Prompt, No Booster)</option>
+            </select>
+          </div>
+
+          {/* Quality Booster Checkbox */}
+          <label className="flex items-center gap-1.5 cursor-pointer text-gray-300 hover:text-white">
+            <input
+              type="checkbox"
+              checked={enableQualityBooster && stylePreset !== 'raw'}
+              disabled={stylePreset === 'raw'}
+              onChange={(e) => setEnableQualityBooster(e.target.checked)}
+              className="rounded border-border bg-bg text-accent focus:ring-accent"
+            />
+            <span>Quality Booster ({stylePreset === 'anime' ? 'Anime Art' : stylePreset === 'cartoon' ? '3D Render' : stylePreset === 'digital_art' ? 'Digital Art' : '8K UHD'})</span>
+          </label>
+
+          {/* Negative Guardrails Checkbox */}
+          <label className="flex items-center gap-1.5 cursor-pointer text-gray-300 hover:text-white" title="Block distorted faces, bad hands, and visual artifacts">
+            <input
+              type="checkbox"
+              checked={enableNegativeGuardrails}
+              onChange={(e) => setEnableNegativeGuardrails(e.target.checked)}
+              className="rounded border-border bg-bg text-accent focus:ring-accent"
+            />
+            <span>Negative Filter (Anti-Artifacts)</span>
+          </label>
+        </div>
+
+        {/* Seed Controls */}
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-gray-400">Seed:</span>
+          <select
+            value={seedMode}
+            onChange={(e) => setSeedMode(e.target.value as any)}
+            className="rounded border border-border bg-bg px-2 py-1 text-xs text-white outline-none focus:border-accent"
+          >
+            <option value="random">Random Seed</option>
+            <option value="fixed">Fixed Seed</option>
+          </select>
+          {seedMode === 'fixed' && (
+            <input
+              type="number"
+              value={fixedSeed}
+              onChange={(e) => setFixedSeed(parseInt(e.target.value, 10) || 0)}
+              className="w-20 rounded border border-border bg-bg px-2 py-1 text-xs text-white outline-none focus:border-accent"
+            />
+          )}
+        </div>
       </div>
 
       {serverStatus === 'starting' && (
