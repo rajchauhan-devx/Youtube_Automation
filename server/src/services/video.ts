@@ -238,31 +238,36 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
     postFilters.push(`ass='${cleanSubPath}'`);
   }
 
-  // Handle audio filter complex (Voice + BGM + SFX)
-  const audioMixLabels: string[] = [];
-  const voiceIndex = numImages;
-  let nextAudioIndex = voiceIndex + 1;
+  // Final video output node [v]
+  filterParts.push(`[${lastLabel}]trim=duration=${totalVideoDuration},${postFilters.join(',')}[v]`);
 
-  filterParts.push(`[${voiceIndex}:a]volume=1.0[voice]`);
-  audioMixLabels.push('[voice]');
+  // Handle audio filter complex (Voice + BGM + SFX) only when multi-audio is needed
+  const hasBgm = Boolean(opts.bgmPath && fs.existsSync(opts.bgmPath));
+  const whooshPath = opts.enableSfx ? getWhooshSfxPath() : null;
+  const hasSfx = Boolean(opts.enableSfx && whooshPath);
+  const hasMultiAudio = hasBgm || hasSfx;
 
-  if (opts.bgmPath && fs.existsSync(opts.bgmPath)) {
-    const bgmIndex = nextAudioIndex++;
-    const bgmVol = (opts.bgmVolume ?? 0.15).toFixed(2);
-    filterParts.push(`[${bgmIndex}:a]volume=${bgmVol}[bgm]`);
-    audioMixLabels.push('[bgm]');
-  }
+  if (hasMultiAudio) {
+    const audioMixLabels: string[] = [];
+    const voiceIndex = numImages;
+    let nextAudioIndex = voiceIndex + 1;
 
-  if (opts.enableSfx) {
-    const whooshPath = getWhooshSfxPath();
-    if (whooshPath) {
+    filterParts.push(`[${voiceIndex}:a]volume=1.0[voice]`);
+    audioMixLabels.push('[voice]');
+
+    if (hasBgm && opts.bgmPath) {
+      const bgmIndex = nextAudioIndex++;
+      const bgmVol = (opts.bgmVolume ?? 0.15).toFixed(2);
+      filterParts.push(`[${bgmIndex}:a]volume=${bgmVol}[bgm]`);
+      audioMixLabels.push('[bgm]');
+    }
+
+    if (hasSfx && whooshPath) {
       const sfxIndex = nextAudioIndex++;
       filterParts.push(`[${sfxIndex}:a]volume=0.20[sfx]`);
       audioMixLabels.push('[sfx]');
     }
-  }
 
-  if (audioMixLabels.length > 1) {
     filterParts.push(`${audioMixLabels.join('')}amix=inputs=${audioMixLabels.length}:duration=first:dropout_transition=2[a]`);
   }
 
