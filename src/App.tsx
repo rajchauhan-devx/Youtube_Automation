@@ -402,16 +402,33 @@ ${optionalInstructions}`.trim();
       extracted = parseAIResponse(selectedScript.aiResponse);
     }
 
+    let sceneAnalysis: any = undefined;
+    try {
+      sceneAnalysis = await apiPost(
+        '/api/llm/scene-analysis',
+        {
+          script: extracted.script,
+          narration: extracted.ttsText,
+          imagePrompts: extracted.imagePrompts,
+          duration: selectedScript.duration || 30,
+        },
+        getApiKey()
+      );
+    } catch (e) {
+      console.warn('Scene analysis fetch error:', e);
+    }
+
     const patch: Partial<Script> = {
       extractedScript: extracted.script,
       imagePrompts: extracted.imagePrompts,
       narration: extracted.ttsText,
+      sceneAnalysis,
       pipeline: [
         {
           id: 'response',
           label: 'Response',
           status: 'done' as const,
-          summary: 'Assets extracted',
+          summary: 'Assets extracted & scene effects analyzed',
           inputLog: selectedScript.topicName || '',
           outputPreview: extracted.script.slice(0, 120) + '...',
         },
@@ -433,6 +450,7 @@ ${optionalInstructions}`.trim();
       generatedImages: [],
       generatedAudio: [],
       timelineConfig: undefined,
+      sceneAnalysis: undefined,
       pipeline: [
         {
           id: 'response',

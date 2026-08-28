@@ -76,6 +76,121 @@ Rules:
   }
 });
 
+llmRouter.post('/scene-analysis', async (req, res) => {
+  try {
+    const apiKey = getApiKey(req);
+    const { script, narration, imagePrompts = [], duration = 30 } = req.body || {};
+    const count = Array.isArray(imagePrompts) ? imagePrompts.length : 0;
+
+    const allowedTransitions = [
+      'fade', 'fadeblack', 'fadewhite', 'slideleft', 'slideright',
+      'slideup', 'slidedown', 'wipeleft', 'wiperight', 'circleopen',
+      'circleclose', 'dissolve'
+    ];
+    const allowedEffects = [
+      'zoom-in', 'zoom-out', 'pan-left', 'pan-right',
+      'pan-up', 'pan-down', 'ken-burns-in', 'hold'
+    ];
+
+    function generateFallback(numImages: number, totalDuration: number) {
+      const perImage = Math.max(1.5, Math.round((totalDuration / Math.max(1, numImages)) * 10) / 10);
+      const transitionsList: string[] = [];
+      const effectsList: string[] = [];
+      const timingsList: number[] = [];
+
+      for (let i = 0; i < numImages; i++) {
+        timingsList.push(perImage);
+        effectsList.push(allowedEffects[i % allowedEffects.length]);
+        if (i < numImages - 1) {
+          transitionsList.push(allowedTransitions[i % allowedTransitions.length]);
+        }
+      }
+
+      return {
+        transitions: transitionsList,
+        effects: effectsList,
+        timings: timingsList,
+        pacing: perImage < 3 ? 'fast-cut' : 'cinematic',
+        mood: 'epic',
+      };
+    }
+
+    if (count === 0) {
+      res.json(generateFallback(0, duration));
+      return;
+    }
+
+    if (!apiKey) {
+      res.json(generateFallback(count, duration));
+      return;
+    }
+
+    try {
+      const prompt = `Given this video script and ${count} scene images, suggest visual pacing, image camera motions, transitions between scenes, and video mood.
+
+Target Duration: ~${duration} seconds.
+Script/Narration: "${narration || script || ''}"
+Image Prompts:
+${imagePrompts.map((p: string, i: number) => `[Image ${i + 1}]: ${p}`).join('\n')}
+
+Output JSON format:
+{
+  "transitions": [array of ${Math.max(0, count - 1)} transition strings picked from: ${allowedTransitions.join(', ')}],
+  "effects": [array of ${count} motion effect strings picked from: ${allowedEffects.join(', ')}],
+  "timings": [array of ${count} duration numbers in seconds summing close to ${duration}],
+  "pacing": "fast-cut" or "cinematic",
+  "mood": "epic" | "upbeat" | "calm" | "suspense" | "emotional" | "neutral"
+}`;
+
+      const result = await chat(apiKey, {
+        model: 'deepseek/deepseek-v4-flash',
+        temperature: 0.3,
+        max_tokens: 2048,
+        messages: [
+          { role: 'system', content: 'You are an expert video director for viral YouTube Shorts. Return ONLY a single valid JSON object, no markdown fences.' },
+          { role: 'user', content: prompt },
+        ],
+      });
+
+      const content = result.choices?.[0]?.message?.content || '';
+      const cleaned = content.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
+      const parsed = JSON.parse(cleaned);
+
+      const transitions = Array.isArray(parsed.transitions)
+        ? parsed.transitions.map((t: string) => (allowedTransitions.includes(t) ? t : 'fade'))
+        : [];
+      while (transitions.length < Math.max(0, count - 1)) {
+        transitions.push(allowedTransitions[transitions.length % allowedTransitions.length]);
+      }
+
+      const effects = Array.isArray(parsed.effects)
+        ? parsed.effects.map((e: string) => (allowedEffects.includes(e) ? e : 'zoom-in'))
+        : [];
+      while (effects.length < count) {
+        effects.push(allowedEffects[effects.length % allowedEffects.length]);
+      }
+
+      const timings = Array.isArray(parsed.timings) && parsed.timings.length === count
+        ? parsed.timings.map((t: any) => Math.max(1, Number(t) || duration / count))
+        : Array(count).fill(Math.round((duration / count) * 10) / 10);
+
+      res.json({
+        transitions,
+        effects,
+        timings,
+        pacing: parsed.pacing || (duration / count < 3 ? 'fast-cut' : 'cinematic'),
+        mood: parsed.mood || 'epic',
+      });
+    } catch (llmErr) {
+      console.warn('Scene analysis LLM fallback used:', llmErr);
+      res.json(generateFallback(count, duration));
+    }
+  } catch (err: any) {
+    console.error('Scene analysis error:', err);
+    res.status(500).json({ error: err.message || 'Scene analysis failed' });
+  }
+});
+
 llmRouter.post('/chat/stream', async (req, res) => {
   const apiKey = getApiKey(req);
   if (!apiKey) {

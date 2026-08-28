@@ -38,6 +38,14 @@ export interface Channel {
 export const DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
 export type DurationPreset = (typeof DURATION_PRESETS)[number];
 
+export interface SceneAnalysis {
+  transitions: string[];
+  effects: string[];
+  timings: number[];
+  pacing?: 'fast-cut' | 'cinematic' | string;
+  mood?: 'epic' | 'upbeat' | 'calm' | 'suspense' | 'emotional' | 'neutral' | string;
+}
+
 export interface Script {
   id: string;
   name: string;
@@ -59,6 +67,7 @@ export interface Script {
   generatedAudio?: GeneratedAudio[];
   pipeline?: PipelineStep[];
   timelineConfig?: TimelineConfig;
+  sceneAnalysis?: SceneAnalysis;
 }
 
 export interface PipelineStep {

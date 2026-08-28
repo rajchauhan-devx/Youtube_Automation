@@ -24,6 +24,13 @@ export interface RenderOptions {
   timelineConfig?: {
     clips: { duration: number; transition: string; transitionDuration: number }[];
   };
+  sceneAnalysis?: {
+    transitions: string[];
+    effects: string[];
+    timings: number[];
+    pacing?: string;
+    mood?: string;
+  };
   onProgress?: (percent: number) => void;
 }
 
@@ -50,6 +57,40 @@ function resolveInputPath(p: string, scriptId: string): string {
   return p;
 }
 
+const VALID_XFADE_TRANSITIONS = new Set([
+  'fade', 'fadeblack', 'fadewhite', 'fadegrays', 'fadeslow', 'fadefast',
+  'wipeleft', 'wiperight', 'wipeup', 'wipedown', 'wipetl', 'wipetr', 'wipebl', 'wipebr',
+  'slideleft', 'slideright', 'slideup', 'slidedown',
+  'circleopen', 'circleclose', 'circlecrop',
+  'dissolve', 'pixelize', 'horzopen', 'horzclose', 'vertopen', 'vertclose'
+]);
+
+function buildZoompanExpression(effect: string, frameCount: number, width: number, height: number, zoomFactor: number): string {
+  const zMax = Math.max(1.15, zoomFactor);
+  const step = Math.max(0.0001, (zMax - 1.0) / Math.max(30, frameCount));
+  const stepStr = step.toFixed(6);
+
+  switch (effect.toLowerCase()) {
+    case 'zoom-out':
+      return `zoompan=z='if(eq(on,1),${zMax.toFixed(2)},max(1.0,zoom-${stepStr}))':d=${frameCount}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+    case 'pan-left':
+      return `zoompan=z=1.15:d=${frameCount}:x='(1-on/${frameCount})*(iw-iw/zoom)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+    case 'pan-right':
+      return `zoompan=z=1.15:d=${frameCount}:x='(on/${frameCount})*(iw-iw/zoom)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+    case 'pan-up':
+      return `zoompan=z=1.15:d=${frameCount}:x='iw/2-(iw/zoom/2)':y='(1-on/${frameCount})*(ih-ih/zoom)':s=${width}x${height}`;
+    case 'pan-down':
+      return `zoompan=z=1.15:d=${frameCount}:x='iw/2-(iw/zoom/2)':y='(on/${frameCount})*(ih-ih/zoom)':s=${width}x${height}`;
+    case 'ken-burns-in':
+      return `zoompan=z='min(zoom+${stepStr},${zMax.toFixed(2)})':d=${frameCount}:x='(on/${frameCount})*(iw-iw/zoom)':y='(on/${frameCount})*(ih-ih/zoom)':s=${width}x${height}`;
+    case 'hold':
+      return `zoompan=z=1.0:d=${frameCount}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+    case 'zoom-in':
+    default:
+      return `zoompan=z='min(zoom+${stepStr},${zMax.toFixed(2)})':d=${frameCount}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}`;
+  }
+}
+
 function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): string {
   const { resolution = { width: 1080, height: 1920 }, zoomFactor = 1.15, transitionDuration: defaultTransitionDuration = 0.5 } = opts;
   const { width, height } = resolution;
@@ -59,16 +100,32 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
 
   const totalVideoDuration = opts.duration || 30;
 
-  // Use per-clip durations from timelineConfig if available
+  // Resolve durations, transitions, and effects from sceneAnalysis or timelineConfig
   const clipDurations: number[] = [];
   const clipTransitions: { type: string; duration: number }[] = [];
+  const clipEffects: string[] = [];
 
-  if (opts.timelineConfig?.clips && opts.timelineConfig.clips.length === numImages) {
-    for (const clip of opts.timelineConfig.clips) {
+  const sa = opts.sceneAnalysis;
+  const tc = opts.timelineConfig;
+
+  if (tc?.clips && tc.clips.length === numImages) {
+    for (let i = 0; i < numImages; i++) {
+      const clip = tc.clips[i];
       clipDurations.push(clip.duration);
       clipTransitions.push({
-        type: clip.transition || 'crossfade',
+        type: clip.transition || 'fade',
         duration: clip.transitionDuration ?? defaultTransitionDuration,
+      });
+      clipEffects.push(sa?.effects?.[i] || 'zoom-in');
+    }
+  } else if (sa?.timings && sa.timings.length === numImages) {
+    for (let i = 0; i < numImages; i++) {
+      clipDurations.push(sa.timings[i]);
+      clipEffects.push(sa.effects?.[i] || 'zoom-in');
+      const transName = sa.transitions?.[i] || 'fade';
+      clipTransitions.push({
+        type: VALID_XFADE_TRANSITIONS.has(transName) ? transName : 'fade',
+        duration: defaultTransitionDuration,
       });
     }
   } else {
@@ -76,14 +133,14 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
     const uniformDuration = totalVideoDuration / numImages;
     for (let i = 0; i < numImages; i++) {
       clipDurations.push(uniformDuration);
-      clipTransitions.push({ type: 'crossfade', duration: defaultTransitionDuration });
+      clipTransitions.push({ type: 'fade', duration: defaultTransitionDuration });
+      clipEffects.push(i % 2 === 0 ? 'zoom-in' : 'pan-left');
     }
   }
 
   if (numImages === 1) {
-    const zoom = zoomFactor;
-    const zoomStep = Math.max(0.0001, (zoom - 1.0) / 300);
-    return `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,zoompan=z='min(zoom+${zoomStep.toFixed(6)},${zoom})':d=300:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}[v]`;
+    const motionExp = buildZoompanExpression(clipEffects[0] || 'zoom-in', 300, width, height, zoomFactor);
+    return `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,${motionExp}[v]`;
   }
 
   let filterParts: string[] = [];
@@ -93,17 +150,15 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
   resolvedImages.forEach((_, i) => {
     const inputLabel = `[${i}:v]`;
     const zoomedLabel = `zoomed${i}`;
-    const clipDur = clipDurations[i];
-    const transDur = clipTransitions[i].duration;
+    const clipDur = clipDurations[i] || 3;
+    const transDur = clipTransitions[i]?.duration ?? defaultTransitionDuration;
     const overlap = Math.min(transDur, clipDur * 0.4);
     const frameCount = Math.max(30, Math.round((clipDur + overlap) * 30));
 
-    // Zoom IN: start at 1.0, increase to zoomFactor over the clip duration
-    // Calculate step so zoom reaches exactly zoomFactor by the last frame
-    const zoomStep = Math.max(0.0001, (zoomFactor - 1.0) / frameCount);
+    const motionExp = buildZoompanExpression(clipEffects[i] || 'zoom-in', frameCount, width, height, zoomFactor);
 
     filterParts.push(
-      `${inputLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,zoompan=z='min(zoom+${zoomStep.toFixed(6)},${zoomFactor})':d=${frameCount}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':s=${width}x${height}[${zoomedLabel}]`
+      `${inputLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,${motionExp}[${zoomedLabel}]`
     );
 
     if (i === 0) {
@@ -112,9 +167,10 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
     } else {
       const blendLabel = `blend${i}`;
       const offset = Math.max(0, Math.round((accumulatedTime - overlap / 2) * 100) / 100);
+      const transitionType = clipTransitions[i - 1]?.type || 'fade';
+      const cleanTransition = VALID_XFADE_TRANSITIONS.has(transitionType) ? transitionType : 'fade';
 
-      if (clipTransitions[i].type === 'none' || overlap <= 0) {
-        // No transition — just concat
+      if (transitionType === 'none' || overlap <= 0) {
         const concatLabel = `concat${i}`;
         filterParts.push(
           `[${lastLabel}][${zoomedLabel}]concat=n=2:v=1:a=0[${concatLabel}]`
@@ -122,7 +178,7 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
         lastLabel = concatLabel;
       } else {
         filterParts.push(
-          `[${lastLabel}][${zoomedLabel}]xfade=transition=fade:duration=${overlap}:offset=${offset}[${blendLabel}]`
+          `[${lastLabel}][${zoomedLabel}]xfade=transition=${cleanTransition}:duration=${overlap}:offset=${offset}[${blendLabel}]`
         );
         lastLabel = blendLabel;
       }
