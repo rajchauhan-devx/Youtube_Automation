@@ -40,8 +40,21 @@ export function ExportTab({
   const [zoomFactor, setZoomFactor] = useState(1.15);
   const [transitionDuration, setTransitionDuration] = useState(0.5);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [enableSubtitles, setEnableSubtitles] = useState(true);
+  const [bgmTrack, setBgmTrack] = useState('auto');
+  const [bgmVolume, setBgmVolume] = useState(0.15);
+  const [availableTracks, setAvailableTracks] = useState<{ id: string; name: string; mood: string }[]>([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    fetch('/api/render/music-tracks')
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.tracks)) setAvailableTracks(d.tracks);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (script?.duration) {
@@ -138,11 +151,15 @@ export function ExportTab({
           scriptId: script.id,
           imagePaths,
           audioPath: audioPath || '',
+          narration: script.narration || '',
           duration,
           resolution: resolution === '1080x1920' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 },
           zoomFactor,
           transitionDuration,
           sceneAnalysis: script.sceneAnalysis,
+          enableSubtitles,
+          bgmTrack: bgmTrack === 'auto' ? (script.sceneAnalysis?.mood || 'epic') : bgmTrack,
+          bgmVolume,
         }),
       });
 
@@ -351,6 +368,58 @@ export function ExportTab({
             />
             <p className="text-xs text-gray-400 mt-1">{transitionDuration.toFixed(1)}s cross-fade/slide</p>
           </Field>
+        </div>
+
+        {/* Subtitles & Background Music Controls */}
+        <div className="rounded-xl border border-border bg-surface/60 p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-white">Auto-Generated Subtitles</p>
+              <p className="text-xs text-gray-400">Burn bold, punchy Shorts captions (Yellow/White) into the video</p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center">
+              <input
+                type="checkbox"
+                checked={enableSubtitles}
+                onChange={(e) => setEnableSubtitles(e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="peer h-6 w-11 rounded-full bg-surface2 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none" />
+            </label>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/50">
+            <Field label="Background Music (BGM)">
+              <select
+                value={bgmTrack}
+                onChange={(e) => setBgmTrack(e.target.value)}
+                className="w-full rounded-md border border-border bg-bg px-3 py-2 text-xs text-white outline-none focus:border-accent"
+              >
+                <option value="none">None (Voice Only)</option>
+                <option value="auto">Auto (Match AI Mood: {sa?.mood || 'Epic'})</option>
+                {availableTracks.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.mood})
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            {bgmTrack !== 'none' && (
+              <Field label="BGM Volume">
+                <input
+                  type="range"
+                  min="0.05"
+                  max="0.40"
+                  step="0.01"
+                  value={bgmVolume}
+                  onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+                <p className="text-xs text-gray-400 mt-1">{Math.round(bgmVolume * 100)}% background volume</p>
+              </Field>
+            )}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-3 pt-3">

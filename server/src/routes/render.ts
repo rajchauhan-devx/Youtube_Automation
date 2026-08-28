@@ -1,14 +1,42 @@
 import { Router } from 'express';
 import { renderVideo, getVideoUrl, serveVideoFile, getOutputDir, RenderOptions } from '../services/video.js';
+import { generateSubtitleFile } from '../services/subtitle.js';
+import { listMusicTracks, resolveMusicTrack, ensureDefaultMusicTracks } from '../services/music.js';
 import fs from 'fs';
 import path from 'path';
 
 export const renderRouter = Router();
 
+// Pre-generate starter tracks asynchronously
+ensureDefaultMusicTracks().catch(() => {});
+
 const activeRenders = new Map<string, { controller: AbortController; status: 'running' | 'done' | 'error'; progress: number; error?: string }>();
 
+renderRouter.get('/music-tracks', (_req, res) => {
+  try {
+    const tracks = listMusicTracks();
+    res.json({ tracks });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to list music tracks', tracks: [] });
+  }
+});
+
 renderRouter.post('/start', (req, res) => {
-  const { scriptId, imagePaths, audioPath, duration, resolution, zoomFactor, transitionDuration, timelineConfig, sceneAnalysis } = req.body || {};
+  const {
+    scriptId,
+    imagePaths,
+    audioPath,
+    narration,
+    duration,
+    resolution,
+    zoomFactor,
+    transitionDuration,
+    timelineConfig,
+    sceneAnalysis,
+    enableSubtitles,
+    bgmTrack,
+    bgmVolume,
+  } = req.body || {};
 
   if (!scriptId || typeof scriptId !== 'string') {
     res.status(400).json({ error: 'scriptId (string) is required' });
@@ -28,6 +56,23 @@ renderRouter.post('/start', (req, res) => {
     return;
   }
 
+  // Generate subtitles if enabled and narration provided
+  let subtitlePath: string | undefined = undefined;
+  if (enableSubtitles && narration) {
+    try {
+      subtitlePath = generateSubtitleFile({
+        scriptId,
+        narration,
+        duration: duration || 30,
+      });
+    } catch (subErr) {
+      console.warn(`Subtitle generation failed for ${scriptId}:`, subErr);
+    }
+  }
+
+  // Resolve background music path if selected
+  const resolvedBgm = bgmTrack ? resolveMusicTrack(bgmTrack) : null;
+
   const controller = new AbortController();
   activeRenders.set(scriptId, { controller, status: 'running', progress: 5 });
 
@@ -42,6 +87,10 @@ renderRouter.post('/start', (req, res) => {
     transitionDuration,
     timelineConfig,
     sceneAnalysis,
+    enableSubtitles: Boolean(enableSubtitles && subtitlePath),
+    subtitlePath,
+    bgmPath: resolvedBgm || undefined,
+    bgmVolume: typeof bgmVolume === 'number' ? bgmVolume : 0.15,
     onProgress: (percent) => {
       const entry = activeRenders.get(scriptId);
       if (entry) {

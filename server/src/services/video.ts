@@ -31,6 +31,10 @@ export interface RenderOptions {
     pacing?: string;
     mood?: string;
   };
+  enableSubtitles?: boolean;
+  subtitlePath?: string;
+  bgmPath?: string;
+  bgmVolume?: number;
   onProgress?: (percent: number) => void;
 }
 
@@ -138,55 +142,73 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
     }
   }
 
-  if (numImages === 1) {
-    const motionExp = buildZoompanExpression(clipEffects[0] || 'zoom-in', 300, width, height, zoomFactor);
-    return `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,${motionExp}[v]`;
-  }
-
   let filterParts: string[] = [];
   let lastLabel = '';
   let accumulatedTime = 0;
 
-  resolvedImages.forEach((_, i) => {
-    const inputLabel = `[${i}:v]`;
-    const zoomedLabel = `zoomed${i}`;
-    const clipDur = clipDurations[i] || 3;
-    const transDur = clipTransitions[i]?.duration ?? defaultTransitionDuration;
-    const overlap = Math.min(transDur, clipDur * 0.4);
-    const frameCount = Math.max(30, Math.round((clipDur + overlap) * 30));
+  if (numImages === 1) {
+    const motionExp = buildZoompanExpression(clipEffects[0] || 'zoom-in', 300, width, height, zoomFactor);
+    lastLabel = 'zoomed0';
+    filterParts.push(`[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,${motionExp}[${lastLabel}]`);
+  } else {
+    resolvedImages.forEach((_, i) => {
+      const inputLabel = `[${i}:v]`;
+      const zoomedLabel = `zoomed${i}`;
+      const clipDur = clipDurations[i] || 3;
+      const transDur = clipTransitions[i]?.duration ?? defaultTransitionDuration;
+      const overlap = Math.min(transDur, clipDur * 0.4);
+      const frameCount = Math.max(30, Math.round((clipDur + overlap) * 30));
 
-    const motionExp = buildZoompanExpression(clipEffects[i] || 'zoom-in', frameCount, width, height, zoomFactor);
+      const motionExp = buildZoompanExpression(clipEffects[i] || 'zoom-in', frameCount, width, height, zoomFactor);
 
-    filterParts.push(
-      `${inputLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,${motionExp}[${zoomedLabel}]`
-    );
+      filterParts.push(
+        `${inputLabel}scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,${motionExp}[${zoomedLabel}]`
+      );
 
-    if (i === 0) {
-      lastLabel = zoomedLabel;
-      accumulatedTime = clipDur;
-    } else {
-      const blendLabel = `blend${i}`;
-      const offset = Math.max(0, Math.round((accumulatedTime - overlap / 2) * 100) / 100);
-      const transitionType = clipTransitions[i - 1]?.type || 'fade';
-      const cleanTransition = VALID_XFADE_TRANSITIONS.has(transitionType) ? transitionType : 'fade';
-
-      if (transitionType === 'none' || overlap <= 0) {
-        const concatLabel = `concat${i}`;
-        filterParts.push(
-          `[${lastLabel}][${zoomedLabel}]concat=n=2:v=1:a=0[${concatLabel}]`
-        );
-        lastLabel = concatLabel;
+      if (i === 0) {
+        lastLabel = zoomedLabel;
+        accumulatedTime = clipDur;
       } else {
-        filterParts.push(
-          `[${lastLabel}][${zoomedLabel}]xfade=transition=${cleanTransition}:duration=${overlap}:offset=${offset}[${blendLabel}]`
-        );
-        lastLabel = blendLabel;
-      }
-      accumulatedTime += clipDur;
-    }
-  });
+        const blendLabel = `blend${i}`;
+        const offset = Math.max(0, Math.round((accumulatedTime - overlap / 2) * 100) / 100);
+        const transitionType = clipTransitions[i - 1]?.type || 'fade';
+        const cleanTransition = VALID_XFADE_TRANSITIONS.has(transitionType) ? transitionType : 'fade';
 
-  filterParts.push(`[${lastLabel}]trim=duration=${totalVideoDuration},setpts=PTS-STARTPTS[v]`);
+        if (transitionType === 'none' || overlap <= 0) {
+          const concatLabel = `concat${i}`;
+          filterParts.push(
+            `[${lastLabel}][${zoomedLabel}]concat=n=2:v=1:a=0[${concatLabel}]`
+          );
+          lastLabel = concatLabel;
+        } else {
+          filterParts.push(
+            `[${lastLabel}][${zoomedLabel}]xfade=transition=${cleanTransition}:duration=${overlap}:offset=${offset}[${blendLabel}]`
+          );
+          lastLabel = blendLabel;
+        }
+        accumulatedTime += clipDur;
+      }
+    });
+  }
+
+  // Handle burned-in subtitles if enabled
+  if (opts.enableSubtitles && opts.subtitlePath && fs.existsSync(opts.subtitlePath)) {
+    const escapedSub = opts.subtitlePath.replace(/\\/g, '/').replace(/:/g, '\\:');
+    filterParts.push(`[${lastLabel}]trim=duration=${totalVideoDuration},setpts=PTS-STARTPTS,ass='${escapedSub}'[v]`);
+  } else {
+    filterParts.push(`[${lastLabel}]trim=duration=${totalVideoDuration},setpts=PTS-STARTPTS[v]`);
+  }
+
+  // Handle BGM audio mixing in filter complex if BGM is present
+  if (opts.bgmPath && fs.existsSync(opts.bgmPath)) {
+    const voiceIndex = numImages;
+    const bgmIndex = numImages + 1;
+    const bgmVol = (opts.bgmVolume ?? 0.15).toFixed(2);
+
+    filterParts.push(`[${voiceIndex}:a]volume=1.0[voice]`);
+    filterParts.push(`[${bgmIndex}:a]volume=${bgmVol}[bgm]`);
+    filterParts.push(`[voice][bgm]amix=inputs=2:duration=first:dropout_transition=2[a]`);
+  }
 
   return filterParts.join(';');
 }
@@ -213,6 +235,8 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
     throw new Error(`Audio file not found: ${resolvedAudio}`);
   }
 
+  const hasBgm = Boolean(opts.bgmPath && fs.existsSync(opts.bgmPath));
+
   const filename = `final_${Date.now()}.mp4`;
   const outputPath = path.join(outputDir, filename);
 
@@ -226,20 +250,26 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
     });
     cmd.input(resolvedAudio);
 
+    if (hasBgm && opts.bgmPath) {
+      cmd.input(opts.bgmPath).inputOptions(['-stream_loop', '-1']);
+    }
+
+    const outputOptions = [
+      '-map', '[v]',
+      '-map', hasBgm ? '[a]' : `${resolvedImages.length}:a`,
+      '-c:v', 'libx264',
+      '-preset', 'fast',
+      '-crf', '23',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-shortest',
+      '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart',
+    ];
+
     cmd
       .complexFilter(filterComplex)
-      .outputOptions([
-        '-map', '[v]',
-        '-map', `${resolvedImages.length}:a`,
-        '-c:v', 'libx264',
-        '-preset', 'fast',
-        '-crf', '23',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        '-shortest',
-        '-pix_fmt', 'yuv420p',
-        '-movflags', '+faststart',
-      ])
+      .outputOptions(outputOptions)
       .output(outputPath)
       .on('start', (cmdline) => {
         console.log(`FFmpeg started: ${cmdline}`);
