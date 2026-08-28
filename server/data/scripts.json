@@ -273,10 +273,10 @@
         "index": 0,
         "prompt": "Mature cinematic Indian historical illustration, close-up portrait of Ashwatthama, a cursed immortal warrior, aged approximately 45-50 years, wheatish weathered skin, deep-set tired eyes looking away from viewer to the left, strong jaw, high cheekbones, long matted dark gray hair, thick unkempt beard streaked with gray, a visible unhealed wound on his forehead, worn dark brown coarse cotton cloth visible at shoulders, no jewellery, no weapons, shallow depth of field, dark background with subtle warm light from right side, natural skin texture, visible pores and wrinkles, restrained sorrowful expression, serious documentary tone, painterly realism, earthy muted colours, filmic grain, emotionally heavy atmosphere",
         "status": "done",
-        "url": "/api/generate/file/usr_1787502229095/image-00-1787502625079.png",
-        "seed": 571122295,
-        "elapsedMs": 62582,
-        "attempts": 1
+        "url": "/api/generate/file/usr_1787502229095/image-00-1787900397323.png",
+        "seed": 894562675,
+        "elapsedMs": 42348,
+        "attempts": 2
       },
       {
         "index": 1,
@@ -300,10 +300,10 @@
         "index": 3,
         "prompt": "Mature cinematic Indian historical illustration, medium shot, Ashwatthama kneeling on dry ground before Krishna, head bowed, Krishna standing tall before him, one hand raised in a gesture of judgment, Krishna's face stern but sorrowful, wearing yellow silk dhoti and blue upper cloth, gold earrings, Vaijayanti garland, subtle divine radiance around his form but not excessive, dry dusty plain in background, twilight sky, muted earth tones and deep blue, natural atmospheric lighting, painterly realism, serious documentary tone, emotionally heavy moment, respectful sacred presentation",
         "status": "done",
-        "url": "/api/generate/file/usr_1787502229095/image-03-1787502795955.png",
-        "seed": 920296397,
-        "elapsedMs": 55484,
-        "attempts": 1
+        "url": "/api/generate/file/usr_1787502229095/image-03-1787900446823.png",
+        "seed": 2045445226,
+        "elapsedMs": 37365,
+        "attempts": 2
       },
       {
         "index": 4,
@@ -336,11 +336,11 @@
     "generatedAudio": [
       {
         "language": "hi",
-        "voice": "hi_male",
-        "voiceName": "Rohan - Expressive Hindi Shorts",
-        "url": "/api/generate/file/usr_1787502229095/narration_hi_1787503064042.mp3",
-        "filename": "narration_hi_1787503064042.mp3",
-        "elapsedMs": 6071
+        "voice": "hi_female",
+        "voiceName": "Ananya - Natural Hindi Narrator",
+        "url": "/api/generate/file/usr_1787502229095/narration_hi_1787900519119.mp3",
+        "filename": "narration_hi_1787900519119.mp3",
+        "elapsedMs": 2534
       }
     ],
     "timelineConfig": {
