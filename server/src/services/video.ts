@@ -241,34 +241,17 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
   // Final video output node [v]
   filterParts.push(`[${lastLabel}]trim=duration=${totalVideoDuration},${postFilters.join(',')}[v]`);
 
-  // Handle audio filter complex (Voice + BGM + SFX) only when multi-audio is needed
+  // Handle audio filter complex (Voice + BGM)
   const hasBgm = Boolean(opts.bgmPath && fs.existsSync(opts.bgmPath));
-  const whooshPath = opts.enableSfx ? getWhooshSfxPath() : null;
-  const hasSfx = Boolean(opts.enableSfx && whooshPath);
-  const hasMultiAudio = hasBgm || hasSfx;
 
-  if (hasMultiAudio) {
-    const audioMixLabels: string[] = [];
+  if (hasBgm && opts.bgmPath) {
     const voiceIndex = numImages;
-    let nextAudioIndex = voiceIndex + 1;
+    const bgmIndex = voiceIndex + 1;
+    const bgmVol = (opts.bgmVolume ?? 0.15).toFixed(2);
 
     filterParts.push(`[${voiceIndex}:a]volume=1.0[voice]`);
-    audioMixLabels.push('[voice]');
-
-    if (hasBgm && opts.bgmPath) {
-      const bgmIndex = nextAudioIndex++;
-      const bgmVol = (opts.bgmVolume ?? 0.15).toFixed(2);
-      filterParts.push(`[${bgmIndex}:a]volume=${bgmVol}[bgm]`);
-      audioMixLabels.push('[bgm]');
-    }
-
-    if (hasSfx && whooshPath) {
-      const sfxIndex = nextAudioIndex++;
-      filterParts.push(`[${sfxIndex}:a]volume=0.20[sfx]`);
-      audioMixLabels.push('[sfx]');
-    }
-
-    filterParts.push(`${audioMixLabels.join('')}amix=inputs=${audioMixLabels.length}:duration=first:dropout_transition=2[a]`);
+    filterParts.push(`[${bgmIndex}:a]volume=${bgmVol}[bgm]`);
+    filterParts.push(`[voice][bgm]amix=inputs=2:duration=first:dropout_transition=2[a]`);
   }
 
   return filterParts.join(';');
@@ -297,9 +280,6 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
   }
 
   const hasBgm = Boolean(opts.bgmPath && fs.existsSync(opts.bgmPath));
-  const whooshPath = opts.enableSfx ? getWhooshSfxPath() : null;
-  const hasSfx = Boolean(opts.enableSfx && whooshPath);
-  const hasMultiAudio = hasBgm || hasSfx;
 
   const filename = `final_${Date.now()}.mp4`;
   const outputPath = path.join(outputDir, filename);
@@ -318,13 +298,9 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
       cmd.input(opts.bgmPath).inputOptions(['-stream_loop', '-1']);
     }
 
-    if (hasSfx && whooshPath) {
-      cmd.input(whooshPath).inputOptions(['-stream_loop', '-1']);
-    }
-
     const outputOptions = [
       '-map', '[v]',
-      '-map', hasMultiAudio ? '[a]' : `${resolvedImages.length}:a`,
+      '-map', hasBgm ? '[a]' : `${resolvedImages.length}:a`,
       '-c:v', 'libx264',
       '-preset', 'fast',
       '-crf', '23',

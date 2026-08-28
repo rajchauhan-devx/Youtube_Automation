@@ -96,11 +96,16 @@ export function listMusicTracks(): MusicTrack[] {
 }
 
 export function resolveMusicTrack(moodOrId?: string): string | null {
+  if (moodOrId === 'none') {
+    return null;
+  }
+
   const tracks = listMusicTracks();
   if (tracks.length === 0) return null;
 
-  if (!moodOrId || moodOrId === 'auto' || moodOrId === 'none') {
-    return null;
+  if (!moodOrId || moodOrId === 'auto') {
+    const emotionTrack = tracks.find((t) => t.id.toLowerCase().includes('emotion'));
+    return emotionTrack ? emotionTrack.path : tracks[0].path;
   }
 
   // 1. Direct ID match
@@ -111,6 +116,7 @@ export function resolveMusicTrack(moodOrId?: string): string | null {
   const byMood = tracks.find((t) => t.mood.toLowerCase() === moodOrId.toLowerCase());
   if (byMood) return byMood.path;
 
-  // 3. Fallback to first available track
-  return tracks[0].path;
+  // 3. Fallback: prioritize Emotion.mp3 or first available track
+  const emotionTrack = tracks.find((t) => t.id.toLowerCase().includes('emotion'));
+  return emotionTrack ? emotionTrack.path : tracks[0].path;
 }
