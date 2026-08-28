@@ -53,7 +53,19 @@ export interface RenderResult {
   size: number;
 }
 
-function resolveInputPath(p: string, scriptId: string): string {
+export async function probeAudioDuration(filePath: string): Promise<number> {
+  return new Promise((resolve) => {
+    ffmpeg.ffprobe(filePath, (err, meta) => {
+      if (!err && meta && meta.format && meta.format.duration) {
+        resolve(meta.format.duration);
+      } else {
+        resolve(0);
+      }
+    });
+  });
+}
+
+export function resolveInputPath(p: string, scriptId: string): string {
   if (p && fs.existsSync(p)) return path.resolve(p);
 
   const filename = path.basename(p);
@@ -131,7 +143,7 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
 
   const totalVideoDuration = opts.duration || 30;
 
-  // Resolve durations, transitions, and effects from sceneAnalysis or timelineConfig
+  // Resolve durations, transitions, and effects proportionally to cover totalVideoDuration
   const clipDurations: number[] = [];
   const clipTransitions: { type: string; duration: number }[] = [];
   const clipEffects: string[] = [];
@@ -140,9 +152,12 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
   const tc = opts.timelineConfig;
 
   if (tc?.clips && tc.clips.length === numImages) {
+    const rawSum = tc.clips.reduce((s, c) => s + c.duration, 0);
+    const scale = rawSum > 0 ? totalVideoDuration / rawSum : 1;
+
     for (let i = 0; i < numImages; i++) {
       const clip = tc.clips[i];
-      clipDurations.push(clip.duration);
+      clipDurations.push(clip.duration * scale);
       clipTransitions.push({
         type: clip.transition || 'fade',
         duration: clip.transitionDuration ?? defaultTransitionDuration,
@@ -150,8 +165,11 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
       clipEffects.push(sa?.effects?.[i] || 'zoom-in');
     }
   } else if (sa?.timings && sa.timings.length === numImages) {
+    const rawSum = sa.timings.reduce((s, t) => s + t, 0);
+    const scale = rawSum > 0 ? totalVideoDuration / rawSum : 1;
+
     for (let i = 0; i < numImages; i++) {
-      clipDurations.push(sa.timings[i]);
+      clipDurations.push(sa.timings[i] * scale);
       clipEffects.push(sa.effects?.[i] || 'zoom-in');
       const transName = sa.transitions?.[i] || 'fade';
       clipTransitions.push({
@@ -160,7 +178,7 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
       });
     }
   } else {
-    // Uniform distribution
+    // Uniform distribution across the entire audio duration
     const uniformDuration = totalVideoDuration / numImages;
     for (let i = 0; i < numImages; i++) {
       clipDurations.push(uniformDuration);
@@ -260,11 +278,6 @@ function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): stri
 export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
   const { scriptId, imagePaths, audioPath, duration: inputDuration } = opts;
 
-  // Use timelineConfig total duration if available
-  const duration = opts.timelineConfig?.clips
-    ? opts.timelineConfig.clips.reduce((sum, c) => sum + c.duration, 0)
-    : (inputDuration || 30);
-
   const outputDir = path.join(OUTPUT_DIR, scriptId);
   fs.mkdirSync(outputDir, { recursive: true });
 
@@ -278,6 +291,11 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
   if (!fs.existsSync(resolvedAudio)) {
     throw new Error(`Audio file not found: ${resolvedAudio}`);
   }
+
+  // Automatically probe exact narration audio duration to ensure full audio coverage
+  const audioDuration = await probeAudioDuration(resolvedAudio);
+  const duration = audioDuration > 0 ? audioDuration : (inputDuration || 30);
+  opts.duration = duration;
 
   const hasBgm = Boolean(opts.bgmPath && fs.existsSync(opts.bgmPath));
 

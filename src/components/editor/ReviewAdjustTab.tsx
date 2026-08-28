@@ -115,6 +115,25 @@ export function ReviewAdjustTab({
     }
   }, [script?.id]);
 
+  function handleAudioLoaded() {
+    if (audioRef.current && audioRef.current.duration > 0) {
+      const realDur = Math.round(audioRef.current.duration * 10) / 10;
+      setDuration(realDur);
+      setTimeline((prev) => {
+        if (!prev || prev.clips.length === 0) return prev;
+        const perClip = Math.round((realDur / prev.clips.length) * 10) / 10;
+        const clips = prev.clips.map((c) => ({ ...c, duration: perClip }));
+        const next = {
+          ...prev,
+          clips,
+          totalDuration: realDur,
+        };
+        onUpdate({ timelineConfig: next });
+        return next;
+      });
+    }
+  }
+
   // Auto-populate timeline from generated assets (DO NOT AUTO-RENDER VIDEO)
   useEffect(() => {
     if (!script) {
@@ -467,7 +486,7 @@ export function ReviewAdjustTab({
   return (
     <div className="flex flex-col gap-6">
       {/* Audio element for timeline preview */}
-      {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" />}
+      {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" onLoadedMetadata={handleAudioLoaded} />}
 
       {/* Main Studio Area */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">

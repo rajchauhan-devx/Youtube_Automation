@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { renderVideo, getVideoUrl, serveVideoFile, getOutputDir, RenderOptions } from '../services/video.js';
+import { renderVideo, getOutputDir, getVideoUrl, serveVideoFile, probeAudioDuration, resolveInputPath, RenderOptions } from '../services/video.js';
 import { generateSubtitleFile } from '../services/subtitle.js';
 import { listMusicTracks, resolveMusicTrack, ensureDefaultMusicTracks } from '../services/music.js';
 import fs from 'fs';
@@ -21,7 +21,7 @@ renderRouter.get('/music-tracks', (_req, res) => {
   }
 });
 
-renderRouter.post('/start', (req, res) => {
+renderRouter.post('/start', async (req, res) => {
   const {
     scriptId,
     imagePaths,
@@ -59,6 +59,11 @@ renderRouter.post('/start', (req, res) => {
     return;
   }
 
+  // Determine exact audio duration for subtitle timings
+  const resolvedAudio = resolveInputPath(audioPath, scriptId);
+  const audioDuration = await probeAudioDuration(resolvedAudio);
+  const finalDuration = audioDuration > 0 ? audioDuration : (duration || 30);
+
   // Generate subtitles if enabled and narration provided
   let subtitlePath: string | undefined = undefined;
   if (enableSubtitles && narration) {
@@ -66,7 +71,7 @@ renderRouter.post('/start', (req, res) => {
       subtitlePath = generateSubtitleFile({
         scriptId,
         narration,
-        duration: duration || 30,
+        duration: finalDuration,
       });
     } catch (subErr) {
       console.warn(`Subtitle generation failed for ${scriptId}:`, subErr);
