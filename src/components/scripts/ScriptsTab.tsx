@@ -14,6 +14,7 @@ export function ScriptsTab({
   onDelete,
   onClear,
   onUpdateDuration,
+  onUpdateModel,
 }: {
   scripts: Script[];
   section: Section;
@@ -26,6 +27,7 @@ export function ScriptsTab({
   onDelete: (id: string) => void;
   onClear?: (id: string) => void;
   onUpdateDuration?: (id: string, duration: number) => void;
+  onUpdateModel?: (id: string, model: string) => void;
 }) {
   return (
     <div className="flex gap-6">
@@ -75,7 +77,12 @@ export function ScriptsTab({
                   <span>·</span>
                   <span>Used {s.lastUsed}</span>
                 </div>
-                <div className="mt-2 text-xs text-gray-500">{s.duration}s duration</div>
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                  <span>{s.duration}s duration</span>
+                  <span className="text-[11px] text-accent/80 font-medium">
+                    {s.model ? s.model.replace('gemini-', '').replace('-preview', '') : '3.6-flash'}
+                  </span>
+                </div>
               </button>
             ))}
           </div>
@@ -90,6 +97,7 @@ export function ScriptsTab({
           onDelete={() => onDelete(selectedScript.id)}
           onClear={onClear ? () => onClear(selectedScript.id) : undefined}
           onUpdateDuration={onUpdateDuration ? (dur) => onUpdateDuration(selectedScript.id, dur) : undefined}
+          onUpdateModel={onUpdateModel ? (mod) => onUpdateModel(selectedScript.id, mod) : undefined}
         />
       )}
     </div>

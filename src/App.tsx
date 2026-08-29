@@ -233,7 +233,7 @@ ${optionalInstructions}`.trim();
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'deepseek/deepseek-v4-flash',
+          model: selectedScript.model || 'gemini-3.6-flash',
           messages: [
             {
               role: 'system',
@@ -475,6 +475,12 @@ ${optionalInstructions}`.trim();
     await persistScript(id, patch);
   }
 
+  async function handleUpdateScriptModel(id: string, model: string) {
+    const patch: Partial<Script> = { model };
+    patchScriptState(id, patch);
+    await persistScript(id, patch);
+  }
+
   async function handleDeleteScript(id: string) {
     try {
       await fetch(`/api/scripts/${id}`, { method: 'DELETE' });
@@ -595,6 +601,7 @@ ${optionalInstructions}`.trim();
                       onDelete={handleDeleteScript}
                       onClear={handleClearScript}
                       onUpdateDuration={handleUpdateScriptDuration}
+                      onUpdateModel={handleUpdateScriptModel}
                     />
                   )}
                   {tab === 'preview' && <PreviewTab pipeline={pipeline} script={selectedScript} onExtractAssets={handleExtractAssets} />}

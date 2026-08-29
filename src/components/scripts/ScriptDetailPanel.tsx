@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Play, Trash2, X, RotateCcw, Pencil, Check } from 'lucide-react';
-import { DURATION_PRESETS, type Script, type DurationPreset } from '../../data';
+import { Play, Trash2, X, RotateCcw, Pencil, Sparkles, ChevronDown, Check } from 'lucide-react';
+import { DURATION_PRESETS, GEMINI_MODELS, type Script, type DurationPreset } from '../../data';
 
 export function ScriptDetailPanel({
   script,
@@ -9,6 +9,7 @@ export function ScriptDetailPanel({
   onDelete,
   onClear,
   onUpdateDuration,
+  onUpdateModel,
 }: {
   script: Script;
   onClose: () => void;
@@ -16,11 +17,15 @@ export function ScriptDetailPanel({
   onDelete: () => void;
   onClear?: () => void;
   onUpdateDuration?: (duration: number) => void;
+  onUpdateModel?: (model: string) => void;
 }) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isEditingDuration, setIsEditingDuration] = useState(false);
+  const [isEditingModel, setIsEditingModel] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState<number>(script.duration || 30);
+  const currentModelId = script.model || 'gemini-3.6-flash';
+  const activeModelObj = GEMINI_MODELS.find((m) => m.id === currentModelId) || GEMINI_MODELS[0];
 
   const hasRunData = Boolean(
     (script.aiResponse && script.aiResponse.trim().length > 0) ||
@@ -49,6 +54,11 @@ export function ScriptDetailPanel({
     setSelectedDuration(dur);
     setIsEditingDuration(false);
     onUpdateDuration?.(dur);
+  }
+
+  function handleSelectModel(mId: string) {
+    setIsEditingModel(false);
+    onUpdateModel?.(mId);
   }
 
   return (
@@ -127,6 +137,7 @@ export function ScriptDetailPanel({
           </div>
         </div>
 
+        {/* Duration Selector */}
         <div>
           <div className="mb-1 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-gray-500">
             <span>Duration</span>
@@ -162,6 +173,71 @@ export function ScriptDetailPanel({
               <span>{script.duration}s target</span>
               <span className="text-xs text-gray-500">
                 {script.duration <= 60 ? 'Short' : 'Long-form'}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* AI Model Selector */}
+        <div>
+          <div className="mb-1 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-gray-500">
+            <span className="flex items-center gap-1">
+              <Sparkles className="h-3 w-3 text-accent" />
+              AI Model
+            </span>
+            <button
+              onClick={() => setIsEditingModel(!isEditingModel)}
+              className="flex items-center gap-1 text-[11px] font-normal text-accent hover:text-blue-400"
+            >
+              <Pencil className="h-3 w-3" />
+              {isEditingModel ? 'Done' : 'Change'}
+            </button>
+          </div>
+
+          {isEditingModel ? (
+            <div className="space-y-1.5 rounded-md bg-bg p-2 max-h-56 overflow-y-auto thin-scrollbar">
+              {GEMINI_MODELS.map((m) => {
+                const isSelected = currentModelId === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => handleSelectModel(m.id)}
+                    className={`w-full text-left rounded-md p-2 transition-all flex flex-col gap-0.5 border ${
+                      isSelected
+                        ? 'border-accent bg-accent/15 text-white'
+                        : 'border-border/60 bg-surface/50 text-gray-300 hover:bg-surface2 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold">{m.name}</span>
+                      {m.badge && (
+                        <span
+                          className={`rounded px-1.5 py-0.2 text-[9px] font-bold ${
+                            m.recommended
+                              ? 'bg-accent text-white'
+                              : 'bg-gray-700/60 text-gray-300'
+                          }`}
+                        >
+                          {m.badge}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-400 leading-tight line-clamp-1">
+                      {m.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-md bg-bg p-2 flex items-center justify-between text-sm text-gray-200">
+              <div className="flex flex-col">
+                <span className="font-medium text-white text-xs">{activeModelObj.name}</span>
+                <span className="text-[10px] text-gray-400">{activeModelObj.badge || 'Google Gemini'}</span>
+              </div>
+              <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                Active
               </span>
             </div>
           )}

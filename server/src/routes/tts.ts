@@ -19,7 +19,7 @@ ttsRouter.get('/status', async (_req, res) => {
 ttsRouter.get('/voices', async (req, res) => {
   const language = req.query.language as string | undefined;
   const voices = await getVoices(language);
-  res.json({ voices });
+  res.json({ voices, provider: TTS_PROVIDER_NAME });
 });
 
 ttsRouter.post('/start', async (_req, res) => {
@@ -33,7 +33,7 @@ ttsRouter.post('/stop', async (_req, res) => {
 });
 
 ttsRouter.post('/preview', async (req, res) => {
-  const { voice, language } = req.body || {};
+  const { voice, language, rate, pitch, volume, speed } = req.body || {};
 
   if (!language || !['hi', 'en'].includes(language)) {
     res.status(400).json({ error: 'language must be "hi" or "en"' });
@@ -41,7 +41,7 @@ ttsRouter.post('/preview', async (req, res) => {
   }
 
   try {
-    const { buffer, contentType } = await previewTTS({ voice, language });
+    const { buffer, contentType } = await previewTTS({ voice, language, rate, pitch, volume, speed });
     res.set('Content-Type', contentType);
     res.set('Content-Length', String(buffer.length));
     res.send(buffer);
@@ -57,7 +57,7 @@ ttsRouter.post('/preview', async (req, res) => {
 });
 
 ttsRouter.post('/generate', async (req, res) => {
-  const { text, language, scriptId, voice } = req.body || {};
+  const { text, language, scriptId, voice, rate, pitch, volume, speed } = req.body || {};
 
   if (!text || typeof text !== 'string' || text.trim().length === 0) {
     res.status(400).json({ error: 'text (string) is required' });
@@ -73,7 +73,16 @@ ttsRouter.post('/generate', async (req, res) => {
   }
 
   try {
-    const result = await generateTTS({ text: text.trim(), language, scriptId, voice });
+    const result = await generateTTS({
+      text: text.trim(),
+      language,
+      scriptId,
+      voice,
+      rate,
+      pitch,
+      volume,
+      speed,
+    });
     res.json({ ok: true, ...result });
   } catch (err: any) {
     console.error(`TTS generation failed:`, err.message);

@@ -6,6 +6,7 @@ import {
   checkComfyStatus,
   startComfyUI,
   stopComfyUI,
+  interruptComfyUI,
   listAvailableModels,
   ComfyError,
   GENERATED_DIR,
@@ -101,7 +102,7 @@ generateRouter.post('/image', async (req, res) => {
   }
 });
 
-generateRouter.post('/cancel', (req, res) => {
+generateRouter.post('/cancel', async (req, res) => {
   const { scriptId, index } = req.body || {};
   const key = `${scriptId}:${index}`;
   const controller = activeControllers.get(key);
@@ -109,6 +110,7 @@ generateRouter.post('/cancel', (req, res) => {
     controller.abort();
     activeControllers.delete(key);
   }
+  await interruptComfyUI();
   res.json({ ok: true, cancelled: !!controller });
 });
 

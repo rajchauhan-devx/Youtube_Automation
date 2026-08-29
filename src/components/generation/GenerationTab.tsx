@@ -15,6 +15,9 @@ import {
   Loader2,
   Volume2,
   RefreshCw,
+  Sliders,
+  Sparkles,
+  Clock,
 } from 'lucide-react';
 import type { Script, GeneratedImage, GeneratedAudio } from '../../data';
 import { ErrorBoundary } from '../ErrorBoundary';
@@ -76,7 +79,7 @@ function ImageGenerationContent({
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline' | 'starting'>('checking');
+  const [serverStatus, setServerStatus] = useState<'checking' | 'online' | 'offline' | 'starting' | 'stopping'>('checking');
   const [serverError, setServerError] = useState('');
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [preset, setPreset] = useState<'fast' | 'standard' | 'high'>('standard');
@@ -225,12 +228,20 @@ function ImageGenerationContent({
   }
 
   async function handleStopModel() {
-    setServerStatus('offline');
-    try {
-      await fetch('/api/generate/stop', { method: 'POST' });
-    } catch {
-      // ignore
+    setServerStatus('stopping');
+    if (isRunning) {
+      handleCancel();
     }
+    try {
+      const res = await fetch('/api/generate/stop', { method: 'POST' });
+      const data = await res.json();
+      if (!data.success) {
+        setServerError(data.message || 'Failed to stop image model');
+      }
+    } catch (err: any) {
+      setServerError(err.message || 'Could not reach the server');
+    }
+    await checkServer();
   }
 
   async function handleStart() {
@@ -351,6 +362,11 @@ function ImageGenerationContent({
               <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Starting model...
             </span>
           )}
+          {serverStatus === 'stopping' && (
+            <span className="flex items-center gap-1.5 text-[10px] text-amber-400">
+              <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" /> Stopping model...
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {serverStatus === 'online' && (
@@ -361,10 +377,18 @@ function ImageGenerationContent({
               <Square className="h-3.5 w-3.5" /> Stop Model
             </button>
           )}
+          {serverStatus === 'stopping' && (
+            <button
+              disabled
+              className="flex items-center gap-1.5 rounded-md border border-red-500/20 px-3 py-1.5 text-xs text-red-400/50 opacity-60 cursor-not-allowed"
+            >
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-400 border-t-transparent" /> Stopping...
+            </button>
+          )}
           {!isRunning ? (
             <button
               onClick={handleStart}
-              disabled={serverStatus === 'starting' || doneCount === images.length}
+              disabled={serverStatus === 'starting' || serverStatus === 'stopping' || doneCount === images.length}
               className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
             >
               {serverStatus === 'starting' ? (
@@ -652,8 +676,14 @@ function AudioGenerationContent({
   const [voicesLoading, setVoicesLoading] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState<string>('');
   const [previewVoiceId, setPreviewVoiceId] = useState<string | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [previewSource, setPreviewSource] = useState<'server' | 'system' | null>(null);
   const [previewError, setPreviewError] = useState('');
+
+  // Voice Customization Controls
+  const [rateOffset, setRateOffset] = useState<number>(0); // -25% to +35%
+  const [pitchOffset, setPitchOffset] = useState<number>(0); // -12Hz to +12Hz
+  const [stylePreset, setStylePreset] = useState<'cinematic' | 'shorts' | 'tech' | 'vlog' | 'custom'>('cinematic');
 
   const [generating, setGenerating] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -662,18 +692,37 @@ function AudioGenerationContent({
 
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
   const [serverStarting, setServerStarting] = useState(false);
-  const [providerName, setProviderName] = useState('OpenRouter TTS');
+  const [providerName, setProviderName] = useState('Edge Neural TTS');
   const [error, setError] = useState('');
 
-  const [narrationText, setNarrationText] = useState<string>(
-    script?.narration || 'Welcome back to Pixel Pulse! Today we are exploring incredible breakthroughs in artificial intelligence and automation that will re-define how content is created in 2026. Subscribe for daily tech updates!'
-  );
+  const getInitialNarration = () => {
+    if (script?.narration && script.narration.trim()) return script.narration;
+    if (script?.extractedScript && script.extractedScript.trim()) return script.extractedScript;
+    if (script?.content && script.content.trim()) return script.content;
+    if (script?.aiResponse && script.aiResponse.trim()) return script.aiResponse;
+    return '';
+  };
 
+  const [narrationText, setNarrationText] = useState<string>(getInitialNarration);
+
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // Synchronize script narration when the active script changes
   useEffect(() => {
-    if (script?.narration) {
-      setNarrationText(script.narration);
+    const text =
+      script?.narration?.trim()
+        ? script.narration
+        : script?.extractedScript?.trim()
+        ? script.extractedScript
+        : script?.content?.trim()
+        ? script.content
+        : script?.aiResponse?.trim()
+        ? script.aiResponse
+        : '';
+    if (text) {
+      setNarrationText(text);
     }
-  }, [script?.id, script?.narration]);
+  }, [script?.id, script?.narration, script?.extractedScript, script?.content, script?.aiResponse]);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
@@ -682,8 +731,6 @@ function AudioGenerationContent({
   const fetchTokenRef = useRef(0);
   const [systemVoices, setSystemVoices] = useState<SpeechSynthesisVoice[]>([]);
 
-  // Preload browser speech synthesis voices on mount
-  // getVoices() returns [] on first call in Chrome — must wait for onvoiceschanged
   useEffect(() => {
     if (!('speechSynthesis' in window)) return;
 
@@ -692,10 +739,7 @@ function AudioGenerationContent({
       if (sv.length > 0) setSystemVoices(sv);
     }
 
-    // Try immediately (works in Firefox / already-loaded)
     loadSystemVoices();
-
-    // Also listen for the async event (Chrome/Edge)
     window.speechSynthesis.onvoiceschanged = loadSystemVoices;
 
     return () => {
@@ -705,6 +749,51 @@ function AudioGenerationContent({
 
   const generatedAudio = script?.generatedAudio || [];
   const isCloudProvider = providerName !== 'OmniVoice';
+
+  // Format rate and pitch for backend SSML
+  const formattedRate = rateOffset >= 0 ? `+${rateOffset}%` : `${rateOffset}%`;
+  const formattedPitch = pitchOffset >= 0 ? `+${pitchOffset}Hz` : `${pitchOffset}Hz`;
+
+  function applyStylePreset(preset: 'cinematic' | 'shorts' | 'tech' | 'vlog') {
+    setStylePreset(preset);
+    if (preset === 'cinematic') {
+      setRateOffset(0);
+      setPitchOffset(-2);
+    } else if (preset === 'shorts') {
+      setRateOffset(10);
+      setPitchOffset(2);
+    } else if (preset === 'tech') {
+      setRateOffset(2);
+      setPitchOffset(0);
+    } else if (preset === 'vlog') {
+      setRateOffset(6);
+      setPitchOffset(3);
+    }
+  }
+
+  function insertPause(durationSec: number) {
+    const tag = ` [pause ${durationSec}s] `;
+    if (!textareaRef.current) {
+      const updated = (narrationText ? narrationText + tag : tag).trim();
+      setNarrationText(updated);
+      if (script?.id) onUpdate({ narration: updated });
+      return;
+    }
+    const el = textareaRef.current;
+    const start = el.selectionStart || 0;
+    const end = el.selectionEnd || 0;
+    const textBefore = narrationText.substring(0, start);
+    const textAfter = narrationText.substring(end);
+    const newText = textBefore + tag + textAfter;
+    setNarrationText(newText);
+    if (script?.id) onUpdate({ narration: newText });
+
+    setTimeout(() => {
+      el.focus();
+      const newPos = start + tag.length;
+      el.setSelectionRange(newPos, newPos);
+    }, 50);
+  }
 
   function stopPreview() {
     if (audioRef.current) {
@@ -722,10 +811,10 @@ function AudioGenerationContent({
     utteranceRef.current = null;
     previewVoiceIdRef.current = null;
     setPreviewVoiceId(null);
+    setPreviewLoadingId(null);
     setPreviewSource(null);
   }
 
-  // Cleanup preview audio on unmount
   useEffect(() => {
     return () => {
       if (audioRef.current) {
@@ -796,7 +885,6 @@ function AudioGenerationContent({
     const vId = typeof v === 'string' ? v : (v?.id || '');
     if (!vId) return;
 
-    // Toggle off if already playing this voice
     if (previewVoiceId === vId) {
       stopPreview();
       return;
@@ -804,15 +892,19 @@ function AudioGenerationContent({
 
     stopPreview();
     setPreviewError('');
-    setPreviewVoiceId(vId);
+    setPreviewLoadingId(vId);
     previewVoiceIdRef.current = vId;
 
-    // 1) Try server-side preview first ({providerName} renders the real character voice)
     try {
       const res = await fetch('/api/tts/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voice: vId, language: selectedLanguage }),
+        body: JSON.stringify({
+          voice: vId,
+          language: selectedLanguage,
+          rate: formattedRate,
+          pitch: formattedPitch,
+        }),
       });
 
       const contentType = res.headers.get('content-type') || '';
@@ -824,6 +916,8 @@ function AudioGenerationContent({
         const audio = new Audio(url);
         audioRef.current = audio;
         setPreviewSource('server');
+        setPreviewVoiceId(vId);
+        setPreviewLoadingId(null);
 
         audio.onended = () => {
           if (previewVoiceIdRef.current === vId) stopPreview();
@@ -845,17 +939,16 @@ function AudioGenerationContent({
       }
       if (previewVoiceIdRef.current !== vId) return;
     } catch {
-      // Server unreachable — fall through to system voice preview below
+      // Server unreachable — fall through to system voice preview
     }
 
-    // 2) Fallback: browser speech synthesis with the character's own sample text.
-    //    Only used when a voice for the target language exists — never a silent wrong voice.
+    setPreviewLoadingId(null);
     if (!playSystemPreview(v, vId)) {
       stopPreview();
       setPreviewError(
         selectedLanguage === 'hi'
-          ? `${providerName} is unavailable and no Hindi system voice is installed. ${isCloudProvider ? 'Check the connection and try again.' : 'Start OmniVoice, or install a Hindi voice (e.g. Microsoft Heera) in Windows voice settings.'}`
-          : `${providerName} is unavailable and no suitable English system voice is available. ${isCloudProvider ? 'Check the connection and try again.' : 'Start OmniVoice to hear accurate character previews.'}`
+          ? `${providerName} is unavailable. Start OmniVoice or check internet connection.`
+          : `${providerName} is unavailable. Start OmniVoice or check internet connection.`
       );
     }
   }
@@ -866,22 +959,18 @@ function AudioGenerationContent({
     if (!sysVoices || sysVoices.length === 0) return false;
 
     const targetLang = selectedLanguage === 'hi' ? 'hi' : 'en';
-
-    // 1st choice: voices of the target language
     let langPool = sysVoices.filter((sv) => sv.lang.toLowerCase().startsWith(targetLang));
-    // 2nd choice for Hindi: Indian-accented voices (en-IN)
     if (langPool.length === 0 && selectedLanguage === 'hi') {
       langPool = sysVoices.filter((sv) => sv.lang.toLowerCase().includes('in'));
     }
-    // Only fall back to English voices for Hindi if the browser cannot pronounce Hindi at all — still label it
     if (langPool.length === 0 && selectedLanguage === 'hi') {
       langPool = sysVoices.filter((sv) => sv.lang.toLowerCase().startsWith('en'));
     }
     if (langPool.length === 0) return false;
 
     const gender = typeof v === 'object' ? String(v.gender || '').toLowerCase() : '';
-    const femaleKeywords = ['female', 'zira', 'kalpana', 'swara', 'heera', 'sabina', 'hazel', 'susan', 'google', 'heami', 'huihui'];
-    const maleKeywords = ['male', 'david', 'mark', 'hemant', 'madhur', 'ravi', 'george', 'james', 'richard', 'daniel'];
+    const femaleKeywords = ['female', 'swara', 'neerja', 'ava', 'jenny', 'emma', 'zira', 'kalpana'];
+    const maleKeywords = ['male', 'madhur', 'prabhat', 'brian', 'andrew', 'christopher', 'david', 'mark'];
 
     let genderPool = langPool;
     if (gender === 'female') {
@@ -892,7 +981,6 @@ function AudioGenerationContent({
       if (m.length > 0) genderPool = m;
     }
 
-    // Deterministic: same character always maps to the same system voice
     const voiceIdx = voices.findIndex((lv: VoiceItem) => lv?.id === vId);
     const picked = genderPool[voiceIdx >= 0 ? voiceIdx % genderPool.length : 0];
     if (!picked) return false;
@@ -905,10 +993,11 @@ function AudioGenerationContent({
     const utterance = new SpeechSynthesisUtterance(sampleText);
     utterance.voice = picked;
     utterance.lang = picked.lang;
-    utterance.pitch = typeof v === 'object' && typeof v?.pitch === 'number' ? v.pitch : 1.0;
-    utterance.rate = gender === 'male' ? 0.92 : 1.0;
+    utterance.pitch = 1.0 + (pitchOffset * 0.03);
+    utterance.rate = 1.0 + (rateOffset * 0.01);
     utteranceRef.current = utterance;
     setPreviewSource('system');
+    setPreviewVoiceId(vId);
 
     utterance.onend = () => {
       if (previewVoiceIdRef.current === vId) stopPreview();
@@ -921,7 +1010,6 @@ function AudioGenerationContent({
       stopPreview();
     };
 
-    // Delay to ensure cancel() has taken effect before speaking
     setTimeout(() => {
       if (previewVoiceIdRef.current === vId) window.speechSynthesis.speak(utterance);
     }, 80);
@@ -949,7 +1037,7 @@ function AudioGenerationContent({
         fetchVoices(selectedLanguage);
       } else {
         setServerOnline(false);
-        setError(data?.message || 'Failed to start OmniVoice');
+        setError(data?.message || 'Failed to start TTS engine');
       }
     } catch (err) {
       setServerOnline(false);
@@ -965,9 +1053,7 @@ function AudioGenerationContent({
     stopPreview();
     try {
       await fetch('/api/tts/stop', { method: 'POST' });
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   function handleCopy() {
@@ -986,24 +1072,28 @@ function AudioGenerationContent({
       setError('Please select a voice character first.');
       return;
     }
+
+    // Save narration directly to script state
+    onUpdate({ narration: textToGenerate });
+
     setGenerating(true);
     setError('');
     setPreviewError('');
     setProgressPercent(5);
     setProgressElapsed(0);
-    setProgressStage(isCloudProvider ? `Calling ${providerName}...` : 'Initializing OmniVoice neural model...');
+    setProgressStage(`Initializing ${selectedLanguage === 'hi' ? 'Hindi' : 'English'} neural speech model...`);
 
     const timer = setInterval(() => {
       setProgressElapsed((prev) => prev + 1);
       setProgressPercent((prev) => {
         if (prev < 30) {
-          setProgressStage('Synthesizing voice audio & pitch contours...');
+          setProgressStage('Synthesizing speech & natural acoustic pause timing...');
           return prev + 6;
         } else if (prev < 70) {
-          setProgressStage('Rendering neural speech tokens...');
+          setProgressStage('Modulating prosody, pitch, and human inflection...');
           return prev + 4;
         } else if (prev < 92) {
-          setProgressStage('Encoding audio stream & finalizing file...');
+          setProgressStage('Encoding high-fidelity audio stream...');
           return prev + 2;
         }
         return prev;
@@ -1019,6 +1109,8 @@ function AudioGenerationContent({
           language: selectedLanguage,
           voice: selectedVoice,
           scriptId: script.id,
+          rate: formattedRate,
+          pitch: formattedPitch,
         }),
       });
 
@@ -1038,7 +1130,7 @@ function AudioGenerationContent({
       };
 
       const existing = (script.generatedAudio || []).filter((a) => a.language !== selectedLanguage);
-      onUpdate({ generatedAudio: [...existing, entry] });
+      onUpdate({ narration: textToGenerate, generatedAudio: [entry, ...existing] });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate audio');
     } finally {
@@ -1084,7 +1176,7 @@ function AudioGenerationContent({
           )}
           {serverStarting && (
             <span className="flex items-center gap-1.5 text-[10px] text-accent">
-              <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Starting OmniVoice...
+              <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Starting TTS...
             </span>
           )}
         </div>
@@ -1103,8 +1195,8 @@ function AudioGenerationContent({
           <div className="mb-4 flex items-start gap-2 rounded-md border border-accent/30 bg-accent/10 p-3 text-xs text-accent">
             <span className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
             <div>
-              <p className="font-medium">Starting OmniVoice Server...</p>
-              <p className="mt-1 text-accent/80">Launching local TTS server on port 3900...</p>
+              <p className="font-medium">Starting Audio Engine...</p>
+              <p className="mt-1 text-accent/80">Initializing neural models...</p>
             </div>
           </div>
         )}
@@ -1117,18 +1209,9 @@ function AudioGenerationContent({
               <p className="mt-1 text-red-300/80">
                 {isCloudProvider
                   ? error || 'Check your internet connection and try again.'
-                  : error || 'Start OmniVoice to run voice synthesis locally.'}
+                  : error || 'Start the TTS engine to run voice synthesis.'}
               </p>
               <div className="mt-2 flex gap-2">
-                {!isCloudProvider && (
-                  <button
-                    onClick={checkOrStartServer}
-                    className="flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-[11px] font-medium text-white hover:bg-accent/80"
-                  >
-                    <Zap className="h-3.5 w-3.5" />
-                    Start OmniVoice Server
-                  </button>
-                )}
                 <button
                   onClick={checkStatus}
                   className="rounded border border-red-500/40 px-2 py-1 text-[11px] hover:bg-red-500/10"
@@ -1143,41 +1226,41 @@ function AudioGenerationContent({
         {/* Step 1: Language Selection */}
         <div className="mb-6 rounded-lg border border-border bg-surface p-4">
           <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-400">
-            1. Select Generation Language
+            1. Select Dedicated Model Language
           </label>
           <div className="flex items-center gap-3">
             <button
               onClick={() => handleLanguageSwitch('en')}
-              className={`flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium transition-all ${
+              className={`flex items-center gap-2 rounded-md px-4 py-2.5 text-xs font-semibold transition-all ${
                 selectedLanguage === 'en'
-                  ? 'bg-accent text-white shadow-md'
+                  ? 'bg-accent text-white shadow-md ring-1 ring-accent'
                   : 'border border-border bg-surface2 text-gray-300 hover:text-white'
               }`}
             >
-              🇺🇸 English (EN)
+              🇺🇸 English (US & Multilingual HD)
             </button>
             <button
               onClick={() => handleLanguageSwitch('hi')}
-              className={`flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium transition-all ${
+              className={`flex items-center gap-2 rounded-md px-4 py-2.5 text-xs font-semibold transition-all ${
                 selectedLanguage === 'hi'
-                  ? 'bg-accent text-white shadow-md'
+                  ? 'bg-accent text-white shadow-md ring-1 ring-accent'
                   : 'border border-border bg-surface2 text-gray-300 hover:text-white'
               }`}
             >
-              🇮🇳 Hindi (HI)
+              🇮🇳 Hindi & Hinglish (Native Indian Neural)
             </button>
           </div>
         </div>
 
-        {/* Step 2: Voice Model Selection */}
+        {/* Step 2: Voice Character Selection */}
         <div className="mb-6 rounded-lg border border-border bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              2. Select Voice Character ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
+              2. Select Voice Persona ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
             </label>
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-gray-500">
-                {voicesLoading ? 'Loading voices...' : `${voices.length} character${voices.length === 1 ? '' : 's'} available`}
+                {voicesLoading ? 'Loading voices...' : `${voices.length} neural voice${voices.length === 1 ? '' : 's'} available`}
               </span>
               <button
                 onClick={() => fetchVoices(selectedLanguage)}
@@ -1193,134 +1276,302 @@ function AudioGenerationContent({
           {voicesLoading ? (
             <div className="flex items-center gap-2 py-6 text-xs text-gray-400">
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-              Fetching available voice characters...
+              Fetching neural voice models...
             </div>
           ) : voices.length === 0 ? (
             <div className="flex flex-col items-center gap-2 rounded-md border border-border bg-surface2/50 py-6 text-center text-xs text-gray-400">
               <Volume2 className="h-5 w-5 text-gray-600" />
-              <p>No voice characters found for {selectedLanguage === 'en' ? 'English' : 'Hindi'}.</p>
-              <p className="text-[11px] text-gray-500">
-                {isCloudProvider ? 'Check your connection and try Refresh.' : 'Start the OmniVoice server and try Refresh.'}
-              </p>
+              <p>No voice models found for {selectedLanguage === 'en' ? 'English' : 'Hindi'}.</p>
+              <p className="text-[11px] text-gray-500">Click Refresh to reload available models.</p>
             </div>
           ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {voices.map((v: VoiceItem, idx: number) => {
-              const vId = typeof v === 'string' ? v : (v?.id || `voice_${idx}`);
-              const vName = typeof v === 'string' ? v : (v?.name || v?.id || `Voice ${idx + 1}`);
-              const rawGender = typeof v === 'object' && v?.gender ? String(v.gender) : 'VOICE';
-              const isFemale = rawGender.toLowerCase() === 'female';
-              const vDescription = typeof v === 'object' && v?.description ? String(v.description) : '';
-              const vTags = typeof v === 'object' && Array.isArray(v?.tags) ? v.tags : [];
-              const isSelected = selectedVoice === vId;
-              const isPlayingPreview = previewVoiceId === vId;
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {voices.map((v: VoiceItem, idx: number) => {
+                const vId = typeof v === 'string' ? v : (v?.id || `voice_${idx}`);
+                const vName = typeof v === 'string' ? v : (v?.name || v?.id || `Voice ${idx + 1}`);
+                const rawGender = typeof v === 'object' && v?.gender ? String(v.gender) : 'VOICE';
+                const isFemale = rawGender.toLowerCase() === 'female';
+                const vDescription = typeof v === 'object' && v?.description ? String(v.description) : '';
+                const vTags = typeof v === 'object' && Array.isArray(v?.tags) ? v.tags : [];
+                const isSelected = selectedVoice === vId;
+                const isPlayingPreview = previewVoiceId === vId;
 
-              return (
-                <div
-                  key={vId}
-                  onClick={() => setSelectedVoice(vId)}
-                  className={`relative cursor-pointer rounded-lg border p-3.5 transition-all flex flex-col justify-between ${
-                    isSelected
-                      ? 'border-accent bg-accent/10 shadow-lg ring-1 ring-accent/50'
-                      : 'border-border bg-surface2/50 hover:border-gray-500 hover:bg-surface2'
-                  }`}
-                >
-                  <div>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-white truncate pr-2">{vName}</span>
-                      {isSelected && (
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent text-white">
-                          <Check className="h-3 w-3" />
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mb-2 flex items-center gap-1.5 flex-wrap">
-                      <span
-                        className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                          isFemale
-                            ? 'bg-pink-500/20 text-pink-300'
-                            : 'bg-blue-500/20 text-blue-300'
-                        }`}
-                      >
-                        {rawGender.toUpperCase()}
-                      </span>
-                      {vTags.map((t: string) => (
-                        <span key={String(t)} className="rounded bg-gray-700/50 px-1.5 py-0.5 text-[10px] text-gray-300">
-                          {String(t)}
-                        </span>
-                      ))}
-                    </div>
-
-                    {vDescription ? (
-                      <p className="text-[11px] leading-relaxed text-gray-400 line-clamp-2 mb-3">
-                        {vDescription}
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="pt-2 border-t border-border/40 mt-auto">
-                    <div className="flex items-center justify-between">
-                      <button
-                        onClick={(e) => handlePreviewVoice(v, e)}
-                        className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium transition-all ${
-                          isPlayingPreview
-                            ? 'bg-accent text-white animate-pulse'
-                            : 'border border-accent/40 text-accent hover:bg-accent/20'
-                        }`}
-                      >
-                        {isPlayingPreview ? (
-                          <>
-                            <Volume2 className="h-3.5 w-3.5 animate-bounce" />
-                            Playing...
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-3 w-3 fill-current" />
-                            Listen Voice
-                          </>
-                        )}
-                      </button>
-                      <span className="flex items-center gap-1.5">
-                        {isPlayingPreview && previewSource === 'server' && (
-                          <span className="rounded bg-green-500/10 px-1.5 py-0.5 text-[9px] font-medium text-green-400">
-                            {providerName}
+                return (
+                  <div
+                    key={vId}
+                    onClick={() => setSelectedVoice(vId)}
+                    className={`relative cursor-pointer rounded-lg border p-3.5 transition-all flex flex-col justify-between ${
+                      isSelected
+                        ? 'border-accent bg-accent/10 shadow-lg ring-1 ring-accent/50'
+                        : 'border-border bg-surface2/50 hover:border-gray-500 hover:bg-surface2'
+                    }`}
+                  >
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="text-xs font-bold text-white truncate pr-2">{vName}</span>
+                        {isSelected && (
+                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent text-white">
+                            <Check className="h-3 w-3" />
                           </span>
                         )}
-                        {isPlayingPreview && previewSource === 'system' && (
-                          <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-medium text-amber-400">
-                            System Voice
+                      </div>
+
+                      <div className="mb-2 flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                            isFemale
+                              ? 'bg-pink-500/20 text-pink-300'
+                              : 'bg-blue-500/20 text-blue-300'
+                          }`}
+                        >
+                          {rawGender.toUpperCase()}
+                        </span>
+                        {vTags.map((t: string) => (
+                          <span key={String(t)} className="rounded bg-gray-700/50 px-1.5 py-0.5 text-[10px] text-gray-300">
+                            {String(t)}
                           </span>
-                        )}
-                        <span className="text-[10px] text-gray-500 font-mono">
+                        ))}
+                      </div>
+
+                      {vDescription ? (
+                        <p className="text-[11px] leading-relaxed text-gray-400 line-clamp-2 mb-3">
+                          {vDescription}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <div className="pt-2 border-t border-border/40 mt-auto">
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={(e) => handlePreviewVoice(v, e)}
+                          disabled={previewLoadingId === vId}
+                          className={`flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium transition-all ${
+                            isPlayingPreview
+                              ? 'bg-accent text-white animate-pulse'
+                              : previewLoadingId === vId
+                              ? 'bg-accent/30 text-white'
+                              : 'border border-accent/40 text-accent hover:bg-accent/20'
+                          }`}
+                        >
+                          {isPlayingPreview ? (
+                            <>
+                              <Volume2 className="h-3.5 w-3.5 animate-bounce" />
+                              Playing...
+                            </>
+                          ) : previewLoadingId === vId ? (
+                            <>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              Loading...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="h-3 w-3 fill-current" />
+                              Audition Voice
+                            </>
+                          )}
+                        </button>
+                        <span className="text-[10px] font-mono text-gray-500">
                           {selectedLanguage.toUpperCase()}
                         </span>
-                      </span>
+                      </div>
+                      {isPlayingPreview && previewError && (
+                        <p className="mt-2 text-[10px] leading-snug text-red-400">{previewError}</p>
+                      )}
                     </div>
-                    {isPlayingPreview && previewError && (
-                      <p className="mt-2 text-[10px] leading-snug text-red-400">{previewError}</p>
-                    )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
           )}
         </div>
 
-        {/* Step 3: Start Generation Action & Progress Bar */}
+        {/* Step 3: Voice Customization & Style Controls */}
+        <div className="mb-6 rounded-lg border border-border bg-surface p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              <Sliders className="h-3.5 w-3.5 text-accent" />
+              3. Voice Customization & Human Inflection
+            </label>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[11px] text-gray-500">Presets:</span>
+              <button
+                onClick={() => applyStylePreset('cinematic')}
+                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                  stylePreset === 'cinematic' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'
+                }`}
+              >
+                🎬 Storyteller
+              </button>
+              <button
+                onClick={() => applyStylePreset('shorts')}
+                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                  stylePreset === 'shorts' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'
+                }`}
+              >
+                ⚡ Viral Shorts
+              </button>
+              <button
+                onClick={() => applyStylePreset('tech')}
+                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                  stylePreset === 'tech' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'
+                }`}
+              >
+                🎙️ Tech News
+              </button>
+              <button
+                onClick={() => applyStylePreset('vlog')}
+                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                  stylePreset === 'vlog' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'
+                }`}
+              >
+                ☕ Vlog
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-2">
+            {/* Speed / Rate Slider */}
+            <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="font-medium text-gray-300">Speech Pace (Rate)</span>
+                <span className="font-mono text-accent font-semibold">
+                  {rateOffset === 0 ? 'Normal (1.0x)' : `${rateOffset > 0 ? '+' : ''}${rateOffset}%`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="-20"
+                max="30"
+                step="2"
+                value={rateOffset}
+                onChange={(e) => {
+                  setRateOffset(parseInt(e.target.value, 10));
+                  setStylePreset('custom');
+                }}
+                className="w-full accent-accent cursor-pointer"
+              />
+              <div className="mt-1 flex justify-between text-[10px] text-gray-500">
+                <span>Slow (-20%)</span>
+                <span>Normal</span>
+                <span>Fast (+30%)</span>
+              </div>
+            </div>
+
+            {/* Pitch / Tone Slider */}
+            <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="font-medium text-gray-300">Pitch & Tone</span>
+                <span className="font-mono text-accent font-semibold">
+                  {pitchOffset === 0 ? 'Natural (0Hz)' : `${pitchOffset > 0 ? '+' : ''}${pitchOffset}Hz`}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="-10"
+                max="10"
+                step="1"
+                value={pitchOffset}
+                onChange={(e) => {
+                  setPitchOffset(parseInt(e.target.value, 10));
+                  setStylePreset('custom');
+                }}
+                className="w-full accent-accent cursor-pointer"
+              />
+              <div className="mt-1 flex justify-between text-[10px] text-gray-500">
+                <span>Deeper (-10Hz)</span>
+                <span>Natural</span>
+                <span>Higher (+10Hz)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Step 4: Narration Script Editor with Natural Pause Insertion Toolbar */}
+        <div className="mb-6 rounded-lg border border-border bg-surface p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              <Copy className="h-3.5 w-3.5 text-gray-400" />
+              4. Narration Script & Natural Pauses
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  if (script?.id) {
+                    onUpdate({ narration: narrationText });
+                  }
+                }}
+                className="flex items-center gap-1.5 rounded-md bg-accent/20 px-3 py-1 text-xs font-medium text-accent hover:bg-accent/30"
+              >
+                Save Script
+              </button>
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs text-gray-300 hover:bg-surface2"
+              >
+                {copied ? 'Copied!' : 'Copy Script'}
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Pause Insertion Bar */}
+          <div className="mb-2.5 flex flex-wrap items-center gap-2 rounded-md border border-border/40 bg-surface2/30 px-3 py-2">
+            <span className="flex items-center gap-1 text-[11px] font-medium text-gray-400">
+              <Clock className="h-3 w-3 text-accent" /> Insert Acoustic Pause:
+            </span>
+            <button
+              type="button"
+              onClick={() => insertPause(0.5)}
+              className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent hover:bg-accent/20"
+            >
+              + 0.5s Pause
+            </button>
+            <button
+              type="button"
+              onClick={() => insertPause(1.0)}
+              className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent hover:bg-accent/20"
+            >
+              + 1.0s Pause
+            </button>
+            <button
+              type="button"
+              onClick={() => insertPause(1.5)}
+              className="rounded border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent hover:bg-accent/20"
+            >
+              + 1.5s Pause
+            </button>
+            <span className="ml-auto text-[10px] text-gray-500">
+              💡 Pauses like <code className="text-gray-300">[pause 1s]</code> create authentic silence and are never spoken.
+            </span>
+          </div>
+
+          <textarea
+            ref={textareaRef}
+            value={narrationText}
+            onChange={(e) => {
+              setNarrationText(e.target.value);
+              if (script?.id) {
+                onUpdate({ narration: e.target.value });
+              }
+            }}
+            rows={5}
+            className="w-full rounded-md border border-border bg-surface2 p-3 text-sm leading-relaxed text-gray-200 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            placeholder="Type or paste narration script text here (you can write [pause 1s] or ... for natural pauses)..."
+          />
+        </div>
+
+        {/* Step 5: Start Generation Action & Progress Bar */}
         <div className="mb-6 flex flex-col items-start gap-4 rounded-lg border border-border bg-surface p-4">
           <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            3. Start Voice Generation
+            5. Start Voice Generation
           </label>
 
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
             <div className="text-xs text-gray-300">
               Selected Model:{' '}
-              <span className="font-semibold text-accent">
+              <span className="font-bold text-accent">
                 {activeVoiceName}
               </span>{' '}
-              ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
+              ({selectedLanguage === 'en' ? 'English' : 'Hindi'}) • Rate: <span className="font-mono text-gray-300">{formattedRate}</span> • Pitch: <span className="font-mono text-gray-300">{formattedPitch}</span>
             </div>
 
             <button
@@ -1376,7 +1627,7 @@ function AudioGenerationContent({
           )}
         </div>
 
-        {/* Generated Audio Audio Player */}
+        {/* Generated Audio Player */}
         {currentAudio && currentAudio.url && typeof currentAudio.url === 'string' && (
           <div className="mb-6 rounded-lg border border-border bg-surface p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -1384,7 +1635,7 @@ function AudioGenerationContent({
                 <Volume2 className="h-3.5 w-3.5 text-accent" />
                 {selectedLanguage === 'en' ? 'English' : 'Hindi'} Audio Result
                 {(currentAudio.voiceName || currentAudio.voice) && (
-                  <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] text-accent">
+                  <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] text-accent font-semibold">
                     {currentAudio.voiceName || currentAudio.voice}
                   </span>
                 )}
@@ -1400,7 +1651,7 @@ function AudioGenerationContent({
                   download
                   className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] text-gray-300 hover:bg-surface2"
                 >
-                  <Download className="h-3 w-3" /> Download WAV
+                  <Download className="h-3 w-3" /> Download MP3
                 </a>
                 <a
                   href={currentAudio.url}
@@ -1423,48 +1674,9 @@ function AudioGenerationContent({
             </audio>
           </div>
         )}
-
-        {/* Narration Script View & Editor */}
-        <div className="rounded-lg border border-border bg-surface p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <span className="flex items-center gap-2 text-xs font-medium text-gray-300">
-              <Copy className="h-3.5 w-3.5 text-gray-400" />
-              Narration Script (Editable)
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  if (script?.id) {
-                    onUpdate({ narration: narrationText });
-                  }
-                }}
-                className="flex items-center gap-1.5 rounded-md bg-accent/20 px-3 py-1 text-xs font-medium text-accent hover:bg-accent/30"
-              >
-                Save Script
-              </button>
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs text-gray-300 hover:bg-surface2"
-              >
-                {copied ? 'Copied!' : 'Copy Script'}
-              </button>
-            </div>
-          </div>
-          <textarea
-            value={narrationText}
-            onChange={(e) => {
-              setNarrationText(e.target.value);
-              if (script?.id) {
-                onUpdate({ narration: e.target.value });
-              }
-            }}
-            rows={4}
-            className="w-full rounded-md border border-border bg-surface2 p-3 text-sm leading-relaxed text-gray-200 focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-            placeholder="Type or paste narration script text here to generate audio..."
-          />
-        </div>
       </div>
     </div>
   );
 }
+
 

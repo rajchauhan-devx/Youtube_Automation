@@ -38,6 +38,54 @@ export interface Channel {
 export const DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
 export type DurationPreset = (typeof DURATION_PRESETS)[number];
 
+export interface GeminiModelInfo {
+  id: string;
+  name: string;
+  badge?: string;
+  description: string;
+  recommended?: boolean;
+}
+
+export const GEMINI_MODELS: GeminiModelInfo[] = [
+  {
+    id: 'gemini-3.6-flash',
+    name: 'Gemini 3.6 Flash',
+    badge: 'Recommended',
+    description: 'Ultra-fast, high-quality scriptwriting with native viral hooks',
+    recommended: true,
+  },
+  {
+    id: 'gemini-3.7-flash',
+    name: 'Gemini 3.7 Flash',
+    badge: 'Newest',
+    description: 'Latest Gemini multimodal model with advanced reasoning',
+  },
+  {
+    id: 'gemini-3.5-flash',
+    name: 'Gemini 3.5 Flash',
+    badge: 'Stable',
+    description: 'Fast response and consistent storytelling cadence',
+  },
+  {
+    id: 'gemini-3.1-pro-preview',
+    name: 'Gemini 3.1 Pro',
+    badge: 'Deep Reasoning',
+    description: 'Deep-dive analysis for complex documentary and long-form scripts',
+  },
+  {
+    id: 'gemini-flash-latest',
+    name: 'Gemini Flash Latest',
+    badge: 'Auto-Update',
+    description: 'Always points to the latest Gemini Flash release',
+  },
+  {
+    id: 'gemini-2.5-flash-lite',
+    name: 'Gemini 2.5 Flash Lite',
+    badge: 'Lightweight',
+    description: 'High throughput, low-latency script generator',
+  },
+];
+
 export interface SceneAnalysis {
   transitions: string[];
   effects: string[];
@@ -55,6 +103,7 @@ export interface Script {
   prompts: PromptBlock[];
   howItWorks: string;
   duration: DurationPreset | number;
+  model?: string;
   chapters?: string[];
   content?: string;
   topicName?: string;

@@ -320,28 +320,93 @@ export async function startComfyUI(): Promise<{ success: boolean; message: strin
   return { success: false, message: 'Timed out waiting for ComfyUI to start (120s). Check the ComfyUI console for errors.' };
 }
 
+export async function interruptComfyUI(): Promise<void> {
+  try {
+    await fetch(`${COMFY_URL}/interrupt`, { method: 'POST', signal: AbortSignal.timeout(2000) });
+  } catch {}
+  try {
+    await fetch(`${COMFY_URL}/queue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clear: true }),
+      signal: AbortSignal.timeout(2000),
+    });
+  } catch {}
+}
+
 export async function stopComfyUI(): Promise<{ success: boolean; message: string }> {
   let killed = false;
+
+  // 1. Interrupt running generation and clear queue
+  await interruptComfyUI();
+
+  // 2. Kill tracked child process
   if (comfyProcess) {
     try {
+      if (comfyProcess.pid && process.platform === 'win32') {
+        const { execSync } = await import('child_process');
+        try {
+          execSync(`taskkill /F /T /PID ${comfyProcess.pid}`);
+          killed = true;
+        } catch {}
+      }
       comfyProcess.kill();
-      comfyProcess = null;
       killed = true;
-    } catch (e: any) {
-      return { success: false, message: e.message };
-    }
+    } catch {}
+    comfyProcess = null;
   }
-  // Also try to kill any python process on port 8188 (Windows)
+
+  // 3. Find and kill any process listening on the ComfyUI port (Windows & Unix)
   try {
-    const { spawn } = await import('child_process');
-    await new Promise<void>((resolve) => {
-      const proc = spawn('cmd', ['/c', 'for /f "tokens=5" %a in (\'netstat -ano ^| findstr :8188\') do taskkill /f /pid %a 2>nul'], { shell: true });
-      proc.on('close', () => resolve());
-      setTimeout(() => resolve(), 2000);
-    });
-    killed = true;
-  } catch {}
-  return { success: true, message: killed ? 'ComfyUI stopped' : 'No ComfyUI process found' };
+    const { execSync } = await import('child_process');
+    let port = '8188';
+    try {
+      port = new URL(COMFY_URL).port || '8188';
+    } catch {}
+
+    if (process.platform === 'win32') {
+      const out = execSync('netstat -ano', { encoding: 'utf8' });
+      const lines = out.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        const parts = trimmed.split(/\s+/);
+        if (parts.length >= 4) {
+          const localAddr = parts[1] || '';
+          const pid = parts[parts.length - 1] || '';
+          if (localAddr.endsWith(`:${port}`) && /^\d+$/.test(pid) && pid !== '0') {
+            try {
+              execSync(`taskkill /F /T /PID ${pid}`);
+              killed = true;
+            } catch {}
+          }
+        }
+      }
+    } else {
+      try {
+        const pids = execSync(`lsof -ti :${port}`, { encoding: 'utf8' }).trim();
+        if (pids) {
+          for (const pid of pids.split(/\s+/)) {
+            if (/^\d+$/.test(pid)) {
+              execSync(`kill -9 ${pid}`);
+              killed = true;
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch (err: any) {
+    console.error('Error stopping ComfyUI processes:', err);
+  }
+
+  // Verify status after short delay
+  await new Promise((r) => setTimeout(r, 1000));
+  const s = await checkComfyStatus();
+  if (s.online) {
+    return { success: false, message: 'ComfyUI is still responding after stop attempt' };
+  }
+
+  return { success: true, message: killed ? 'ComfyUI stopped successfully' : 'No ComfyUI process found' };
 }
 
 export interface GenerateOptions {

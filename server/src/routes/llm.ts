@@ -1,17 +1,22 @@
 import { Router } from 'express';
-import { chat } from '../services/openrouter.js';
+import { chat, formatGeminiModel } from '../services/gemini.js';
 
 export const llmRouter = Router();
 
 function getApiKey(req: any): string {
-  return (req.headers['x-api-key'] as string) || process.env.OPENROUTER_API_KEY || '';
+  return (
+    (req.headers['x-api-key'] as string) ||
+    process.env.GEMINI_API_KEY ||
+    process.env.OPENROUTER_API_KEY ||
+    ''
+  );
 }
 
 llmRouter.post('/chat', async (req, res) => {
   try {
     const apiKey = getApiKey(req);
     if (!apiKey) {
-      res.status(401).json({ error: 'Missing API key' });
+      res.status(401).json({ error: 'Missing Gemini API key' });
       return;
     }
     const result = await chat(apiKey, req.body);
@@ -26,7 +31,7 @@ llmRouter.post('/extract', async (req, res) => {
   try {
     const apiKey = getApiKey(req);
     if (!apiKey) {
-      res.status(401).json({ error: 'Missing API key' });
+      res.status(401).json({ error: 'Missing Gemini API key' });
       return;
     }
     const { rawText } = req.body;
@@ -36,7 +41,7 @@ llmRouter.post('/extract', async (req, res) => {
     }
 
     const result = await chat(apiKey, {
-      model: 'deepseek/deepseek-v4-flash',
+      model: 'gemini-3.6-flash',
       temperature: 0,
       max_tokens: 8192,
       messages: [
@@ -147,7 +152,7 @@ Output JSON format:
 }`;
 
       const result = await chat(apiKey, {
-        model: 'deepseek/deepseek-v4-flash',
+        model: 'gemini-3.6-flash',
         temperature: 0.3,
         max_tokens: 2048,
         messages: [
@@ -203,11 +208,11 @@ Output JSON format:
 llmRouter.post('/chat/stream', async (req, res) => {
   const apiKey = getApiKey(req);
   if (!apiKey) {
-    res.status(401).json({ error: 'Missing API key' });
+    res.status(401).json({ error: 'Missing Gemini API key' });
     return;
   }
 
-  const { messages, model } = req.body;
+  const { messages, model, temperature, max_tokens } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Messages array is required' });
     return;
@@ -218,33 +223,62 @@ llmRouter.post('/chat/stream', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const formattedModel = formatGeminiModel(model);
+    
+    // Build Gemini payload
+    let systemInstruction: string | undefined = undefined;
+    const contents: { role: 'user' | 'model'; parts: { text: string }[] }[] = [];
+
+    for (const msg of messages) {
+      if (msg.role === 'system') {
+        systemInstruction = systemInstruction ? `${systemInstruction}\n\n${msg.content}` : msg.content;
+      } else {
+        const role = msg.role === 'assistant' || msg.role === 'model' ? 'model' : 'user';
+        contents.push({
+          role,
+          parts: [{ text: msg.content }],
+        });
+      }
+    }
+
+    if (contents.length === 0) {
+      contents.push({ role: 'user', parts: [{ text: 'Hello' }] });
+    }
+
+    const payload: any = {
+      contents,
+      generationConfig: {
+        temperature: temperature ?? 0.7,
+        maxOutputTokens: max_tokens ?? 8192,
+      },
+    };
+
+    if (systemInstruction) {
+      payload.system_instruction = {
+        parts: [{ text: systemInstruction }],
+      };
+    }
+
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${formattedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        'HTTP-Referer': process.env.APP_URL || 'http://localhost:5173',
-        'X-Title': 'Tubeflow',
       },
-      body: JSON.stringify({
-        model: model || 'deepseek/deepseek-v4-flash',
-        messages,
-        temperature: 0.7,
-        max_tokens: 32768,
-        stream: true,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
       const text = await response.text();
-      res.write(`data: ${JSON.stringify({ error: `API error ${response.status}: ${text}` })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: `Gemini API error ${response.status}: ${text}` })}\n\n`);
       res.end();
       return;
     }
 
     const reader = response.body?.getReader();
     if (!reader) {
-      res.write(`data: ${JSON.stringify({ error: 'No response body' })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: 'No response stream' })}\n\n`);
       res.end();
       return;
     }
@@ -262,19 +296,20 @@ llmRouter.post('/chat/stream', async (req, res) => {
 
       for (const line of lines) {
         if (line.startsWith('data: ')) {
-          const data = line.slice(6).trim();
-          if (data === '[DONE]') continue;
+          const dataStr = line.slice(6).trim();
           try {
-            const parsed = JSON.parse(data);
-            const content = parsed.choices?.[0]?.delta?.content || '';
-            const finishReason = parsed.choices?.[0]?.finish_reason;
-            if (content) {
-              res.write(`data: ${JSON.stringify({ token: content, finishReason })}\n\n`);
+            const parsed = JSON.parse(dataStr);
+            const candidate = parsed.candidates?.[0];
+            const token = candidate?.content?.parts?.map((p: any) => p.text || '').join('') || '';
+            const finishReason = candidate?.finishReason;
+
+            if (token) {
+              res.write(`data: ${JSON.stringify({ token, finishReason })}\n\n`);
             }
-            if (finishReason && finishReason !== 'stop') {
+            if (finishReason && finishReason !== 'STOP') {
               res.write(`data: ${JSON.stringify({ finishReason })}\n\n`);
             }
-          } catch { }
+          } catch {}
         }
       }
     }

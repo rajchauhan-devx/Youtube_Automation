@@ -3,30 +3,89 @@ import os from 'os';
 import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
-import { TtsError, concatWavs, splitIntoChunks } from './tts-shared.js';
+import { TtsError, concatWavs, splitIntoChunks, sanitizeTextForPlainTTS, type VoiceInfo } from './tts-shared.js';
 
 const execFileAsync = promisify(execFile);
 
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || '';
 const TTS_MODEL = process.env.TTS_MODEL || 'openai/gpt-4o-mini-tts-2025-12-15';
-// OpenAI TTS caps requests at 2000 tokens (~thousands of chars). Split anything
-// larger into sentence-aligned chunks and synthesize sequentially.
 const TTS_CLOUD_CHUNK_MAX_CHARS = parseInt(process.env.TTS_CLOUD_CHUNK_MAX_CHARS || '1800', 10);
 const TTS_CLOUD_TIMEOUT_MS = parseInt(process.env.TTS_CLOUD_TIMEOUT_MS || '120000', 10);
 
-// Character voices (same ids/names as the UI shows) mapped to OpenAI TTS voices.
+// Character voices mapped to OpenAI/OpenRouter TTS voices
 export const CLOUD_VOICE_IDS: Record<string, string> = {
+  en_brian: 'onyx',
+  en_ava: 'nova',
+  en_andrew: 'alloy',
+  en_emma: 'shimmer',
+  en_christopher: 'fable',
+  en_jenny: 'nova',
   nova: 'nova',
   onyx: 'onyx',
   shimmer: 'shimmer',
   fable: 'fable',
   alloy: 'alloy',
+  hi_swara: 'nova',
+  hi_madhur: 'onyx',
+  hi_neerja: 'shimmer',
+  hi_prabhat: 'fable',
   hi_female: 'nova',
   hi_male: 'onyx',
   hi_female_casual: 'shimmer',
   hi_male_deep: 'fable',
 };
+
+export const OPENROUTER_ENGLISH_VOICES: VoiceInfo[] = [
+  {
+    id: 'en_brian',
+    name: 'Brian - Deep Storyteller (Cloud HD)',
+    description: 'Deep authoritative voice with rich studio dynamics.',
+    gender: 'male',
+    language: 'en',
+    sampleText: 'Deep inside the ancient forest, an ancient mystery was waiting to be uncovered.',
+    tags: ['Cloud HD', 'Storyteller'],
+  },
+  {
+    id: 'en_ava',
+    name: 'Ava - Bright & Expressive (Cloud HD)',
+    description: 'Crisp, engaging narrator for modern videos and essays.',
+    gender: 'female',
+    language: 'en',
+    sampleText: 'Welcome back! Today we are exploring incredible breakthroughs in artificial intelligence.',
+    tags: ['Cloud HD', 'Engaging'],
+  },
+  {
+    id: 'en_andrew',
+    name: 'Andrew - Balanced Anchor (Cloud HD)',
+    description: 'Neutral, crystal-clear professional narrator for explainers.',
+    gender: 'male',
+    language: 'en',
+    sampleText: 'Here is a complete breakdown of the top tech trends shaping the future.',
+    tags: ['Cloud HD', 'Tech'],
+  },
+];
+
+export const OPENROUTER_HINDI_VOICES: VoiceInfo[] = [
+  {
+    id: 'hi_swara',
+    name: 'Swara - Hindi Narrator (Cloud HD)',
+    description: 'Expressive Hindi narration with clear pronunciation.',
+    gender: 'female',
+    language: 'hi',
+    sampleText: 'नमस्ते! आज के वीडियो में हम जानेंगे भारत के महान आविष्कारों के बारे में।',
+    tags: ['Cloud HD', 'Hindi'],
+  },
+  {
+    id: 'hi_madhur',
+    name: 'Madhur - Energetic Hindi (Cloud HD)',
+    description: 'Fast-paced energetic voice for viral shorts and reels.',
+    gender: 'male',
+    language: 'hi',
+    sampleText: 'नमस्ते दोस्तों! क्या आप जानते हैं? यह तकनीक पूरी दुनिया को बदल रही है!',
+    tags: ['Cloud HD', 'Shorts'],
+  },
+];
 
 export async function checkOpenRouterStatus(): Promise<{ online: boolean; provider: string; model: string }> {
   if (!OPENROUTER_API_KEY) {
@@ -43,12 +102,20 @@ export async function checkOpenRouterStatus(): Promise<{ online: boolean; provid
   }
 }
 
-export async function synthesizeOpenRouter(text: string, voiceId?: string): Promise<Buffer> {
+export async function synthesizeOpenRouter(
+  text: string,
+  voiceId?: string,
+  options?: { speed?: number }
+): Promise<Buffer> {
   if (!OPENROUTER_API_KEY) {
     throw new TtsError('CONFIG', 'OPENROUTER_API_KEY is not set in server/.env. Cloud TTS requires it.');
   }
 
+  // Sanitize text so markdown and [pause] bracket tags are never read aloud
+  const cleanInput = sanitizeTextForPlainTTS(text);
   const voice = CLOUD_VOICE_IDS[voiceId || ''] || 'nova';
+  const speed = options?.speed || 1.0;
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TTS_CLOUD_TIMEOUT_MS);
 
@@ -64,10 +131,10 @@ export async function synthesizeOpenRouter(text: string, voiceId?: string): Prom
       signal: controller.signal,
       body: JSON.stringify({
         model: TTS_MODEL,
-        input: text,
+        input: cleanInput,
         voice,
         response_format: 'mp3',
-        speed: 1.0,
+        speed,
       }),
     });
 
@@ -109,18 +176,18 @@ async function mp3ToWavBuffer(mp3: Buffer): Promise<Buffer> {
 export async function generateCloudAudio(
   text: string,
   voiceId?: string,
+  options?: { speed?: number },
   onChunk?: (done: number, total: number) => void
 ): Promise<{ buffer: Buffer; ext: 'mp3' | 'wav'; chunks: number }> {
-  const chunks = splitIntoChunks(text, TTS_CLOUD_CHUNK_MAX_CHARS);
+  const cleanInput = sanitizeTextForPlainTTS(text);
+  const chunks = splitIntoChunks(cleanInput, TTS_CLOUD_CHUNK_MAX_CHARS);
   if (chunks.length === 1) {
-    return { buffer: await synthesizeOpenRouter(chunks[0], voiceId), ext: 'mp3', chunks: 1 };
+    return { buffer: await synthesizeOpenRouter(chunks[0], voiceId, options), ext: 'mp3', chunks: 1 };
   }
 
-  // Rare path (text > ~1800 chars): synthesize per chunk, decode each mp3 to
-  // PCM WAV via ffmpeg, then stitch into one WAV file.
   const wavParts: Buffer[] = [];
   for (let i = 0; i < chunks.length; i++) {
-    const mp3 = await synthesizeOpenRouter(chunks[i], voiceId);
+    const mp3 = await synthesizeOpenRouter(chunks[i], voiceId, options);
     wavParts.push(await mp3ToWavBuffer(mp3));
     onChunk?.(i + 1, chunks.length);
   }
