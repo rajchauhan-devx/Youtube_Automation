@@ -12,6 +12,11 @@ function getApiKey(req: any): string {
   );
 }
 
+function extractScriptTagContent(text: string): string {
+  const match = text.match(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/i);
+  return match ? match[1].trim() : '';
+}
+
 llmRouter.post('/chat', async (req, res) => {
   try {
     const apiKey = getApiKey(req);
@@ -57,6 +62,7 @@ Return ONLY a single valid JSON object, no markdown fences, no commentary, in th
 }
 
 Rules:
+- ttsText must be the exact inner text of <script>...</script> and nothing else. If no <script> tag exists, return an empty string; never infer or rewrite narration.
 - imagePrompts must contain ONLY the actual AI image-generation prompt text for each image (the descriptive visual prompt), one string per image, in order. Prefer content inside <image_prompt> tags (one string per tag). Do not include labels like "Purpose:", "Narration covered:", "Character reference:", scene numbers, or negative prompts as separate array entries — merge continuity/negative-prompt detail into the same string as its image only if useful, otherwise omit it.
 - If there is no image prompt section, return an empty array.
 - If there is no separate narration/TTS section, use the closest match (e.g. a paste-ready voiceover block) or derive clean spoken narration from the script.
@@ -72,7 +78,8 @@ Rules:
 
     res.json({
       script: parsed.script || '',
-      ttsText: parsed.ttsText || '',
+      // Narration must be the literal content of <script> only, never inferred by the model.
+      ttsText: extractScriptTagContent(rawText),
       imagePrompts: Array.isArray(parsed.imagePrompts) ? parsed.imagePrompts : [],
     });
   } catch (err: any) {
@@ -221,6 +228,8 @@ llmRouter.post('/chat/stream', async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
 
   try {
     const formattedModel = formatGeminiModel(model);
@@ -286,33 +295,44 @@ llmRouter.post('/chat/stream', async (req, res) => {
     const decoder = new TextDecoder();
     let buffer = '';
 
+    const forwardEvent = (eventBlock: string) => {
+      const dataStr = eventBlock
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith('data:'))
+        .map((line) => line.slice(5).trimStart())
+        .join('\n')
+        .trim();
+
+      if (!dataStr || dataStr === '[DONE]') return;
+
+      try {
+        const parsed = JSON.parse(dataStr);
+        const candidate = parsed.candidates?.[0];
+        const token = candidate?.content?.parts
+          ?.map((part: { text?: string }) => part.text || '')
+          .join('') || '';
+        const finishReason = candidate?.finishReason;
+
+        if (token || finishReason) {
+          res.write(`data: ${JSON.stringify({ token, finishReason })}\n\n`);
+        }
+      } catch (err) {
+        console.warn('Ignoring malformed Gemini stream event:', err);
+      }
+    };
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
-
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const dataStr = line.slice(6).trim();
-          try {
-            const parsed = JSON.parse(dataStr);
-            const candidate = parsed.candidates?.[0];
-            const token = candidate?.content?.parts?.map((p: any) => p.text || '').join('') || '';
-            const finishReason = candidate?.finishReason;
-
-            if (token) {
-              res.write(`data: ${JSON.stringify({ token, finishReason })}\n\n`);
-            }
-            if (finishReason && finishReason !== 'STOP') {
-              res.write(`data: ${JSON.stringify({ finishReason })}\n\n`);
-            }
-          } catch {}
-        }
-      }
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() || '';
+      events.forEach(forwardEvent);
     }
+
+    buffer += decoder.decode();
+    if (buffer.trim()) forwardEvent(buffer);
 
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();

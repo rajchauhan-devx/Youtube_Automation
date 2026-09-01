@@ -67,7 +67,15 @@ function findImagePrompts(text: string): string[] {
   return prompts;
 }
 
+export function extractScriptTagContent(text: string): string {
+  const scriptMatch = text.match(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/i);
+  return scriptMatch ? stripMarkdownFences(scriptMatch[1]).trim() : '';
+}
+
 function findNarration(text: string): string {
+  // Narration is deliberately strict: only the explicit <script> tag is valid.
+  return extractScriptTagContent(text);
+
   // Strategy 1: Find <tts> tags
   const ttsMatch = text.match(/<tts>([\s\S]*?)<\/tts>/i);
   if (ttsMatch) return stripMarkdownFences(ttsMatch[1]).trim();
@@ -124,8 +132,8 @@ function findNarration(text: string): string {
 
 function findScript(text: string): string {
   // Strategy 1: Find <script> tags
-  const scriptMatch = text.match(/<script>([\s\S]*?)<\/script>/i);
-  if (scriptMatch) return stripMarkdownFences(scriptMatch[1]).trim();
+  const taggedScript = extractScriptTagContent(text);
+  if (taggedScript) return taggedScript;
 
   // Strategy 2: Find script section
   const sectionNames = ['Script', 'Final Script', 'Shorts Script', 'YouTube Script', 'Hindi Script'];

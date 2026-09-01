@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Zap, Clapperboard, ListOrdered, Library, Settings, ChevronDown } from 'lucide-react';
 import { channels, channelData } from './data';
 import type { Section, Tab, Channel, Script } from './data';
@@ -12,7 +12,7 @@ import { GenerationTab } from './components/generation/GenerationTab';
 import { ReviewAdjustTab } from './components/editor/ReviewAdjustTab';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
-import { parseAIResponse } from './lib/parseAIResponse.js';
+import { extractScriptTagContent, parseAIResponse } from './lib/parseAIResponse.js';
 import { apiPost, getApiKey } from './services/api.js';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -83,6 +83,7 @@ export default function App() {
   const [newScriptOpen, setNewScriptOpen] = useState(false);
   const [userScripts, setUserScripts] = useState<Script[]>([]);
   const [runModalScript, setRunModalScript] = useState<Script | null>(null);
+  const generationAbortRef = useRef<AbortController | null>(null);
 
   // Persist lightweight UI state so a refresh restores the workspace.
   useEffect(() => {
@@ -183,12 +184,13 @@ ${targetDurationStr}
 ${optionalInstructions}`.trim();
   }
 
-  async function handleRunScriptSubmit(topic: string, instructions: string) {
-    if (!runModalScript) return;
-    const script = runModalScript;
+  async function generateScript(script: Script, topic: string, instructions: string) {
     const scriptId = script.id;
+    const controller = new AbortController();
 
-    setRunModalScript(null);
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = controller;
+
     setSelectedScriptId(scriptId);
     setTab('preview');
 
@@ -218,7 +220,7 @@ ${optionalInstructions}`.trim();
           id: 'response',
           label: 'Response',
           status: 'running' as const,
-          summary: 'Generating AI response...',
+          summary: 'Starting generation...',
           inputLog: topic,
           outputPreview: '',
         },
@@ -228,111 +230,172 @@ ${optionalInstructions}`.trim();
     patchScriptState(scriptId, initialPatch);
     await persistScript(scriptId, initialPatch);
 
+    let fullResponse = '';
+
     try {
-      const res = await fetch('/api/llm/chat/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: selectedScript.model || 'gemini-3.6-flash',
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are an expert YouTube automation assistant. Generate a highly engaging YouTube script and follow the exact instructions in the user\'s template.',
-            },
-            { role: 'user', content: promptText },
-          ],
-        }),
-      });
+      const baseMessages = [
+        {
+          role: 'system',
+          content:
+            'You are an expert YouTube automation assistant. Generate a highly engaging YouTube script and follow the exact instructions in the user\'s template.',
+        },
+        { role: 'user', content: promptText },
+      ];
+      let messages = baseMessages;
+      let finishReason = '';
+      const maxContinuations = 8;
 
-      if (!res.ok) throw new Error('Streaming request failed');
-      const reader = res.body?.getReader();
-      if (!reader) throw new Error('No readable stream');
-      const decoder = new TextDecoder();
+      for (let attempt = 0; attempt <= maxContinuations; attempt += 1) {
+        finishReason = '';
+        const res = await fetch('/api/llm/chat/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            model: script.model || 'gemini-3.6-flash',
+            messages,
+          }),
+        });
 
-      let fullResponse = '';
-      let sseBuffer = '';
-      let truncated = false;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        sseBuffer += decoder.decode(value, { stream: true });
-        const lines = sseBuffer.split('\n');
-        sseBuffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.slice(6).trim();
-            if (dataStr === '[DONE]') continue;
-            try {
-              const parsed = JSON.parse(dataStr);
-              if (parsed.token) {
-                fullResponse += parsed.token;
-                patchScriptState(scriptId, {
-                  aiResponse: fullResponse,
-                  pipeline: [
-                    {
-                      id: 'response',
-                      label: 'Response',
-                      status: 'running' as const,
-                      summary: 'Receiving AI response...',
-                      inputLog: topic,
-                      outputPreview: fullResponse.slice(0, 200) + '...',
-                    },
-                  ],
-                });
-              }
-              if (parsed.finishReason && parsed.finishReason !== 'stop') {
-                truncated = true;
-              }
-              if (parsed.error) {
-                throw new Error(parsed.error);
-              }
-            } catch {
-              // ignore parse errors
-            }
+        if (!res.ok) {
+          const body = await res.text();
+          let message = `Generation failed (HTTP ${res.status})`;
+          try {
+            const parsed = JSON.parse(body);
+            if (parsed.error) message = parsed.error;
+          } catch {
+            if (body.trim()) message = body.trim();
           }
+          throw new Error(message);
         }
+
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error('The server did not provide a response stream');
+
+        const decoder = new TextDecoder();
+        let sseBuffer = '';
+
+        const handleEvent = (eventBlock: string) => {
+          const dataStr = eventBlock
+            .split(/\r?\n/)
+            .filter((line) => line.startsWith('data:'))
+            .map((line) => line.slice(5).trimStart())
+            .join('\n')
+            .trim();
+
+          if (!dataStr || dataStr === '[DONE]') return;
+
+          let parsed: { token?: string; finishReason?: string; error?: string };
+          try {
+            parsed = JSON.parse(dataStr);
+          } catch {
+            console.warn('Ignoring malformed stream event:', dataStr);
+            return;
+          }
+
+          if (parsed.error) throw new Error(parsed.error);
+
+          if (parsed.token) {
+            fullResponse += parsed.token;
+            patchScriptState(scriptId, {
+              aiResponse: fullResponse,
+              pipeline: [
+                {
+                  id: 'response',
+                  label: 'Response',
+                  status: 'running' as const,
+                  summary: attempt > 0 ? `Continuing response (${attempt + 1})...` : 'Generating live response...',
+                  inputLog: topic,
+                  outputPreview: fullResponse.slice(-200),
+                },
+              ],
+            });
+          }
+
+          if (parsed.finishReason) finishReason = parsed.finishReason.toUpperCase();
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          sseBuffer += decoder.decode(value, { stream: true });
+          const events = sseBuffer.split(/\r?\n\r?\n/);
+          sseBuffer = events.pop() || '';
+          events.forEach(handleEvent);
+        }
+
+        sseBuffer += decoder.decode();
+        if (sseBuffer.trim()) handleEvent(sseBuffer);
+
+        if (finishReason !== 'MAX_TOKENS' || attempt === maxContinuations) break;
+
+        messages = [
+          ...baseMessages,
+          { role: 'assistant', content: fullResponse },
+          {
+            role: 'user',
+            content:
+              'Continue exactly where you stopped. Do not repeat any existing text, do not add an introduction, and finish every remaining part of the requested output.',
+          },
+        ];
       }
 
-      // Stream complete: save raw response, don't extract yet
+      if (generationAbortRef.current !== controller) return;
+      if (!fullResponse.trim()) throw new Error('The model finished without returning any text');
+
+      const completedNormally = !finishReason || finishReason === 'STOP';
       const donePatch: Partial<Script> = {
         aiResponse: fullResponse,
         pipeline: [
           {
             id: 'response',
             label: 'Response',
-            status: truncated ? ('warning' as const) : ('done' as const),
-            summary: truncated
-              ? 'Response was cut off (hit token limit) — consider shortening the prompt or continuing generation'
-              : 'Response complete — click Extract Assets to process',
+            status: completedNormally ? ('done' as const) : ('warning' as const),
+            summary: completedNormally
+              ? 'Response complete — click Extract Assets to process'
+              : `Generation ended: ${finishReason.toLowerCase().replace(/_/g, ' ')}`,
             inputLog: topic,
-            outputPreview: fullResponse.slice(0, 120) + '...',
+            outputPreview: fullResponse.slice(-200),
           },
         ],
       };
 
       patchScriptState(scriptId, donePatch);
-      await persistScript(scriptId, donePatch);
+      await persistScript(scriptId, { ...initialPatch, ...donePatch });
     } catch (err) {
-      console.error('Streaming failed:', err);
+      if (generationAbortRef.current !== controller) return;
+      const wasStopped = err instanceof DOMException && err.name === 'AbortError';
+      if (!wasStopped) console.error('Streaming failed:', err);
       const errorPatch: Partial<Script> = {
+        aiResponse: fullResponse,
         pipeline: [
           {
             id: 'response',
             label: 'Response',
-            status: 'error' as const,
-            summary: 'Failed to generate',
+            status: wasStopped ? ('warning' as const) : ('error' as const),
+            summary: wasStopped ? 'Generation stopped' : 'Failed to generate',
             inputLog: topic,
-            outputPreview: String(err),
+            outputPreview: wasStopped ? 'Stopped by user' : err instanceof Error ? err.message : String(err),
           },
         ],
       };
       patchScriptState(scriptId, errorPatch);
-      await persistScript(scriptId, errorPatch);
+      await persistScript(scriptId, { ...initialPatch, ...errorPatch });
+    } finally {
+      if (generationAbortRef.current === controller) generationAbortRef.current = null;
     }
+  }
+
+  async function handleRunScriptSubmit(topic: string, instructions: string) {
+    if (!runModalScript) return;
+    const script = runModalScript;
+    setRunModalScript(null);
+    await generateScript(script, topic, instructions);
+  }
+
+  function handleStopGeneration() {
+    generationAbortRef.current?.abort();
   }
 
   const data = useMemo(() => channelData[activeChannel.id], [activeChannel]);
@@ -394,7 +457,7 @@ ${optionalInstructions}`.trim();
       );
       extracted = {
         script: result.script || '',
-        ttsText: result.ttsText || '',
+        ttsText: extractScriptTagContent(selectedScript.aiResponse),
         imagePrompts: result.imagePrompts || [],
       };
     } catch (err) {
@@ -604,7 +667,15 @@ ${optionalInstructions}`.trim();
                       onUpdateModel={handleUpdateScriptModel}
                     />
                   )}
-                  {tab === 'preview' && <PreviewTab pipeline={pipeline} script={selectedScript} onExtractAssets={handleExtractAssets} />}
+                  {tab === 'preview' && (
+                    <PreviewTab
+                      pipeline={pipeline}
+                      script={selectedScript}
+                      onGenerate={(prompt) => selectedScript && generateScript(selectedScript, prompt, '')}
+                      onStop={handleStopGeneration}
+                      onExtractAssets={handleExtractAssets}
+                    />
+                  )}
                   {tab === 'assets' && <AssetsTab script={selectedScript} onProceedToGeneration={() => setTab('generation')} />}
                   {tab === 'generation' && (
                     <GenerationTab
