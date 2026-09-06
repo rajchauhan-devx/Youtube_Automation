@@ -16,11 +16,22 @@ import {
   Volume2,
   RefreshCw,
   Sliders,
-  Sparkles,
   Clock,
+  Mic2,
+  Trash2,
+  Upload,
 } from 'lucide-react';
 import type { Script, GeneratedImage, GeneratedAudio } from '../../data';
 import { ErrorBoundary } from '../ErrorBoundary';
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (typeof error !== 'object' || error === null || !('code' in error)) return undefined;
+  return typeof error.code === 'string' ? error.code : undefined;
+}
 
 export function GenerationTab({
   script,
@@ -140,7 +151,9 @@ function ImageGenerationContent({
           setSelectedModel(data.models[0]);
         }
       }
-    } catch {}
+    } catch {
+      // Model discovery is optional; the default model remains usable.
+    }
   }
 
   useEffect(() => {
@@ -184,11 +197,11 @@ function ImageGenerationContent({
         elapsedMs: data.elapsedMs,
         attempts: (item.attempts || 0) + 1,
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       updateImage(item.index, {
         status: 'error',
-        error: err.message || 'Unknown error',
-        errorCode: err.code,
+        error: getErrorMessage(err, 'Unknown error'),
+        errorCode: getErrorCode(err),
         attempts: (item.attempts || 0) + 1,
       });
     }
@@ -221,9 +234,9 @@ function ImageGenerationContent({
         setServerStatus('offline');
         setServerError(data.message || 'Failed to start ComfyUI');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setServerStatus('offline');
-      setServerError(err.message || 'Could not reach the server');
+      setServerError(getErrorMessage(err, 'Could not reach the server'));
     }
   }
 
@@ -238,8 +251,8 @@ function ImageGenerationContent({
       if (!data.success) {
         setServerError(data.message || 'Failed to stop image model');
       }
-    } catch (err: any) {
-      setServerError(err.message || 'Could not reach the server');
+    } catch (err: unknown) {
+      setServerError(getErrorMessage(err, 'Could not reach the server'));
     }
     await checkServer();
   }
@@ -261,9 +274,9 @@ function ImageGenerationContent({
           setServerError(data.message || 'Failed to start ComfyUI');
           return;
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         setServerStatus('offline');
-        setServerError(err.message || 'Could not reach the server');
+        setServerError(getErrorMessage(err, 'Could not reach the server'));
         return;
       }
     }
@@ -490,7 +503,7 @@ function ImageGenerationContent({
             <span className="font-medium text-gray-400">Art Style:</span>
             <select
               value={stylePreset}
-              onChange={(e) => setStylePreset(e.target.value as any)}
+              onChange={(e) => setStylePreset(e.target.value as typeof stylePreset)}
               className="rounded border border-border bg-bg px-2 py-1 text-xs text-white outline-none focus:border-accent"
             >
               <option value="cinematic">Cinematic Photo (Photorealistic)</option>
@@ -530,7 +543,7 @@ function ImageGenerationContent({
           <span className="font-medium text-gray-400">Seed:</span>
           <select
             value={seedMode}
-            onChange={(e) => setSeedMode(e.target.value as any)}
+            onChange={(e) => setSeedMode(e.target.value as typeof seedMode)}
             className="rounded border border-border bg-bg px-2 py-1 text-xs text-white outline-none focus:border-accent"
           >
             <option value="random">Random Seed</option>
@@ -661,6 +674,8 @@ interface VoiceItem {
   sampleText?: string;
   pitch?: number;
   tags?: string[];
+  source?: 'builtin' | 'clone' | 'provider';
+  deletable?: boolean;
 }
 
 function AudioGenerationContent({
@@ -677,13 +692,18 @@ function AudioGenerationContent({
   const [selectedVoice, setSelectedVoice] = useState<string>('');
   const [previewVoiceId, setPreviewVoiceId] = useState<string | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
-  const [previewSource, setPreviewSource] = useState<'server' | 'system' | null>(null);
   const [previewError, setPreviewError] = useState('');
 
   // Voice Customization Controls
   const [rateOffset, setRateOffset] = useState<number>(0); // -25% to +35%
   const [pitchOffset, setPitchOffset] = useState<number>(0); // -12Hz to +12Hz
   const [stylePreset, setStylePreset] = useState<'cinematic' | 'shorts' | 'tech' | 'vlog' | 'custom'>('cinematic');
+  const [exaggeration, setExaggeration] = useState(0.72);
+  const [cfgWeight, setCfgWeight] = useState(0.32);
+  const [temperature, setTemperature] = useState(0.75);
+  const [voiceFile, setVoiceFile] = useState<File | null>(null);
+  const [voiceName, setVoiceName] = useState('');
+  const [uploadingVoice, setUploadingVoice] = useState(false);
 
   const [generating, setGenerating] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -693,6 +713,9 @@ function AudioGenerationContent({
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
   const [serverStarting, setServerStarting] = useState(false);
   const [providerName, setProviderName] = useState('Edge Neural TTS');
+  const [providerKind, setProviderKind] = useState<'local' | 'cloud'>('cloud');
+  const [providerState, setProviderState] = useState('');
+  const [providerMessage, setProviderMessage] = useState('');
   const [error, setError] = useState('');
 
   const getInitialNarration = () => {
@@ -748,7 +771,8 @@ function AudioGenerationContent({
   }, []);
 
   const generatedAudio = script?.generatedAudio || [];
-  const isCloudProvider = providerName !== 'OmniVoice';
+  const isLocalProvider = providerKind === 'local' || providerName === 'OmniVoice' || providerName.includes('Chatterbox');
+  const isChatterbox = providerName.includes('Chatterbox');
 
   // Format rate and pitch for backend SSML
   const formattedRate = rateOffset >= 0 ? `+${rateOffset}%` : `${rateOffset}%`;
@@ -759,15 +783,27 @@ function AudioGenerationContent({
     if (preset === 'cinematic') {
       setRateOffset(0);
       setPitchOffset(-2);
+      setExaggeration(0.72);
+      setCfgWeight(0.32);
+      setTemperature(0.75);
     } else if (preset === 'shorts') {
       setRateOffset(10);
       setPitchOffset(2);
+      setExaggeration(0.68);
+      setCfgWeight(0.28);
+      setTemperature(0.9);
     } else if (preset === 'tech') {
       setRateOffset(2);
       setPitchOffset(0);
+      setExaggeration(0.5);
+      setCfgWeight(0.5);
+      setTemperature(0.65);
     } else if (preset === 'vlog') {
       setRateOffset(6);
       setPitchOffset(3);
+      setExaggeration(0.6);
+      setCfgWeight(0.4);
+      setTemperature(0.8);
     }
   }
 
@@ -812,7 +848,6 @@ function AudioGenerationContent({
     previewVoiceIdRef.current = null;
     setPreviewVoiceId(null);
     setPreviewLoadingId(null);
-    setPreviewSource(null);
   }
 
   useEffect(() => {
@@ -836,10 +871,16 @@ function AudioGenerationContent({
   async function checkStatus() {
     try {
       const { data } = await fetchJson('/api/tts/status');
-      setServerOnline(data?.online === true);
+      const ready = data?.ready === undefined ? data?.online === true : data?.ready === true;
+      setServerOnline(ready ? true : data?.state === 'loading' ? null : false);
       if (data?.provider) setProviderName(String(data.provider));
+      if (data?.providerKind === 'local' || data?.providerKind === 'cloud') setProviderKind(data.providerKind);
+      setProviderState(String(data?.state || ''));
+      setProviderMessage(String(data?.error || data?.message || ''));
+      return data;
     } catch {
       setServerOnline(false);
+      return null;
     }
   }
 
@@ -904,6 +945,9 @@ function AudioGenerationContent({
           language: selectedLanguage,
           rate: formattedRate,
           pitch: formattedPitch,
+          exaggeration,
+          cfgWeight,
+          temperature,
         }),
       });
 
@@ -915,7 +959,6 @@ function AudioGenerationContent({
         audioUrlRef.current = url;
         const audio = new Audio(url);
         audioRef.current = audio;
-        setPreviewSource('server');
         setPreviewVoiceId(vId);
         setPreviewLoadingId(null);
 
@@ -946,9 +989,9 @@ function AudioGenerationContent({
     if (!playSystemPreview(v, vId)) {
       stopPreview();
       setPreviewError(
-        selectedLanguage === 'hi'
-          ? `${providerName} is unavailable. Start OmniVoice or check internet connection.`
-          : `${providerName} is unavailable. Start OmniVoice or check internet connection.`
+        isLocalProvider
+          ? `${providerName} is unavailable. Start the local voice engine and wait until the model is ready.`
+          : `${providerName} is unavailable. Check the internet connection.`
       );
     }
   }
@@ -996,7 +1039,6 @@ function AudioGenerationContent({
     utterance.pitch = 1.0 + (pitchOffset * 0.03);
     utterance.rate = 1.0 + (rateOffset * 0.01);
     utteranceRef.current = utterance;
-    setPreviewSource('system');
     setPreviewVoiceId(vId);
 
     utterance.onend = () => {
@@ -1033,8 +1075,28 @@ function AudioGenerationContent({
     try {
       const { data } = await fetchJson('/api/tts/start', { method: 'POST' });
       if (data?.success) {
-        setServerOnline(true);
-        fetchVoices(selectedLanguage);
+        setProviderState(String(data?.state || 'loading'));
+        setProviderMessage(String(data?.message || 'Loading local voice model...'));
+        if (data?.ready) {
+          setServerOnline(true);
+          await fetchVoices(selectedLanguage);
+        } else {
+          let ready = false;
+          for (let attempt = 0; attempt < 300; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+            const status = await checkStatus();
+            if (status?.ready === true) {
+              ready = true;
+              break;
+            }
+            if (status?.state === 'error') {
+              throw new Error(status?.error || status?.message || 'The local TTS model failed to load.');
+            }
+          }
+          if (!ready) throw new Error('The local TTS model did not become ready within 10 minutes.');
+          setServerOnline(true);
+          await fetchVoices(selectedLanguage);
+        }
       } else {
         setServerOnline(false);
         setError(data?.message || 'Failed to start TTS engine');
@@ -1047,13 +1109,58 @@ function AudioGenerationContent({
     }
   }
 
+  function fileToDataUrl(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('Could not read the audio file'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleVoiceUpload() {
+    if (!voiceFile || !voiceName.trim() || uploadingVoice) return;
+    setUploadingVoice(true);
+    setError('');
+    try {
+      const dataUrl = await fileToDataUrl(voiceFile);
+      const { ok, data } = await fetchJson('/api/tts/voices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: voiceName.trim(), language: selectedLanguage, dataUrl }),
+      });
+      if (!ok) throw new Error(data?.error || 'Voice upload failed');
+      await fetchVoices(selectedLanguage);
+      if (data?.voice?.id) setSelectedVoice(String(data.voice.id));
+      setVoiceFile(null);
+      setVoiceName('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Voice upload failed');
+    } finally {
+      setUploadingVoice(false);
+    }
+  }
+
+  async function handleDeleteVoice(id: string, name: string) {
+    if (!window.confirm(`Remove the local voice “${name}”? This deletes its reference audio from this computer.`)) return;
+    setError('');
+    const { ok, data } = await fetchJson(`/api/tts/voices/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!ok) {
+      setError(data?.error || 'Could not delete local voice');
+      return;
+    }
+    await fetchVoices(selectedLanguage);
+  }
+
   async function handleStopServer() {
     setServerOnline(false);
     setServerStarting(false);
     stopPreview();
     try {
       await fetch('/api/tts/stop', { method: 'POST' });
-    } catch {}
+    } catch {
+      // The UI is already reset even if the local process was unavailable.
+    }
   }
 
   function handleCopy() {
@@ -1111,6 +1218,9 @@ function AudioGenerationContent({
           scriptId: script.id,
           rate: formattedRate,
           pitch: formattedPitch,
+          exaggeration,
+          cfgWeight,
+          temperature,
         }),
       });
 
@@ -1174,13 +1284,13 @@ function AudioGenerationContent({
               <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> {providerName} offline
             </span>
           )}
-          {serverStarting && (
+          {(serverStarting || providerState === 'loading') && (
             <span className="flex items-center gap-1.5 text-[10px] text-accent">
-              <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Starting TTS...
+              <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Loading local model...
             </span>
           )}
         </div>
-        {serverOnline === true && !isCloudProvider && (
+        {serverOnline === true && isLocalProvider && (
           <button
             onClick={handleStopServer}
             className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
@@ -1195,8 +1305,10 @@ function AudioGenerationContent({
           <div className="mb-4 flex items-start gap-2 rounded-md border border-accent/30 bg-accent/10 p-3 text-xs text-accent">
             <span className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
             <div>
-              <p className="font-medium">Starting Audio Engine...</p>
-              <p className="mt-1 text-accent/80">Initializing neural models...</p>
+              <p className="font-medium">Starting {providerName}...</p>
+              <p className="mt-1 text-accent/80">
+                {providerMessage || 'Initializing neural models. The first run may download several gigabytes...'}
+              </p>
             </div>
           </div>
         )}
@@ -1207,9 +1319,9 @@ function AudioGenerationContent({
             <div className="flex-1">
               <p className="font-medium">{providerName} is unavailable</p>
               <p className="mt-1 text-red-300/80">
-                {isCloudProvider
-                  ? error || 'Check your internet connection and try again.'
-                  : error || 'Start the TTS engine to run voice synthesis.'}
+                {error || providerMessage || (isLocalProvider
+                  ? 'Start the local TTS engine to load the model.'
+                  : 'Check your internet connection and try again.')}
               </p>
               <div className="mt-2 flex gap-2">
                 <button
@@ -1218,6 +1330,14 @@ function AudioGenerationContent({
                 >
                   Check status
                 </button>
+                {isLocalProvider && (
+                  <button
+                    onClick={checkOrStartServer}
+                    className="rounded border border-accent/50 bg-accent/15 px-2 py-1 text-[11px] text-accent hover:bg-accent/25"
+                  >
+                    Start {isChatterbox ? 'Chatterbox' : 'TTS engine'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1309,11 +1429,26 @@ function AudioGenerationContent({
                     <div>
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="text-xs font-bold text-white truncate pr-2">{vName}</span>
-                        {isSelected && (
-                          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent text-white">
-                            <Check className="h-3 w-3" />
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          {typeof v === 'object' && v?.deletable && (
+                            <button
+                              type="button"
+                              title="Delete local voice"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleDeleteVoice(vId, vName);
+                              }}
+                              className="rounded p-1 text-gray-500 hover:bg-red-500/10 hover:text-red-400"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                          {isSelected && (
+                            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent text-white">
+                              <Check className="h-3 w-3" />
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="mb-2 flex items-center gap-1.5 flex-wrap">
@@ -1383,6 +1518,49 @@ function AudioGenerationContent({
               })}
             </div>
           )}
+
+          {isChatterbox && (
+            <div className="mt-4 rounded-lg border border-accent/25 bg-accent/5 p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <Mic2 className="h-4 w-4 text-accent" />
+                <div>
+                  <p className="text-xs font-semibold text-gray-200">Add a local reference voice</p>
+                  <p className="text-[10px] text-gray-500">Use a clean 8–15 second recording with no music or background noise.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.2fr_auto]">
+                <input
+                  value={voiceName}
+                  onChange={(event) => setVoiceName(event.target.value)}
+                  maxLength={80}
+                  placeholder="Voice name"
+                  className="rounded border border-border bg-surface2 px-3 py-2 text-xs text-gray-200 outline-none focus:border-accent"
+                />
+                <label className="flex cursor-pointer items-center gap-2 rounded border border-border bg-surface2 px-3 py-2 text-xs text-gray-300 hover:border-gray-500">
+                  <Upload className="h-3.5 w-3.5 text-accent" />
+                  <span className="truncate">{voiceFile?.name || 'Choose WAV, MP3, M4A, FLAC or OGG'}</span>
+                  <input
+                    type="file"
+                    accept="audio/wav,audio/x-wav,audio/mpeg,audio/mp4,audio/x-m4a,audio/flac,audio/ogg,.wav,.mp3,.m4a,.flac,.ogg"
+                    className="hidden"
+                    onChange={(event) => setVoiceFile(event.target.files?.[0] || null)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleVoiceUpload}
+                  disabled={!voiceFile || !voiceName.trim() || uploadingVoice}
+                  className="flex items-center justify-center gap-1.5 rounded bg-accent px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {uploadingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mic2 className="h-3.5 w-3.5" />}
+                  {uploadingVoice ? 'Preparing...' : 'Add Voice'}
+                </button>
+              </div>
+              <p className="mt-2 text-[10px] text-amber-300/80">
+                Only clone voices you own or have explicit permission to use. References remain on this computer.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Step 3: Voice Customization & Style Controls */}
@@ -1429,61 +1607,115 @@ function AudioGenerationContent({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 pt-2">
-            {/* Speed / Rate Slider */}
-            <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
-              <div className="mb-2 flex items-center justify-between text-xs">
-                <span className="font-medium text-gray-300">Speech Pace (Rate)</span>
-                <span className="font-mono text-accent font-semibold">
-                  {rateOffset === 0 ? 'Normal (1.0x)' : `${rateOffset > 0 ? '+' : ''}${rateOffset}%`}
-                </span>
+          {isChatterbox ? (
+            <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-3">
+              <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
+                <div className="mb-2 flex items-center justify-between text-xs">
+                  <span className="font-medium text-gray-300">Expressiveness</span>
+                  <span className="font-mono font-semibold text-accent">{exaggeration.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.25"
+                  max="1.2"
+                  step="0.05"
+                  value={exaggeration}
+                  onChange={(event) => {
+                    setExaggeration(Number(event.target.value));
+                    setStylePreset('custom');
+                  }}
+                  className="w-full cursor-pointer accent-accent"
+                />
+                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Calm</span><span>Dramatic</span></div>
               </div>
-              <input
-                type="range"
-                min="-20"
-                max="30"
-                step="2"
-                value={rateOffset}
-                onChange={(e) => {
-                  setRateOffset(parseInt(e.target.value, 10));
-                  setStylePreset('custom');
-                }}
-                className="w-full accent-accent cursor-pointer"
-              />
-              <div className="mt-1 flex justify-between text-[10px] text-gray-500">
-                <span>Slow (-20%)</span>
-                <span>Normal</span>
-                <span>Fast (+30%)</span>
-              </div>
-            </div>
 
-            {/* Pitch / Tone Slider */}
-            <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
-              <div className="mb-2 flex items-center justify-between text-xs">
-                <span className="font-medium text-gray-300">Pitch & Tone</span>
-                <span className="font-mono text-accent font-semibold">
-                  {pitchOffset === 0 ? 'Natural (0Hz)' : `${pitchOffset > 0 ? '+' : ''}${pitchOffset}Hz`}
-                </span>
+              <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
+                <div className="mb-2 flex items-center justify-between text-xs">
+                  <span className="font-medium text-gray-300">Pace Guidance</span>
+                  <span className="font-mono font-semibold text-accent">{cfgWeight.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="0.8"
+                  step="0.05"
+                  value={cfgWeight}
+                  onChange={(event) => {
+                    setCfgWeight(Number(event.target.value));
+                    setStylePreset('custom');
+                  }}
+                  className="w-full cursor-pointer accent-accent"
+                />
+                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Expressive</span><span>Measured</span></div>
               </div>
-              <input
-                type="range"
-                min="-10"
-                max="10"
-                step="1"
-                value={pitchOffset}
-                onChange={(e) => {
-                  setPitchOffset(parseInt(e.target.value, 10));
-                  setStylePreset('custom');
-                }}
-                className="w-full accent-accent cursor-pointer"
-              />
-              <div className="mt-1 flex justify-between text-[10px] text-gray-500">
-                <span>Deeper (-10Hz)</span>
-                <span>Natural</span>
-                <span>Higher (+10Hz)</span>
+
+              <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
+                <div className="mb-2 flex items-center justify-between text-xs">
+                  <span className="font-medium text-gray-300">Natural Variation</span>
+                  <span className="font-mono font-semibold text-accent">{temperature.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.4"
+                  max="1.2"
+                  step="0.05"
+                  value={temperature}
+                  onChange={(event) => {
+                    setTemperature(Number(event.target.value));
+                    setStylePreset('custom');
+                  }}
+                  className="w-full cursor-pointer accent-accent"
+                />
+                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Consistent</span><span>Varied</span></div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
+              <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
+                <div className="mb-2 flex items-center justify-between text-xs">
+                  <span className="font-medium text-gray-300">Speech Pace (Rate)</span>
+                  <span className="font-mono font-semibold text-accent">
+                    {rateOffset === 0 ? 'Normal (1.0x)' : `${rateOffset > 0 ? '+' : ''}${rateOffset}%`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="-20"
+                  max="30"
+                  step="2"
+                  value={rateOffset}
+                  onChange={(event) => {
+                    setRateOffset(parseInt(event.target.value, 10));
+                    setStylePreset('custom');
+                  }}
+                  className="w-full cursor-pointer accent-accent"
+                />
+                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Slow (-20%)</span><span>Normal</span><span>Fast (+30%)</span></div>
+              </div>
+
+              <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
+                <div className="mb-2 flex items-center justify-between text-xs">
+                  <span className="font-medium text-gray-300">Pitch & Tone</span>
+                  <span className="font-mono font-semibold text-accent">
+                    {pitchOffset === 0 ? 'Natural (0Hz)' : `${pitchOffset > 0 ? '+' : ''}${pitchOffset}Hz`}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="-10"
+                  max="10"
+                  step="1"
+                  value={pitchOffset}
+                  onChange={(event) => {
+                    setPitchOffset(parseInt(event.target.value, 10));
+                    setStylePreset('custom');
+                  }}
+                  className="w-full cursor-pointer accent-accent"
+                />
+                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Deeper (-10Hz)</span><span>Natural</span><span>Higher (+10Hz)</span></div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Step 4: Narration Script Editor with Natural Pause Insertion Toolbar */}
@@ -1571,7 +1803,12 @@ function AudioGenerationContent({
               <span className="font-bold text-accent">
                 {activeVoiceName}
               </span>{' '}
-              ({selectedLanguage === 'en' ? 'English' : 'Hindi'}) • Rate: <span className="font-mono text-gray-300">{formattedRate}</span> • Pitch: <span className="font-mono text-gray-300">{formattedPitch}</span>
+              ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
+              {isChatterbox ? (
+                <> • Expression: <span className="font-mono text-gray-300">{exaggeration.toFixed(2)}</span> • Pace: <span className="font-mono text-gray-300">{cfgWeight.toFixed(2)}</span></>
+              ) : (
+                <> • Rate: <span className="font-mono text-gray-300">{formattedRate}</span> • Pitch: <span className="font-mono text-gray-300">{formattedPitch}</span></>
+              )}
             </div>
 
             <button
@@ -1651,7 +1888,7 @@ function AudioGenerationContent({
                   download
                   className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] text-gray-300 hover:bg-surface2"
                 >
-                  <Download className="h-3 w-3" /> Download MP3
+                  <Download className="h-3 w-3" /> Download {currentAudio.filename.toLowerCase().endsWith('.wav') ? 'WAV' : 'MP3'}
                 </a>
                 <a
                   href={currentAudio.url}

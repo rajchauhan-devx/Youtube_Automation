@@ -1,5 +1,16 @@
 import { Router } from 'express';
-import { generateTTS, previewTTS, checkOmniVoiceStatus, startOmniVoice, stopOmniVoice, getVoices, TTS_PROVIDER_NAME, TtsError } from '../services/omnivoice.js';
+import {
+  createLocalVoice,
+  deleteLocalVoice,
+  generateTTS,
+  getTtsProviderStatus,
+  getVoices,
+  previewTTS,
+  startOmniVoice,
+  stopOmniVoice,
+  TTS_PROVIDER_NAME,
+  TtsError,
+} from '../services/omnivoice.js';
 
 export const ttsRouter = Router();
 
@@ -8,12 +19,17 @@ const statusCode: Record<string, number> = {
   TIMEOUT: 504,
   CONNECTION_REFUSED: 503,
   CONFIG: 500,
+  NOT_READY: 503,
+  VALIDATION: 400,
   UNKNOWN: 500,
 };
 
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 ttsRouter.get('/status', async (_req, res) => {
-  const online = await checkOmniVoiceStatus();
-  res.json({ online, provider: TTS_PROVIDER_NAME });
+  res.json(await getTtsProviderStatus());
 });
 
 ttsRouter.get('/voices', async (req, res) => {
@@ -33,7 +49,7 @@ ttsRouter.post('/stop', async (_req, res) => {
 });
 
 ttsRouter.post('/preview', async (req, res) => {
-  const { voice, language, rate, pitch, volume, speed } = req.body || {};
+  const { voice, language, rate, pitch, volume, speed, exaggeration, cfgWeight, temperature, seed } = req.body || {};
 
   if (!language || !['hi', 'en'].includes(language)) {
     res.status(400).json({ error: 'language must be "hi" or "en"' });
@@ -41,23 +57,47 @@ ttsRouter.post('/preview', async (req, res) => {
   }
 
   try {
-    const { buffer, contentType } = await previewTTS({ voice, language, rate, pitch, volume, speed });
+    const { buffer, contentType } = await previewTTS({
+      voice,
+      language,
+      rate,
+      pitch,
+      volume,
+      speed,
+      exaggeration,
+      cfgWeight,
+      temperature,
+      seed,
+    });
     res.set('Content-Type', contentType);
     res.set('Content-Length', String(buffer.length));
     res.send(buffer);
-  } catch (err: any) {
-    console.error(`TTS preview failed:`, err.message);
+  } catch (err: unknown) {
+    console.error(`TTS preview failed:`, errorMessage(err, 'Unknown error'));
     if (err instanceof TtsError) {
       const status = statusCode[err.code] || 500;
       res.status(status).json({ error: err.message, code: err.code });
     } else {
-      res.status(500).json({ error: err.message || 'TTS preview failed', code: 'UNKNOWN' });
+      res.status(500).json({ error: errorMessage(err, 'TTS preview failed'), code: 'UNKNOWN' });
     }
   }
 });
 
 ttsRouter.post('/generate', async (req, res) => {
-  const { text, language, scriptId, voice, rate, pitch, volume, speed } = req.body || {};
+  const {
+    text,
+    language,
+    scriptId,
+    voice,
+    rate,
+    pitch,
+    volume,
+    speed,
+    exaggeration,
+    cfgWeight,
+    temperature,
+    seed,
+  } = req.body || {};
 
   if (!text || typeof text !== 'string' || text.trim().length === 0) {
     res.status(400).json({ error: 'text (string) is required' });
@@ -67,8 +107,12 @@ ttsRouter.post('/generate', async (req, res) => {
     res.status(400).json({ error: 'language must be "hi" or "en"' });
     return;
   }
-  if (!scriptId || typeof scriptId !== 'string') {
-    res.status(400).json({ error: 'scriptId (string) is required' });
+  if (!scriptId || typeof scriptId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(scriptId)) {
+    res.status(400).json({ error: 'scriptId must contain only letters, numbers, underscores, or hyphens' });
+    return;
+  }
+  if (text.length > 50_000) {
+    res.status(413).json({ error: 'Narration text must be 50,000 characters or fewer' });
     return;
   }
 
@@ -82,15 +126,59 @@ ttsRouter.post('/generate', async (req, res) => {
       pitch,
       volume,
       speed,
+      exaggeration,
+      cfgWeight,
+      temperature,
+      seed,
     });
     res.json({ ok: true, ...result });
-  } catch (err: any) {
-    console.error(`TTS generation failed:`, err.message);
+  } catch (err: unknown) {
+    console.error(`TTS generation failed:`, errorMessage(err, 'Unknown error'));
     if (err instanceof TtsError) {
       const status = statusCode[err.code] || 500;
       res.status(status).json({ error: err.message, code: err.code });
     } else {
-      res.status(500).json({ error: err.message || 'TTS generation failed', code: 'UNKNOWN' });
+      res.status(500).json({ error: errorMessage(err, 'TTS generation failed'), code: 'UNKNOWN' });
     }
+  }
+});
+
+ttsRouter.post('/voices', async (req, res) => {
+  const { name, language, gender, dataUrl } = req.body || {};
+  if (typeof name !== 'string' || !name.trim()) {
+    res.status(400).json({ error: 'Voice name is required' });
+    return;
+  }
+  if (language !== 'hi' && language !== 'en') {
+    res.status(400).json({ error: 'language must be "hi" or "en"' });
+    return;
+  }
+  if (typeof dataUrl !== 'string') {
+    res.status(400).json({ error: 'A base64 audio data URL is required' });
+    return;
+  }
+
+  try {
+    const voice = await createLocalVoice({ name, language, gender, dataUrl });
+    res.status(201).json({ ok: true, voice });
+  } catch (err: unknown) {
+    const status = err instanceof TtsError ? statusCode[err.code] || 500 : 500;
+    res.status(status).json({
+      error: errorMessage(err, 'Voice upload failed'),
+      code: err instanceof TtsError ? err.code : 'UNKNOWN',
+    });
+  }
+});
+
+ttsRouter.delete('/voices/:id', async (req, res) => {
+  try {
+    await deleteLocalVoice(req.params.id);
+    res.json({ ok: true });
+  } catch (err: unknown) {
+    const status = err instanceof TtsError ? statusCode[err.code] || 500 : 500;
+    res.status(status).json({
+      error: errorMessage(err, 'Voice deletion failed'),
+      code: err instanceof TtsError ? err.code : 'UNKNOWN',
+    });
   }
 });

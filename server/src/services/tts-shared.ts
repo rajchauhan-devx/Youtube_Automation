@@ -19,6 +19,8 @@ export interface VoiceInfo {
   rate?: number;
   tags?: string[];
   style?: string;
+  source?: 'builtin' | 'clone' | 'provider';
+  deletable?: boolean;
 }
 
 /**

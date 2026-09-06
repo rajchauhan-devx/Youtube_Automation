@@ -1,0 +1,6 @@
+# V3 is currently available from the official repository ahead of the PyPI wheel.
+# Pin the source revision so installations remain reproducible.
+chatterbox-tts @ git+https://github.com/resemble-ai/chatterbox.git@5de7a54aa4e5e2baadb0182dde554908b48b85c2
+fastapi>=0.115,<1
+uvicorn[standard]>=0.34,<1
+soundfile>=0.12,<1

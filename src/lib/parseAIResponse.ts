@@ -75,59 +75,6 @@ export function extractScriptTagContent(text: string): string {
 function findNarration(text: string): string {
   // Narration is deliberately strict: only the explicit <script> tag is valid.
   return extractScriptTagContent(text);
-
-  // Strategy 1: Find <tts> tags
-  const ttsMatch = text.match(/<tts>([\s\S]*?)<\/tts>/i);
-  if (ttsMatch) return stripMarkdownFences(ttsMatch[1]).trim();
-
-  // Strategy 2: Find TTS/Narration/Voiceover section
-  const sectionNames = [
-    'TTS Script', 'TTS', 'ElevenLabs Script', 'Voiceover Script',
-    'Narration Script', 'Spoken Script', 'Narration', 'Voiceover',
-    'paste-ready script', 'final narration', 'spoken narration'
-  ];
-  for (const name of sectionNames) {
-    const regex = new RegExp(`(?:#{1,3}\\s*${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s:：-]*\\n)([\\s\\S]*?)(?=\\n#{1,3}\\s|$)`, 'i');
-    const match = text.match(regex);
-    if (match && match[1].trim().length > 20) {
-      return stripMarkdownFences(match[1]).trim();
-    }
-  }
-
-  // Strategy 3: Find narration under scene descriptions
-  const sceneNarration = text.match(/Narration:\s*\n?([\s\S]*?)(?=Duration:|Visual:|Camera:|On-screen|SCENE|\n\n)/gi);
-  if (sceneNarration && sceneNarration.length > 0) {
-    const narrationParts = sceneNarration.map(m => {
-      const content = m.replace(/^Narration:\s*\n?/i, '').trim();
-      return content;
-    }).filter(p => p.length > 10);
-    if (narrationParts.length > 0) return narrationParts.join('\n\n');
-  }
-
-  // Strategy 4: Find sections that look like spoken text (short sentences, Hindi/English mix)
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 10 && l.length < 500);
-  const spokenLike = lines.filter(l =>
-    !l.match(/^(#{|---|\*\*|Purpose:|Visual:|Camera:|Duration:|Evidence|Emotion:|Narrative|Character|Prompt:|Negative|Continuity|Section|Scene|Beat|Motion)/i) &&
-    !l.match(/^\d+\.\s/) &&
-    !l.match(/^[-*•]\s/)
-  );
-  if (spokenLike.length >= 3) {
-    // Find contiguous blocks of spoken-like text
-    const blocks: string[] = [];
-    let current: string[] = [];
-    for (const line of spokenLike) {
-      if (line.length > 20) {
-        current.push(line);
-      } else if (current.length > 0) {
-        blocks.push(current.join(' '));
-        current = [];
-      }
-    }
-    if (current.length > 0) blocks.push(current.join(' '));
-    if (blocks.length > 0) return blocks.join('\n\n');
-  }
-
-  return '';
 }
 
 function findScript(text: string): string {

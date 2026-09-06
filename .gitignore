@@ -24,5 +24,9 @@ dist-ssr
 server/data/generated/
 server/data/output/
 server/data/rendered/
+server/data/voices/
+server/data/model-cache/
 server/data/pipeline_*.json
+server/chatterbox/.venv/
+.chatterbox-cache/
 .backups/

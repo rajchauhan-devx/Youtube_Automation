@@ -160,7 +160,7 @@ export function ReviewAdjustTab({
       imageUrl: img.url!,
       prompt: img.prompt,
       duration: Math.round(clipDuration * 10) / 10,
-      transition: sa?.transitions?.[i] || 'fade',
+      transition: sa?.transitions?.[i] === 'none' ? 'none' : 'crossfade',
       transitionDuration: 0.5,
       caption: '',
     }));

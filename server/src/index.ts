@@ -11,7 +11,8 @@ const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || 'http://localhost:5173' }));
-app.use(express.json({ limit: '10mb' }));
+// Local voice references are uploaded as base64 JSON and capped again in the TTS service.
+app.use(express.json({ limit: '12mb' }));
 
 app.use('/api/health', healthRouter);
 app.use('/api/llm', llmRouter);

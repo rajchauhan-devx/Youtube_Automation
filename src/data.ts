@@ -92,6 +92,7 @@ export interface SceneAnalysis {
   timings: number[];
   pacing?: 'fast-cut' | 'cinematic' | string;
   mood?: 'epic' | 'upbeat' | 'calm' | 'suspense' | 'emotional' | 'neutral' | string;
+  colorGrade?: string;
 }
 
 export interface Script {
