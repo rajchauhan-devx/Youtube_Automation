@@ -341,3 +341,64 @@ llmRouter.post('/chat/stream', async (req, res) => {
     res.end();
   }
 });
+
+llmRouter.post('/enhance-narration', async (req, res) => {
+  try {
+    const apiKey = getApiKey(req);
+    if (!apiKey) {
+      res.status(401).json({ error: 'Missing Gemini API key' });
+      return;
+    }
+
+    const { text, language = 'en', tone = 'storyteller' } = req.body || {};
+    if (!text || typeof text !== 'string' || !text.trim()) {
+      res.status(400).json({ error: 'Narration text is required' });
+      return;
+    }
+
+    const toneInstructions: Record<string, string> = {
+      storyteller: 'Atmospheric, cinematic, suspenseful. Build tension before key reveals using dramatic pauses. Sound like a master documentary narrator (e.g., Vox, Kurzgesagt, or David Attenborough).',
+      viral: 'Fast-paced, high-retention, dynamic and snappy. Short 4-8 word punchy sentences. High energy delivery like a top viral creator.',
+      conversational: 'Casual, warm, authentic, and direct. Feels like an intimate podcast host or friend sharing an eye-opening story over coffee.',
+      dramatic: 'Intense, emotional, solemn, and profound. Give every word gravity, using deliberate pregnant pauses for maximum psychological impact.',
+    };
+
+    const selectedTone = toneInstructions[tone] || toneInstructions.storyteller;
+    const isHindi = language === 'hi';
+
+    const systemPrompt = `You are an elite YouTube voiceover script doctor and vocal director.
+Your mission is to rewrite the input narration into natural, human-grade spoken dialogue tailored specifically for the Chatterbox neural speech synthesizer.
+
+Tone Target: ${selectedTone}
+Language: ${isHindi ? 'Hindi (or conversational Hinglish as used in input)' : 'English'}
+
+CRITICAL TTS FORMATTING RULES:
+1. Short Spoken Cadence: Break long, dense, formal sentences into punchy spoken phrases. Humans speak in short thought-clusters, not academic paragraphs.
+2. Natural Breath & Suspense Pauses: Insert exact pause tokens like [pause 300ms], [pause 600ms], [pause 1s], or ellipses (...) right before punchlines, surprises, reveals, or natural breath breaks.
+3. Expressive Pitch Variation: Use exclamation marks (!) for authentic vocal energy and question marks (?) for rising pitch to engage the listener.
+4. ABSOLUTELY NO STAGE DIRECTIONS: Never include [whispers], (laughs), [softly], [dramatic pause], [SFX: ...], "Narrator:", "Host:", or scene numbers.
+5. NO MARKDOWN: Do not use bold (**), italics (*), bullet points (-), hashtags (#), backslashes (\\), or quotation marks around the output.
+6. NO SSML / XML: Chatterbox is a neural flow model and does not use XML tags. Only use plain text with [pause Xms] markers and natural punctuation.
+7. Preserve Core Message: Keep all facts, names, and narrative points intact—only elevate the rhythm, engagement, and vocal delivery.
+
+Return ONLY the raw, speakable text. No introductory remarks, no quotes, no markdown fences.`;
+
+    const result = await chat(apiKey, {
+      model: 'gemini-3.6-flash',
+      temperature: 0.7,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `Please optimize and enhance this narration for audio delivery:\n\n${text}` },
+      ],
+    });
+
+    let enhanced = result.choices?.[0]?.message?.content || '';
+    enhanced = enhanced.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
+    enhanced = enhanced.replace(/^["']|["']$/g, '').trim();
+
+    res.json({ enhancedText: enhanced });
+  } catch (err: any) {
+    console.error('Enhance narration error:', err);
+    res.status(500).json({ error: err.message || 'Failed to enhance narration' });
+  }
+});

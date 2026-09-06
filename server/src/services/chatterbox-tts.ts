@@ -101,7 +101,7 @@ function normalizeGender(value: unknown): VoiceInfo['gender'] {
 }
 
 function safeVoiceId(value: string): boolean {
-  return /^clone_[a-f0-9-]{36}$/.test(value);
+  return /^(?:clone_[a-f0-9-]{36}|preset_[a-z0-9_]+)$/.test(value);
 }
 
 function readLocalVoiceMetadata(language: 'hi' | 'en'): VoiceInfo[] {
@@ -125,19 +125,26 @@ function readLocalVoiceMetadata(language: 'hi' | 'en'): VoiceInfo[] {
       const id = String(metadata.id || '');
       const voiceLanguage = metadata.language === 'hi' ? 'hi' : 'en';
       if (!safeVoiceId(id) || voiceLanguage !== language || !fs.existsSync(path.join(VOICE_DIR, `${id}.wav`))) continue;
+      const isPreset = id.startsWith('preset_');
       voices.push({
         id,
-        name: String(metadata.name || 'Custom local voice'),
-        description: 'Authorized local voice reference, stored only on this computer.',
+        name: String(metadata.name || (isPreset ? 'Preset voice' : 'Custom local voice')),
+        description: String(metadata.description || (isPreset ? 'Curated studio character voice.' : 'Authorized local voice reference, stored only on this computer.')),
         gender: normalizeGender(metadata.gender),
         language,
         sampleText:
-          language === 'hi'
-            ? 'नमस्कार! यह आपकी चुनी हुई स्थानीय आवाज़ का एक छोटा नमूना है।'
-            : 'Hello! This is a short preview of your selected local voice.',
-        tags: ['Local Clone', 'Private'],
-        source: 'clone',
-        deletable: true,
+          typeof metadata.sampleText === 'string' && metadata.sampleText.trim()
+            ? metadata.sampleText.trim()
+            : language === 'hi'
+              ? 'नमस्कार! यह आपकी चुनी हुई स्थानीय आवाज़ का एक छोटा नमूना है।'
+              : 'Hello! This is a short preview of your selected local voice.',
+        tags: Array.isArray(metadata.tags) && metadata.tags.length > 0
+          ? (metadata.tags as string[])
+          : isPreset
+            ? ['Preset', 'Studio']
+            : ['Local Clone', 'Private'],
+        source: isPreset ? 'builtin' : 'clone',
+        deletable: isPreset ? false : Boolean(metadata.deletable ?? true),
       });
     } catch {
       // Invalid metadata is ignored rather than breaking all voice selection.
@@ -437,6 +444,7 @@ export async function createChatterboxVoice(params: {
 
 export async function deleteChatterboxVoice(id: string): Promise<void> {
   if (!safeVoiceId(id)) throw new TtsError('VALIDATION', 'Invalid local voice identifier.');
+  if (id.startsWith('preset_')) throw new TtsError('VALIDATION', 'Built-in preset voices cannot be deleted.');
   const targets = [path.join(VOICE_DIR, `${id}.wav`), path.join(VOICE_DIR, `${id}.json`)];
   for (const target of targets) {
     const resolved = path.resolve(target);

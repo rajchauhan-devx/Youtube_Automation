@@ -20,6 +20,7 @@ import {
   Mic2,
   Trash2,
   Upload,
+  Sparkles,
 } from 'lucide-react';
 import type { Script, GeneratedImage, GeneratedAudio } from '../../data';
 import { ErrorBoundary } from '../ErrorBoundary';
@@ -727,6 +728,11 @@ function AudioGenerationContent({
   };
 
   const [narrationText, setNarrationText] = useState<string>(getInitialNarration);
+  const [enhancing, setEnhancing] = useState(false);
+  const [enhanceTone, setEnhanceTone] = useState<'storyteller' | 'viral' | 'conversational' | 'dramatic'>('storyteller');
+  const [previousNarrationText, setPreviousNarrationText] = useState<string | null>(null);
+  const [enhanceError, setEnhanceError] = useState('');
+  const [enhanceSuccessMessage, setEnhanceSuccessMessage] = useState('');
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -829,6 +835,56 @@ function AudioGenerationContent({
       const newPos = start + tag.length;
       el.setSelectionRange(newPos, newPos);
     }, 50);
+  }
+
+  async function handleEnhanceNarration() {
+    if (!narrationText.trim()) {
+      setEnhanceError('Please enter or generate narration script text first.');
+      return;
+    }
+    setEnhancing(true);
+    setEnhanceError('');
+    setEnhanceSuccessMessage('');
+    try {
+      const res = await fetch('/api/llm/enhance-narration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: narrationText,
+          language: selectedLanguage,
+          tone: enhanceTone,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to modify narration');
+      }
+      if (data.enhancedText) {
+        setPreviousNarrationText(narrationText);
+        setNarrationText(data.enhancedText);
+        if (script?.id) {
+          onUpdate({ narration: data.enhancedText });
+        }
+        setEnhanceSuccessMessage('Narration polished with emotional cadence & pauses!');
+        setTimeout(() => setEnhanceSuccessMessage(''), 5000);
+      }
+    } catch (err: unknown) {
+      setEnhanceError(err instanceof Error ? err.message : 'Failed to modify narration');
+    } finally {
+      setEnhancing(false);
+    }
+  }
+
+  function handleUndoEnhance() {
+    if (previousNarrationText !== null) {
+      setNarrationText(previousNarrationText);
+      if (script?.id) {
+        onUpdate({ narration: previousNarrationText });
+      }
+      setPreviousNarrationText(null);
+      setEnhanceSuccessMessage('Reverted to previous narration script.');
+      setTimeout(() => setEnhanceSuccessMessage(''), 3000);
+    }
   }
 
   function stopPreview() {
@@ -1726,6 +1782,17 @@ function AudioGenerationContent({
               4. Narration Script & Natural Pauses
             </span>
             <div className="flex items-center gap-2">
+              {previousNarrationText !== null && (
+                <button
+                  type="button"
+                  onClick={handleUndoEnhance}
+                  className="flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300 transition-colors hover:bg-amber-500/20"
+                  title="Revert to previous narration"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  Undo AI
+                </button>
+              )}
               <button
                 onClick={() => {
                   if (script?.id) {
@@ -1744,6 +1811,69 @@ function AudioGenerationContent({
               </button>
             </div>
           </div>
+
+          {/* AI Narration Polish Toolbar */}
+          <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-purple-500/30 bg-gradient-to-r from-purple-950/30 to-surface2/60 p-2.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-purple-200">
+                <Sparkles className="h-3.5 w-3.5 text-purple-400" />
+                AI Narration Polish:
+              </span>
+              <div className="flex items-center gap-1">
+                {(['storyteller', 'viral', 'conversational', 'dramatic'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setEnhanceTone(t)}
+                    className={`rounded px-2 py-0.5 text-[11px] font-medium transition-all ${
+                      enhanceTone === t
+                        ? 'bg-purple-600 text-white shadow'
+                        : 'bg-surface2/80 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {t === 'storyteller'
+                      ? '🎬 Storyteller'
+                      : t === 'viral'
+                      ? '⚡ Viral Shorts'
+                      : t === 'conversational'
+                      ? '🎙️ Conversational'
+                      : '🎭 Dramatic'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleEnhanceNarration}
+              disabled={enhancing || !narrationText.trim()}
+              className="flex items-center gap-1.5 rounded-md bg-gradient-to-r from-purple-600 to-accent px-3.5 py-1 text-xs font-semibold text-white shadow-md transition-all hover:opacity-90 disabled:opacity-40"
+              title="Enhance script with emotional cadence and acoustic pause markers for Chatterbox"
+            >
+              {enhancing ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Polishing for Speech...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Modify with AI
+                </>
+              )}
+            </button>
+          </div>
+
+          {enhanceSuccessMessage && (
+            <div className="mb-2 flex items-center gap-1.5 rounded-md bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-400">
+              <Check className="h-3 w-3" /> {enhanceSuccessMessage}
+            </div>
+          )}
+          {enhanceError && (
+            <div className="mb-2 flex items-center gap-1.5 rounded-md bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-400">
+              <AlertCircle className="h-3 w-3" /> {enhanceError}
+            </div>
+          )}
 
           {/* Quick Pause Insertion Bar */}
           <div className="mb-2.5 flex flex-wrap items-center gap-2 rounded-md border border-border/40 bg-surface2/30 px-3 py-2">

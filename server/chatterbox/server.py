@@ -125,21 +125,24 @@ def _voice_metadata() -> list[dict]:
             "deletable": False,
         }
     ]
-    for metadata_path in sorted(VOICE_DIR.glob("clone_*.json")):
+    for metadata_path in sorted(VOICE_DIR.glob("*.json")):
+        if not (metadata_path.name.startswith("clone_") or metadata_path.name.startswith("preset_")):
+            continue
         try:
             metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
             voice_id = str(metadata.get("id", ""))
             wav_path = VOICE_DIR / f"{voice_id}.wav"
-            if re.fullmatch(r"clone_[a-f0-9-]{36}", voice_id) and wav_path.is_file():
+            if re.fullmatch(r"(?:clone_[a-f0-9-]{36}|preset_[a-z0-9_]+)", voice_id) and wav_path.is_file():
+                is_preset = voice_id.startswith("preset_")
                 voices.append(
                     {
                         "id": voice_id,
-                        "name": str(metadata.get("name") or "Custom voice"),
-                        "description": "Local voice clone from an authorized reference recording.",
+                        "name": str(metadata.get("name") or ("Preset voice" if is_preset else "Custom voice")),
+                        "description": str(metadata.get("description") or ("Curated studio character voice." if is_preset else "Local voice clone from an authorized reference recording.")),
                         "gender": str(metadata.get("gender") or "neutral"),
                         "language": str(metadata.get("language") or "multi"),
-                        "source": "clone",
-                        "deletable": True,
+                        "source": "preset" if is_preset else "clone",
+                        "deletable": False if is_preset else bool(metadata.get("deletable", True)),
                     }
                 )
         except (OSError, ValueError, TypeError):
@@ -150,7 +153,7 @@ def _voice_metadata() -> list[dict]:
 def _resolve_voice_path(voice_id: str) -> Path | None:
     if voice_id == "builtin":
         return None
-    if not re.fullmatch(r"clone_[a-f0-9-]{36}", voice_id):
+    if not re.fullmatch(r"(?:clone_[a-f0-9-]{36}|preset_[a-z0-9_]+)", voice_id):
         raise ValueError("Invalid local voice identifier")
     candidate = (VOICE_DIR / f"{voice_id}.wav").resolve()
     if candidate.parent != VOICE_DIR or not candidate.is_file():
