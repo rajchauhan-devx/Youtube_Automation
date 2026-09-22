@@ -18,6 +18,8 @@ interface PreviewTabProps {
   onGenerate?: (prompt: string) => void;
   onStop?: () => void;
   onExtractAssets?: () => void;
+  onExtractTimelineAssets?: () => void;
+  onImportResponse?: (response: string, extract: boolean) => Promise<void>;
 }
 
 export function PreviewTab({
@@ -26,10 +28,29 @@ export function PreviewTab({
   onGenerate,
   onStop,
   onExtractAssets,
+  onExtractTimelineAssets,
+  onImportResponse,
 }: PreviewTabProps) {
   const responseEndRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [prompt, setPrompt] = useState('');
+  const [showImport, setShowImport] = useState(false);
+  const [pastedResponse, setPastedResponse] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState('');
+
+  async function importResponse(extract: boolean) {
+    if (!pastedResponse.trim() || !onImportResponse || importing) return;
+    setImporting(true);
+    setImportError('');
+    try {
+      await onImportResponse(pastedResponse.trim(), extract);
+      setShowImport(false);
+      setPastedResponse('');
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : 'Could not save the response. Please try again.');
+    } finally { setImporting(false); }
+  }
 
   useEffect(() => {
     responseEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -65,6 +86,8 @@ export function PreviewTab({
   const responseStage = pipeline.find((step) => step.id === 'response') || ({} as PipelineStep);
   const isDone = responseStage.status === 'done';
   const isGenerating = responseStage.status === 'running';
+  const extractionFailed = responseStage.status === 'error' && responseStage.summary === 'Asset extraction needs attention';
+  const narrationMismatch = extractionFailed && responseStage.outputPreview?.includes('final clean voice script differs');
   const hasResponse = Boolean(script.aiResponse?.trim());
   const hasPrompt = Boolean(script.topicName?.trim());
 
@@ -81,8 +104,12 @@ export function PreviewTab({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {isDone && onExtractAssets && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {onImportResponse && <button type="button" onClick={() => setShowImport(!showImport)} disabled={isGenerating || importing}
+            className="rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2 disabled:opacity-40">
+            Paste AI Response
+          </button>}
+          {(isDone || extractionFailed) && onExtractAssets && (
             <button
               onClick={onExtractAssets}
               className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80"
@@ -101,6 +128,20 @@ export function PreviewTab({
           </button>
         </div>
       </div>
+
+      {showImport && <div className="space-y-3 border-b border-border bg-bg/60 px-5 py-4">
+        <label htmlFor="external-ai-response" className="block text-sm font-medium text-white">Response from another AI</label>
+        <p className="text-xs text-gray-400">Paste the complete response from your browser AI, keeping the script, image prompts, scene tags and timeline format from your template.</p>
+        {hasResponse && <p className="text-xs text-amber-400">Saving replaces the current response and resets its extracted assets and generated media.</p>}
+        <textarea id="external-ai-response" value={pastedResponse} onChange={event => setPastedResponse(event.target.value)} disabled={importing} rows={12}
+          placeholder="Paste the full AI response here…" className="w-full rounded-lg border border-border bg-bg p-3 text-sm text-white outline-none focus:border-accent" />
+        {importError && <p role="alert" className="text-sm text-red-400">{importError}</p>}
+        <div className="flex flex-wrap justify-end gap-2">
+          <button type="button" onClick={() => setShowImport(false)} disabled={importing} className="rounded-md border border-border px-3 py-2 text-xs text-gray-300">Cancel</button>
+          <button type="button" onClick={() => importResponse(false)} disabled={importing || isGenerating || !pastedResponse.trim()} className="rounded-md border border-border px-3 py-2 text-xs text-gray-300 disabled:opacity-40">Save Response</button>
+          <button type="button" onClick={() => importResponse(true)} disabled={importing || isGenerating || !pastedResponse.trim()} className="rounded-md bg-accent px-3 py-2 text-xs font-medium text-white disabled:opacity-40">{importing ? 'Importing…' : 'Save & Extract Assets'}</button>
+        </div>
+      </div>}
 
       <div className="thin-scrollbar flex-1 overflow-y-auto px-4 py-7 sm:px-8">
         {!hasPrompt && !hasResponse && !isGenerating ? (
@@ -148,6 +189,14 @@ export function PreviewTab({
                       <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-accent align-middle" />
                     )}
                   </div>
+                  {narrationMismatch && onExtractTimelineAssets && (
+                    <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-950/20 p-4 text-sm text-amber-100">
+                      <p>The clean voice script and timeline contain different narration. Use the timeline's spoken text for all scenes to preserve the image and video links. Your original response will be kept.</p>
+                      <button onClick={onExtractTimelineAssets} className="mt-3 rounded-md bg-accent px-3 py-2 font-medium text-white hover:bg-accent/80">
+                        Use timeline narration &amp; extract
+                      </button>
+                    </div>
+                  )}
 
                   <div className="mt-3 flex items-center gap-2 text-xs">
                     {isGenerating && <span className="text-accent">{responseStage.summary || 'Generating…'}</span>}

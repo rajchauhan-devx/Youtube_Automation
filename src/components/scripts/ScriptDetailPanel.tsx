@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Play, Trash2, X, RotateCcw, Pencil, Sparkles, ChevronDown, Check } from 'lucide-react';
-import { DURATION_PRESETS, GEMINI_MODELS, type Script, type DurationPreset } from '../../data';
+import { ScriptModelSelector, SCRIPT_MODELS } from './ScriptModelSelector';
+import { Play, Trash2, X, RotateCcw, Pencil, Sparkles } from 'lucide-react';
+import { DURATION_PRESETS, LONG_DURATION_PRESETS, type Script } from '../../data';
 
 export function ScriptDetailPanel({
   script,
@@ -25,7 +26,7 @@ export function ScriptDetailPanel({
   const [isEditingModel, setIsEditingModel] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState<number>(script.duration || 30);
   const currentModelId = script.model || 'gemini-3.6-flash';
-  const activeModelObj = GEMINI_MODELS.find((m) => m.id === currentModelId) || GEMINI_MODELS[0];
+  const activeModelObj = SCRIPT_MODELS.find((m) => m.id === currentModelId) || { name: currentModelId, badge: 'Saved model' };
 
   const hasRunData = Boolean(
     (script.aiResponse && script.aiResponse.trim().length > 0) ||
@@ -57,7 +58,6 @@ export function ScriptDetailPanel({
   }
 
   function handleSelectModel(mId: string) {
-    setIsEditingModel(false);
     onUpdateModel?.(mId);
   }
 
@@ -152,7 +152,7 @@ export function ScriptDetailPanel({
           {isEditingDuration ? (
             <div className="rounded-md bg-bg p-2 space-y-2">
               <div className="flex flex-wrap gap-1.5">
-                {DURATION_PRESETS.map((dur) => (
+                {((script.section === 'long' || script.section === 'mixed') ? LONG_DURATION_PRESETS : DURATION_PRESETS).filter(dur => !script.maxDurationSeconds || dur <= script.maxDurationSeconds).map((dur) => (
                   <button
                     key={dur}
                     type="button"
@@ -195,41 +195,7 @@ export function ScriptDetailPanel({
           </div>
 
           {isEditingModel ? (
-            <div className="space-y-1.5 rounded-md bg-bg p-2 max-h-56 overflow-y-auto thin-scrollbar">
-              {GEMINI_MODELS.map((m) => {
-                const isSelected = currentModelId === m.id;
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => handleSelectModel(m.id)}
-                    className={`w-full text-left rounded-md p-2 transition-all flex flex-col gap-0.5 border ${
-                      isSelected
-                        ? 'border-accent bg-accent/15 text-white'
-                        : 'border-border/60 bg-surface/50 text-gray-300 hover:bg-surface2 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold">{m.name}</span>
-                      {m.badge && (
-                        <span
-                          className={`rounded px-1.5 py-0.2 text-[9px] font-bold ${
-                            m.recommended
-                              ? 'bg-accent text-white'
-                              : 'bg-gray-700/60 text-gray-300'
-                          }`}
-                        >
-                          {m.badge}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-gray-400 leading-tight line-clamp-1">
-                      {m.description}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
+            <ScriptModelSelector value={currentModelId} onChange={handleSelectModel} />
           ) : (
             <div className="rounded-md bg-bg p-2 flex items-center justify-between text-sm text-gray-200">
               <div className="flex flex-col">

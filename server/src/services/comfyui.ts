@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { safeSegment } from './paths.js';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -10,10 +11,10 @@ const WORKFLOW_PATH = process.env.COMFYUI_WORKFLOW_PATH || path.join(__dirname, 
 const PROMPT_NODE_ID = process.env.COMFYUI_PROMPT_NODE_ID || '6';
 const SEED_NODE_ID = process.env.COMFYUI_SEED_NODE_ID || '';
 const SEED_INPUT_KEY = process.env.COMFYUI_SEED_INPUT_KEY || 'noise_seed';
-const GEN_TIMEOUT_MS = parseInt(process.env.COMFYUI_TIMEOUT_MS || '120000', 10);
+const GEN_TIMEOUT_MS = parseInt(process.env.COMFYUI_TIMEOUT_MS || '600000', 10);
 const POLL_INTERVAL_MS = 1000;
 
-export const GENERATED_DIR = path.join(__dirname, '..', '..', 'data', 'generated');
+import { generatedDir, mediaUrl, currentWorkspace } from './workspace.js';
 
 export class ComfyError extends Error {
   code: string;
@@ -26,7 +27,7 @@ export class ComfyError extends Error {
 }
 
 export function sanitizeSegment(s: string): string {
-  return /^[a-zA-Z0-9._-]+$/.test(s) ? s : '';
+  return safeSegment(s) ? s : '';
 }
 
 let cachedTemplate: any = null;
@@ -58,9 +59,9 @@ export async function checkComfyStatus(): Promise<{ online: boolean; detail?: st
 export type QualityPreset = 'fast' | 'standard' | 'high';
 
 export const PRESET_CONFIG: Record<QualityPreset, { steps: number; width: number; height: number; label: string; description: string }> = {
-  fast: { steps: 12, width: 768, height: 1344, label: 'Fast', description: '12 steps, 768×1344 (draft mode, ~3s)' },
-  standard: { steps: 20, width: 768, height: 1344, label: 'Standard', description: '20 steps, 768×1344 (default, ~8s)' },
-  high: { steps: 28, width: 768, height: 1344, label: 'High', description: '28 steps, 768×1344 (best quality, ~15s)' },
+  fast: { steps: 12, width: 768, height: 1344, label: 'Fast', description: '12 steps, 768×1344 (draft; speed depends on hardware)' },
+  standard: { steps: 20, width: 768, height: 1344, label: 'Standard', description: '20 steps, 768×1344 (balanced)' },
+  high: { steps: 28, width: 768, height: 1344, label: 'High', description: '28 steps, 768×1344 (more detail)' },
 };
 
 export async function listAvailableModels(): Promise<string[]> {
@@ -104,9 +105,6 @@ export async function listAvailableModels(): Promise<string[]> {
     } catch {}
   }
 
-  if (models.size === 0) {
-    models.add('Juggernaut_XIII_Ragnarok.safetensors');
-  }
 
   return Array.from(models);
 }
@@ -121,7 +119,7 @@ export interface WorkflowOptions {
   enableNegativeGuardrails?: boolean;
 }
 
-function buildWorkflow(opts: WorkflowOptions): any {
+export function buildWorkflow(opts: WorkflowOptions): any {
   const { promptStr, seed, preset = 'standard', modelName, stylePreset = 'cinematic', enableQualityBooster = true, enableNegativeGuardrails = true } = opts;
   const wf = loadTemplate();
   const cfg = PRESET_CONFIG[preset] || PRESET_CONFIG.standard;
@@ -198,13 +196,21 @@ function buildWorkflow(opts: WorkflowOptions): any {
   }
 
   if (wf['13']) {
-    wf['13'].inputs.steps = cfg.steps;
+    const checkpoint = String(wf['4']?.inputs?.ckpt_name || '');
+    const lightning = /juggernaut.*lightning|juggernaut.*rdphoto2lightning/i.test(checkpoint);
+    wf['13'].inputs.steps = lightning ? ({ fast: 5, standard: 6, high: 7 }[preset]) : cfg.steps;
+    if (lightning) {
+      wf['13'].inputs.cfg = 1.8;
+      wf['13'].inputs.sampler_name = 'dpmpp_sde';
+      wf['13'].inputs.scheduler = 'karras';
+    }
     wf['13'].inputs.seed = seed;
   }
 
   if (wf['14']) {
-    wf['14'].inputs.width = cfg.width;
-    wf['14'].inputs.height = cfg.height;
+    const landscape = currentWorkspace().profile !== 'shorts';
+    wf['14'].inputs.width = landscape ? cfg.height : cfg.width;
+    wf['14'].inputs.height = landscape ? cfg.width : cfg.height;
   }
 
   if (SEED_NODE_ID && wf[SEED_NODE_ID]) {
@@ -301,17 +307,21 @@ export async function startComfyUI(): Promise<{ success: boolean; message: strin
     comfyProcess = null;
   }
 
-  comfyProcess = spawn('python', [mainPy, '--listen', '--port', '8188'], {
+  comfyProcess = spawn(process.env.COMFYUI_PYTHON || 'python', [mainPy, '--listen', '127.0.0.1', '--port', '8188', ...(process.env.COMFYUI_LOW_VRAM === 'false' ? [] : ['--lowvram'])], {
     cwd: comfyPath,
     env: { ...process.env, TQDM_DISABLE: '1' },
     stdio: 'ignore',
     detached: true,
+    windowsHide: true,
   });
+  let startupError = '';
+  comfyProcess.on('error', (error: Error) => { startupError = error.message; });
   comfyProcess.unref();
 
   const start = Date.now();
   const timeout = 120000;
   while (Date.now() - start < timeout) {
+    if (startupError) return { success: false, message: `Cannot start ComfyUI: ${startupError}. Configure COMFYUI_PYTHON with your Python executable.` };
     const s = await checkComfyStatus();
     if (s.online) return { success: true, message: 'ComfyUI started successfully' };
     await new Promise((r) => setTimeout(r, 2000));
@@ -443,13 +453,13 @@ export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl:
   const imageRef = extractImageRef(historyEntry);
   const buffer = await downloadImage(imageRef);
 
-  const outDir = path.join(GENERATED_DIR, scriptId);
+  const outDir = path.join(generatedDir(), scriptId);
   fs.mkdirSync(outDir, { recursive: true });
   const fileName = `image-${String(opts.index).padStart(2, '0')}-${started}.png`;
   fs.writeFileSync(path.join(outDir, fileName), buffer);
 
   return {
-    publicUrl: `/api/generate/file/${scriptId}/${fileName}`,
+    publicUrl: mediaUrl(`generate/file/${scriptId}/${fileName}`),
     fileName,
     seed,
     elapsedMs: Date.now() - started,

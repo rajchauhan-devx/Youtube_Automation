@@ -1,18 +1,20 @@
 import fs from 'fs';
+import { safeSegment } from './paths.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
+import { workspaceDir } from './workspace.js';
 
 function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(workspaceDir())) {
+    fs.mkdirSync(workspaceDir(), { recursive: true });
   }
 }
 
 function filePath(name: string): string {
-  return path.join(DATA_DIR, `${name}.json`);
+  if (!safeSegment(name)) throw new Error('Invalid store name');
+  return path.join(workspaceDir(), `${name}.json`);
 }
 
 function read<T>(name: string): T[] {
@@ -22,13 +24,16 @@ function read<T>(name: string): T[] {
   try {
     return JSON.parse(fs.readFileSync(fp, 'utf-8'));
   } catch {
-    return [];
+    throw new Error(`Cannot read ${name} storage. Restore a backup before making changes.`);
   }
 }
 
 function write<T>(name: string, data: T[]): void {
   ensureDir();
-  fs.writeFileSync(filePath(name), JSON.stringify(data, null, 2), 'utf-8');
+  const destination = filePath(name);
+  const temporary = `${destination}.tmp`;
+  fs.writeFileSync(temporary, JSON.stringify(data, null, 2), 'utf-8');
+  fs.renameSync(temporary, destination);
 }
 
 export const store = {

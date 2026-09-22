@@ -5,6 +5,8 @@ import { spawn, execFile, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
 import { TtsError, type VoiceInfo } from './tts-shared.js';
+import { containedFile } from './paths.js';
+import { presenterState } from './presenter-state.js';
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -12,7 +14,7 @@ const SERVER_ROOT = path.resolve(__dirname, '..', '..');
 const SERVICE_DIR = path.join(SERVER_ROOT, 'chatterbox');
 const SERVICE_SCRIPT = path.join(SERVICE_DIR, 'server.py');
 const VENV_PYTHON = path.join(SERVICE_DIR, '.venv', 'Scripts', 'python.exe');
-const VOICE_DIR = path.join(SERVER_ROOT, 'data', 'voices');
+const VOICE_DIR = path.resolve(process.env.CHATTERBOX_VOICE_DIR || path.join(SERVER_ROOT, 'data', 'voices'));
 const MODEL_CACHE_DIR = path.join(SERVER_ROOT, 'data', 'model-cache');
 const PKUSEG_CACHE_DIR = path.join(MODEL_CACHE_DIR, 'pkuseg');
 const CHATTERBOX_URL = (process.env.CHATTERBOX_URL || process.env.TTS_SERVER_URL || 'http://127.0.0.1:8880').replace(/\/+$/, '');
@@ -197,6 +199,21 @@ export async function getChatterboxVoices(language: 'hi' | 'en'): Promise<VoiceI
   return readLocalVoiceMetadata(language);
 }
 
+function validateVoiceSelection(voice: string | undefined, language: 'hi' | 'en') {
+  if (language !== 'en' && language !== 'hi') throw new TtsError('VALIDATION', 'Choose English or Hindi.');
+  if (voice === undefined || voice === 'builtin') return;
+  if (typeof voice !== 'string' || !readLocalVoiceMetadata(language).some(item => item.id === voice)) {
+    throw new TtsError('VALIDATION', 'This voice is not available for the selected language. Refresh the voice list and choose a saved reference.');
+  }
+}
+
+export function getChatterboxVoiceReference(id: string): string | null {
+  if (!safeVoiceId(id) || !id.startsWith('clone_')) return null;
+  const file = containedFile(VOICE_DIR, `${id}.wav`);
+  const metadata = containedFile(VOICE_DIR, `${id}.json`);
+  return fs.existsSync(file) && fs.existsSync(metadata) ? file : null;
+}
+
 async function waitForHttpServer(timeoutMs: number): Promise<ChatterboxStatus> {
   const deadline = Date.now() + timeoutMs;
   let status = await getChatterboxStatus();
@@ -313,6 +330,10 @@ export async function synthesizeChatterbox(
   language: 'hi' | 'en',
   options: ChatterboxOptions = {},
 ): Promise<Buffer> {
+  validateVoiceSelection(voice, language);
+  if (presenterState.busy) throw new TtsError('NOT_READY', 'Wait for presenter generation to finish.');
+  presenterState.speechRequests++;
+  try {
   const status = await getChatterboxStatus();
   if (!status.online) throw new TtsError('CONNECTION_REFUSED', status.message || 'Chatterbox is offline.');
   if (!status.ready) throw new TtsError('NOT_READY', status.error || status.message || 'Chatterbox is still loading.');
@@ -330,8 +351,8 @@ export async function synthesizeChatterbox(
         voice: voice || 'builtin',
         language,
         response_format: 'wav',
-        exaggeration: clamp(options.exaggeration, 0.25, 1.5, 0.65),
-        cfg_weight: clamp(options.cfgWeight, 0, 1, 0.35),
+        exaggeration: clamp(options.exaggeration, 0.25, 1.5, 0.5),
+        cfg_weight: clamp(options.cfgWeight, 0, 1, 0.5),
         temperature: clamp(options.temperature, 0.05, 2, 0.8),
         seed: Math.max(0, Math.floor(options.seed || 0)),
       }),
@@ -361,6 +382,7 @@ export async function synthesizeChatterbox(
   } finally {
     clearTimeout(timeout);
   }
+  } finally { presenterState.speechRequests--; }
 }
 
 export async function previewChatterbox(
@@ -370,6 +392,7 @@ export async function previewChatterbox(
   options: ChatterboxOptions = {},
 ): Promise<Buffer> {
   const cacheKey = JSON.stringify([voice || 'builtin', language, options, text]);
+  validateVoiceSelection(voice, language);
   const cached = previewCache.get(cacheKey);
   if (cached) return cached;
   const audio = await synthesizeChatterbox(text, voice, language, options);
@@ -384,6 +407,7 @@ export async function createChatterboxVoice(params: {
   gender?: string;
   dataUrl: string;
 }): Promise<VoiceInfo> {
+  if (params.language !== 'en' && params.language !== 'hi') throw new TtsError('VALIDATION', 'Choose English or Hindi.');
   const name = params.name.trim().replace(/\p{Cc}/gu, '').replace(/[<>]/g, '').slice(0, 80);
   if (!name) throw new TtsError('VALIDATION', 'Voice name is required.');
 

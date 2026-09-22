@@ -11,7 +11,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit -p tsconfig.app.json"
+    "typecheck": "tsc --noEmit -p tsconfig.app.json",
+    "test": "npm run build --prefix server && node --test server/tests/*.test.mjs",
+    "build:all": "npm run typecheck && npm run build && npm run build --prefix server"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

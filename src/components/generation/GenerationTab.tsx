@@ -1,3 +1,4 @@
+import { useWorkspaceApi } from '../../services/workspaceApi';
 import { useState, useEffect, useRef } from 'react';
 import {
   Play,
@@ -24,6 +25,9 @@ import {
 } from 'lucide-react';
 import type { Script, GeneratedImage, GeneratedAudio } from '../../data';
 import { ErrorBoundary } from '../ErrorBoundary';
+import { MixedMediaContent } from './MixedMediaContent';
+import { saveVoiceReference, rememberVoice, preferredVoice, VOICES_CHANGED } from '../../services/voiceLibrary';
+import { normalizeNarration, spokenText } from '../../../server/src/services/scene-plan';
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -42,6 +46,7 @@ export function GenerationTab({
   onUpdate: (patch: Partial<Script>) => void;
 }) {
   const [generationSubTab, setGenerationSubTab] = useState<'images' | 'audio'>('images');
+  const { profile, account } = useWorkspaceApi();
 
   return (
     <ErrorBoundary fallbackLabel="Generation Tab Error">
@@ -56,7 +61,7 @@ export function GenerationTab({
             }`}
           >
             <ImageIcon className="h-4 w-4" />
-            Image Generation
+            {profile === 'mixed' ? 'Images & Videos' : 'Image Generation'}
           </button>
           <button
             onClick={() => setGenerationSubTab('audio')}
@@ -72,7 +77,7 @@ export function GenerationTab({
         </div>
 
         {generationSubTab === 'images' ? (
-          <ImageGenerationContent script={script} onUpdate={onUpdate} />
+          profile === 'mixed' ? <MixedMediaContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} /> : <ImageGenerationContent script={script} onUpdate={onUpdate} />
         ) : (
           <AudioGenerationContent script={script} onUpdate={onUpdate} />
         )}
@@ -88,6 +93,7 @@ function ImageGenerationContent({
   script: Script | null;
   onUpdate: (patch: Partial<Script>) => void;
 }) {
+  const { fetch, profile, account } = useWorkspaceApi();
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -102,10 +108,17 @@ function ImageGenerationContent({
   const [enableNegativeGuardrails, setEnableNegativeGuardrails] = useState(true);
   const [seedMode, setSeedMode] = useState<'random' | 'fixed'>('random');
   const [fixedSeed, setFixedSeed] = useState<number>(42);
+  const [longBatchSize, setLongBatchSize] = useState(5);
+  const [longRestSeconds, setLongRestSeconds] = useState(60);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
   const runTokenRef = useRef(0);
   const pausedRef = useRef(false);
   const imagesRef = useRef<GeneratedImage[]>([]);
+  const batchSizeRef = useRef(longBatchSize);
+  const restSecondsRef = useRef(longRestSeconds);
+  batchSizeRef.current = longBatchSize;
+  restSecondsRef.current = longRestSeconds;
 
   useEffect(() => {
     imagesRef.current = images;
@@ -130,6 +143,7 @@ function ImageGenerationContent({
       return prior ?? { index: i, prompt, status: 'pending' as const };
     });
     setImages(merged);
+    return () => { runTokenRef.current++; pausedRef.current = false; };
   }, [script?.id, script?.imagePrompts]);
 
   async function checkServer() {
@@ -211,7 +225,9 @@ function ImageGenerationContent({
   async function runQueue(items: GeneratedImage[]) {
     const myToken = ++runTokenRef.current;
     setIsRunning(true);
-    for (const item of items) {
+    let completedInBatch = 0;
+    for (let itemPosition = 0; itemPosition < items.length; itemPosition += 1) {
+      const item = items[itemPosition];
       if (myToken !== runTokenRef.current) return;
       if (item.status === 'done') continue;
       while (pausedRef.current) {
@@ -219,8 +235,31 @@ function ImageGenerationContent({
         if (myToken !== runTokenRef.current) return;
       }
       await generateOne(item);
+      completedInBatch += 1;
+
+      // Long videos can have dozens of high-resolution images. Give the local
+      // image model and GPU a configurable recovery period between batches.
+      const remaining = items.slice(itemPosition + 1).some((candidate) => candidate.status !== 'done');
+      if (profile !== 'shorts' && remaining && completedInBatch >= Math.max(1, batchSizeRef.current)) {
+        completedInBatch = 0;
+        const rest = Math.max(0, Math.round(restSecondsRef.current));
+        if (rest > 0) {
+          for (let seconds = rest; seconds > 0;) {
+            if (myToken !== runTokenRef.current) return;
+            if (!pausedRef.current) {
+              setCooldownRemaining(seconds);
+              seconds -= 1;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+          }
+          setCooldownRemaining(0);
+        }
+      }
     }
-    if (myToken === runTokenRef.current) setIsRunning(false);
+    if (myToken === runTokenRef.current) {
+      setCooldownRemaining(0);
+      setIsRunning(false);
+    }
   }
 
   async function handleStartModel() {
@@ -296,6 +335,7 @@ function ImageGenerationContent({
     runTokenRef.current++;
     setIsRunning(false);
     setIsPaused(false);
+    setCooldownRemaining(0);
     const generating = imagesRef.current.find((im) => im.status === 'generating');
     if (generating && script) {
       fetch('/api/generate/cancel', {
@@ -434,6 +474,28 @@ function ImageGenerationContent({
         </div>
       </div>
 
+      {profile !== 'shorts' && (
+        <div className="flex flex-wrap items-center gap-4 border-b border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs">
+          <div>
+            <p className="font-semibold text-amber-200">Long Video batch generation</p>
+            <p className="mt-0.5 text-gray-400">Images are generated in groups so the computer can cool down between batches.</p>
+          </div>
+          <label className="flex items-center gap-2 text-gray-300">
+            Images per batch
+            <select aria-label="Images per batch" value={longBatchSize} disabled={isRunning} onChange={(e) => setLongBatchSize(Number(e.target.value))} className="rounded border border-border bg-bg px-2 py-1 text-xs text-white">
+              {[3, 5, 8, 10].map((value) => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
+          <label className="flex items-center gap-2 text-gray-300">
+            Rest after each batch
+            <select aria-label="Rest after batch" value={longRestSeconds} disabled={isRunning} onChange={(e) => setLongRestSeconds(Number(e.target.value))} className="rounded border border-border bg-bg px-2 py-1 text-xs text-white">
+              <option value={0}>No rest</option><option value={30}>30 seconds</option><option value={60}>1 minute</option><option value={120}>2 minutes</option><option value={300}>5 minutes</option>
+            </select>
+          </label>
+          {cooldownRemaining > 0 && <span role="status" className="ml-auto font-medium text-amber-200">Computer rest: {cooldownRemaining}s remaining</span>}
+        </div>
+      )}
+
       {/* Quality Presets & Model Selector Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-surface/50 px-4 py-2 text-xs">
         <div className="flex items-center gap-2">
@@ -447,7 +509,7 @@ function ImageGenerationContent({
                   ? 'bg-accent text-white shadow-sm'
                   : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
               }`}
-              title="12 steps, 768×1344 (draft mode, ~3s per image)"
+              title="SDXL: 12 steps; Juggernaut Lightning: 5 steps. Speed depends on hardware."
             >
               Fast (12s)
             </button>
@@ -459,7 +521,7 @@ function ImageGenerationContent({
                   ? 'bg-accent text-white shadow-sm'
                   : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
               }`}
-              title="20 steps, 768×1344 (default, ~8s per image)"
+              title="SDXL: 20 steps; Juggernaut Lightning: 6 steps."
             >
               Standard (20s)
             </button>
@@ -471,7 +533,7 @@ function ImageGenerationContent({
                   ? 'bg-accent text-white shadow-sm'
                   : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
               }`}
-              title="28 steps, 768×1344 (best quality, ~15s per image)"
+              title="SDXL: 28 steps; Juggernaut Lightning: 7 steps."
             >
               High (28s)
             </button>
@@ -686,22 +748,29 @@ function AudioGenerationContent({
   script: Script | null;
   onUpdate: (patch: Partial<Script>) => void;
 }) {
+  const { fetch, profile, account } = useWorkspaceApi();
   const [copied, setCopied] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<'hi' | 'en'>('en');
   const [voices, setVoices] = useState<VoiceItem[]>([]);
   const [voicesLoading, setVoicesLoading] = useState(true);
   const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const voiceProviderRef = useRef('');
+  function selectVoice(id: string) {
+    setSelectedVoice(id);
+    rememberVoice(selectedLanguage, voiceProviderRef.current, id);
+  }
   const [previewVoiceId, setPreviewVoiceId] = useState<string | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState('');
+  const [voicePreviewText, setVoicePreviewText] = useState('');
 
   // Voice Customization Controls
   const [rateOffset, setRateOffset] = useState<number>(0); // -25% to +35%
   const [pitchOffset, setPitchOffset] = useState<number>(0); // -12Hz to +12Hz
-  const [stylePreset, setStylePreset] = useState<'cinematic' | 'shorts' | 'tech' | 'vlog' | 'custom'>('cinematic');
-  const [exaggeration, setExaggeration] = useState(0.72);
-  const [cfgWeight, setCfgWeight] = useState(0.32);
-  const [temperature, setTemperature] = useState(0.75);
+  const [stylePreset, setStylePreset] = useState<'natural' | 'cinematic' | 'shorts' | 'tech' | 'vlog' | 'custom'>('natural');
+  const [exaggeration, setExaggeration] = useState(0.5);
+  const [cfgWeight, setCfgWeight] = useState(0.5);
+  const [temperature, setTemperature] = useState(0.8);
   const [voiceFile, setVoiceFile] = useState<File | null>(null);
   const [voiceName, setVoiceName] = useState('');
   const [uploadingVoice, setUploadingVoice] = useState(false);
@@ -735,6 +804,37 @@ function AudioGenerationContent({
   const [enhanceSuccessMessage, setEnhanceSuccessMessage] = useState('');
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const longResultRef = useRef(script?.generatedAudio?.[0]?.filename);
+  const onLongUpdateRef = useRef(onUpdate);
+  onLongUpdateRef.current = onUpdate;
+  useEffect(() => {
+    if (profile === 'shorts' || !script?.id) return;
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout>;
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/tts/long/status/${script.id}`, { signal: controller.signal });
+        if (!response.ok) throw new Error('Cannot read narration progress');
+        const state = await response.json();
+        if (controller.signal.aborted) return;
+        setGenerating(state.status === 'running');
+        if (state.status === 'running') {
+          setProgressPercent(Math.round(100 * state.completed / Math.max(1, state.total)));
+          setProgressStage(`Narration: ${state.completed} of ${state.total} scenes complete. You can leave this page and return.`);
+        }
+        if (state.status === 'error') setError(state.error);
+        if (state.status === 'done' && state.result?.filename !== longResultRef.current) {
+          longResultRef.current = state.result.filename;
+          onLongUpdateRef.current({ generatedAudio: [state.result], timelineConfig: undefined, youtubeExport: undefined });
+          setProgressPercent(100);
+          setError('');
+        }
+      } catch (error) { if (!controller.signal.aborted) setError(getErrorMessage(error, 'Cannot read narration progress. Reopen this tab to reconnect.')); }
+      if (!controller.signal.aborted) timer = setTimeout(poll, 2000);
+    };
+    void poll();
+    return () => { controller.abort(); clearTimeout(timer); };
+  }, [script?.id, profile, fetch]);
 
   // Synchronize script narration when the active script changes
   useEffect(() => {
@@ -784,9 +884,16 @@ function AudioGenerationContent({
   const formattedRate = rateOffset >= 0 ? `+${rateOffset}%` : `${rateOffset}%`;
   const formattedPitch = pitchOffset >= 0 ? `+${pitchOffset}Hz` : `${pitchOffset}Hz`;
 
-  function applyStylePreset(preset: 'cinematic' | 'shorts' | 'tech' | 'vlog') {
+  function applyStylePreset(preset: 'natural' | 'cinematic' | 'shorts' | 'tech' | 'vlog') {
+    stopPreview();
     setStylePreset(preset);
-    if (preset === 'cinematic') {
+    if (preset === 'natural') {
+      setRateOffset(0);
+      setPitchOffset(0);
+      setExaggeration(0.5);
+      setCfgWeight(0.5);
+      setTemperature(0.8);
+    } else if (preset === 'cinematic') {
       setRateOffset(0);
       setPitchOffset(-2);
       setExaggeration(0.72);
@@ -814,6 +921,7 @@ function AudioGenerationContent({
   }
 
   function insertPause(durationSec: number) {
+    if (profile !== 'shorts') { setError('Edit the scene narration in the script response and extract it again.'); return; }
     const tag = ` [pause ${durationSec}s] `;
     if (!textareaRef.current) {
       const updated = (narrationText ? narrationText + tag : tag).trim();
@@ -838,6 +946,7 @@ function AudioGenerationContent({
   }
 
   async function handleEnhanceNarration() {
+    if (profile !== 'shorts') { setError('Long Video narration is linked to scenes. Revise the script response and extract again.'); return; }
     if (!narrationText.trim()) {
       setEnhanceError('Please enter or generate narration script text first.');
       return;
@@ -944,13 +1053,25 @@ function AudioGenerationContent({
     const token = ++fetchTokenRef.current;
     setVoicesLoading(true);
     try {
-      const { data } = await fetchJson(`/api/tts/voices?language=${lang}`);
+      const { ok, data } = await fetchJson(`/api/tts/voices?language=${lang}`);
+      if (!ok) throw new Error(data?.error || 'Could not load voices');
       if (token !== fetchTokenRef.current) return;
       const voiceList = Array.isArray(data?.voices) ? data.voices : [];
       setVoices(voiceList);
+      voiceProviderRef.current = String(data.provider || '');
+      const preferred = preferredVoice(lang, voiceProviderRef.current);
+      const voiceId = (voice: VoiceItem | string) => typeof voice === 'string' ? voice : voice?.id || '';
+      const preferredVoiceItem = voiceList.find((voice: VoiceItem) => voiceId(voice) === preferred);
+      const currentVoiceItem = voiceList.find((voice: VoiceItem) => voiceId(voice) === selectedVoice);
+      // Existing profiles may have been saved before the preference key was
+      // introduced. Prefer a saved local clone over the built-in narrator in
+      // that case, so the profile voice is actually used on first visit.
+      const firstSavedVoice = voiceList.find((voice: VoiceItem) => typeof voice === 'object' && voice?.source === 'clone');
       setSelectedVoice((prev) => {
-        if (voiceList.some((v: VoiceItem) => v?.id === prev)) return prev;
-        return voiceList[0]?.id || '';
+        if (preferredVoiceItem) return voiceId(preferredVoiceItem);
+        if (currentVoiceItem && voiceId(currentVoiceItem) === prev) return prev;
+        if (firstSavedVoice) return voiceId(firstSavedVoice);
+        return voiceId(voiceList[0] || '');
       });
     } catch (err) {
       if (token !== fetchTokenRef.current) return;
@@ -968,6 +1089,14 @@ function AudioGenerationContent({
 
   useEffect(() => {
     fetchVoices(selectedLanguage);
+    const refresh = () => { void fetchVoices(selectedLanguage); };
+    window.addEventListener(VOICES_CHANGED, refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      fetchTokenRef.current++;
+      window.removeEventListener(VOICES_CHANGED, refresh);
+      window.removeEventListener('focus', refresh);
+    };
   }, [selectedLanguage]);
 
   function handleLanguageSwitch(lang: 'hi' | 'en') {
@@ -998,6 +1127,7 @@ function AudioGenerationContent({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           voice: vId,
+          ...(isChatterbox ? { text: voicePreviewText.trim() || undefined, seed: 42 } : {}),
           language: selectedLanguage,
           rate: formattedRate,
           pitch: formattedPitch,
@@ -1037,8 +1167,20 @@ function AudioGenerationContent({
         return;
       }
       if (previewVoiceIdRef.current !== vId) return;
+      // A Chatterbox preview must never silently fall back to a browser voice:
+      // that sounds like the wrong saved reference and hides the real error.
+      if (isChatterbox) {
+        setPreviewLoadingId(null);
+        setPreviewError(`${providerName} could not render this selected voice. Check that Chatterbox is running and ready.`);
+        return;
+      }
     } catch {
       // Server unreachable — fall through to system voice preview
+      if (isChatterbox && previewVoiceIdRef.current === vId) {
+        setPreviewLoadingId(null);
+        setPreviewError(`${providerName} is unavailable. Start Chatterbox and wait until the model is ready.`);
+        return;
+      }
     }
 
     setPreviewLoadingId(null);
@@ -1165,29 +1307,15 @@ function AudioGenerationContent({
     }
   }
 
-  function fileToDataUrl(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.onerror = () => reject(reader.error || new Error('Could not read the audio file'));
-      reader.readAsDataURL(file);
-    });
-  }
-
   async function handleVoiceUpload() {
     if (!voiceFile || !voiceName.trim() || uploadingVoice) return;
     setUploadingVoice(true);
     setError('');
     try {
-      const dataUrl = await fileToDataUrl(voiceFile);
-      const { ok, data } = await fetchJson('/api/tts/voices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: voiceName.trim(), language: selectedLanguage, dataUrl }),
-      });
-      if (!ok) throw new Error(data?.error || 'Voice upload failed');
+      const voice = await saveVoiceReference(voiceName, selectedLanguage, voiceFile);
+      rememberVoice(selectedLanguage, voiceProviderRef.current, voice.id);
       await fetchVoices(selectedLanguage);
-      if (data?.voice?.id) setSelectedVoice(String(data.voice.id));
+      selectVoice(voice.id);
       setVoiceFile(null);
       setVoiceName('');
     } catch (err) {
@@ -1231,8 +1359,21 @@ function AudioGenerationContent({
   async function handleGenerate() {
     const textToGenerate = narrationText.trim();
     if (!textToGenerate || generating || !script) return;
-    if (!selectedVoice) {
+    if (voicesLoading || !selectedVoice || !voices.some(voice => voice.id === selectedVoice && (!voice.language || voice.language === selectedLanguage))) {
       setError('Please select a voice character first.');
+      return;
+    }
+
+    if (profile !== 'shorts') {
+      if (!script.scenePlan || normalizeNarration(textToGenerate) !== normalizeNarration(spokenText(script.scenePlan))) {
+        setError('Extract the Long Video scene map first. Change narration in the script response and extract again so visuals keep their matching words.'); return;
+      }
+      setGenerating(true); setError(''); setProgressPercent(0);
+      try {
+        const { ok, data } = await fetchJson('/api/tts/long/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: script.id, language: selectedLanguage, voice: selectedVoice, rate: formattedRate, pitch: formattedPitch, exaggeration, cfgWeight, temperature }) });
+        if (!ok) throw new Error(data?.error || 'Could not start narration');
+        onUpdate({ generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined });
+      } catch (error) { setGenerating(false); setError(getErrorMessage(error, 'Could not start narration')); }
       return;
     }
 
@@ -1307,6 +1448,7 @@ function AudioGenerationContent({
 
   function handleRegenerate() {
     if (!script) return;
+    if (profile !== 'shorts') { void handleGenerate(); return; }
     const existing = (script.generatedAudio || []).filter((a) => a.language !== selectedLanguage);
     onUpdate({ generatedAudio: existing });
     handleGenerate();
@@ -1475,7 +1617,7 @@ function AudioGenerationContent({
                 return (
                   <div
                     key={vId}
-                    onClick={() => setSelectedVoice(vId)}
+                    onClick={() => selectVoice(vId)}
                     className={`relative cursor-pointer rounded-lg border p-3.5 transition-all flex flex-col justify-between ${
                       isSelected
                         ? 'border-accent bg-accent/10 shadow-lg ring-1 ring-accent/50'
@@ -1626,8 +1768,12 @@ function AudioGenerationContent({
               <Sliders className="h-3.5 w-3.5 text-accent" />
               3. Voice Customization & Human Inflection
             </label>
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] text-gray-500">Presets:</span>
+              <button onClick={() => applyStylePreset('natural')}
+                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${stylePreset === 'natural' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'}`}>
+                Natural Conversation
+              </button>
               <button
                 onClick={() => applyStylePreset('cinematic')}
                 className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
@@ -1663,6 +1809,20 @@ function AudioGenerationContent({
             </div>
           </div>
 
+          {isChatterbox && <div className="mb-3 space-y-2 rounded-md border border-border bg-bg/50 p-3">
+            <p className="text-xs text-gray-400">Start with Natural Conversation for a relaxed delivery. Higher expressiveness can speed up speech. Paragraph breaks add a short pause; breaths within a sentence are preserved.</p>
+            <label className="block text-xs text-gray-300" htmlFor="voice-preview-text">Try your own sentence</label>
+            <textarea id="voice-preview-text" value={voicePreviewText} maxLength={500} rows={2}
+              onChange={event => { stopPreview(); setVoicePreviewText(event.target.value); }}
+              placeholder="Paste a short part of your narration, then compare presets…"
+              className="w-full rounded border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-accent" />
+            <button type="button" disabled={!activeVoiceObj || !serverOnline || Boolean(previewLoadingId)}
+              onClick={event => activeVoiceObj && handlePreviewVoice(activeVoiceObj, event)}
+              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40">
+              {previewLoadingId ? 'Generating preview…' : previewVoiceId ? 'Stop preview' : 'Preview selected voice'}
+            </button>
+            {previewError && <p role="alert" className="text-xs text-red-400">{previewError}</p>}
+          </div>}
           {isChatterbox ? (
             <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-3">
               <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
@@ -1677,6 +1837,7 @@ function AudioGenerationContent({
                   step="0.05"
                   value={exaggeration}
                   onChange={(event) => {
+                    stopPreview();
                     setExaggeration(Number(event.target.value));
                     setStylePreset('custom');
                   }}
@@ -1697,6 +1858,7 @@ function AudioGenerationContent({
                   step="0.05"
                   value={cfgWeight}
                   onChange={(event) => {
+                    stopPreview();
                     setCfgWeight(Number(event.target.value));
                     setStylePreset('custom');
                   }}
@@ -1717,6 +1879,7 @@ function AudioGenerationContent({
                   step="0.05"
                   value={temperature}
                   onChange={(event) => {
+                    stopPreview();
                     setTemperature(Number(event.target.value));
                     setStylePreset('custom');
                   }}
@@ -1846,7 +2009,7 @@ function AudioGenerationContent({
             <button
               type="button"
               onClick={handleEnhanceNarration}
-              disabled={enhancing || !narrationText.trim()}
+              disabled={profile !== 'shorts' || enhancing || !narrationText.trim()}
               className="flex items-center gap-1.5 rounded-md bg-gradient-to-r from-purple-600 to-accent px-3.5 py-1 text-xs font-semibold text-white shadow-md transition-all hover:opacity-90 disabled:opacity-40"
               title="Enhance script with emotional cadence and acoustic pause markers for Chatterbox"
             >
@@ -1876,7 +2039,7 @@ function AudioGenerationContent({
           )}
 
           {/* Quick Pause Insertion Bar */}
-          <div className="mb-2.5 flex flex-wrap items-center gap-2 rounded-md border border-border/40 bg-surface2/30 px-3 py-2">
+          <div style={{ display: profile !== 'shorts' ? 'none' : undefined }} className="mb-2.5 flex flex-wrap items-center gap-2 rounded-md border border-border/40 bg-surface2/30 px-3 py-2">
             <span className="flex items-center gap-1 text-[11px] font-medium text-gray-400">
               <Clock className="h-3 w-3 text-accent" /> Insert Acoustic Pause:
             </span>
@@ -1907,6 +2070,7 @@ function AudioGenerationContent({
           </div>
 
           <textarea
+            readOnly={profile !== 'shorts'}
             ref={textareaRef}
             value={narrationText}
             onChange={(e) => {
@@ -1943,7 +2107,7 @@ function AudioGenerationContent({
 
             <button
               onClick={currentAudio ? handleRegenerate : handleGenerate}
-              disabled={generating}
+              disabled={generating || voicesLoading || !selectedVoice}
               className="flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/80 shadow-md disabled:opacity-40"
             >
               {generating ? (
@@ -1966,6 +2130,16 @@ function AudioGenerationContent({
           </div>
 
           {/* Real-time Generation Progress Bar */}
+          {profile !== 'shorts' && <div className="mt-3 rounded border border-border p-3 text-xs text-gray-300">
+            Narration is linked to the scene map. Use Edit on a scene in Assets to change its words and matching visual. Completed scenes are reused when retrying with the same voice settings.
+            {generating && <button className="ml-3 text-red-300" onClick={async () => {
+              try {
+                const response = await fetch(`/api/tts/long/cancel/${script.id}`, { method: 'POST' });
+                if (!response.ok) throw new Error('Cancellation failed');
+                setGenerating(false);
+              } catch (error) { setError(getErrorMessage(error, 'Could not cancel narration')); }
+            }}>Cancel after current voice request</button>}
+          </div>}
           {generating && (
             <div className="w-full rounded-md border border-accent/30 bg-accent/5 p-4 transition-all">
               <div className="mb-2 flex items-center justify-between text-xs">

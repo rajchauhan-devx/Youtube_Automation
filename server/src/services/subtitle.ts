@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const GENERATED_DIR = path.join(__dirname, '..', '..', 'data', 'generated');
+import { generatedDir, mediaUrl, currentWorkspace } from './workspace.js';
 
 function formatAssTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -39,7 +39,7 @@ export function generateSubtitleFile(opts: {
   duration: number;
 }): string {
   const { scriptId, narration, duration } = opts;
-  const outDir = path.join(GENERATED_DIR, scriptId);
+  const outDir = path.join(generatedDir(), scriptId);
   fs.mkdirSync(outDir, { recursive: true });
 
   const filePath = path.join(outDir, 'subtitles.ass');
@@ -47,7 +47,8 @@ export function generateSubtitleFile(opts: {
   // Clean narration text
   const cleanText = narration
     .replace(/\[.*?\]/g, '')
-    .replace(/\(.*?\)/g, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[{}\\]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -70,7 +71,7 @@ export function generateSubtitleFile(opts: {
     chunks.push(words.slice(i, i + wordsPerChunk).join(' '));
   }
 
-  const chunkDuration = Math.max(0.8, duration / chunks.length);
+  const chunkDuration = duration / chunks.length;
 
   // ASS Script Header with bold White base font, thick black stroke, centered bottom
   let assContent = `[Script Info]

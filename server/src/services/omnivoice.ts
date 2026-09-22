@@ -20,7 +20,7 @@ export { TtsError, type VoiceInfo } from './tts-shared.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OMNIVOICE_URL = (process.env.TTS_SERVER_URL || process.env.OMNIVOICE_URL || 'http://localhost:8880').replace(/\/+$/, '');
-const GENERATED_DIR = path.join(__dirname, '..', '..', 'data', 'generated');
+import { generatedDir, mediaUrl, currentWorkspace } from './workspace.js';
 const OMNIVOICE_START_CMD = (process.env.TTS_START_CMD || process.env.OMNIVOICE_START_CMD || 'python -m omnivoice_server --port 8880');
 
 // 'chatterbox' (default, free/local), 'edge', 'openrouter', or legacy 'omni'.
@@ -213,19 +213,20 @@ export async function generateTTS(params: {
   }
 
   const filename = `narration_${params.language}_${Date.now()}.${ext}`;
-  const dir = path.join(GENERATED_DIR, params.scriptId);
+  const dir = path.join(generatedDir(), params.scriptId);
   fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, audioBuffer);
 
   return {
     filename,
-    publicUrl: `/api/generate/file/${params.scriptId}/${filename}`,
+    publicUrl: mediaUrl(`generate/file/${params.scriptId}/${filename}`),
     elapsedMs: Date.now() - start,
   };
 }
 
 export async function previewTTS(params: {
+  text?: string;
   voice?: string;
   language: 'hi' | 'en';
   rate?: string;
@@ -239,7 +240,7 @@ export async function previewTTS(params: {
 }): Promise<{ buffer: Buffer; contentType: string }> {
   const allVoices = await getVoices(params.language);
   const matched = allVoices.find((v) => v.id === params.voice) || allVoices[0];
-  const sampleText = matched?.sampleText || (params.language === 'hi' ? 'नमस्ते! यह मेरी आवाज़ का नमूना है।' : 'Hello! This is a sample of my voice.');
+  const sampleText = params.text?.trim() || matched?.sampleText || (params.language === 'hi' ? 'नमस्ते! यह मेरी आवाज़ का नमूना है।' : 'Hello! This is a sample of my voice.');
 
   if (TTS_PROVIDER === 'chatterbox') {
     return {
@@ -345,7 +346,7 @@ export async function startOmniVoice(): Promise<{ success: boolean; ready?: bool
       omniProcess = null;
     }
 
-    fs.mkdirSync(GENERATED_DIR, { recursive: true });
+    fs.mkdirSync(generatedDir(), { recursive: true });
 
     const spawnEnv = { ...process.env };
     delete spawnEnv.OMNIVOICE_URL;
@@ -358,7 +359,7 @@ export async function startOmniVoice(): Promise<{ success: boolean; ready?: bool
     delete spawnEnv.COMFYUI_WORKFLOW_PATH;
 
     omniProcess = spawn(startCmd, [], {
-      cwd: GENERATED_DIR,
+      cwd: generatedDir(),
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: true,
       detached: false,

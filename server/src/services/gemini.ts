@@ -10,6 +10,9 @@ export interface ChatRequest {
   messages: ChatMessage[];
   temperature?: number;
   max_tokens?: number;
+  json?: boolean;
+  jsonSchema?: Record<string, unknown>;
+  signal?: AbortSignal;
 }
 
 export interface ChatResponse {
@@ -62,6 +65,7 @@ function buildGeminiPayload(req: ChatRequest) {
     generationConfig: {
       temperature: req.temperature ?? 0.7,
       maxOutputTokens: req.max_tokens ?? 8192,
+      ...(req.json ? { responseMimeType: 'application/json' } : {}),
     },
   };
 
@@ -83,6 +87,7 @@ export async function chat(apiKey: string, req: ChatRequest): Promise<ChatRespon
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+    signal: req.signal,
   });
 
   if (!res.ok) {

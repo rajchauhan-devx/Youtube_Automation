@@ -20,7 +20,7 @@ import type { Section, ChannelData } from '../../data';
 export function EditorTab({ data, section }: { data: ChannelData; section: Section }) {
   const [playing, setPlaying] = useState(false);
   const tracks =
-    section === 'long'
+    section !== 'shorts'
       ? [
           { id: 'video', label: 'Video', color: '#3b82f6' },
           { id: 'broll', label: 'B-Roll', color: '#ec4899' },

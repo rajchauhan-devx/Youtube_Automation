@@ -1,5 +1,6 @@
 import { Plus, Sparkles, Lock } from 'lucide-react';
 import { ScriptDetailPanel } from './ScriptDetailPanel';
+import { SCRIPT_MODELS } from './ScriptModelSelector';
 import type { Script, Section } from '../../data';
 
 export function ScriptsTab({
@@ -80,7 +81,7 @@ export function ScriptsTab({
                 <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                   <span>{s.duration}s duration</span>
                   <span className="text-[11px] text-accent/80 font-medium">
-                    {s.model ? s.model.replace('gemini-', '').replace('-preview', '') : '3.6-flash'}
+                    {SCRIPT_MODELS.find(model => model.id === (s.model || 'gemini-3.6-flash'))?.name || s.model}
                   </span>
                 </div>
               </button>

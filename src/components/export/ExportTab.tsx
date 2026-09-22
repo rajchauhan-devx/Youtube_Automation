@@ -43,6 +43,7 @@ export function ExportTab({
   const [enableSubtitles, setEnableSubtitles] = useState(true);
   const [bgmTrack, setBgmTrack] = useState('auto');
   const [bgmVolume, setBgmVolume] = useState(0.15);
+  const [ttsVolume, setTtsVolume] = useState(script?.timelineConfig?.ttsVolume ?? script?.ttsVolume ?? 1.0);
   const [colorGrade, setColorGrade] = useState('auto');
   const [enableVignette, setEnableVignette] = useState(true);
   const [enableSfx, setEnableSfx] = useState(true);
@@ -68,6 +69,10 @@ export function ExportTab({
   useEffect(() => {
     if (script?.id) {
       checkExistingVideos(script.id);
+      const savedVol = script?.timelineConfig?.ttsVolume ?? script?.ttsVolume;
+      if (typeof savedVol === 'number' && savedVol > 0) {
+        setTtsVolume(savedVol);
+      }
     }
   }, [script?.id]);
 
@@ -163,6 +168,7 @@ export function ExportTab({
           enableSubtitles,
           bgmTrack: bgmTrack === 'auto' ? (script.sceneAnalysis?.mood || 'epic') : bgmTrack,
           bgmVolume,
+          ttsVolume,
           colorGrade: colorGrade === 'auto' ? (script.sceneAnalysis?.colorGrade || 'teal-orange') : colorGrade,
           enableVignette,
           enableSfx,
@@ -392,6 +398,76 @@ export function ExportTab({
               />
               <div className="peer h-6 w-11 rounded-full bg-surface2 after:absolute after:top-[2px] after:left-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none" />
             </label>
+          </div>
+
+          {/* TTS Voiceover Volume */}
+          <div className="rounded-lg border border-border/70 bg-bg/50 p-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-white">TTS Voiceover Volume</span>
+                <span
+                  className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                    ttsVolume > 1.0
+                      ? 'bg-accent/20 text-accent'
+                      : ttsVolume < 1.0
+                      ? 'bg-amber-500/20 text-amber-300'
+                      : 'bg-surface2 text-gray-300'
+                  }`}
+                >
+                  {Math.round(ttsVolume * 100)}% {ttsVolume > 1.0 ? `(+${Math.round((ttsVolume - 1) * 100)}% Boost)` : ttsVolume === 1.0 ? '(Normal)' : ''}
+                </span>
+              </div>
+              {ttsVolume !== 1.0 && (
+                <button
+                  type="button"
+                  onClick={() => setTtsVolume(1.0)}
+                  className="text-[11px] text-accent hover:underline"
+                >
+                  Reset (100%)
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="0.2"
+                max="3.0"
+                step="0.05"
+                value={ttsVolume}
+                onChange={(e) => setTtsVolume(parseFloat(e.target.value))}
+                className="flex-1"
+              />
+              <span className="w-12 text-right font-mono text-xs font-semibold text-gray-300">
+                {ttsVolume.toFixed(2)}x
+              </span>
+            </div>
+
+            {/* Quick preset chips */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <span className="text-[10px] text-gray-500 font-medium">Presets:</span>
+              {[
+                { label: '80%', val: 0.8 },
+                { label: '100% Normal', val: 1.0 },
+                { label: '130% Boost', val: 1.3 },
+                { label: '160% Boost', val: 1.6 },
+                { label: '200% (2x)', val: 2.0 },
+                { label: '250% (Max)', val: 2.5 },
+              ].map((p) => (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => setTtsVolume(p.val)}
+                  className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    Math.abs(ttsVolume - p.val) < 0.03
+                      ? 'bg-accent text-white'
+                      : 'border border-border/70 bg-surface text-gray-400 hover:bg-surface2 hover:text-white'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/50">

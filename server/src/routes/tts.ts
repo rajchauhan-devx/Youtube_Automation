@@ -1,4 +1,11 @@
 import { Router } from 'express';
+import { presenterGuard } from '../services/presenter-guard.js';
+import { localMusicBusy } from '../services/local-music.js';
+import { currentWorkspace } from '../services/workspace.js';
+import { safeSegment } from '../services/paths.js';
+import { startNarration, narrationStatus, cancelNarration } from '../services/long-narration.js';
+import { clearScriptVideo } from './render.js';
+import { getChatterboxVoiceReference } from '../services/chatterbox-tts.js';
 import {
   createLocalVoice,
   deleteLocalVoice,
@@ -13,6 +20,40 @@ import {
 } from '../services/omnivoice.js';
 
 export const ttsRouter = Router();
+ttsRouter.use(presenterGuard(['/start', '/long/start', '/preview', '/generate']));
+ttsRouter.use((req, res, next) => {
+  if (req.method === 'POST' && ['/start', '/long/start', '/preview', '/generate'].includes(req.path) && localMusicBusy()) {
+    res.status(409).json({ error: 'Wait for local music generation to finish before generating narration.' }); return;
+  }
+  next();
+});
+
+ttsRouter.post('/long/start', async (req, res) => {
+  const { scriptId, language, voice, rate, pitch, speed, exaggeration, cfgWeight, temperature, seed } = req.body || {};
+  if (currentWorkspace().profile === 'shorts' || !safeSegment(scriptId) || !['hi', 'en'].includes(language) || typeof voice !== 'string' || !voice) {
+    res.status(400).json({ error: 'Select a Long Video script, language and voice.' }); return;
+  }
+  let started = false;
+  try {
+    // Reserve the narration job synchronously before invalidating existing render output.
+    startNarration({ scriptId, language, voice, rate, pitch, speed, exaggeration, cfgWeight, temperature, seed });
+    started = true;
+    await clearScriptVideo(scriptId);
+    res.status(202).json(narrationStatus(scriptId));
+  } catch (error) {
+    if (started) await cancelNarration(scriptId);
+    res.status(409).json({ error: errorMessage(error, 'Could not start synchronized narration') });
+  }
+});
+ttsRouter.get('/long/status/:id', (req, res) => {
+  if (!safeSegment(req.params.id)) { res.status(400).json({ error: 'Invalid script ID' }); return; }
+  res.json(narrationStatus(req.params.id));
+});
+ttsRouter.post('/long/cancel/:id', async (req, res) => {
+  if (!safeSegment(req.params.id)) { res.status(400).json({ error: 'Invalid script ID' }); return; }
+  await cancelNarration(req.params.id);
+  res.json({ ok: true });
+});
 
 const statusCode: Record<string, number> = {
   API_ERROR: 502,
@@ -32,10 +73,24 @@ ttsRouter.get('/status', async (_req, res) => {
   res.json(await getTtsProviderStatus());
 });
 
-ttsRouter.get('/voices', async (req, res) => {
-  const language = req.query.language as string | undefined;
-  const voices = await getVoices(language);
-  res.json({ voices, provider: TTS_PROVIDER_NAME });
+ttsRouter.get('/voices', async (req, res, next) => {
+  const language = req.query.language;
+  if (language !== undefined && language !== 'en' && language !== 'hi') {
+    res.status(400).json({ error: 'language must be "hi" or "en"' }); return;
+  }
+  try {
+    const voices = await getVoices(language);
+    res.json({ voices, provider: TTS_PROVIDER_NAME });
+  } catch (error) { next(error); }
+});
+
+ttsRouter.get('/voices/:id/reference', (req, res, next) => {
+  try {
+    const reference = getChatterboxVoiceReference(req.params.id);
+    if (!reference) { res.status(404).json({ error: 'Voice reference not found' }); return; }
+    res.set('Cache-Control', 'private, no-store');
+    res.sendFile(reference);
+  } catch (error) { next(error); }
 });
 
 ttsRouter.post('/start', async (_req, res) => {
@@ -49,7 +104,10 @@ ttsRouter.post('/stop', async (_req, res) => {
 });
 
 ttsRouter.post('/preview', async (req, res) => {
-  const { voice, language, rate, pitch, volume, speed, exaggeration, cfgWeight, temperature, seed } = req.body || {};
+  const { text, voice, language, rate, pitch, volume, speed, exaggeration, cfgWeight, temperature, seed } = req.body || {};
+  if (text !== undefined && (typeof text !== 'string' || text.length > 500)) {
+    res.status(400).json({ error: 'Preview text must be at most 500 characters.' }); return;
+  }
 
   if (!language || !['hi', 'en'].includes(language)) {
     res.status(400).json({ error: 'language must be "hi" or "en"' });
@@ -58,6 +116,7 @@ ttsRouter.post('/preview', async (req, res) => {
 
   try {
     const { buffer, contentType } = await previewTTS({
+      text,
       voice,
       language,
       rate,
@@ -84,6 +143,7 @@ ttsRouter.post('/preview', async (req, res) => {
 });
 
 ttsRouter.post('/generate', async (req, res) => {
+  if (currentWorkspace().profile !== 'shorts') { res.status(409).json({ error: 'Use synchronized scene narration for Long Video.' }); return; }
   const {
     text,
     language,

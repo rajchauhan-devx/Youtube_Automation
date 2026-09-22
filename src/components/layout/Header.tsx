@@ -6,14 +6,16 @@ export function Header({
   section,
   tab,
   isMain,
+  onNewScript,
 }: {
   channel: Channel;
   section: Section | string;
   tab: Tab;
   isMain: boolean;
+  onNewScript: () => void;
 }) {
   const sectionLabel =
-    section === 'shorts' ? 'Shorts' : section === 'long' ? 'Long' : (section as string);
+    section === 'shorts' ? 'Shorts' : section === 'mixed' ? 'Mixed Media' : section === 'long' ? 'Long Video' : (section as string);
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-border bg-bg px-6">
       <div className="flex items-center gap-2 text-sm">
@@ -35,7 +37,7 @@ export function Header({
           <Search className="h-4 w-4" />
           <span className="hidden sm:inline">Search</span>
         </button>
-        <button className="flex items-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500">
+        <button onClick={onNewScript} className="flex items-center gap-2 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500">
           <Sparkles className="h-4 w-4" />
           <span className="hidden sm:inline">New Script</span>
         </button>

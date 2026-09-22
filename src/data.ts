@@ -1,9 +1,11 @@
-export type Section = 'shorts' | 'long';
+export type Section = 'shorts' | 'long' | 'mixed';
+import type { ScenePlan, NarrationSync } from '../server/src/services/scene-plan';
 export type Tab = 'scripts' | 'preview' | 'assets' | 'generation' | 'review' | 'export';
 export type ScriptStatus = 'active' | 'draft';
 export type AssetKind = 'image' | 'audio' | 'video';
 
 export interface TimelineClip {
+  mediaType?: 'image' | 'video';
   id: string;
   imageUrl: string;
   prompt: string;
@@ -19,6 +21,9 @@ export interface TimelineConfig {
   totalDuration: number;
   resolution: { width: number; height: number };
   zoomFactor: number;
+  ttsVolume?: number;
+  bgmVolume?: number;
+  bgmTrack?: string;
 }
 
 export interface PromptBlock {
@@ -33,9 +38,12 @@ export interface Channel {
   name: string;
   color: string;
   avatar: string;
+  youtubeChannelId?: string;
+  youtubeChannelTitle?: string;
 }
 
 export const DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
+export const LONG_DURATION_PRESETS = [180, 300, 600, 900, 1200] as const;
 export type DurationPreset = (typeof DURATION_PRESETS)[number];
 
 export interface GeminiModelInfo {
@@ -95,8 +103,26 @@ export interface SceneAnalysis {
   colorGrade?: string;
 }
 
+export interface YouTubeExportData {
+  title?: string;
+  description?: string;
+  tags?: string[];
+  privacyStatus?: 'public' | 'unlisted' | 'private';
+  categoryId?: string;
+  selectedThumbnailIndex?: number;
+  uploadedVideoId?: string;
+  uploadedVideoUrl?: string;
+  uploadedAt?: string;
+}
+
 export interface Script {
+  enableSubtitles?: boolean;
+  presenter?: import('../server/src/services/presenter-settings').PresenterSettings;
+  maxDurationSeconds?: number;
+  editing?: import('../server/src/services/auto-edit').EditingSettings;
   id: string;
+  accountId?: string;
+  section?: Section;
   name: string;
   lastUsed: string;
   status: ScriptStatus;
@@ -113,11 +139,15 @@ export interface Script {
   extractedScript?: string;
   imagePrompts?: string[];
   narration?: string;
+  scenePlan?: ScenePlan;
   generatedImages?: GeneratedImage[];
-  generatedAudio?: GeneratedAudio[];
+    generatedAudio?: GeneratedAudio[];
+    generatedMusic?: { filename: string; url: string; prompt: string; duration: number; seed: number; contextHash: string; createdAt: string };
   pipeline?: PipelineStep[];
   timelineConfig?: TimelineConfig;
   sceneAnalysis?: SceneAnalysis;
+  youtubeExport?: YouTubeExportData;
+  ttsVolume?: number;
 }
 
 export interface PipelineStep {
@@ -130,6 +160,8 @@ export interface PipelineStep {
 }
 
 export interface GeneratedImage {
+  mediaType?: 'image' | 'video';
+  duration?: number;
   index: number;
   prompt: string;
   status: 'pending' | 'generating' | 'done' | 'error';
@@ -142,6 +174,7 @@ export interface GeneratedImage {
 }
 
 export interface GeneratedAudio {
+  sync?: NarrationSync;
   language: 'hi' | 'en';
   voice?: string;
   voiceName?: string;

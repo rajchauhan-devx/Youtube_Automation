@@ -1,5 +1,5 @@
-export async function apiPost(path: string, body: unknown, apiKey: string) {
-  const res = await fetch(path, {
+export async function apiPost(path: string, body: unknown, apiKey: string, fetcher: typeof fetch = fetch) {
+  const res = await fetcher(path, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

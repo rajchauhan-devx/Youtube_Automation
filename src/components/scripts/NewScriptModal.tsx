@@ -1,7 +1,9 @@
+import { useWorkspaceApi } from '../../services/workspaceApi';
 import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import { Field } from '../layout/Field';
-import { DURATION_PRESETS, type Section, type Script, type DurationPreset } from '../../data';
+import { ScriptModelSelector } from './ScriptModelSelector';
+import { DURATION_PRESETS, LONG_DURATION_PRESETS, type Section, type Script, type DurationPreset } from '../../data';
 
 let blockCounter = 0;
 function newBlockId() {
@@ -10,8 +12,10 @@ function newBlockId() {
 }
 
 export function NewScriptModal({ onClose, section, onCreated }: { onClose: () => void; section: Section; onCreated?: (script: Script) => void }) {
+  const { fetch, profile, account } = useWorkspaceApi();
   const [name, setName] = useState('');
-  const [duration, setDuration] = useState<number>(section === 'long' ? 120 : 30);
+  const [model, setModel] = useState('ollama/qwen3.5:4b');
+  const [duration, setDuration] = useState<number>(section !== 'shorts' ? 300 : 30);
   const [prompts, setPrompts] = useState<
     { id: string; name: string; type?: string; content: string }[]
   >([
@@ -34,12 +38,15 @@ export function NewScriptModal({ onClose, section, onCreated }: { onClose: () =>
     if (!name.trim()) return;
     setSaving(true);
     const newScript: Script = {
-      id: `usr_${Date.now()}`,
+      id: `usr_${crypto.randomUUID()}`,
+      accountId: account.id,
+      section: profile,
       name: name.trim(),
       lastUsed: 'now',
       status: 'draft',
       locked: false,
       duration,
+      model,
       prompts: prompts.map((p) => ({ id: p.id, name: p.name, type: p.type, content: p.content })),
       howItWorks,
     };
@@ -80,9 +87,12 @@ export function NewScriptModal({ onClose, section, onCreated }: { onClose: () =>
             />
           </Field>
 
+          <Field label="AI Model">
+            <ScriptModelSelector value={model} onChange={setModel} />
+          </Field>
           <Field label="Target Duration">
             <div className="flex flex-wrap gap-2">
-              {DURATION_PRESETS.map((dur) => (
+              {(section !== 'shorts' ? LONG_DURATION_PRESETS : DURATION_PRESETS).map((dur) => (
                 <button
                   key={dur}
                   type="button"
@@ -156,7 +166,7 @@ export function NewScriptModal({ onClose, section, onCreated }: { onClose: () =>
             </Field>
           )}
 
-          {section === 'long' && (
+          {section !== 'shorts' && (
             <Field label="Chapter Outline">
               <textarea
                 placeholder="One chapter per line..."

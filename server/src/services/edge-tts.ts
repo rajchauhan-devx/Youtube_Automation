@@ -274,7 +274,7 @@ export function warmupPreviewCache(): void {
 }
 
 // Start cache prewarming in background
-warmupPreviewCache();
+if ((process.env.TTS_PROVIDER || 'chatterbox').toLowerCase() === 'edge') warmupPreviewCache();
 
 export async function generateEdgeAudio(
   text: string,

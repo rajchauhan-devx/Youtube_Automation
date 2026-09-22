@@ -1,8 +1,9 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Zap, Clapperboard, ListOrdered, Library, Settings, ChevronDown } from 'lucide-react';
-import { channels, channelData } from './data';
+import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './services/workspaceApi';
 import type { Section, Tab, Channel, Script } from './data';
 import { PlaceholderPage } from './components/PlaceholderPage';
+import { ProfilePage } from './components/profile/ProfilePage';
 import { ScriptsTab } from './components/scripts/ScriptsTab';
 import { NewScriptModal } from './components/scripts/NewScriptModal';
 import { ScriptRunModal } from './components/scripts/ScriptRunModal';
@@ -10,9 +11,11 @@ import { PreviewTab } from './components/preview/PreviewTab';
 import { AssetsTab } from './components/assets/AssetsTab';
 import { GenerationTab } from './components/generation/GenerationTab';
 import { ReviewAdjustTab } from './components/editor/ReviewAdjustTab';
+import { YouTubeExportTab } from './components/export/YouTubeExportTab';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { extractScriptTagContent, parseAIResponse } from './lib/parseAIResponse.js';
+import { incompleteResponse } from '../server/src/services/generation-status';
 import { apiPost, getApiKey } from './services/api.js';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -21,12 +24,14 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'preview', label: 'Preview' },
   { id: 'assets', label: 'Assets' },
   { id: 'generation', label: 'Generation' },
-  { id: 'review', label: 'Review & Export' },
+  { id: 'review', label: 'Timeline & Render' },
+  { id: 'export', label: 'YouTube Export' },
 ];
 
 const SIDEBAR_ICONS = [
   { id: 'shorts', label: 'Shorts', icon: Zap },
-  { id: 'long', label: 'Long', icon: Clapperboard },
+  { id: 'long', label: 'Long Video', icon: Clapperboard },
+  { id: 'mixed', label: 'Mixed Media', icon: Library },
   { id: 'queue', label: 'Queue', icon: ListOrdered },
   { id: 'library', label: 'Library', icon: Library },
   { id: 'settings', label: 'Settings', icon: Settings },
@@ -59,22 +64,14 @@ function saveUiState(state: PersistedUiState) {
   }
 }
 
-function mergeScript(base: Script, persisted?: Script): Script {
-  if (!persisted) return base;
-  return {
-    ...base,
-    ...persisted,
-    prompts: persisted.prompts && persisted.prompts.length > 0 ? persisted.prompts : base.prompts,
-  };
-}
-
-type SidebarId = Section | 'queue' | 'library' | 'settings';
+type SidebarId = Section | 'queue' | 'library' | 'settings' | 'profile';
 
 export default function App() {
   const initialUi = loadUiState();
   const [activeChannel, setActiveChannel] = useState<Channel>(
-    channels.find((c) => c.id === initialUi?.channelId) ?? channels[0]
+    { ...DEFAULT_ACCOUNT, id: initialUi?.channelId?.startsWith('acct_') ? initialUi.channelId : 'default' }
   );
+  const [accounts, setAccounts] = useState<Channel[]>([DEFAULT_ACCOUNT]);
   const [channelSwitcherOpen, setChannelSwitcherOpen] = useState(false);
   const [sidebar, setSidebar] = useState<SidebarId>(initialUi?.section ?? 'shorts');
   const [section, setSection] = useState<Section>(initialUi?.section ?? 'shorts');
@@ -83,6 +80,8 @@ export default function App() {
   const [newScriptOpen, setNewScriptOpen] = useState(false);
   const [userScripts, setUserScripts] = useState<Script[]>([]);
   const [runModalScript, setRunModalScript] = useState<Script | null>(null);
+  const saveQueues = useRef(new Map<string, Promise<void>>());
+  const [saveError, setSaveError] = useState('');
   const generationAbortRef = useRef<AbortController | null>(null);
 
   // Persist lightweight UI state so a refresh restores the workspace.
@@ -95,81 +94,80 @@ export default function App() {
     });
   }, [activeChannel.id, section, tab, selectedScriptId]);
 
-  // Make sure a script is selected by default so Generation & Preview tabs are active
-  useEffect(() => {
-    if (!selectedScriptId) {
-      const channelScripts = channelData[activeChannel.id]?.scripts || [];
-      const fallbackId = userScripts[0]?.id || channelScripts[0]?.id || 'ch1-s1';
-      setSelectedScriptId(fallbackId);
-      return;
-    }
-    const persistedExists = userScripts.some((s) => s.id === selectedScriptId);
-    const channelExists = channelData[activeChannel.id]?.scripts.some((s) => s.id === selectedScriptId);
-    if (!persistedExists && !channelExists) {
-      const fallbackId = userScripts[0]?.id || channelData[activeChannel.id]?.scripts[0]?.id || 'ch1-s1';
-      setSelectedScriptId(fallbackId);
-    }
-  }, [userScripts, selectedScriptId, activeChannel.id]);
+  const fetch = useMemo(() => createWorkspaceFetch(activeChannel.id, section), [activeChannel.id, section]);
+  const scopeKey = `${activeChannel.id}:${section}`;
+  const activeScope = useRef(scopeKey);
+  activeScope.current = scopeKey;
+  const scopeScripts = userScripts.filter(script => script.accountId === activeChannel.id && script.section === section);
 
   useEffect(() => {
-    fetch('/api/scripts')
-      .then((res) => res.json())
-      .then((data: Script[]) => {
-        // If a saved run is in an unfinished running state, reset it so the UI
-        // does not stay stuck after a refresh.
-        const normalized = data.map((s) => {
-          const isUnfinished =
-            (s.pipeline?.[0]?.status === 'running' && !s.aiResponse) ||
-            (s.pipeline?.some((p) => p.status === 'running') && !s.aiResponse);
-          if (isUnfinished) {
-            return {
-              ...s,
-              pipeline: [{ id: 'response', label: 'Response', status: 'pending' as const, summary: 'Waiting to start', inputLog: s.topicName || '', outputPreview: '' }],
-            };
-          }
-          return s;
-        });
-        setUserScripts(normalized);
-      })
-      .catch(console.error);
+    const controller = new AbortController();
+    globalThis.fetch('/api/accounts', { signal: controller.signal }).then(async response => {
+      if (!response.ok) throw new Error('Could not load YouTube accounts');
+      const data = await response.json();
+      if (!Array.isArray(data.accounts)) throw new Error('Invalid account list');
+      setAccounts(data.accounts);
+      setActiveChannel(current => data.accounts.find((item: Channel) => item.id === current.id) || data.accounts[0] || DEFAULT_ACCOUNT);
+    }).catch(error => { if (!controller.signal.aborted) setSaveError(error.message); });
+    return () => controller.abort();
   }, []);
 
-  function patchScriptState(id: string, patch: Partial<Script>) {
-    setUserScripts((prev) => {
-      const idx = prev.findIndex((s) => s.id === id);
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], ...patch };
-        return next;
+  useEffect(() => {
+    const controller = new AbortController();
+    setUserScripts([]);
+    fetch('/api/scripts', { signal: controller.signal }).then(async response => {
+      if (!response.ok) throw new Error('Could not load workspace scripts');
+      const data: Script[] = await response.json();
+      if (!Array.isArray(data)) throw new Error('Invalid script list');
+      if (!controller.signal.aborted) {
+        const normalized = data.map(script => ({ ...script, accountId: activeChannel.id, section }));
+        setUserScripts(normalized);
+        setSelectedScriptId(current => normalized.some(script => script.id === current) ? current : normalized[0]?.id || null);
       }
-      const base = channelData[activeChannel.id].scripts.find((s) => s.id === id);
-      if (!base) return prev;
-      return [...prev, { ...base, ...patch }];
-    });
+    }).catch(error => { if (!controller.signal.aborted) setSaveError(error.message); });
+    return () => { controller.abort(); generationAbortRef.current?.abort(); };
+  }, [fetch, activeChannel.id, section]);
+
+  function patchScriptState(id: string, patch: Partial<Script>) {
+    if (activeScope.current !== scopeKey) return;
+    setUserScripts(prev => prev.map(script => script.id === id ? { ...script, ...patch, accountId: activeChannel.id, section } : script));
   }
 
   async function persistScript(id: string, patch: Partial<Script>) {
-    const base = channelData[activeChannel.id].scripts.find((s) => s.id === id);
-    const persisted = userScripts.find((s) => s.id === id);
-    const full = base ? mergeScript(base, persisted) : persisted;
-    if (!full) {
-      console.error('Cannot persist script: no template or saved state for', id);
-      return;
-    }
+    const full = userScripts.find(script => script.id === id);
+    if (!full) return;
     const updated = { ...full, ...patch };
     patchScriptState(id, patch);
-    try {
-      await fetch('/api/scripts/' + id, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated),
-      });
-    } catch (err) {
-      console.error('Failed to persist script state:', err);
-    }
+    let saved = false;
+    const save = async () => {
+      try {
+        let response = await fetch('/api/scripts/' + id, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+        });
+        if (response.status === 404) {
+          response = await fetch('/api/scripts', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated),
+          });
+        }
+        if (!response.ok) throw new Error(`Save failed (HTTP ${response.status})`);
+        saved = true;
+        setSaveError('');
+      } catch (error) {
+        setSaveError(error instanceof Error ? error.message : 'Could not save changes');
+      }
+    };
+    const saveKey = `${scopeKey}:${id}`;
+    const pending = (saveQueues.current.get(saveKey) || Promise.resolve()).then(save);
+    saveQueues.current.set(saveKey, pending);
+    await pending;
+    if (saveQueues.current.get(saveKey) === pending) saveQueues.current.delete(saveKey);
+    return saved;
   }
 
   function buildPrompt(template: string, topic: string, instructions: string, duration?: number): string {
+    if (section !== 'shorts') {
+      return [template, topic.trim() ? `Topic: ${topic}` : '', instructions.trim()].filter(Boolean).join('\n\n');
+    }
     const targetDurationStr = duration
       ? `Target Duration: ~${duration} seconds. Pace the script naturally for this length — you may go slightly shorter or longer if the content demands it, but aim for this ballpark.`
       : '';
@@ -181,7 +179,8 @@ export default function App() {
 
 Topic: ${topic}
 ${targetDurationStr}
-${optionalInstructions}`.trim();
+${optionalInstructions}
+${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening, clear chapters, smooth transitions and a conclusion. Plan images for landscape 16:9 composition. Use the requested duration to develop the topic in depth.' : ''}`.trim();
   }
 
   async function generateScript(script: Script, topic: string, instructions: string) {
@@ -213,6 +212,12 @@ ${optionalInstructions}`.trim();
       extractedScript: '',
       imagePrompts: [],
       narration: '',
+      generatedImages: [],
+      generatedAudio: [],
+      timelineConfig: undefined,
+      sceneAnalysis: undefined,
+      youtubeExport: undefined,
+      scenePlan: undefined,
       lastUsed: new Date().toISOString(),
       status: 'active',
       pipeline: [
@@ -228,12 +233,16 @@ ${optionalInstructions}`.trim();
     };
 
     patchScriptState(scriptId, initialPatch);
-    await persistScript(scriptId, initialPatch);
+    if (!await persistScript(scriptId, initialPatch)) {
+      if (generationAbortRef.current === controller) generationAbortRef.current = null;
+      return;
+    }
+    if (controller.signal.aborted || generationAbortRef.current !== controller) return;
 
     let fullResponse = '';
 
     try {
-      const baseMessages = [
+      const baseMessages = section !== 'shorts' ? [{ role: 'user', content: promptText }] : [
         {
           role: 'system',
           content:
@@ -243,6 +252,7 @@ ${optionalInstructions}`.trim();
       ];
       let messages = baseMessages;
       let finishReason = '';
+      let incomplete: string | undefined;
       const maxContinuations = 8;
 
       for (let attempt = 0; attempt <= maxContinuations; attempt += 1) {
@@ -289,8 +299,7 @@ ${optionalInstructions}`.trim();
           try {
             parsed = JSON.parse(dataStr);
           } catch {
-            console.warn('Ignoring malformed stream event:', dataStr);
-            return;
+            throw new Error('Received a damaged response stream. Partial text has been saved; retry generation.');
           }
 
           if (parsed.error) throw new Error(parsed.error);
@@ -328,7 +337,9 @@ ${optionalInstructions}`.trim();
         sseBuffer += decoder.decode();
         if (sseBuffer.trim()) handleEvent(sseBuffer);
 
-        if (finishReason !== 'MAX_TOKENS' || attempt === maxContinuations) break;
+        incomplete = incompleteResponse(promptText, fullResponse);
+        const needsContinuation = !finishReason || finishReason === 'STREAM_INTERRUPTED' || finishReason === 'MAX_TOKENS' || (finishReason === 'STOP' && Boolean(incomplete));
+        if (!needsContinuation || attempt === maxContinuations) break;
 
         messages = [
           ...baseMessages,
@@ -344,7 +355,7 @@ ${optionalInstructions}`.trim();
       if (generationAbortRef.current !== controller) return;
       if (!fullResponse.trim()) throw new Error('The model finished without returning any text');
 
-      const completedNormally = !finishReason || finishReason === 'STOP';
+      const completedNormally = finishReason === 'STOP' && !incomplete;
       const donePatch: Partial<Script> = {
         aiResponse: fullResponse,
         pipeline: [
@@ -354,7 +365,7 @@ ${optionalInstructions}`.trim();
             status: completedNormally ? ('done' as const) : ('warning' as const),
             summary: completedNormally
               ? 'Response complete — click Extract Assets to process'
-              : `Generation ended: ${finishReason.toLowerCase().replace(/_/g, ' ')}`,
+              : `Response incomplete: ${incomplete || (finishReason || 'stream interrupted').toLowerCase().replace(/_/g, ' ')}`,
             inputLog: topic,
             outputPreview: fullResponse.slice(-200),
           },
@@ -398,24 +409,14 @@ ${optionalInstructions}`.trim();
     generationAbortRef.current?.abort();
   }
 
-  const data = useMemo(() => channelData[activeChannel.id], [activeChannel]);
-
-  const persistedScript = useMemo(
-    () => userScripts.find((s) => s.id === selectedScriptId),
-    [userScripts, selectedScriptId]
-  );
-
-  const selectedScript = useMemo(() => {
-    const base = data.scripts.find((s) => s.id === selectedScriptId) ?? null;
-    if (!base) return persistedScript ?? null;
-    return mergeScript(base, persistedScript);
-  }, [data, persistedScript, selectedScriptId]);
+  const selectedScript = scopeScripts.find(script => script.id === selectedScriptId) || null;
 
   const pipeline = selectedScript?.pipeline || [];
 
   function selectSidebar(id: SidebarId) {
+    setNewScriptOpen(false); setRunModalScript(null);
     setSidebar(id);
-    if (id === 'shorts' || id === 'long') {
+    if (id === 'shorts' || id === 'long' || id === 'mixed') {
       setSection(id);
       setTab('scripts');
       setSelectedScriptId(null);
@@ -423,13 +424,30 @@ ${optionalInstructions}`.trim();
   }
 
   function switchChannel(ch: Channel) {
+    setNewScriptOpen(false); setRunModalScript(null);
     setActiveChannel(ch);
     setChannelSwitcherOpen(false);
     setSelectedScriptId(null);
     setTab('scripts');
   }
 
-  async function handleExtractAssets() {
+  async function handleImportResponse(response: string, extract: boolean) {
+    if (!selectedScript || !response.trim()) throw new Error('Select a script and paste a response first.');
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
+    const patch: Partial<Script> = {
+      aiResponse: response.trim(), extractedScript: '', imagePrompts: [], narration: '',
+      generatedImages: [], generatedAudio: [], scenePlan: undefined, timelineConfig: undefined,
+      sceneAnalysis: undefined, youtubeExport: undefined, status: 'active', lastUsed: new Date().toISOString(),
+      pipeline: [{ id: 'response', label: 'Response', status: 'done', summary: 'Response imported — ready to extract', inputLog: '', outputPreview: response.slice(0, 120) }],
+    };
+    if (!await persistScript(selectedScript.id, patch)) throw new Error('Could not save the imported response. Your pasted text is still here; please retry.');
+    if (activeScope.current !== scopeKey) return;
+    if (extract) await handleExtractAssets(false, { ...selectedScript, ...patch });
+  }
+
+  async function handleExtractAssets(useTimelineNarration = false, sourceScript: Script | null = selectedScript) {
+    const selectedScript = sourceScript;
     if (!selectedScript?.aiResponse || !selectedScriptId) return;
     const scriptId = selectedScriptId;
 
@@ -447,25 +465,34 @@ ${optionalInstructions}`.trim();
     });
     setTab('assets');
 
-    let extracted: { script: string; ttsText: string; imagePrompts: string[] };
+    let extracted: { script: string; ttsText: string; imagePrompts: string[]; scenePlan?: Script['scenePlan'] };
 
     try {
       const result = await apiPost(
         '/api/llm/extract',
-        { rawText: selectedScript.aiResponse },
-        getApiKey()
+        { rawText: selectedScript.aiResponse, useTimelineNarration },
+        getApiKey(), fetch
       );
       extracted = {
         script: result.script || '',
-        ttsText: extractScriptTagContent(selectedScript.aiResponse),
+        ttsText: section !== 'shorts' ? result.ttsText : extractScriptTagContent(selectedScript.aiResponse),
         imagePrompts: result.imagePrompts || [],
+        scenePlan: result.scenePlan,
       };
     } catch (err) {
+      if (section !== 'shorts') {
+        patchScriptState(scriptId, { pipeline: [{ id: 'response', label: 'Response', status: 'error', summary: 'Asset extraction needs attention', inputLog: '', outputPreview: err instanceof Error ? err.message : 'Check the asset tags and narration links in the response.' }] });
+        if (activeScope.current === scopeKey) setTab('preview');
+        return;
+      }
       console.error('AI extraction failed, falling back to regex parser:', err);
       extracted = parseAIResponse(selectedScript.aiResponse);
     }
 
     let sceneAnalysis: any = undefined;
+    if (section !== 'shorts') {
+      sceneAnalysis = { transitions: extracted.imagePrompts.map(() => 'none'), effects: extracted.imagePrompts.map(() => 'zoom-in'), timings: [], mood: 'epic', colorGrade: 'warm-vintage' };
+    } else {
     try {
       sceneAnalysis = await apiPost(
         '/api/llm/scene-analysis',
@@ -475,16 +502,19 @@ ${optionalInstructions}`.trim();
           imagePrompts: extracted.imagePrompts,
           duration: selectedScript.duration || 30,
         },
-        getApiKey()
+        getApiKey(), fetch
       );
     } catch (e) {
       console.warn('Scene analysis fetch error:', e);
+    }
     }
 
     const patch: Partial<Script> = {
       extractedScript: extracted.script,
       imagePrompts: extracted.imagePrompts,
       narration: extracted.ttsText,
+      scenePlan: extracted.scenePlan,
+      ...(section !== 'shorts' ? { generatedImages: [], generatedAudio: [], timelineConfig: undefined } : {}),
       sceneAnalysis,
       pipeline: [
         {
@@ -499,10 +529,12 @@ ${optionalInstructions}`.trim();
     };
     patchScriptState(scriptId, patch);
     await persistScript(scriptId, patch);
-    setTab('assets');
+    if (activeScope.current === scopeKey) setTab('assets');
   }
 
   async function handleClearScript(id: string) {
+    generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const resetPatch: Partial<Script> = {
       topicName: undefined,
       aiInstructions: undefined,
@@ -514,6 +546,8 @@ ${optionalInstructions}`.trim();
       generatedAudio: [],
       timelineConfig: undefined,
       sceneAnalysis: undefined,
+      youtubeExport: undefined,
+      scenePlan: undefined,
       pipeline: [
         {
           id: 'response',
@@ -554,15 +588,18 @@ ${optionalInstructions}`.trim();
     if (selectedScriptId === id) setSelectedScriptId(null);
   }
 
-  const isMainSection = sidebar === 'shorts' || sidebar === 'long';
+  const isMainSection = sidebar === 'shorts' || sidebar === 'long' || sidebar === 'mixed';
 
   return (
+    <WorkspaceApiContext.Provider value={{ account: activeChannel, profile: section, fetch }}>
     <div className="flex h-screen w-screen overflow-hidden bg-bg text-white">
+      {saveError && <div role="alert" className="fixed right-4 top-4 z-50 rounded-lg border border-red-500 bg-red-950 p-4 text-sm text-red-100">{saveError}. Changes remain in this tab; check the server before closing.</div>}
       {/* Sidebar */}
       <aside className="group flex w-16 flex-col border-r border-border bg-surface transition-all duration-200 hover:w-[200px]">
         {/* Channel avatar */}
         <div className="relative flex h-16 items-center justify-center border-b border-border">
           <button
+            aria-label="Switch YouTube account"
             onClick={() => setChannelSwitcherOpen((v) => !v)}
             className="flex items-center gap-3 rounded-lg p-2 hover:bg-surface2"
           >
@@ -581,6 +618,8 @@ ${optionalInstructions}`.trim();
           {channelSwitcherOpen && (
             <ChannelSwitcher
               active={activeChannel}
+              channels={accounts}
+              onAdd={() => { setChannelSwitcherOpen(false); setSidebar('profile'); }}
               onSelect={switchChannel}
               onClose={() => setChannelSwitcherOpen(false)}
             />
@@ -595,6 +634,7 @@ ${optionalInstructions}`.trim();
             return (
               <button
                 key={item.id}
+                aria-label={item.label}
                 onClick={() => selectSidebar(item.id)}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
                   active ? 'bg-surface2 text-white' : 'text-gray-400 hover:bg-surface2 hover:text-white'
@@ -609,11 +649,11 @@ ${optionalInstructions}`.trim();
 
         {/* Profile avatar */}
         <div className="flex h-16 items-center justify-center border-t border-border">
-          <button className="flex items-center gap-3 rounded-lg p-2 hover:bg-surface2">
+          <button aria-label="Profile and voices" title="Profile and voices" onClick={() => setSidebar('profile')} className="flex items-center gap-3 rounded-lg p-2 hover:bg-surface2">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-700 text-xs font-bold">
               JD
             </div>
-            <span className="hidden whitespace-nowrap text-sm group-hover:block">John Doe</span>
+            <span className="hidden whitespace-nowrap text-sm group-hover:block">Profile & Voices</span>
           </button>
         </div>
       </aside>
@@ -622,14 +662,15 @@ ${optionalInstructions}`.trim();
       <div className="flex flex-1 flex-col overflow-hidden">
         <Header
           channel={activeChannel}
-          section={sidebar === 'shorts' || sidebar === 'long' ? section : (sidebar as string)}
+          section={sidebar === 'shorts' || sidebar === 'long' || sidebar === 'mixed' ? section : (sidebar as string)}
           tab={tab}
           isMain={isMainSection}
+          onNewScript={() => { setSidebar(section); setTab('scripts'); setNewScriptOpen(true); }}
         />
 
-        <main className="flex-1 overflow-y-auto thin-scrollbar">
+        <main key={scopeKey} className="flex-1 overflow-y-auto thin-scrollbar">
           <div className="mx-auto w-full max-w-[1400px] px-6 py-6">
-            {!isMainSection ? (
+            {sidebar === 'profile' ? <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} /> : !isMainSection ? (
               <PlaceholderPage label={sidebar.charAt(0).toUpperCase() + sidebar.slice(1)} />
             ) : (
               <div>
@@ -653,7 +694,7 @@ ${optionalInstructions}`.trim();
                 <ErrorBoundary fallbackLabel={`${tab.toUpperCase()} Tab Error`}>
                   {tab === 'scripts' && (
                     <ScriptsTab
-                      scripts={userScripts}
+                      scripts={scopeScripts}
                       section={section}
                       selectedId={selectedScriptId}
                       onSelect={setSelectedScriptId}
@@ -669,24 +710,35 @@ ${optionalInstructions}`.trim();
                   )}
                   {tab === 'preview' && (
                     <PreviewTab
+                      key={`${scopeKey}:${selectedScriptId}`}
                       pipeline={pipeline}
                       script={selectedScript}
                       onGenerate={(prompt) => selectedScript && generateScript(selectedScript, prompt, '')}
                       onStop={handleStopGeneration}
-                      onExtractAssets={handleExtractAssets}
+                      onExtractAssets={() => handleExtractAssets()}
+                      onExtractTimelineAssets={() => handleExtractAssets(true)}
+                      onImportResponse={handleImportResponse}
                     />
                   )}
-                  {tab === 'assets' && <AssetsTab script={selectedScript} onProceedToGeneration={() => setTab('generation')} />}
+                  {tab === 'assets' && <AssetsTab key={selectedScriptId} script={selectedScript} onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)} onProceedToGeneration={() => setTab('generation')} />}
                   {tab === 'generation' && (
-                    <GenerationTab
+                    <GenerationTab key={selectedScriptId}
                       script={selectedScript}
                       onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
                     />
                   )}
                   {tab === 'review' && (
                     <ReviewAdjustTab
+                      key={`${scopeKey}:${selectedScriptId}`}
                       script={selectedScript}
                       onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
+                    />
+                  )}
+                  {tab === 'export' && (
+                    <YouTubeExportTab key={selectedScriptId}
+                      script={selectedScript}
+                      onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
+                      onNavigateToTimeline={() => setTab('review')}
                     />
                   )}
                 </ErrorBoundary>
@@ -701,7 +753,8 @@ ${optionalInstructions}`.trim();
           onClose={() => setNewScriptOpen(false)}
           section={section}
           onCreated={(newScript) => {
-            setUserScripts((prev) => [...prev, newScript]);
+            setUserScripts((prev) => [...prev, { ...newScript, accountId: activeChannel.id, section }]);
+            setSelectedScriptId(newScript.id);
           }}
         />
       )}
@@ -714,6 +767,7 @@ ${optionalInstructions}`.trim();
         />
       )}
 </div>
+    </WorkspaceApiContext.Provider>
   );
 }
 
