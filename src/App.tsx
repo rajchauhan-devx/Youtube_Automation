@@ -15,7 +15,7 @@ import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { parseAIResponse } from './lib/parseAIResponse.js';
 import { apiPost, getApiKey } from './services/api.js';
-
+ //ddsdsd
 const TABS: { id: Tab; label: string }[] = [
   { id: 'scripts', label: 'Scripts' },
   { id: 'preview', label: 'Preview' },
