@@ -41,9 +41,11 @@ function getErrorCode(error: unknown): string | undefined {
 export function GenerationTab({
   script,
   onUpdate,
+  onVisualEdit,
 }: {
   script: Script | null;
   onUpdate: (patch: Partial<Script>) => void;
+  onVisualEdit?: () => void;
 }) {
   const [generationSubTab, setGenerationSubTab] = useState<'images' | 'audio'>('images');
   const { profile, account } = useWorkspaceApi();
@@ -52,6 +54,7 @@ export function GenerationTab({
     <ErrorBoundary fallbackLabel="Generation Tab Error">
       <div className="flex h-full flex-col">
         <div className="flex items-center gap-4 border-b border-border px-4">
+          {onVisualEdit && <button className="ml-auto rounded bg-violet-700 px-3 py-2 text-sm text-white" onClick={onVisualEdit}>Create visual edit</button>}
           <button
             onClick={() => setGenerationSubTab('images')}
             className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -1428,6 +1431,7 @@ function AudioGenerationContent({
       await new Promise((r) => setTimeout(r, 400));
 
       const entry: GeneratedAudio = {
+        narrationText: data.narrationText || textToGenerate,
         language: selectedLanguage,
         voice: selectedVoice,
         voiceName: activeVoiceObj?.name || selectedVoice,

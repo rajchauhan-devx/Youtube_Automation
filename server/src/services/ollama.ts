@@ -1,9 +1,17 @@
 import type { ChatRequest } from './gemini.js';
 import { LOCAL_MODELS } from './local-models.js';
+import { presenterState } from './presenter-state.js';
 
 const BASE = 'http://127.0.0.1:11434';
 
 export async function* streamLocal(req: ChatRequest) {
+  if (presenterState.editingRequests || presenterState.localRequests) throw new Error('Wait for the active local visual-editing or text generation request to finish.');
+  presenterState.localRequests++;
+  try { yield* streamLocalRequest(req); }
+  finally { presenterState.localRequests--; }
+}
+
+async function* streamLocalRequest(req: ChatRequest) {
   const selected = LOCAL_MODELS.find(item => item.id === req.model);
   if (!selected) throw new Error('Select an installed local model.');
   const model = 'qwen3.5:4b';
@@ -22,7 +30,7 @@ export async function* streamLocal(req: ChatRequest) {
         stream: true, think: selected.thinking && !req.json, keep_alive: 0, ...(req.json ? { format: req.jsonSchema ?? 'json' } : {}),
         options: { num_ctx: context, num_predict: Math.min(req.max_tokens ?? 4096, 4096, context - inputBytes - 256), temperature: req.temperature ?? 0.7 } }),
     });
-  } catch (error) {
+  } catch {
     if (signal.aborted) throw new Error('Local generation was cancelled or timed out.');
     throw new Error('Ollama is offline. Start Ollama on this computer and try again.');
   }

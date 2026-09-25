@@ -128,6 +128,7 @@ export async function generateMusicPrompt(scriptId: string) {
 }
 
 export function startMusic(scriptId: string, description: string, duration: number) {
+  if (presenterState.editingRequests) throw new Error('Wait for artifact image generation to finish before generating music.');
   if (presenterState.busy) throw new Error('Wait for presenter generation to finish before generating music.');
   if (!safeSegment(scriptId)) throw new Error('Invalid script ID.');
   if (localMusicBusy()) throw new Error('Music generation is already running. Wait for it to finish.');

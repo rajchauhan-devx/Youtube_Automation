@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { writeNarrationMetadata } from './editing/media.js';
 import path from 'path';
 import { spawn, type ChildProcess } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -170,7 +171,7 @@ export async function generateTTS(params: {
   cfgWeight?: number;
   temperature?: number;
   seed?: number;
-}): Promise<{ filename: string; publicUrl: string; elapsedMs: number }> {
+}): Promise<{ filename: string; publicUrl: string; elapsedMs: number; narrationText: string }> {
   const start = Date.now();
 
   let audioBuffer: Buffer;
@@ -217,11 +218,14 @@ export async function generateTTS(params: {
   fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, audioBuffer);
+  const narrationText = !['chatterbox', 'openrouter', 'edge'].includes(TTS_PROVIDER) ? preprocessForTTS(params.text) : params.text;
+  writeNarrationMetadata(filePath, narrationText, params.language);
 
   return {
     filename,
     publicUrl: mediaUrl(`generate/file/${params.scriptId}/${filename}`),
     elapsedMs: Date.now() - start,
+    narrationText,
   };
 }
 

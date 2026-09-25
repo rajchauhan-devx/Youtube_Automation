@@ -1,5 +1,9 @@
 # Youtube_Automation
 
+AI-directed visual editing is available under **Artifacts** with a shared preview/MP4
+renderer and an explicit enhanced mode in **Timeline & Render**. See
+[setup, configuration and qualification status](docs/AI_VIDEO_EDITING_SETUP.md).
+
 AI presenter: enable **Timeline & Render → AI Presenter** to add a chest-up,
 lip-synced character to the bottom-right of your video. The app starts the worker
 using the existing MuseTalk installation. See [presenter setup and usage](docs/ai-presenter.md).

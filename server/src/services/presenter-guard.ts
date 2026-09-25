@@ -4,6 +4,7 @@ import { presenterState } from './presenter-state.js';
 export function presenterGuard(paths: string[]): RequestHandler {
   return (req, res, next) => {
     if (req.method !== 'POST' || !paths.includes(req.path)) { next(); return; }
+    if (presenterState.editingRequests) { res.status(409).json({ error: 'Wait for artifact image generation to finish before starting another GPU task.' }); return; }
     if (presenterState.busy) { res.status(409).json({ error: 'Wait for presenter generation to finish before starting another GPU task.' }); return; }
     presenterState.mediaRequests++;
     let released = false;

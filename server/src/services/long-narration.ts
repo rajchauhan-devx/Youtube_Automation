@@ -7,6 +7,7 @@ import { containedFile } from './paths.js';
 import { store } from './store.js';
 import { generateTTS, TTS_PROVIDER_NAME } from './omnivoice.js';
 import { runMedia } from './media-process.js';
+import { writeNarrationMetadata } from './editing/media.js';
 import { normalizeNarration, spokenText, validateScenePlan, validateSync, type ScenePlan, type NarrationSync } from './scene-plan.js';
 
 export const planHash = (plan: ScenePlan) => createHash('sha256').update(JSON.stringify(validateScenePlan(plan))).digest('hex');
@@ -95,7 +96,8 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
     signal.throwIfAborted();
     fs.renameSync(partial, output);
     atomicJson(`${output}.sync.json`, { ...sync, audioHash: createHash('sha256').update(fs.readFileSync(output)).digest('hex') });
-    return { filename, url: mediaUrl(`generate/file/${options.scriptId}/${filename}`), language: options.language, voice: options.voice, sync };
+    writeNarrationMetadata(output, spokenText(plan), options.language);
+    return { filename, url: mediaUrl(`generate/file/${options.scriptId}/${filename}`), language: options.language, voice: options.voice, sync, narrationText: spokenText(plan) };
   } catch (error) {
     fs.rmSync(output, { force: true }); fs.rmSync(`${output}.sync.json`, { force: true });
     throw error;

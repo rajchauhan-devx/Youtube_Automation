@@ -10,7 +10,8 @@ import { ScriptRunModal } from './components/scripts/ScriptRunModal';
 import { PreviewTab } from './components/preview/PreviewTab';
 import { AssetsTab } from './components/assets/AssetsTab';
 import { GenerationTab } from './components/generation/GenerationTab';
-import { ReviewAdjustTab } from './components/editor/ReviewAdjustTab';
+import { EditingWorkspace } from './components/editor/EditingWorkspace';
+import { ArtifactsTab } from './components/artifacts/ArtifactsTab';
 import { YouTubeExportTab } from './components/export/YouTubeExportTab';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
@@ -24,6 +25,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'preview', label: 'Preview' },
   { id: 'assets', label: 'Assets' },
   { id: 'generation', label: 'Generation' },
+  { id: 'artifacts', label: 'Artifacts' },
   { id: 'review', label: 'Timeline & Render' },
   { id: 'export', label: 'YouTube Export' },
 ];
@@ -723,17 +725,19 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
                   {tab === 'assets' && <AssetsTab key={selectedScriptId} script={selectedScript} onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)} onProceedToGeneration={() => setTab('generation')} />}
                   {tab === 'generation' && (
                     <GenerationTab key={selectedScriptId}
+                      onVisualEdit={() => setTab('artifacts')}
                       script={selectedScript}
                       onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
                     />
                   )}
                   {tab === 'review' && (
-                    <ReviewAdjustTab
+                    <EditingWorkspace
                       key={`${scopeKey}:${selectedScriptId}`}
                       script={selectedScript}
                       onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
                     />
                   )}
+                  {tab === 'artifacts' && <ArtifactsTab key={selectedScriptId} script={selectedScript} onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)} />}
                   {tab === 'export' && (
                     <YouTubeExportTab key={selectedScriptId}
                       script={selectedScript}

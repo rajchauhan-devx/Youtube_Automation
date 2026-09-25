@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
+    "predev": "npm run build",
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "npm run build:packages --prefix .. && tsc && node scripts/copy-editing-resources.mjs",
     "start": "node dist/index.js"
   },
   "dependencies": {

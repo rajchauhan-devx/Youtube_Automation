@@ -37,10 +37,14 @@ server/data/music/
 server/data/sfx/
 __pycache__/
 *.partial.mp4
-artifacts/
+/artifacts/
 
 server/data/accounts/
 server/data/accounts.json
 server/data/accounts-test-*/
 
 ComfyUI/
+server/data/editing/
+server/data/editing-assets/
+server/data/editing-scheduler.lock
+services/alignment/.venv/

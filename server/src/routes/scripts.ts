@@ -9,6 +9,7 @@ import { cancelNarration } from '../services/long-narration.js';
 import { validateScenePlan } from '../services/scene-plan.js';
 import { validateEditingSettings } from '../services/auto-edit.js';
 import { cancelMusic } from '../services/local-music.js';
+import { deleteScriptEditing } from '../services/editing/scheduler.js';
 import { validatePresenter } from '../services/presenter-settings.js';
 
 export const scriptsRouter = Router();
@@ -105,7 +106,7 @@ scriptsRouter.put('/:id', async (req, res) => {
 });
 
 scriptsRouter.delete('/:id', async (req, res) => {
-  try { await cancelMusic(req.params.id); await cancelNarration(req.params.id); await clearScriptVideo(req.params.id); }
+  try { await deleteScriptEditing(req.params.id); await cancelMusic(req.params.id); await cancelNarration(req.params.id); await clearScriptVideo(req.params.id); }
   catch (error) { res.status(500).json({ error: error instanceof Error ? error.message : 'Could not clear video' }); return; }
   const scriptId = sanitizeSegment(req.params.id);
   store.remove('scripts', req.params.id);

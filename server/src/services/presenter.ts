@@ -72,7 +72,7 @@ export async function presenterCacheKey(audio: string, p: PresenterSettings) {
 }
 
 async function releaseIdleGpu(signal: AbortSignal) {
-  if (narrationBusy() || localMusicBusy() || presenterState.mediaRequests || presenterState.imageRequests || presenterState.speechRequests) throw new Error('Wait for image, music and narration generation to finish before rendering a presenter.');
+  if (narrationBusy() || localMusicBusy() || presenterState.mediaRequests || presenterState.imageRequests || presenterState.speechRequests || presenterState.editingRequests) throw new Error('Wait for image, music and narration generation to finish before rendering a presenter.');
   const base = (process.env.COMFYUI_BASE_URL || 'http://127.0.0.1:8188').replace(/\/+$/, '');
   let response: Response | undefined;
   try { response = await fetch(`${base}/queue`, { signal: AbortSignal.any([signal, AbortSignal.timeout(2000)]) }); }

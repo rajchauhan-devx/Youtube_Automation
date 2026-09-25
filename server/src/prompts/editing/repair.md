@@ -1,0 +1,1 @@
+Repair the supplied artifact minimally using the exact validation diagnostics. Preserve its ID, scene, intention and narrative evidence. Simplify animation and geometry first, then use a general non-pointing card if localization is unreliable. All compose rules still apply. Never add unsupported primitives or guessed precise source pointers.

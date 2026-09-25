@@ -11,8 +11,13 @@ import { youtubeRouter } from './routes/youtube.js';
 import { accountsRouter } from './routes/accounts.js';
 import { workspacesRouter } from './routes/workspaces.js';
 import { presenterRouter } from './routes/presenter.js';
+import { editingRouter } from './routes/editing.js';
+import { editingConfig } from './services/editing/config.js';
+import { acquireSchedulerLock } from './services/editing/repository.js';
 
 const app = express();
+editingConfig();
+acquireSchedulerLock();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = process.env.HOST || '127.0.0.1';
 
@@ -41,6 +46,7 @@ app.use('/api/generate', generateRouter);
 app.use('/api/tts', ttsRouter);
 app.use('/api/render', renderRouter);
 app.use('/api/presenter', presenterRouter);
+app.use('/api/editing', editingRouter);
 app.use('/api/youtube', youtubeRouter);
 
 app.use((_req, res) => {

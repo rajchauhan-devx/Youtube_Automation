@@ -1,6 +1,6 @@
 export type Section = 'shorts' | 'long' | 'mixed';
 import type { ScenePlan, NarrationSync } from '../server/src/services/scene-plan';
-export type Tab = 'scripts' | 'preview' | 'assets' | 'generation' | 'review' | 'export';
+export type Tab = 'scripts' | 'preview' | 'assets' | 'generation' | 'artifacts' | 'review' | 'export';
 export type ScriptStatus = 'active' | 'draft';
 export type AssetKind = 'image' | 'audio' | 'video';
 
@@ -116,6 +116,7 @@ export interface YouTubeExportData {
 }
 
 export interface Script {
+  editingProjectId?: string;
   enableSubtitles?: boolean;
   presenter?: import('../server/src/services/presenter-settings').PresenterSettings;
   maxDurationSeconds?: number;
@@ -174,6 +175,7 @@ export interface GeneratedImage {
 }
 
 export interface GeneratedAudio {
+  narrationText?: string;
   sync?: NarrationSync;
   language: 'hi' | 'en';
   voice?: string;

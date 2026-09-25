@@ -10,6 +10,7 @@ import { youtubeRouter } from './youtube.js';
 import { llmRouter } from './llm.js';
 import { mediaImportRouter } from './media-import.js';
 import { presenterRouter } from './presenter.js';
+import { editingRouter } from './editing.js';
 
 export const workspacesRouter = Router({ mergeParams: true });
 workspacesRouter.use((req, res, next) => {
@@ -24,6 +25,7 @@ workspacesRouter.use('/generate', generateRouter);
 workspacesRouter.use('/media-import', mediaImportRouter);
 workspacesRouter.use('/render', renderRouter);
 workspacesRouter.use('/presenter', presenterRouter);
+workspacesRouter.use('/editing', editingRouter);
 workspacesRouter.use('/tts', ttsRouter);
 workspacesRouter.use('/youtube', youtubeRouter);
 workspacesRouter.use('/llm', llmRouter);

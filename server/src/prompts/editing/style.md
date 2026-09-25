@@ -1,0 +1,1 @@
+Direct a coherent visual language for this story, audience and aspect ratio. Preserve the supplied approved font IDs and texture IDs. A style description is free text, not a preset identifier. Choose readable typography, semantic color tokens and restrained motion. Return the complete StyleGuide.
