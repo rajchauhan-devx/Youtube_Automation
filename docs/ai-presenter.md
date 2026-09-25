@@ -27,8 +27,10 @@ environment, and prepared avatars. Defaults detect:
 <user>/miniconda3/envs/musetalk-demo/python.exe
 ```
 
-For another installation, set `MUSETALK_ROOT` and `MUSETALK_PYTHON` in the root
-`.env`, then restart `npm run dev`. Models are not copied into Git. This is an
+For another installation, follow the [new-PC migration guide](NEW_PC_SETUP.md),
+then set `MUSETALK_ROOT` and `MUSETALK_PYTHON` in `server/.env` and restart
+`npm run dev`. The separate custom `MuseTalk-Demo/app` wrapper must also be
+transferred; upstream MuseTalk alone does not provide it. Models are not copied into Git. This is an
 integration with that local installation, not a standalone distribution of the
 MuseTalk weights. Prepare additional avatar videos using MuseTalk's existing lab,
 then click Refresh avatars in the editor. The lab can be closed afterward.

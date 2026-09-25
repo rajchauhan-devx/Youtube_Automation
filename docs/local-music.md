@@ -19,6 +19,11 @@ Models can be restored with:
 artifacts/comfy-venv/Scripts/python.exe server/scripts/setup-local-music.py
 ```
 
+On a new PC, first create that Python environment and install ComfyUI using the
+[complete setup guide](NEW_PC_SETUP.md). The downloader always writes into this
+repository's `ComfyUI/models`, even if `COMFYUI_PATH` points elsewhere; copy the
+verified files to the configured installation when using an external folder.
+
 The installer downloads official Comfy-Org ACE-Step files and checks their SHA-256 hashes before making them available. It can resume interrupted downloads. Keep narration and image generation idle while composing music. The app blocks competing requests while its music job runs; unrelated applications can still consume GPU memory.
 
 ## Validation on this machine

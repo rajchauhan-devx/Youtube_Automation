@@ -1,5 +1,10 @@
 # Youtube_Automation
 
+**Setting up another PC?** Follow the [complete installation and migration guide](docs/NEW_PC_SETUP.md).
+It includes a prompt to give an AI installer, model download steps, external folder
+dependencies, `server/.env` configuration, and runtime verification. Git clone alone
+does not include ComfyUI, model weights, or the separate custom MuseTalk-Demo app.
+
 AI-directed visual editing is available under **Artifacts** with a shared preview/MP4
 renderer and an explicit enhanced mode in **Timeline & Render**. See
 [setup, configuration and qualification status](docs/AI_VIDEO_EDITING_SETUP.md).
