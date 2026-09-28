@@ -83,16 +83,31 @@ export async function chat(apiKey: string, req: ChatRequest): Promise<ChatRespon
   const payload = buildGeminiPayload(req);
   const url = `${GEMINI_BASE}/${model}:generateContent?key=${apiKey}`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-    signal: req.signal,
-  });
+  let res: Response | undefined;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    req.signal?.throwIfAborted();
+    if (attempt > 0) {
+      const delay = res?.status === 429 ? Math.min(30000, 3000 * Math.pow(2, attempt - 1)) : 1500 * Math.pow(2, attempt - 1);
+      await new Promise(r => setTimeout(r, delay));
+      req.signal?.throwIfAborted();
+    }
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: req.signal,
+      });
+      if (res.ok) break;
+      if (![429, 500, 502, 503].includes(res.status)) break;
+    } catch (err) {
+      if (attempt === 3) throw err;
+    }
+  }
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${text}`);
+  if (!res || !res.ok) {
+    const text = res ? await res.text() : 'No response';
+    throw new Error(`Gemini API error ${res?.status || 500}: ${text}`);
   }
 
   const data: any = await res.json();

@@ -40,12 +40,13 @@ const queue: Task[] = [],
 const completions = new Map<string, Promise<void>>();
 let running = false;
 const reconciled = new Set<string>();
-export function reconcile() {
+export function reconcile(force = false) {
   const key = workspaceKey("editing");
-  if (reconciled.has(key)) return;
+  if (!force && reconciled.has(key)) return;
   reconciled.add(key);
   for (const job of jobs())
     if (["running", "queued", "cancel_requested"].includes(job.state)) {
+      if (job.state === "running" && controllers.has(workspaceKey(job.id))) continue;
       job.state =
         job.state === "cancel_requested" ? "cancelled" : "interrupted";
       job.error =
@@ -254,6 +255,7 @@ export function cancel(id: string) {
   return job;
 }
 export function resume(id: string, apiKey?: string) {
+  reconcile(true);
   const job = getJob(id);
   if (!["interrupted", "needs_configuration", "failed"].includes(job.state))
     throw new EditingError(

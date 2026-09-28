@@ -1,10 +1,11 @@
+import { mediaScenes } from '../../../server/src/services/shorts-media';
 import { useEffect, useRef, useState } from 'react';
 import { Copy, Plus, Loader2, Sparkles, Square } from 'lucide-react';
 import type { Script } from '../../data';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 
 export function MixedMediaContent({ script, onUpdate }: { script: Script | null; onUpdate: (patch: Partial<Script>) => unknown }) {
-  const { fetch } = useWorkspaceApi();
+  const { fetch, profile } = useWorkspaceApi();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -23,7 +24,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   }, []);
   const fileInput = useRef<HTMLInputElement>(null);
   const selectedIndex = useRef<number | null>(null);
-  const scenes = script?.scenePlan?.scenes || [];
+  const scenes = mediaScenes(script);
   const locked = busy || generating;
   const missingImages = scenes.flatMap((scene, index) => scene.mediaType === 'image' && !script?.generatedImages?.some(asset =>
     asset.index === index && asset.prompt === scene.imagePrompt && (asset.mediaType || 'image') === 'image' && asset.status === 'done' && asset.url
@@ -146,7 +147,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
 
   return <div className="flex-1 overflow-auto p-6">
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-lg font-semibold text-white">Mixed media · script order</h2><p className="mt-1 text-sm text-gray-400">Each visual follows its spoken narration. Videos are trimmed or gently slowed, with at most a two-second final-frame hold. Longer gaps require a longer clip. Clip audio is muted in the final edit.</p></div>
+      <div><h2 className="text-lg font-semibold text-white">{profile === 'shorts' ? 'Shorts media' : 'Mixed media'} · script order</h2><p className="mt-1 text-sm text-gray-400">Each visual follows its spoken narration. Videos are trimmed or gently slowed, with at most a two-second final-frame hold. Longer gaps require a longer clip. Clip audio is muted in the final edit.</p></div>
       <div className="flex flex-wrap items-center gap-2">
         <span role="status" className={`rounded border px-2.5 py-2 text-xs ${modelStatus === 'online' ? 'border-emerald-500/40 text-emerald-300' : modelStatus === 'starting' || modelStatus === 'stopping' ? 'border-amber-500/40 text-amber-300' : 'border-red-500/40 text-red-300'}`}>
           Image model: {modelStatus === 'checking' ? 'Checking…' : modelStatus === 'online' ? 'Ready' : modelStatus === 'starting' ? 'Starting…' : modelStatus === 'stopping' ? 'Stopping…' : 'Offline'}
@@ -156,9 +157,11 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         <label className="text-xs text-gray-400">Image quality <select aria-label="Image quality" value={preset} disabled={locked} onChange={event => setPreset(event.target.value as typeof preset)} className="ml-2 rounded border border-border bg-surface px-2 py-2 text-white"><option value="fast">Fast</option><option value="standard">Standard</option><option value="high">High</option></select></label>
         {generating ? <button disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }} className="flex items-center gap-2 rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40"><Square className="h-4 w-4" />{stopping ? 'Stopping after current image…' : 'Stop after current image'}</button> :
           <button disabled={locked || !missingImages.length} onClick={() => void generateImages(missingImages)} className="flex items-center gap-2 rounded bg-accent px-3 py-2 text-sm text-white disabled:opacity-40"><Sparkles className="h-4 w-4" />Generate images{missingImages.length ? ` (${missingImages.length})` : ''}</button>}
-        <button disabled={locked || !scenes.length} className="rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40" onClick={() => { selectedIndex.current = null; if (fileInput.current) { fileInput.current.multiple = true; fileInput.current.accept = '.png,.jpg,.jpeg,.webp,.mp4'; fileInput.current.click(); } }}>Bulk import</button>
+        <button disabled={locked || !scenes.length} className="rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40" onClick={() => { selectedIndex.current = null; if (fileInput.current) { fileInput.current.multiple = true; fileInput.current.accept = profile === 'shorts' && !script?.videoImportsEnabled ? '.png,.jpg,.jpeg,.webp' : '.png,.jpg,.jpeg,.webp,.mp4'; fileInput.current.click(); } }}>Bulk import</button>
       </div>
     </div>
+    {profile === 'shorts' && script && <label className="mb-4 flex items-center gap-3 rounded-lg border border-border p-3 text-sm text-white"><input type="checkbox" checked={script.videoImportsEnabled === true} disabled={locked} onChange={async event => { setBusy(true); setError(''); try { const saved = await onUpdate({ videoImportsEnabled: event.target.checked, timelineConfig: undefined, youtubeExport: undefined }); if (saved === false) throw new Error('Could not save video import setting. Try again.'); } catch (error) { setError(error instanceof Error ? error.message : 'Could not save setting.'); } finally { setBusy(false); } }} />Use video imports<span className="text-xs text-gray-400">{script.videoImportsEnabled ? 'Image and video scenes' : 'Images only: every scene uses its still-image prompt. Imported clips are kept.'}</span></label>}
+    {profile === 'shorts' && !script?.scenePlan && <p className="mb-3 text-sm text-gray-400">Image imports work with this script. For video scenes, run the Shorts - Images & Videos script and extract its scene prompts.</p>}
     {modelDetail && <p className={`mb-3 text-sm ${modelStatus === 'online' ? 'text-emerald-300' : 'text-amber-200'}`}>{modelDetail}</p>}
     <p className="mb-2 text-sm text-gray-300">Generate images fills missing image scenes only. Import videos and any images you already have. Completed images are skipped; use Regenerate image on a scene to replace one.</p>
     <p className="mb-4 text-xs text-gray-400">Bulk filenames: 001.png, 002.mp4, 003.png. Files are copied into this project. Maximum 250 MB per file.</p>
@@ -176,7 +179,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         const asset = script?.generatedImages?.find(item => item.index === index && item.prompt === scene.imagePrompt && (item.mediaType || 'image') === type && item.status === 'done');
         return <article key={scene.id} className="rounded-xl border border-border bg-surface p-4">
           <div className="mb-3 flex justify-between text-sm font-semibold text-white"><span>{String(index + 1).padStart(3, '0')} · {scene.chapter}</span><span className={type === 'video' ? 'text-purple-300' : 'text-blue-300'}>{type === 'video' ? 'Video' : 'Image'} · {spokenSeconds !== undefined ? `${spokenSeconds.toFixed(2)}s spoken` : 'Timing after narration'}</span></div>
-          <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-lg bg-black/40">
+          <div className={`relative flex ${profile === 'shorts' ? 'aspect-[9/16] max-h-[420px]' : 'aspect-video'} items-center justify-center overflow-hidden rounded-lg bg-black/40`}>
             {asset?.url ? type === 'video' ? <video src={asset.url} controls muted playsInline preload="metadata" className="h-full w-full object-contain" /> : <img src={asset.url} alt={`Scene ${index + 1}`} className="h-full w-full object-contain" /> : <span className="text-sm text-gray-500">Add {type}</span>}
             <button disabled={locked} aria-label={`Add or replace ${type} for scene ${index + 1}`} title={`Add or replace ${type}`} className="absolute right-3 top-3 rounded-full bg-accent p-2 text-white shadow disabled:opacity-40" onClick={() => { selectedIndex.current = index; if (fileInput.current) { fileInput.current.multiple = false; fileInput.current.accept = type === 'video' ? '.mp4' : '.png,.jpg,.jpeg,.webp'; fileInput.current.click(); } }}><Plus className="h-5 w-5" /></button>
           </div>

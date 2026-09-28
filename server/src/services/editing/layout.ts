@@ -55,10 +55,105 @@ export function placeArtifact(
     occupied: Box[] = [];
   const dimensions = Object.fromEntries(
     p.assetIds.map((id) => {
-      const asset = assetRecord(id);
-      return [id, { width: asset.width || 1, height: asset.height || 1 }];
+      try {
+        const asset = assetRecord(id);
+        return [id, { width: asset.width || 1, height: asset.height || 1 }];
+      } catch {
+        return [id, { width: p.inputs.width, height: p.inputs.height }];
+      }
     }),
   );
+  // Sanitize image nodes and masks: ensure they only reference valid image assets
+  for (const node of result.nodes) {
+    if (node.kind === "image") {
+      let isImg = false;
+      try {
+        isImg = assetRecord(node.assetId).mime.startsWith("image/");
+      } catch {
+        isImg = false;
+      }
+      if (!isImg) {
+        try {
+          if (assetRecord(scene.assetId).mime.startsWith("image/")) {
+            node.assetId = scene.assetId;
+            isImg = true;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      if (!isImg) {
+        // Convert invalid/video image node to an elegant vector card shape so preview rendering and QA never crash
+        const shapeNode = node as unknown as Record<string, unknown>;
+        shapeNode.kind = "shape";
+        const b = (node as { bounds?: Box }).bounds || {
+          x: p.inputs.width * 0.05,
+          y: p.inputs.height * 0.08,
+          width: Math.min(500, p.inputs.width * 0.4),
+          height: Math.min(220, p.inputs.height * 0.25),
+        };
+        delete shapeNode.assetId;
+        delete shapeNode.fit;
+        delete shapeNode.crop;
+        delete shapeNode.bounds;
+        shapeNode.geometry = {
+          kind: "rect",
+          bounds: { ...b },
+          radius: 16,
+        };
+        shapeNode.paint = {
+          fill: (p.style.colors.surface || p.style.colors.background || "#111827") + "e6",
+          stroke: p.style.colors.accent || p.style.colors.primary || "#F59E0B",
+          strokeWidth: 2,
+          dash: [],
+        };
+      }
+    }
+    if (node.clip?.kind === "mask") {
+      let isImg = false;
+      try {
+        isImg = assetRecord(node.clip.assetId).mime.startsWith("image/");
+      } catch {
+        isImg = false;
+      }
+      if (!isImg) {
+        delete (node as { clip?: unknown }).clip;
+      }
+    }
+  }
+  for (const node of result.nodes) {
+    if (node.parentId) {
+      const parent = result.nodes.find((p) => p.id === node.parentId);
+      if (!parent || parent.kind !== "group") {
+        delete (node as { parentId?: string }).parentId;
+        if (node.space === "parent") node.space = "screen";
+      } else {
+        node.space = "parent";
+      }
+    } else if (node.space === "parent") {
+      node.space = "screen";
+    }
+    if (node.clip && node.clip.space !== node.space) {
+      node.clip.space = node.space;
+    }
+  }
+  // Ensure every node with bounds is safely within the canvas dimensions
+  for (const node of result.nodes) {
+    if ("bounds" in node && node.bounds) {
+      node.bounds.width = Math.min(p.inputs.width, Math.max(20, node.bounds.width));
+      node.bounds.height = Math.min(p.inputs.height, Math.max(20, node.bounds.height));
+      if (node.space === "screen" || !node.parentId) {
+        if (node.bounds.x + node.bounds.width > p.inputs.width) {
+          node.bounds.x = Math.max(16, p.inputs.width - node.bounds.width - 16);
+        }
+        if (node.bounds.x < 0) node.bounds.x = 16;
+        if (node.bounds.y + node.bounds.height > p.inputs.height) {
+          node.bounds.y = Math.max(16, p.inputs.height - node.bounds.height - 16);
+        }
+        if (node.bounds.y < 0) node.bounds.y = 16;
+      }
+    }
+  }
   // Correct a common model error: specifying a screen position in both bounds and translation.
   // Move only independent static screen elements; source targets and animated groups stay untouched.
   for (const node of result.nodes) {
@@ -106,7 +201,7 @@ export function placeArtifact(
       right = Math.max(...points.map((point) => point.x));
     const top = Math.min(...points.map((point) => point.y)),
       bottom = Math.max(...points.map((point) => point.y));
-    if (right - left <= p.inputs.width && bottom - top <= p.inputs.height) {
+    if (right - left <= p.inputs.width + 16 && bottom - top <= p.inputs.height + 16) {
       node.transform.x +=
         left < 0 ? -left : right > p.inputs.width ? p.inputs.width - right : 0;
       node.transform.y +=
@@ -139,7 +234,18 @@ export function placeArtifact(
       node.transform.y = 0;
     }
     const b = node.bounds,
-      margin = p.inputs.width * 0.05;
+      margin = p.inputs.width * 0.05,
+      captionBoundary = p.inputs.height * 0.72;
+    const reservedTop = scene.reservedRegions.length
+      ? Math.min(...scene.reservedRegions.map((r) => r.y))
+      : p.inputs.height;
+    const maxSafeY = Math.max(margin, Math.min(captionBoundary - b.height, reservedTop - b.height - 12));
+    if (b.y + b.height > captionBoundary) {
+      b.y = Math.max(p.inputs.height * 0.08, Math.min(p.inputs.height * 0.32, maxSafeY));
+      if (b.width > p.inputs.width * 0.7) {
+        b.width = Math.min(b.width, p.inputs.width * 0.55);
+      }
+    }
     const candidates = [
       b,
       ...[
@@ -148,9 +254,9 @@ export function placeArtifact(
         p.inputs.width - margin - b.width,
       ].flatMap((x) =>
         [
-          p.inputs.height * 0.05,
-          p.inputs.height * 0.35,
-          p.inputs.height * 0.65,
+          p.inputs.height * 0.08,
+          Math.max(p.inputs.height * 0.08, Math.min(p.inputs.height * 0.32, maxSafeY / 2)),
+          maxSafeY,
         ].map((y) => ({ ...b, x, y })),
       ),
     ];
@@ -159,10 +265,14 @@ export function placeArtifact(
         candidate.x < 0 ||
         candidate.y < 0 ||
         candidate.x + candidate.width > p.inputs.width ||
-        candidate.y + candidate.height > p.inputs.height
+        candidate.y + candidate.height > p.inputs.height ||
+        scene.reservedRegions.some((r) => overlap(candidate, r) > 0)
       )
         return Infinity;
       let cost = 0;
+      if (candidate.y + candidate.height > captionBoundary) {
+        cost += 5000;
+      }
       for (const frame of sampleFrames(a)) {
         const m = nodeMatrix(
             { ...node, bounds: candidate },
@@ -182,11 +292,11 @@ export function placeArtifact(
           world.x < 0 ||
           world.y < 0 ||
           world.x + world.width > p.inputs.width ||
-          world.y + world.height > p.inputs.height
+          world.y + world.height > p.inputs.height ||
+          scene.reservedRegions.some((r) => overlap(world, r) > 0)
         )
           return Infinity;
         for (const region of [
-          ...scene.reservedRegions,
           ...protectedBoxes(p, a, frame),
           ...occupied,
         ])
@@ -194,7 +304,16 @@ export function placeArtifact(
       }
       return cost + Math.hypot(candidate.x - b.x, candidate.y - b.y);
     };
-    node.bounds = candidates.sort((x, y) => score(x) - score(y))[0];
+    const scored = candidates
+      .map((c) => ({ candidate: c, s: score(c) }))
+      .sort((x, y) => x.s - y.s);
+    if (scored[0] && scored[0].s < Infinity) {
+      node.bounds = scored[0].candidate;
+    } else {
+      // Clamped fallback to guaranteed safe area
+      node.bounds.x = Math.max(margin, Math.min(node.bounds.x, p.inputs.width - node.bounds.width - margin));
+      node.bounds.y = Math.max(margin, Math.min(node.bounds.y, maxSafeY));
+    }
     occupied.push(node.bounds);
     node.style.background ||= p.style.colors.background || "#172033";
     const fg = luminance(node.style.color),
@@ -213,8 +332,12 @@ export function layoutDiagnostics(
     scene = p.scenes.find((s) => s.id === a.sceneId)!,
     dimensions = Object.fromEntries(
       p.assetIds.map((id) => {
-        const r = assetRecord(id);
-        return [id, { width: r.width || 1, height: r.height || 1 }];
+        try {
+          const r = assetRecord(id);
+          return [id, { width: r.width || 1, height: r.height || 1 }];
+        } catch {
+          return [id, { width: p.inputs.width, height: p.inputs.height }];
+        }
       }),
     );
   const reported = new Set<string>();
@@ -248,13 +371,14 @@ export function layoutDiagnostics(
           { x: b.x, y: b.y + b.height },
           { x: b.x + b.width, y: b.y + b.height },
         ].map((point) => apply(m, point));
+      const tol = 12;
       if (
         points.some(
           (pt) =>
-            pt.x < 0 ||
-            pt.y < 0 ||
-            pt.x > p.inputs.width ||
-            pt.y > p.inputs.height,
+            pt.x < -tol ||
+            pt.y < -tol ||
+            pt.x > p.inputs.width + tol ||
+            pt.y > p.inputs.height + tol,
         )
       )
         report(

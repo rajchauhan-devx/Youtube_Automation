@@ -1,3 +1,4 @@
+import { mediaScenes } from '../services/shorts-media.js';
 import { atomicJson } from '../services/accounts.js';
 import { workspaceKey, currentWorkspace } from '../services/workspace.js';
 import { safeSegment } from '../services/paths.js';
@@ -98,6 +99,11 @@ renderRouter.post('/start', async (req, res) => {
       res.status(400).json({ error: 'Long Video requires landscape 1920 × 1080 output' }); return;
     }
     req.body = { ...req.body, resolution: { width: 1920, height: 1080 } };
+  } else if (store.getById<any>('scripts', req.body?.scriptId)?.scenePlan) {
+    if (req.body?.resolution && (req.body.resolution.width !== 1080 || req.body.resolution.height !== 1920)) {
+      res.status(400).json({ error: 'Scene-based Shorts require portrait 1080 × 1920 output.' }); return;
+    }
+    req.body = { ...req.body, resolution: { width: 1080, height: 1920 } };
   }
   const {
     scriptId,
@@ -162,15 +168,15 @@ renderRouter.post('/start', async (req, res) => {
   try {
     resolvedBgm = bgmTrack === 'ai' ? resolveGeneratedMusic(scriptId) : bgmTrack ? resolveMusicTrack(bgmTrack) : null;
     const resolvedAudio = resolveInputPath(audioPath, scriptId);
-    if (currentWorkspace().profile !== 'shorts') {
+    if (currentWorkspace().profile !== 'shorts' || store.getById<any>('scripts', scriptId)?.scenePlan) {
       if (narrationStatus(scriptId).status === 'running') throw new Error('Wait for synchronized narration to finish.');
       const script = store.getById<any>('scripts', scriptId);
       if (script?.generatedAudio?.[0]?.filename !== path.basename(resolvedAudio)) throw new Error('Select the latest synchronized narration before rendering.');
       longSync = assertNarrationCurrent(script, path.basename(resolvedAudio));
-      longPlan = script.scenePlan;
+      longPlan = { ...script.scenePlan, scenes: mediaScenes({ ...script, section: currentWorkspace().profile }) };
       if (imagePaths.length !== longPlan!.scenes.length) throw new Error('Every narration scene needs exactly one image.');
       longPlan!.scenes.forEach((scene, index) => {
-        const image = script.generatedImages?.find((image: any) => image.index === index);
+        const image = script.generatedImages?.find((image: any) => image.index === index && (image.mediaType || 'image') === (scene.mediaType || 'image'));
         if ((image?.mediaType || 'image') !== (scene.mediaType || 'image')) throw new Error(`Scene ${scene.id} needs the correct media type.`);
         if (!image || image.status !== 'done' || image.prompt !== scene.imagePrompt || resolveInputPath(image.url, scriptId) !== resolveInputPath(imagePaths[index], scriptId)) throw new Error(`Scene ${scene.id} has a missing, stale or reordered image.`);
       });

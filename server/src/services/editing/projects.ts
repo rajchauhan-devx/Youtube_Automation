@@ -16,6 +16,7 @@ import {
 import { objectHash, hash, publish } from "./repository.js";
 import { approximateAlignment, mapScenes } from "./timing.js";
 import { EditingError, editingConfig } from "./config.js";
+import { supportedEditingModel } from "./providers.js";
 export interface ScriptInput {
   id: string;
   narration?: string;
@@ -96,6 +97,8 @@ export async function reviseProjectInputs(
 async function createProjectSnapshot(value: unknown, publishNew = true) {
   const request = Create.parse(value),
     script = store.getById<ScriptInput>("scripts", request.scriptId);
+  if (request.settings.aiModel && !supportedEditingModel(request.settings.aiModel))
+    throw new EditingError("NEEDS_CONFIGURATION", "Select a supported visual editing model.");
   if (!script) throw new EditingError("NOT_FOUND", "Script not found", 404);
   if (script.generatedImages?.some(i => i.status !== "done" || !i.url)) throw new EditingError("MISSING_SCENE", "Finish generating or importing every scene before generating artifacts.");
   const readyIndexes = (script.generatedImages || []).filter(i => i.status === "done" && i.url).map(i => i.index);

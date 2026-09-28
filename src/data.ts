@@ -59,26 +59,20 @@ export const GEMINI_MODELS: GeminiModelInfo[] = [
     id: 'gemini-3.6-flash',
     name: 'Gemini 3.6 Flash',
     badge: 'Recommended',
-    description: 'Ultra-fast, high-quality scriptwriting with native viral hooks',
+    description: 'Ultra-fast, high-quality multimodal model with native JSON output',
     recommended: true,
-  },
-  {
-    id: 'gemini-3.7-flash',
-    name: 'Gemini 3.7 Flash',
-    badge: 'Newest',
-    description: 'Latest Gemini multimodal model with advanced reasoning',
   },
   {
     id: 'gemini-3.5-flash',
     name: 'Gemini 3.5 Flash',
-    badge: 'Stable',
-    description: 'Fast response and consistent storytelling cadence',
+    badge: 'Fast & Stable',
+    description: 'High throughput, consistent visual editing and storytelling',
   },
   {
-    id: 'gemini-3.1-pro-preview',
-    name: 'Gemini 3.1 Pro',
-    badge: 'Deep Reasoning',
-    description: 'Deep-dive analysis for complex documentary and long-form scripts',
+    id: 'gemini-3.5-flash-lite',
+    name: 'Gemini 3.5 Flash Lite',
+    badge: 'Ultra Fast & Available',
+    description: 'Extremely fast response times, highly reliable capacity during peak hours',
   },
   {
     id: 'gemini-flash-latest',
@@ -87,10 +81,16 @@ export const GEMINI_MODELS: GeminiModelInfo[] = [
     description: 'Always points to the latest Gemini Flash release',
   },
   {
-    id: 'gemini-2.5-flash-lite',
-    name: 'Gemini 2.5 Flash Lite',
+    id: 'gemini-3.1-flash-lite',
+    name: 'Gemini 3.1 Flash Lite',
     badge: 'Lightweight',
-    description: 'High throughput, low-latency script generator',
+    description: 'High throughput, low-latency script generator and vision model',
+  },
+  {
+    id: 'gemini-3.7-flash',
+    name: 'Gemini 3.7 Flash',
+    badge: 'Preview',
+    description: 'Latest Gemini multimodal model with advanced reasoning (may experience high demand)',
   },
 ];
 
@@ -116,6 +116,7 @@ export interface YouTubeExportData {
 }
 
 export interface Script {
+  videoImportsEnabled?: boolean;
   editingProjectId?: string;
   enableSubtitles?: boolean;
   presenter?: import('../server/src/services/presenter-settings').PresenterSettings;

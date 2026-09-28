@@ -1,3 +1,4 @@
+import { mediaScenes } from '../services/shorts-media.js';
 import { generatedDir, workspaceKey, currentWorkspace } from '../services/workspace.js';
 import { localMusicBusy } from '../services/local-music.js';
 import { Router } from 'express';
@@ -80,8 +81,8 @@ generateRouter.post('/image', async (req, res) => {
 
   const validPreset: QualityPreset = preset === 'fast' || preset === 'high' ? preset : 'standard';
 
-  const mixed = currentWorkspace().profile === 'mixed';
-  const scene = mixed ? store.getById<any>('scripts', scriptId)?.scenePlan?.scenes[index] : undefined;
+  const mixed = ['mixed', 'shorts'].includes(currentWorkspace().profile);
+  const scene = mixed ? mediaScenes({ ...store.getById<any>('scripts', scriptId), section: currentWorkspace().profile })[index] : undefined;
   if (mixed && (!scene || scene.mediaType !== 'image' || scene.imagePrompt !== prompt)) {
     res.status(400).json({ error: 'Choose an image scene with its current extracted prompt. Video scenes must be imported.' });
     return;
@@ -109,12 +110,12 @@ generateRouter.post('/image', async (req, res) => {
     let generatedImages;
     if (mixed) {
       const current = store.getById<any>('scripts', scriptId);
-      if (!current || JSON.stringify(current.scenePlan?.scenes[index]) !== JSON.stringify(scene)) {
+      if (!current || JSON.stringify(mediaScenes({ ...current, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) {
         res.status(409).json({ error: 'Scene changed during generation. Generate again using the updated scene.' });
         return;
       }
       const asset = { index, prompt, mediaType: 'image', status: 'done', url: result.publicUrl, seed: result.seed, elapsedMs: result.elapsedMs };
-      generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index), asset].sort((a, b) => a.index - b.index);
+      generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index || (currentWorkspace().profile === 'shorts' && item.mediaType === 'video')), asset].sort((a, b) => a.index - b.index);
       store.add('scripts', { ...current, generatedImages, timelineConfig: undefined, youtubeExport: undefined });
     }
     res.json({ ok: true, url: result.publicUrl, seed: result.seed, elapsedMs: result.elapsedMs, ...(mixed ? { generatedImages } : {}) });

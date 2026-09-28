@@ -41,10 +41,10 @@ import {
   editingConfig,
   assertEditingEnabled,
   EditingError,
-  editingNeedsApiKey,
   isLocalEditingModel,
 } from "../services/editing/config.js";
-import { modelCapabilities } from "../services/editing/providers.js";
+import { editingProvider, modelCapabilities, providerCredential, supportedEditingModel } from "../services/editing/providers.js";
+import { simpleArtifacts } from "../services/editing/simpleArtifacts.js";
 import { mediaUrl } from "../services/workspace.js";
 import { store } from "../services/store.js";
 import { sampleFrames } from "@tubeflow/video-composition";
@@ -138,25 +138,21 @@ editingRouter.get(
   route(async (req, res) => {
     const c = editingConfig(),
       missing: string[] = [];
+    const selectedModel = req.query.model === undefined ? undefined : z.string().min(1).max(150).parse(req.query.model);
+    if (selectedModel && !supportedEditingModel(selectedModel)) missing.push(`Unsupported visual editing model: ${selectedModel}`);
     if (!c.enabled) missing.push("Enable AI_EDITING_ENABLED on the server");
-    if (!c.planner) missing.push("Configure EDITING_PLANNER_MODEL");
-    if (!c.vision) missing.push("Configure EDITING_VISION_MODEL");
-    if (!c.review) missing.push("Configure EDITING_REVIEW_MODEL");
-    if (
-      editingNeedsApiKey() &&
-      !credential(req) &&
-      !process.env.OPENROUTER_API_KEY
-    )
-      missing.push("Provide OpenRouter credentials");
+    if (!selectedModel && !c.planner) missing.push("Configure EDITING_PLANNER_MODEL");
+    if (!selectedModel && !c.vision) missing.push("Configure EDITING_VISION_MODEL");
+    if (!selectedModel && !c.review) missing.push("Configure EDITING_REVIEW_MODEL");
+    const chosen = selectedModel || c.planner;
+    if (chosen && !providerCredential(chosen, credential(req))) missing.push(`Add a ${editingProvider(chosen)} API key in server/.env or app settings`);
     let verified = false;
     if (
-      (req.query.verify === "true" ||
-        [c.planner, c.vision, c.review].every(isLocalEditingModel)) &&
-      c.planner &&
-      c.vision &&
-      c.review
+      (req.query.verify === "true" || selectedModel ||
+        (selectedModel ? isLocalEditingModel(selectedModel) : [c.planner, c.vision, c.review].every(isLocalEditingModel))) &&
+      (selectedModel || (c.planner && c.vision && c.review))
     ) {
-      const models = await modelCapabilities(credential(req));
+      const models = await modelCapabilities(credential(req), selectedModel);
       missing.push(...models.missing);
       verified = models.ready;
     }
@@ -165,10 +161,10 @@ editingRouter.get(
       ready: missing.length === 0,
       missing,
       modelsVerified: verified,
-      provider: [c.planner, c.vision, c.review].every(isLocalEditingModel)
+      provider: selectedModel ? editingProvider(selectedModel) : [c.planner, c.vision, c.review].every(isLocalEditingModel)
         ? "Local · Ollama"
         : "OpenRouter / configured models",
-      models: { planner: c.planner, vision: c.vision, review: c.review },
+      models: { planner: selectedModel || c.planner, vision: selectedModel || c.vision, review: selectedModel || c.review },
       alignment: c.alignmentUrl
         ? "configured service"
         : "measured TTS scenes or approximate fallback",
@@ -230,6 +226,43 @@ editingRouter.post(
     expected(p, req.body.expectedRevisionId);
     const job = enqueue(p, "generate", key(req), credential(req));
     res.status(202).json({ jobId: job.id, revisionId: p.revisionId });
+  }),
+);
+editingRouter.post(
+  "/projects/:projectId/simple",
+  route((req, res) => {
+    const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
+    const p = current(req.params.projectId);
+    expected(p, body.expectedRevisionId);
+    if (jobs(p.id).some(job => ["queued", "running", "cancel_requested"].includes(job.state)))
+      throw new EditingError("JOB_ACTIVE", "Cancel the current Artifacts job before creating simple captions.", 409);
+    const fresh = simpleArtifacts(p);
+    publish(fresh, p.revisionId);
+    res.status(201).json(payload(fresh));
+  }),
+);
+editingRouter.post(
+  "/projects/:projectId/reset",
+  route((req, res) => {
+    const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
+    const p = current(req.params.projectId);
+    expected(p, body.expectedRevisionId);
+    if (jobs(p.id).some(job => ["queued", "running", "cancel_requested"].includes(job.state)))
+      throw new EditingError("JOB_ACTIVE", "Cancel the current Artifacts job before starting fresh.", 409);
+    let original = p;
+    while (original.parentRevisionId)
+      original = revision(p.id, original.parentRevisionId);
+    const fresh = nextRevision(original);
+    fresh.parentRevisionId = p.revisionId;
+    fresh.settings = structuredClone(p.settings);
+    fresh.status = "draft";
+    fresh.analyses = [];
+    fresh.artifacts = [];
+    fresh.sceneOutcomes = [];
+    fresh.diagnostics = [];
+    fresh.scenes.forEach(scene => { delete scene.analysisId; });
+    publish(fresh, p.revisionId);
+    res.status(201).json(payload(fresh));
   }),
 );
 editingRouter.post(

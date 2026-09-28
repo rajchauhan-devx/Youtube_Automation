@@ -6,11 +6,12 @@ import { store } from '../services/store.js';
 import { sanitizeSegment } from '../services/comfyui.js';
 import { clearScriptVideo } from './render.js';
 import { cancelNarration } from '../services/long-narration.js';
-import { validateScenePlan } from '../services/scene-plan.js';
+import { validateScenePlan, parseScenePlan, spokenText, normalizeNarration } from '../services/scene-plan.js';
 import { validateEditingSettings } from '../services/auto-edit.js';
 import { cancelMusic } from '../services/local-music.js';
 import { deleteScriptEditing } from '../services/editing/scheduler.js';
 import { validatePresenter } from '../services/presenter-settings.js';
+import { SHORTS_MEDIA_TEMPLATE, LEGACY_SHORTS_MEDIA_TEMPLATE } from '../services/shorts-media.js';
 
 export const scriptsRouter = Router();
 scriptsRouter.param('id', (_req, res, next, value) => {
@@ -29,6 +30,23 @@ interface ScriptData {
 }
 
 scriptsRouter.get('/', (_req, res) => {
+  if (currentWorkspace().profile === 'shorts' && !store.getById('template_migrations', 'shorts-media-v1')) {
+    if (!store.getById('scripts', 'shorts_images_videos')) store.add('scripts', {
+      id: 'shorts_images_videos', accountId: currentWorkspace().accountId, section: 'shorts',
+      name: 'Shorts · Images & Videos', status: 'draft', locked: false, duration: 60,
+      lastUsed: 'now', model: 'gemini-3.6-flash', videoImportsEnabled: true,
+      prompts: [{ id: 'shorts_media_master', name: 'Shorts image and video scene prompts', type: 'Custom', content: SHORTS_MEDIA_TEMPLATE }],
+      howItWorks: 'Enter a topic, run the script and extract assets. Generate or import images, import videos, then generate narration and render a portrait Short. Turn off Use video imports in Generation for images only.',
+    });
+    store.add('template_migrations', { id: 'shorts-media-v1' });
+  }
+  if (currentWorkspace().profile === 'shorts' && !store.getById('template_migrations', 'shorts-media-v2')) {
+    const builtIn = store.getById<ScriptData>('scripts', 'shorts_images_videos');
+    if (builtIn?.prompts.some(prompt => prompt.content.replace(/\r/g, '') === LEGACY_SHORTS_MEDIA_TEMPLATE.replace(/\r/g, ''))) {
+      store.add('scripts', { ...builtIn, ...((builtIn as any).model === 'ollama/qwen3.5:4b' ? { model: 'gemini-3.6-flash' } : {}), prompts: builtIn.prompts.map(prompt => prompt.content.replace(/\r/g, '') === LEGACY_SHORTS_MEDIA_TEMPLATE.replace(/\r/g, '') ? { ...prompt, content: SHORTS_MEDIA_TEMPLATE } : prompt) });
+    }
+    store.add('template_migrations', { id: 'shorts-media-v2' });
+  }
   const scripts = store.get<ScriptData>('scripts');
   res.json(scripts);
 });
@@ -43,6 +61,9 @@ scriptsRouter.get('/:id', (req, res) => {
 });
 
 scriptsRouter.post('/', (req, res) => {
+  if (req.body?.videoImportsEnabled !== undefined && typeof req.body.videoImportsEnabled !== 'boolean') {
+    res.status(400).json({ error: 'Video imports must be enabled or disabled.' }); return;
+  }
   if (req.body?.presenter !== undefined) {
     try { req.body.presenter = validatePresenter(req.body.presenter); }
     catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid presenter' }); return; }
@@ -61,6 +82,9 @@ scriptsRouter.post('/', (req, res) => {
 });
 
 scriptsRouter.put('/:id', async (req, res) => {
+  if (req.body?.videoImportsEnabled !== undefined && typeof req.body.videoImportsEnabled !== 'boolean') {
+    res.status(400).json({ error: 'Video imports must be enabled or disabled.' }); return;
+  }
   if (req.body?.presenter !== undefined) {
     try { req.body.presenter = validatePresenter(req.body.presenter); }
     catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid presenter' }); return; }
@@ -76,12 +100,20 @@ scriptsRouter.put('/:id', async (req, res) => {
     try { validateEditingSettings(req.body.editing); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid editing settings' }); return; }
   }
   const responseReplaced = typeof req.body?.aiResponse === 'string' && (req.body.aiResponse !== (existing as any).aiResponse || req.body.extractedScript === '');
-  const reset = req.body?.aiResponse === '' || responseReplaced;
+  let editedSceneResponse = false;
+  if (responseReplaced && req.body?.scenePlan && req.body.aiResponse) {
+    try {
+      editedSceneResponse = JSON.stringify(parseScenePlan(req.body.aiResponse)) === JSON.stringify(req.body.scenePlan)
+        && normalizeNarration(req.body.narration || '') === normalizeNarration(spokenText(req.body.scenePlan));
+    } catch { /* An unextracted replacement response must still reset assets. */ }
+  }
+  const reset = req.body?.aiResponse === '' || (responseReplaced && !editedSceneResponse);
   if (req.body?.scenePlan) {
     try { validateScenePlan(req.body.scenePlan); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid scene plan' }); return; }
   }
-  const sceneChanged = currentWorkspace().profile !== 'shorts' && ['scenePlan', 'narration'].some(key => key in (req.body || {}) && JSON.stringify(req.body[key]) !== JSON.stringify((existing as any)[key]));
-  if (reset || sceneChanged) {
+  const sceneChanged = (currentWorkspace().profile !== 'shorts' || Boolean((existing as any).scenePlan) || Boolean(req.body?.scenePlan)) && ['scenePlan', 'narration'].some(key => key in (req.body || {}) && JSON.stringify(req.body[key]) !== JSON.stringify((existing as any)[key]));
+  const mediaModeChanged = 'videoImportsEnabled' in (req.body || {}) && req.body.videoImportsEnabled !== (existing as any).videoImportsEnabled;
+  if (reset || sceneChanged || mediaModeChanged) {
     try { await cancelMusic(req.params.id); await cancelNarration(req.params.id); await clearScriptVideo(req.params.id); }
     catch (error) { res.status(500).json({ error: error instanceof Error ? error.message : 'Could not clear video' }); return; }
   }
@@ -101,6 +133,7 @@ scriptsRouter.put('/:id', async (req, res) => {
     store.set(`pipeline_${req.params.id}`, []);
   }
   if (sceneChanged) { updated.generatedAudio = []; delete updated.timelineConfig; delete updated.youtubeExport; delete updated.generatedMusic; }
+  if (mediaModeChanged) { delete updated.timelineConfig; delete updated.youtubeExport; }
   store.add('scripts', updated);
   res.json(updated);
 });

@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Image as ImageIcon, Music, Copy, Pencil, Play, Loader2 } from 'lucide-react';
 import type { Script } from '../../data';
 import { spokenText, validateScenePlan } from '../../../server/src/services/scene-plan';
+import { isTaggedShortsResponse, serializeShortsPackage } from '../../../server/src/services/shorts-package';
 
 export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script: Script | null; onProceedToGeneration?: () => void; onUpdate?: (patch: Partial<Script>) => unknown }) {
   const [activeSubTab, setActiveSubTab] = useState<'images' | 'narration'>('images');
   const [editingScene, setEditingScene] = useState<number | null>(null);
   const [sceneText, setSceneText] = useState('');
   const [sceneImage, setSceneImage] = useState('');
+  const [sceneVideo, setSceneVideo] = useState('');
   const [sceneType, setSceneType] = useState<'image' | 'video'>('image');
   const [editError, setEditError] = useState('');
   const [savingScene, setSavingScene] = useState(false);
@@ -16,11 +18,11 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
     if (!script?.scenePlan || editingScene === null || !onUpdate) return;
     setSavingScene(true); setEditError('');
     try {
-      const scenePlan = validateScenePlan({ ...script.scenePlan, scenes: script.scenePlan.scenes.map((scene, i) => i === editingScene ? { ...scene, narration: sceneText.trim(), imagePrompt: sceneImage.trim(), ...(script.section === 'mixed' ? { mediaType: sceneType, duration: sceneType === 'video' ? 10 : undefined } : {}) } : scene) });
+      const scenePlan = validateScenePlan({ ...script.scenePlan, scenes: script.scenePlan.scenes.map((scene, i) => i === editingScene ? { ...scene, narration: sceneText.trim(), imagePrompt: sceneImage.trim(), ...(sceneVideo.trim() ? { videoPrompt: sceneVideo.trim() } : { videoPrompt: undefined }), ...((script.section === 'mixed' || script.section === 'shorts') ? { mediaType: sceneType, duration: sceneType === 'video' ? scene.duration || 5 : undefined } : {}) } : scene) });
       const narration = spokenText(scenePlan);
-      const saved = await onUpdate({ scenePlan, narration, extractedScript: narration, aiResponse: `<long_video>\n${JSON.stringify(scenePlan, null, 2)}\n</long_video>`,
+      const saved = await onUpdate({ scenePlan, narration, extractedScript: narration, aiResponse: isTaggedShortsResponse(script.aiResponse || '') ? serializeShortsPackage(scenePlan) : `<long_video>\n${JSON.stringify(scenePlan, null, 2)}\n</long_video>`,
         imagePrompts: scenePlan.scenes.map(scene => scene.imagePrompt), generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined,
-        generatedImages: script.generatedImages?.filter(image => scenePlan.scenes[image.index]?.imagePrompt === image.prompt && (scenePlan.scenes[image.index]?.mediaType || 'image') === (image.mediaType || 'image')) });
+        generatedImages: script.generatedImages?.filter(image => (image.mediaType === 'video' ? scenePlan.scenes[image.index]?.videoPrompt || scenePlan.scenes[image.index]?.imagePrompt : scenePlan.scenes[image.index]?.imagePrompt) === image.prompt && (script.section === 'shorts' && (image.mediaType || 'image') === 'image' || (scenePlan.scenes[image.index]?.mediaType || 'image') === (image.mediaType || 'image'))) });
       if (saved === false) throw new Error('Could not save the scene. Check the server connection.');
       setEditingScene(null);
     } catch (error) { setEditError(error instanceof Error ? error.message : 'Could not save scene'); }
@@ -61,7 +63,7 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
             }`}
           >
             <ImageIcon className="h-4 w-4" />
-            {script.section === 'mixed' ? 'Image & Video Prompts' : 'Image Prompts'}
+            {(script.section === 'mixed' || script.section === 'shorts') ? 'Image & Video Prompts' : 'Image Prompts'}
             {script.imagePrompts && script.imagePrompts.length > 0 && (
               <span className="ml-1 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] text-accent">
                 {script.imagePrompts.length}
@@ -113,7 +115,7 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
         ) : activeSubTab === 'images' ? (
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-white">{script.section === 'mixed' ? 'Image & Video Prompts' : 'Image Prompts'}</h3>
+              <h3 className="text-sm font-semibold text-white">{(script.section === 'mixed' || script.section === 'shorts') ? 'Image & Video Prompts' : 'Image Prompts'}</h3>
               <span className="text-xs text-gray-500">Pending generation</span>
             </div>
             {script.imagePrompts && script.imagePrompts.length > 0 ? (
@@ -137,9 +139,11 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
                     <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
                       {prompt}
                     </p>
+                    {script.scenePlan?.scenes[i]?.videoPrompt && <div className="mb-3 text-sm text-purple-200"><strong>Video prompt</strong><p>{script.scenePlan.scenes[i].videoPrompt}</p><button className="mt-2 text-xs text-accent" onClick={() => navigator.clipboard.writeText(script.scenePlan!.scenes[i].videoPrompt!)}>Copy video prompt</button></div>}
                     {script.scenePlan?.scenes[i] && <p className="mb-3 text-sm text-emerald-200"><strong>{script.scenePlan.scenes[i].chapter} · {script.scenePlan.scenes[i].id}</strong><br />{script.scenePlan.scenes[i].narration}</p>}
                     {editingScene === i && <div className="mb-3 space-y-2">
-                      {script.section === 'mixed' && <label className="block text-xs text-gray-300">Media type <select aria-label="Scene media type" value={sceneType} onChange={event => setSceneType(event.target.value as 'image' | 'video')} className="rounded border border-border bg-bg p-2"><option value="image">Image</option><option value="video">Video · 10 seconds</option></select></label>}
+                      {sceneType === 'video' && <label className="block text-xs text-gray-300">Video prompt<textarea aria-label="Video prompt" value={sceneVideo} onChange={event => setSceneVideo(event.target.value)} className="mt-1 w-full rounded border border-border bg-bg p-2" /></label>}
+                      {(script.section === 'mixed' || script.section === 'shorts') && <label className="block text-xs text-gray-300">Media type <select aria-label="Scene media type" value={sceneType} onChange={event => setSceneType(event.target.value as 'image' | 'video')} className="rounded border border-border bg-bg p-2"><option value="image">Image</option><option value="video">Video</option></select></label>}
                       <label className="block text-xs text-gray-300">Spoken narration<textarea aria-label="Scene narration" value={sceneText} onChange={event => setSceneText(event.target.value)} className="mt-1 block min-h-24 w-full rounded border border-border bg-bg p-3" /></label>
                       <label className="block text-xs text-gray-300">Matching image prompt<textarea aria-label="Scene image prompt" value={sceneImage} onChange={event => setSceneImage(event.target.value)} className="mt-1 block min-h-24 w-full rounded border border-border bg-bg p-3" /></label>
                       <p className="text-xs text-amber-200">Saving clears narration timing and the rendered video. Generate narration again to rebuild timing; unchanged voice segments can be reused.</p>
@@ -157,7 +161,7 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
                       </button>
                       <button onClick={() => {
                         const scene = script.scenePlan?.scenes[i];
-                        if (scene) { setEditingScene(i); setSceneText(scene.narration); setSceneImage(scene.imagePrompt); setSceneType(scene.mediaType || 'image'); setEditError(''); }
+                        if (scene) { setEditingScene(i); setSceneText(scene.narration); setSceneImage(scene.imagePrompt); setSceneVideo(scene.videoPrompt || ''); setSceneType(scene.mediaType || 'image'); setEditError(''); }
                       }} disabled={!script.scenePlan || !onUpdate} className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2 disabled:opacity-40">
                         <Pencil className="h-3.5 w-3.5" />
                         Edit

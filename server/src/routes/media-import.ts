@@ -1,3 +1,4 @@
+import { mediaScenes } from '../services/shorts-media.js';
 import express, { Router } from 'express';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -5,7 +6,6 @@ import { currentWorkspace, generatedDir, mediaUrl } from '../services/workspace.
 import { containedFile, safeSegment } from '../services/paths.js';
 import { store } from '../services/store.js';
 import { runMedia } from '../services/media-process.js';
-import { validateScenePlan } from '../services/scene-plan.js';
 
 export const mediaImportRouter = Router();
 mediaImportRouter.post('/:scriptId/:index', express.raw({ type: 'application/octet-stream', limit: '250mb' }), async (req, res) => {
@@ -13,9 +13,9 @@ mediaImportRouter.post('/:scriptId/:index', express.raw({ type: 'application/oct
   try {
     const { scriptId } = req.params;
     const index = Number(req.params.index);
-    if (currentWorkspace().profile !== 'mixed' || !safeSegment(scriptId) || !Number.isInteger(index) || index < 0) throw new Error('Invalid mixed-media scene.');
+    if (!['mixed', 'shorts'].includes(currentWorkspace().profile) || !safeSegment(scriptId) || !Number.isInteger(index) || index < 0) throw new Error('Invalid mixed-media scene.');
     const script = store.getById<any>('scripts', scriptId);
-    const scene = validateScenePlan(script?.scenePlan).scenes[index];
+    const scene = mediaScenes({ ...script, section: currentWorkspace().profile })[index];
     if (!scene) throw new Error('Scene not found. Extract your script first.');
     const type = scene.mediaType || 'image';
     const extension = String(req.query.extension || '').toLowerCase();
@@ -33,9 +33,9 @@ mediaImportRouter.post('/:scriptId/:index', express.raw({ type: 'application/oct
     const duration = type === 'video' ? Number(visual.duration || probe.format?.duration) : undefined;
     if (type === 'video' && (!Number.isFinite(duration) || duration! < 1 / 30 || duration! > 3600)) throw new Error('Video must have a readable duration between one frame and one hour.');
     const current = store.getById<any>('scripts', scriptId);
-    if (!current || JSON.stringify(current.scenePlan?.scenes[index]) !== JSON.stringify(scene)) throw new Error('Scene changed during upload. Import again into the updated scene.');
+    if (!current || JSON.stringify(mediaScenes({ ...current, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) throw new Error('Scene changed during upload. Import again into the updated scene.');
     const asset = { index, prompt: scene.imagePrompt, mediaType: type, ...(type === 'video' ? { duration } : {}), status: 'done', url: mediaUrl(`generate/file/${scriptId}/${filename}`) };
-    const generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index), asset].sort((a, b) => a.index - b.index);
+    const generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index || (currentWorkspace().profile === 'shorts' && (item.mediaType || 'image') !== type)), asset].sort((a, b) => a.index - b.index);
     store.add('scripts', { ...current, generatedImages, timelineConfig: undefined, youtubeExport: undefined });
     target = undefined;
     res.json({ asset, generatedImages });

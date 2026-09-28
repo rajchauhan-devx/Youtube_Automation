@@ -5,7 +5,7 @@ import {
   type EditingPayload,
   type EditingCapabilities,
 } from "../services/editingApi";
-export function useEditingProject(scriptId?: string, reference?: string) {
+export function useEditingProject(scriptId?: string, reference?: string, model?: string) {
   const { fetch } = useWorkspaceApi(),
     [data, setData] = useState<EditingPayload>(),
     [error, setError] = useState(""),
@@ -20,9 +20,11 @@ export function useEditingProject(scriptId?: string, reference?: string) {
   }, [scriptId, reference, fetch]);
   useEffect(() => {
     const abort = new AbortController();
+    setCapabilities(undefined);
+    setError("");
     editingRequest<EditingCapabilities>(
       fetch,
-      "/capabilities",
+      `/capabilities${model ? `?model=${encodeURIComponent(model)}` : ""}`,
       undefined,
       "GET",
       abort.signal,
@@ -32,7 +34,7 @@ export function useEditingProject(scriptId?: string, reference?: string) {
         if (!abort.signal.aborted) setError(e.message);
       });
     return () => abort.abort();
-  }, [fetch]);
+  }, [fetch, model]);
   useEffect(() => {
     if (!scriptId) return;
     const abort = new AbortController();

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Mic2, RefreshCw, Trash2, Upload } from 'lucide-react';
 import type { Channel } from '../../data';
 import { YouTubeAccountsPanel } from './YouTubeAccountsPanel';
+import { createWorkspaceUrl, useWorkspaceApi } from '../../services/workspaceApi';
 import { listVoices, rememberVoice, removeVoiceReference, saveVoiceReference, VOICE_FILE_ACCEPT, type SavedVoice, type VoiceLanguage } from '../../services/voiceLibrary';
 
 function VoiceLibrary({ language }: { language: VoiceLanguage }) {
+  const { account, profile, fetch: workspaceFetch } = useWorkspaceApi();
   const label = language === 'en' ? 'English' : 'Hindi';
   const [voices, setVoices] = useState<SavedVoice[]>([]);
   const [provider, setProvider] = useState('');
@@ -21,7 +23,7 @@ function VoiceLibrary({ language }: { language: VoiceLanguage }) {
   const refresh = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     try {
-      const data = await listVoices(language, signal);
+      const data = await listVoices(language, workspaceFetch, signal);
       if (!mounted.current || signal?.aborted) return;
       setVoices(data.voices.filter(voice => voice.source === 'clone'));
       setProvider(data.provider);
@@ -29,7 +31,7 @@ function VoiceLibrary({ language }: { language: VoiceLanguage }) {
     } catch (err) {
       if (mounted.current && !signal?.aborted) setError(err instanceof Error ? err.message : 'Could not load voices');
     } finally { if (mounted.current && !signal?.aborted) setLoading(false); }
-  }, [language]);
+  }, [language, workspaceFetch]);
 
   useEffect(() => {
     mounted.current = true;
@@ -43,12 +45,12 @@ function VoiceLibrary({ language }: { language: VoiceLanguage }) {
     if (!file || saving) return;
     setSaving(true); setError(''); setMessage('');
     try {
-      const voice = await saveVoiceReference(name, language, file);
+      const voice = await saveVoiceReference(name, language, file, workspaceFetch);
       if (!mounted.current) return;
       // Profile uploads are also the source of the default selection in Audio
       // Generation. Remember the exact Chatterbox reference by language so a
       // newly saved voice is selected after navigating away and back.
-      rememberVoice(language, provider || 'Chatterbox Multilingual V3', voice.id);
+      rememberVoice(account.id, language, provider || 'Chatterbox Multilingual V3', voice.id);
       setVoices(current => [...current, voice]);
       setName(''); setFile(null);
       if (fileRef.current) fileRef.current.value = '';
@@ -62,7 +64,7 @@ function VoiceLibrary({ language }: { language: VoiceLanguage }) {
     if (!window.confirm(`Delete “${voice.name}” and its saved reference recording?`)) return;
     setDeleting(voice.id); setError(''); setMessage('');
     try {
-      await removeVoiceReference(voice.id);
+      await removeVoiceReference(voice.id, workspaceFetch);
       if (mounted.current) setVoices(current => current.filter(item => item.id !== voice.id));
     } catch (err) {
       if (mounted.current) setError(err instanceof Error ? err.message : 'Could not delete reference');
@@ -101,7 +103,7 @@ function VoiceLibrary({ language }: { language: VoiceLanguage }) {
               <span className="min-w-0 break-words text-sm font-medium">{voice.name}</span>
               {voice.deletable && <button aria-label={`Delete ${voice.name}`} disabled={!!deleting || saving} onClick={() => void remove(voice)} className="shrink-0 rounded p-2 text-gray-500 hover:text-red-300 disabled:opacity-40">{deleting === voice.id ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}</button>}
             </div>
-            <audio aria-label={`${voice.name} reference playback`} controls preload="none" src={`/api/tts/voices/${encodeURIComponent(voice.id)}/reference`} className="h-9 w-full" />
+            <audio aria-label={`${voice.name} reference playback`} controls preload="none" src={createWorkspaceUrl(account.id, profile, `tts/voices/${encodeURIComponent(voice.id)}/reference`)} className="h-9 w-full" />
           </div>)}
         </div>
       </div>
@@ -110,12 +112,14 @@ function VoiceLibrary({ language }: { language: VoiceLanguage }) {
 }
 
 export function ProfilePage({ accounts, onAccountsChange, onSelectAccount }: { accounts: Channel[]; onAccountsChange: (accounts: Channel[]) => void; onSelectAccount: (account: Channel) => void }) {
+  const { account } = useWorkspaceApi();
   return <div className="mx-auto max-w-5xl space-y-6">
     <YouTubeAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} />
     <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-accent">Profile</p>
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-accent">Profile · {account.name}</p>
       <h1 className="text-2xl font-semibold">Your Chatterbox voices</h1>
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-400">Save English and Hindi voice references once and reuse them across your projects. They appear in the matching language's voice list in Generation → Audio, even after restarting the app.</p>
+      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-400">Save English and Hindi voice references once and reuse them across this profile's projects. They appear in the matching language's voice list in Generation → Audio, even after restarting the app.</p>
+      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-400">Every profile has its own library: voices saved for {account.name} stay private to it and never show up in your other YouTube accounts.</p>
       <p className="mt-2 text-xs text-gray-500">Recordings stay on this computer. Use your own voice or a voice you have permission to use. Chatterbox does not need to be running to save references.</p>
     </div>
     <div className="grid gap-5 lg:grid-cols-2"><VoiceLibrary language="en" /><VoiceLibrary language="hi" /></div>

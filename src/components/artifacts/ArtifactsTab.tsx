@@ -5,7 +5,10 @@ import type { ArtifactComposition } from "@tubeflow/editing-contracts";
 import { useEditingProject } from "../../hooks/useEditingProject";
 import { editingRequest, type EditingPayload } from "../../services/editingApi";
 import { useWorkspaceApi } from "../../services/workspaceApi";
-import type { Script } from "../../data";
+import { GEMINI_MODELS, type Script } from "../../data";
+import { LOCAL_MODELS } from "../../../server/src/services/local-models";
+import { OPENCODE_MODELS } from "../../../server/src/services/opencode-models";
+import { GROQ_MODELS, OPENROUTER_MODELS } from "../../../server/src/services/reasoning-models";
 
 const activeStates = ["queued", "running", "cancel_requested"];
 export function ArtifactsTab({
@@ -17,7 +20,8 @@ export function ArtifactsTab({
   onUpdate: (patch: Partial<Script>) => unknown;
   editor?: boolean;
 }) {
-  const state = useEditingProject(script?.id, script?.editingProjectId),
+  const [model, setModel] = useState("");
+  const state = useEditingProject(script?.id, script?.editingProjectId, model || undefined),
     { data, fetch } = state,
     { profile } = useWorkspaceApi();
   const [audio, setAudio] = useState(
@@ -33,12 +37,16 @@ export function ArtifactsTab({
     player = useRef<PlayerRef>(null);
   const p = data?.project,
     job = data?.jobs
-      .filter((j) => activeStates.includes(j.state))
+      .filter((j) => j.revisionId === data.currentRevisionId && activeStates.includes(j.state))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0],
     lastJob = data?.jobs
-      .slice()
+      .filter((j) => j.revisionId === data.currentRevisionId || j.resultRevisionId === data.currentRevisionId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0],
-    ready = p?.status === "ready" || p?.status === "partial";
+    ready = p?.status === "ready" || p?.status === "partial",
+    allInspectionFailed = p?.status === "partial" && !p.artifacts.length &&
+      !!p.scenes.length && p.sceneOutcomes?.length === p.scenes.length &&
+      p.sceneOutcomes.every(outcome => outcome.state === "failed") &&
+      p.analyses.every(analysis => analysis.description.startsWith("Image inspection unavailable"));
   useEffect(() => {
     if (!script?.generatedAudio?.some(a => a.filename === audio)) setAudio(script?.generatedAudio?.[0]?.filename || "");
   }, [script?.id, script?.generatedAudio, audio]);
@@ -57,19 +65,19 @@ export function ArtifactsTab({
       </p>
     );
   const currentScript = script;
-  async function act(work: () => Promise<unknown>) {
+  async function act(work: () => Promise<unknown>, refresh = true) {
     setBusy(true);
     state.setError("");
     try {
       await work();
-      await state.refresh();
+      if (refresh) await state.refresh();
     } catch (e) {
       state.setError(e instanceof Error ? e.message : "Visual editing failed");
     } finally {
       setBusy(false);
     }
   }
-  async function generate() {
+  async function generate(mode: "ai" | "simple" = "ai") {
     await act(async () => {
       const selectedAudio = currentScript.generatedAudio?.find(
         (a) => a.filename === audio,
@@ -91,10 +99,15 @@ export function ArtifactsTab({
           density,
           maxProviderCalls: Math.min(2000, 3 + (currentScript.generatedImages?.length || 1) * 12),
           maxGeneratedAssets: 4,
+          ...(model ? { aiModel: model } : {}),
         },
       };
-      const created =
-        p && data
+      const reuseCurrentMedia = mode === "simple" && p && data && !data.stale &&
+        p.revisionId === data.currentRevisionId && p.inputs.audioFilename === audio &&
+        p.inputs.width === (profile === "shorts" ? 1080 : 1920);
+      const created = reuseCurrentMedia
+          ? data
+          : p && data
           ? await editingRequest<EditingPayload>(
               fetch,
               `/projects/${p.id}/revisions`,
@@ -105,10 +118,35 @@ export function ArtifactsTab({
       state.setProjectId(created.project.id);
       state.setData(created);
       await onUpdate({ editingProjectId: created.project.id });
-      await editingRequest(fetch, `/projects/${created.project.id}/generate`, {
-        expectedRevisionId: created.project.revisionId,
+      if (mode === "simple") {
+        const finished = await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}/simple`, {
+          expectedRevisionId: created.project.revisionId,
+        });
+        state.setData(finished);
+      } else {
+        await editingRequest(fetch, `/projects/${created.project.id}/generate`, {
+          expectedRevisionId: created.project.revisionId,
+        });
+      }
+    }, mode === "ai");
+  }
+  async function reset() {
+    if (!p || !data) return;
+    setBusy(true);
+    state.setError("");
+    try {
+      const fresh = await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/reset`, {
+        expectedRevisionId: data.currentRevisionId,
       });
-    });
+      state.setSelectedRevision("");
+      state.setData(fresh);
+      setSelected("");
+      setFrame(0);
+    } catch (error) {
+      state.setError(error instanceof Error ? error.message : "Could not clear artifacts");
+    } finally {
+      setBusy(false);
+    }
   }
   const download = data?.jobs
     .filter(
@@ -148,6 +186,7 @@ export function ArtifactsTab({
           </ul>
         </div>
       )}
+      {!state.capabilities && !state.error && <p className="text-sm text-gray-400">Checking visual editing model and server settings...</p>}
       {state.capabilities?.ready && state.capabilities.provider && (
         <p className="text-sm text-emerald-300">
           {state.capabilities.provider}
@@ -157,8 +196,29 @@ export function ArtifactsTab({
             " · Runs on this computer without an API key"}
         </p>
       )}
+      {state.capabilities?.ready && !state.capabilities.modelsVerified &&
+        <p className="text-xs text-amber-300">This provider's image and JSON support has not been verified here. Generation may fail if the selected model lacks either capability.</p>}
       {!editor && (
         <div className="grid gap-3 rounded-lg border border-border bg-surface p-4 md:grid-cols-2">
+          <div className="md:col-span-2 text-sm text-gray-300">
+            <p className="font-medium">How Artifacts works</p>
+            <p className="mt-1 text-gray-400">Generate scene images or clips and narration in Generation first. Here, choose the narration and AI model. The model adds optional on-screen explanations. Review the result below, then export its video.</p>
+          </div>
+          <label className="text-sm md:col-span-2">
+            Visual editing AI model
+            <select aria-label="Visual editing AI model" className="mt-1 w-full rounded bg-bg p-2" value={model} onChange={e => setModel(e.target.value)}>
+              <option value="">Server default</option>
+              <optgroup label="Local Ollama">{LOCAL_MODELS.filter(item => !item.id.endsWith(":thinking")).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
+              <optgroup label="Google Gemini">{GEMINI_MODELS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
+              <optgroup label="OpenCode (Requires External API Access)">{OPENCODE_MODELS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
+              <optgroup label="Groq">{GROQ_MODELS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
+              <optgroup label="OpenRouter">{OPENROUTER_MODELS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
+            </select>
+            <span className="mt-1 block text-xs text-gray-400">The model needs image input and JSON output. Configure its API key in server/.env; Gemini and OpenRouter can also use the key saved in app settings.</span>
+            {model === "groq/qwen/qwen3.8-27b" && <span className="mt-1 block text-xs text-emerald-300">Groq lists this model as supporting images and structured JSON. Account access and limits can vary.</span>}
+            {model.startsWith("opencode/") && <span className="mt-1 block text-xs text-amber-300">OpenCode free tier restricts direct API calls from external apps. Use Gemini (recommended), Ollama, or OpenRouter unless you have paid OpenCode API access.</span>}
+            {p?.settings.aiModel && <span className="mt-1 block text-xs text-gray-400">Current saved edit uses {p.settings.aiModel}. The selection above applies to a new edit.</span>}
+          </label>
           <label className="text-sm">
             Narration language & voice
             <select
@@ -199,13 +259,16 @@ export function ArtifactsTab({
             />
           </label>
           <div className="md:col-span-2">
+            {(!script.generatedImages?.length || !script.generatedAudio?.length) &&
+              <p className="mb-2 text-sm text-amber-300">Generate at least one scene image or clip and a matching narration in Generation before creating this edit.</p>}
             <button
               className={button}
               disabled={
                 busy ||
                 !!job ||
                 !state.capabilities?.ready ||
-                !audio
+                !audio ||
+                !script.generatedImages?.length
               }
               onClick={() => void generate()}
             >
@@ -214,6 +277,24 @@ export function ArtifactsTab({
             <span className="ml-3 text-xs text-gray-500">
               AI chooses the scenes, creates graphics, and checks and repairs them automatically.
             </span>
+            <div className="mt-3">
+              <button
+                type="button"
+                className={button}
+                disabled={busy || !!job || !audio || !script.generatedImages?.length}
+                onClick={() => void generate("simple")}
+              >
+                Create simple captions (fast)
+              </button>
+              <p className="mt-1 text-xs text-gray-400">Uses the saved narration to place readable captions without an AI model. Original images, clips, and audio stay in the video. This does not create custom AI diagrams.</p>
+            </div>
+            {p && <div className="mt-3">
+              <button type="button" className="rounded-md border border-amber-700 px-3 py-2 text-sm text-amber-200 disabled:opacity-40 hover:bg-amber-950/40"
+                disabled={busy || !!job} onClick={() => void reset()}>
+                Clear artifacts and start fresh
+              </button>
+              <p className="mt-1 text-xs text-gray-400">Clears the current edit and failed progress. Your scene media, narration, and older revisions stay available. Then click Generate all artifacts.</p>
+            </div>}
           </div>
         </div>
       )}
@@ -245,7 +326,8 @@ export function ArtifactsTab({
           lastJob.state,
         ) && (
           <div className="rounded border border-amber-800 p-3 text-sm">
-            <p>{lastJob.error || lastJob.state}</p>
+            <p className="font-semibold">Job using {p?.settings.aiModel || "server default"}: {lastJob.state.replace(/_/g, " ")}</p>
+            <p>{lastJob.error || "The visual editing job stopped."}</p>
             <button
               className={`${button} mt-2`}
               disabled={busy}
@@ -269,7 +351,13 @@ export function ArtifactsTab({
         <div role="status" className={"rounded border p-3 text-sm " + (p.status === "partial" ? "border-amber-700 text-amber-200" : "border-emerald-800 text-emerald-200")}>
           <strong>{p.status === "partial" ? "Finished with incomplete scenes" : "Artifact generation complete"}</strong>
           <p>{p.artifacts.length} artifacts created. {p.sceneOutcomes?.filter(o => o.state === "not_needed").length || 0} scenes need no extra graphics. {p.sceneOutcomes?.filter(o => o.state === "failed").length || 0} scenes incomplete.</p>
-          {p.status === "partial" && <p>Accepted artifacts and the full video are preserved. Generate again to retry; failed scenes are listed below.</p>}
+          {p.status === "partial" && p.artifacts.length > 0 && <p>Accepted artifacts and the full video are preserved. Generate again to retry failed scenes.</p>}
+        </div>
+      )}
+      {allInspectionFailed && p && (
+        <div role="alert" className="rounded border border-amber-700 bg-amber-950/20 p-3 text-sm text-amber-200">
+          <strong>No scenes could be inspected</strong>
+          <p>The selected model did not produce usable image analysis, so no artifacts were made. Choose another visual editing model and click Generate all artifacts. This attempt made {lastJob?.usage.filter(item => item.operation === "analyze").length || 0} inspection requests; further retries with the same model may use more provider quota.</p>
         </div>
       )}
       {p && data && (
@@ -405,19 +493,21 @@ export function ArtifactsTab({
             </p>
           </div>
           <div className="space-y-3">
-            {p.scenes.map((scene, index) => {
+            {!allInspectionFailed && p.scenes.map((scene, index) => {
               const artifacts = p.artifacts.filter(
                 (a) => a.sceneId === scene.id,
               );
               return (
                 <section key={scene.id}>
                   <h3 className="mb-2 text-sm font-semibold text-gray-400">
-                    Scene {index + 1}{p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.state === "failed" ? " ? Incomplete" : ""}
+                    Scene {index + 1}
+                    {p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.state === "failed" ? " — Incomplete" : ""}
+                    {p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.state === "not_needed" ? " — Clean media" : ""}
                   </h3>
                   {!artifacts.length && (
                     <p className="mb-3 text-xs text-gray-500">
                       {ready
-                        ? p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.reason || "No artifact saved for this scene. Check diagnostics for earlier revisions."
+                        ? p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.reason || "Original scene media preserved cleanly."
                         : "Design pending."}
                     </p>
                   )}

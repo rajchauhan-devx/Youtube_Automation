@@ -5,8 +5,8 @@ import { currentWorkspace } from './workspace.js';
 
 export function renderRevision(scriptId: string): string | undefined {
   const script = store.getById<any>('scripts', scriptId);
-  if (!script || (script.enableSubtitles === undefined && !script.presenter && (currentWorkspace().profile === 'shorts' || !script?.scenePlan))) return undefined;
-  return createHash('sha256').update(JSON.stringify({ plan: script.scenePlan, narration: script.narration, editing: script.editing,
+  if (!script || (script.enableSubtitles === undefined && !script.presenter && !script?.scenePlan)) return undefined;
+  return createHash('sha256').update(JSON.stringify({ plan: script.scenePlan, videoImportsEnabled: script.videoImportsEnabled, narration: script.narration, editing: script.editing,
     presenter: script.presenter,
     enableSubtitles: script.enableSubtitles,
     presenterLayoutVersion: script.presenter?.enabled ? 2 : undefined,

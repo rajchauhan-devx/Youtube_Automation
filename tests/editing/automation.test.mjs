@@ -64,3 +64,23 @@ for (const mode of ["repair", "rejected", "not_needed", "planning_failed", "budg
     } finally { globalThis.fetch = originalFetch; }
   });
 }
+
+test("provider outage stops before repeated scene requests and reports the provider error", async () => {
+  const p = await fixture();
+  p.artifacts = [];
+  const now = new Date().toISOString();
+  const job = {id: randomUUID(), projectId: p.id, revisionId: p.revisionId, operation: "generate", inputHash: objectHash(p), idempotencyKey: randomUUID(), state: "running", stage: "start", attempts: 1, completed: 0, total: 0, createdAt: now, updatedAt: now, stages: {}, usage: []};
+  let calls = 0;
+  globalThis.fetch = async (url, options) => {
+    if (String(url) !== "https://openrouter.ai/api/v1/chat/completions") return originalFetch(url, options);
+    calls++;
+    return new Response("rate limited", {status: 429});
+  };
+  try {
+    await assert.rejects(
+      runPipeline(p, {job, apiKey: "fixture", maxCalls: 20, signal: new AbortController().signal, persist: () => {}, stage: () => {}}),
+      /openrouter returned HTTP 429/,
+    );
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = originalFetch; }
+});

@@ -32,7 +32,8 @@ logging.basicConfig(
 LOGGER = logging.getLogger("tubeflow.chatterbox")
 
 SERVICE_DIR = Path(__file__).resolve().parent
-VOICE_DIR = Path(os.getenv("CHATTERBOX_VOICE_DIR", SERVICE_DIR.parent / "data" / "voices")).resolve()
+DATA_ROOT = Path(os.getenv("TUBEFLOW_DATA_DIR", SERVICE_DIR.parent / "data")).resolve()
+VOICE_DIR = Path(os.getenv("CHATTERBOX_VOICE_DIR", DATA_ROOT / "voices")).resolve()
 VOICE_DIR.mkdir(parents=True, exist_ok=True)
 
 MODEL_VERSION = os.getenv("CHATTERBOX_T3_MODEL", "v3")
@@ -55,6 +56,7 @@ class SpeechRequest(BaseModel):
     model: str = "chatterbox-multilingual-v3"
     input: str = Field(min_length=1, max_length=MAX_INPUT_CHARS)
     voice: str = "builtin"
+    voice_path: str | None = None
     language: Literal["en", "hi"] = "en"
     response_format: Literal["wav"] = "wav"
     exaggeration: float = Field(default=0.5, ge=0.25, le=1.5)
@@ -150,11 +152,24 @@ def _voice_metadata() -> list[dict]:
     return voices
 
 
-def _resolve_voice_path(voice_id: str) -> Path | None:
+def _voice_roots() -> list[Path]:
+    """Directories a reference may legally live in: the shared library plus each
+    account's private library under <data>/accounts/<id>/voices."""
+    return sorted({VOICE_DIR.resolve(), (DATA_ROOT / "voices").resolve(), (DATA_ROOT / "accounts").resolve()})
+
+
+def _resolve_voice_path(voice_id: str, explicit: str | None = None) -> Path | None:
     if voice_id == "builtin":
         return None
     if not re.fullmatch(r"(?:clone_[a-f0-9-]{36}|preset_[a-z0-9_]+)", voice_id):
         raise ValueError("Invalid local voice identifier")
+    if explicit:
+        candidate = Path(explicit).expanduser().resolve()
+        if candidate.name != f"{voice_id}.wav" or not candidate.is_file():
+            raise ValueError("The selected local voice reference does not exist")
+        if not any(candidate.is_relative_to(root) for root in _voice_roots()):
+            raise ValueError("The selected local voice reference is outside the voice library")
+        return candidate
     candidate = (VOICE_DIR / f"{voice_id}.wav").resolve()
     if candidate.parent != VOICE_DIR or not candidate.is_file():
         raise ValueError("The selected local voice reference does not exist")
@@ -183,7 +198,7 @@ def _generate(request: SpeechRequest) -> tuple[bytes, int]:
 
     with GENERATION_LOCK:
         _seed_everything(request.seed)
-        voice_path = _resolve_voice_path(request.voice)
+        voice_path = _resolve_voice_path(request.voice, request.voice_path)
         if voice_path is not None:
             MODEL.prepare_conditionals(str(voice_path), exaggeration=request.exaggeration)
         else:

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { TtsError, type VoiceInfo } from './tts-shared.js';
 import { containedFile } from './paths.js';
 import { presenterState } from './presenter-state.js';
+import { accountDir, currentWorkspace, ROOT_DATA } from './workspace.js';
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -14,7 +15,16 @@ const SERVER_ROOT = path.resolve(__dirname, '..', '..');
 const SERVICE_DIR = path.join(SERVER_ROOT, 'chatterbox');
 const SERVICE_SCRIPT = path.join(SERVICE_DIR, 'server.py');
 const VENV_PYTHON = path.join(SERVICE_DIR, '.venv', 'Scripts', 'python.exe');
-const VOICE_DIR = path.resolve(process.env.CHATTERBOX_VOICE_DIR || path.join(SERVER_ROOT, 'data', 'voices'));
+// Shared library: curated preset voices plus the default account's own references.
+// Every other account keeps a private library under accounts/<id>/voices so one
+// profile's uploaded voices are never visible to (or deletable from) another.
+const SHARED_VOICE_DIR = path.resolve(process.env.CHATTERBOX_VOICE_DIR || path.join(SERVER_ROOT, 'data', 'voices'));
+
+export function voiceLibraryDir(): string {
+  const { accountId } = currentWorkspace();
+  if (accountId === 'default') return SHARED_VOICE_DIR;
+  return path.join(accountDir(accountId), 'voices');
+}
 const MODEL_CACHE_DIR = path.join(SERVER_ROOT, 'data', 'model-cache');
 const PKUSEG_CACHE_DIR = path.join(MODEL_CACHE_DIR, 'pkuseg');
 const CHATTERBOX_URL = (process.env.CHATTERBOX_URL || process.env.TTS_SERVER_URL || 'http://127.0.0.1:8880').replace(/\/+$/, '');
@@ -106,28 +116,17 @@ function safeVoiceId(value: string): boolean {
   return /^(?:clone_[a-f0-9-]{36}|preset_[a-z0-9_]+)$/.test(value);
 }
 
-function readLocalVoiceMetadata(language: 'hi' | 'en'): VoiceInfo[] {
-  fs.mkdirSync(VOICE_DIR, { recursive: true });
-  const voices: VoiceInfo[] = [
-    {
-      ...BUILTIN_VOICE,
-      language,
-      name: language === 'hi' ? 'Chatterbox Natural — Hindi' : 'Chatterbox Natural — English',
-      sampleText:
-        language === 'hi'
-          ? 'क्या आपने कभी सोचा है कि हमारी सबसे महान कहानियों के पीछे कौन से रहस्य छिपे हैं?'
-          : BUILTIN_VOICE.sampleText,
-    },
-  ];
-
-  for (const filename of fs.readdirSync(VOICE_DIR)) {
-    if (!filename.endsWith('.json')) continue;
+function readVoiceEntries(dir: string, language: 'hi' | 'en', prefix: 'clone_' | 'preset_'): VoiceInfo[] {
+  if (!fs.existsSync(dir)) return [];
+  const voices: VoiceInfo[] = [];
+  for (const filename of fs.readdirSync(dir)) {
+    if (!filename.endsWith('.json') || !filename.startsWith(prefix)) continue;
     try {
-      const metadata = JSON.parse(fs.readFileSync(path.join(VOICE_DIR, filename), 'utf8')) as Record<string, unknown>;
+      const metadata = JSON.parse(fs.readFileSync(path.join(dir, filename), 'utf8')) as Record<string, unknown>;
       const id = String(metadata.id || '');
       const voiceLanguage = metadata.language === 'hi' ? 'hi' : 'en';
-      if (!safeVoiceId(id) || voiceLanguage !== language || !fs.existsSync(path.join(VOICE_DIR, `${id}.wav`))) continue;
-      const isPreset = id.startsWith('preset_');
+      if (!safeVoiceId(id) || !id.startsWith(prefix) || voiceLanguage !== language || !fs.existsSync(path.join(dir, `${id}.wav`))) continue;
+      const isPreset = prefix === 'preset_';
       voices.push({
         id,
         name: String(metadata.name || (isPreset ? 'Preset voice' : 'Custom local voice')),
@@ -153,6 +152,33 @@ function readLocalVoiceMetadata(language: 'hi' | 'en'): VoiceInfo[] {
     }
   }
   return voices;
+}
+
+function readLocalVoiceMetadata(language: 'hi' | 'en'): VoiceInfo[] {
+  fs.mkdirSync(voiceLibraryDir(), { recursive: true });
+  const voices: VoiceInfo[] = [
+    {
+      ...BUILTIN_VOICE,
+      language,
+      name: language === 'hi' ? 'Chatterbox Natural — Hindi' : 'Chatterbox Natural — English',
+      sampleText:
+        language === 'hi'
+          ? 'क्या आपने कभी सोचा है कि हमारी सबसे महान कहानियों के पीछे कौन से रहस्य छिपे हैं?'
+          : BUILTIN_VOICE.sampleText,
+    },
+  ];
+
+  // Presets are curated and shared; clones belong to the active account only.
+  voices.push(...readVoiceEntries(SHARED_VOICE_DIR, language, 'preset_'));
+  voices.push(...readVoiceEntries(voiceLibraryDir(), language, 'clone_'));
+  return voices;
+}
+
+function voiceFileFor(voice: string): string | null {
+  if (!safeVoiceId(voice) || voice === 'builtin') return null;
+  const dir = voice.startsWith('preset_') ? SHARED_VOICE_DIR : voiceLibraryDir();
+  const file = containedFile(dir, `${voice}.wav`);
+  return fs.existsSync(file) ? file : null;
 }
 
 export async function getChatterboxStatus(): Promise<ChatterboxStatus> {
@@ -209,8 +235,9 @@ function validateVoiceSelection(voice: string | undefined, language: 'hi' | 'en'
 
 export function getChatterboxVoiceReference(id: string): string | null {
   if (!safeVoiceId(id) || !id.startsWith('clone_')) return null;
-  const file = containedFile(VOICE_DIR, `${id}.wav`);
-  const metadata = containedFile(VOICE_DIR, `${id}.json`);
+  const dir = voiceLibraryDir();
+  const file = containedFile(dir, `${id}.wav`);
+  const metadata = containedFile(dir, `${id}.json`);
   return fs.existsSync(file) && fs.existsSync(metadata) ? file : null;
 }
 
@@ -249,7 +276,7 @@ export async function startChatterbox(): Promise<{ success: boolean; ready: bool
     };
   }
 
-  fs.mkdirSync(VOICE_DIR, { recursive: true });
+  fs.mkdirSync(SHARED_VOICE_DIR, { recursive: true });
   fs.mkdirSync(PKUSEG_CACHE_DIR, { recursive: true });
   processLogs.length = 0;
   lastProcessError = '';
@@ -263,7 +290,8 @@ export async function startChatterbox(): Promise<{ success: boolean; ready: bool
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
-        CHATTERBOX_VOICE_DIR: VOICE_DIR,
+        TUBEFLOW_DATA_DIR: ROOT_DATA,
+        CHATTERBOX_VOICE_DIR: SHARED_VOICE_DIR,
         CHATTERBOX_T3_MODEL: process.env.CHATTERBOX_T3_MODEL || 'v3',
         CHATTERBOX_DEVICE: process.env.CHATTERBOX_DEVICE || 'auto',
         PKUSEG_HOME: process.env.PKUSEG_HOME || PKUSEG_CACHE_DIR,
@@ -341,6 +369,7 @@ export async function synthesizeChatterbox(
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CHATTERBOX_TIMEOUT_MS);
   try {
+    const voicePath = voice ? voiceFileFor(voice) : null;
     const response = await fetch(`${CHATTERBOX_URL}/v1/audio/speech`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -349,6 +378,9 @@ export async function synthesizeChatterbox(
         model: 'chatterbox-multilingual-v3',
         input: text,
         voice: voice || 'builtin',
+        // The engine keeps one shared preset directory, so the active account's
+        // private reference is passed explicitly instead of being looked up there.
+        ...(voicePath ? { voice_path: voicePath } : {}),
         language,
         response_format: 'wav',
         exaggeration: clamp(options.exaggeration, 0.25, 1.5, 0.5),
@@ -391,8 +423,8 @@ export async function previewChatterbox(
   language: 'hi' | 'en',
   options: ChatterboxOptions = {},
 ): Promise<Buffer> {
-  const cacheKey = JSON.stringify([voice || 'builtin', language, options, text]);
   validateVoiceSelection(voice, language);
+  const cacheKey = JSON.stringify([voice || 'builtin', voice ? voiceFileFor(voice) : null, language, options, text]);
   const cached = previewCache.get(cacheKey);
   if (cached) return cached;
   const audio = await synthesizeChatterbox(text, voice, language, options);
@@ -419,11 +451,12 @@ export async function createChatterboxVoice(params: {
     throw new TtsError('VALIDATION', `Voice reference must be smaller than ${Math.floor(MAX_VOICE_UPLOAD_BYTES / 1024 / 1024)} MB.`);
   }
 
-  fs.mkdirSync(VOICE_DIR, { recursive: true });
+  fs.mkdirSync(voiceLibraryDir(), { recursive: true });
   const id = `clone_${crypto.randomUUID()}`;
-  const inputPath = path.join(VOICE_DIR, `${id}.upload`);
-  const wavPath = path.join(VOICE_DIR, `${id}.wav`);
-  const metadataPath = path.join(VOICE_DIR, `${id}.json`);
+  const dir = voiceLibraryDir();
+  const inputPath = path.join(dir, `${id}.upload`);
+  const wavPath = path.join(dir, `${id}.wav`);
+  const metadataPath = path.join(dir, `${id}.json`);
   fs.writeFileSync(inputPath, input, { flag: 'wx' });
 
   try {
@@ -469,11 +502,11 @@ export async function createChatterboxVoice(params: {
 export async function deleteChatterboxVoice(id: string): Promise<void> {
   if (!safeVoiceId(id)) throw new TtsError('VALIDATION', 'Invalid local voice identifier.');
   if (id.startsWith('preset_')) throw new TtsError('VALIDATION', 'Built-in preset voices cannot be deleted.');
-  const targets = [path.join(VOICE_DIR, `${id}.wav`), path.join(VOICE_DIR, `${id}.json`)];
-  for (const target of targets) {
-    const resolved = path.resolve(target);
-    if (path.dirname(resolved) !== path.resolve(VOICE_DIR)) throw new TtsError('VALIDATION', 'Invalid voice path.');
-    if (fs.existsSync(resolved)) fs.unlinkSync(resolved);
-  }
+  const dir = voiceLibraryDir();
+  const targets = [path.join(dir, `${id}.wav`), path.join(dir, `${id}.json`)]
+    .map(target => path.resolve(target))
+    .filter(target => path.dirname(target) === path.resolve(dir) && fs.existsSync(target));
+  if (targets.length === 0) throw new TtsError('VALIDATION', 'Voice reference not found in this profile.');
+  for (const target of targets) fs.unlinkSync(target);
   previewCache.clear();
 }

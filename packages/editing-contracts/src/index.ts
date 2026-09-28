@@ -416,6 +416,7 @@ export const Settings = z.strictObject({
   density: z.enum(["subtle", "balanced", "expressive"]),
   maxProviderCalls: z.number().int().min(1).max(2000),
   maxGeneratedAssets: z.number().int().min(0).max(20),
+  aiModel: z.string().max(150).optional(),
 });
 export const Project = z.strictObject({
   id: UUID,

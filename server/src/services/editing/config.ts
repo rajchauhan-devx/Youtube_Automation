@@ -39,7 +39,7 @@ export function editingConfig() {
     workflow: process.env.EDITING_ARTIFACT_WORKFLOW_PATH || "",
     backgroundWorkflow:
       process.env.EDITING_BACKGROUND_REMOVAL_WORKFLOW_PATH || "",
-    maxRepairs: numberSetting("EDITING_MAX_REPAIR_ATTEMPTS", 2, 0, 3),
+    maxRepairs: numberSetting("EDITING_MAX_REPAIR_ATTEMPTS", 3, 0, 6),
     maxCalls: numberSetting("EDITING_MAX_PROVIDER_CALLS", 2000, 1, 2000),
     maxAssets: numberSetting("EDITING_MAX_GENERATED_ASSETS", 4, 0, 20),
     providerTimeout: numberSetting(

@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import {
   UUID,
@@ -22,7 +23,23 @@ export function atomic(file: string, value: unknown) {
   const temp = `${file}.${randomUUID()}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(value, null, 2));
   try {
-    fs.renameSync(temp, file);
+    // OneDrive and antivirus scanners can briefly hold the destination open on Windows.
+    // Retry the atomic replacement; never copy over the existing good record.
+    const delays = [0, 40, 80, 160, 320, 640, 1280];
+    for (let attempt = 0; attempt < delays.length; attempt++) {
+      if (delays[attempt])
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delays[attempt]);
+      try {
+        fs.renameSync(temp, file);
+        return;
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException).code;
+        if (!["EPERM", "EACCES", "EBUSY"].includes(code || "") || attempt === delays.length - 1)
+          throw ["EPERM", "EACCES", "EBUSY"].includes(code || "")
+            ? new EditingError("STORAGE_BUSY", "The project data folder is temporarily locked. Pause OneDrive sync or move TubeFlow data outside OneDrive, then retry.", 503, true)
+            : error;
+      }
+    }
   } finally {
     fs.rmSync(temp, { force: true });
   }
@@ -171,6 +188,29 @@ export function saveAsset(
   return asset;
 }
 let lock: string | undefined;
+// A recycled PID can make a dead owner look alive. Only trust the lock if the
+// pid still belongs to a Node process (our servers always run under node/tsx).
+function ownedByNodeServer(pid: number): boolean {
+  try {
+    if (process.platform === "win32") {
+      const out = execSync(
+        `tasklist /FI "PID eq ${pid}" /FO CSV /NH`,
+        { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+      );
+      if (!/^\s*"INFO:/i.test(out)) return /"node(\.exe)?"/i.test(out);
+      return false;
+    }
+    const comm = `/proc/${pid}/comm`;
+    if (fs.existsSync(comm)) return fs.readFileSync(comm, "utf8").trim() === "node";
+    const out = execSync(`ps -p ${pid} -o comm=`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return /\bnode\b/.test(out);
+  } catch {
+    return true;
+  }
+}
 export function acquireSchedulerLock() {
   fs.mkdirSync(ROOT_DATA, { recursive: true });
   lock = path.join(ROOT_DATA, "editing-scheduler.lock");
@@ -178,17 +218,20 @@ export function acquireSchedulerLock() {
     const previous = JSON.parse(fs.readFileSync(lock, "utf8")) as {
       pid: number;
     };
+    let alive = true;
     try {
       process.kill(previous.pid, 0);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ESRCH") throw e;
+      alive = false;
+    }
+    if (alive && ownedByNodeServer(previous.pid))
       throw new EditingError(
         "SCHEDULER_LOCK",
         "Another server owns the editing scheduler",
         500,
       );
-    } catch (e) {
-      if ((e as NodeJS.ErrnoException).code !== "ESRCH") throw e;
-      fs.unlinkSync(lock);
-    }
+    fs.unlinkSync(lock);
   }
   fs.writeFileSync(
     lock,

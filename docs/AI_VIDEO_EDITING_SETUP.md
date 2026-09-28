@@ -57,6 +57,10 @@ before product distribution; this implementation does not establish eligibility
 for free use. Rendering API reference:
 [renderMedia](https://www.remotion.dev/docs/renderer/render-media).
 
+## Choosing a model in Artifacts
+
+The Artifacts page now lets you choose Ollama, Gemini, OpenCode, Groq, or OpenRouter for a new edit. The selected model is saved with that project revision and used for planning, image inspection, and review. The server model settings remain the default when no model is selected. All three stages require image input and JSON output; availability in the Scripts list alone does not establish those capabilities. OpenRouter models are checked against its model catalog, while the page labels other cloud choices as unverified until a real job runs. Configure `GEMINI_API_KEY`, `OPENCODE_API_KEY`, `GROQ_API_KEY`, or `OPENROUTER_API_KEY` in `server/.env` as appropriate. OpenCode may restrict direct free-tier requests from external apps.
+
 ## Server configuration
 
 Put values in the existing server environment (typically `server/.env`). Never use
@@ -175,8 +179,33 @@ Source reuse and actual-image crops work without a generation provider. New rast
 generation requires a separately verified workflow. Optional failures simplify or
 omit graphics with diagnostics. Background scenes/narration remain mandatory.
 
+## Fast caption fallback
+
+When cloud models are unavailable or a small local model repeatedly produces invalid
+graphics, choose **Create simple captions (fast)** on the Artifacts page. It uses
+only the saved narration and existing images, clips, audio, and fonts. No AI model,
+API key, or ComfyUI workflow is needed. It adds short on-screen narration captions
+where placement is safe, and leaves very short or crowded scenes as their original
+media. It does not invent diagrams or image facts. Preview the result before
+exporting. The previous AI revisions remain available in revision history.
+
+Local AI generation now stops early if several planned compositions fail
+validation, instead of continuing through the entire project with almost no
+usable output. Groq Qwen vision uses JSON mode and validates responses locally;
+free-account output-token limits may still block complex requests.
+
 ## Persistence, limits and recovery
 
+- **Clear artifacts and start fresh** creates a new empty current revision from
+  the original source snapshot. It does not reuse a failed job's briefs or
+  checkpoint. Select a model and click **Generate all artifacts** afterward.
+  Source media and older revisions remain available for recovery. Cancel an
+  active job before clearing.
+- Windows/OneDrive can briefly lock JSON files during sync. Atomic writes retry
+  transient `EPERM`/`EACCES`/`EBUSY` failures while preserving the last complete
+  file. If the lock persists, pause sync or place `TUBEFLOW_DATA_DIR` on a local
+  folder outside OneDrive, migrating the complete data directory while the app
+  is stopped.
 - One file-backed scheduler owner per data root, with a PID lock. A second active
   server fails clearly. Restart marks unfinished jobs interrupted; **Resume** reuses
   matching checkpoints. It does not silently recover missing browser credentials.

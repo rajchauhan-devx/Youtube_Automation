@@ -73,13 +73,36 @@ export async function renderSession(
       if (
         node.kind === "image" &&
         !assetRecord(node.assetId).mime.startsWith("image/")
-      )
-        throw new Error("Image node references a non-image asset");
+      ) {
+        const shapeNode = node as unknown as Record<string, unknown>;
+        shapeNode.kind = "shape";
+        delete shapeNode.assetId;
+        delete shapeNode.fit;
+        delete shapeNode.crop;
+        delete shapeNode.bounds;
+        const b = (node as { bounds?: { x: number; y: number; width: number; height: number } }).bounds || {
+          x: project.inputs.width * 0.05,
+          y: project.inputs.height * 0.08,
+          width: Math.min(500, project.inputs.width * 0.4),
+          height: Math.min(220, project.inputs.height * 0.25),
+        };
+        shapeNode.geometry = {
+          kind: "rect",
+          bounds: { ...b },
+          radius: 16,
+        };
+        shapeNode.paint = {
+          fill: (project.style.colors.surface || project.style.colors.background || "#111827") + "e6",
+          stroke: project.style.colors.accent || project.style.colors.primary || "#F59E0B",
+          strokeWidth: 2,
+          dash: [],
+        };
+      }
       if (
         node.clip?.kind === "mask" &&
         !assetRecord(node.clip.assetId).mime.startsWith("image/")
       )
-        throw new Error("Mask references a non-image asset");
+        delete (node as { clip?: unknown }).clip;
     }
   const records = Object.fromEntries(
       project.assetIds.map((id) => [id, assetRecord(id)]),

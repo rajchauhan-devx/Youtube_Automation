@@ -1,5 +1,6 @@
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import { longVideoTimeline } from '../../lib/timeline';
+import { mediaScenes } from '../../../server/src/services/shorts-media';
 import { SceneVideo } from './SceneVideo';
 import { AutoEditPanel } from './AutoEditPanel';
 import { LocalMusicGenerator } from './LocalMusicGenerator';
@@ -49,6 +50,7 @@ export function ReviewAdjustTab({
   onUpdate: (patch: Partial<Script>) => unknown;
 }) {
   const { fetch, profile, account } = useWorkspaceApi();
+  const sceneBacked = profile !== 'shorts' || Boolean(script?.scenePlan);
   const [presenter, setPresenter] = useState<PresenterSettings>(() => script?.presenter || defaultPresenter());
   const [presenterAvatars, setPresenterAvatars] = useState<PresenterAvatar[]>([]);
   const [renderStage, setRenderStage] = useState('Preparing video');
@@ -159,8 +161,13 @@ export function ReviewAdjustTab({
   }, [timeline, onUpdate]);
 
   const doneImages = useMemo(
-    () => (script?.generatedImages || []).filter((img) => img.status === 'done' && img.url),
-    [script?.generatedImages]
+    () => (script?.generatedImages || []).filter((img) => {
+      if (img.status !== 'done' || !img.url) return false;
+      if (!script?.scenePlan) return true;
+      const scene = mediaScenes(script)[img.index];
+      return scene && scene.imagePrompt === img.prompt && scene.mediaType === (img.mediaType || 'image');
+    }),
+    [script?.generatedImages, script?.scenePlan, script?.videoImportsEnabled]
   );
 
   const audioUrl = useMemo(() => {
@@ -168,7 +175,7 @@ export function ReviewAdjustTab({
     return audio?.url || null;
   }, [script?.generatedAudio]);
   let syncError = '';
-  if (profile !== 'shorts' && script) {
+  if (sceneBacked && script) {
     try { longVideoTimeline(script); } catch (error) { syncError = error instanceof Error ? error.message : 'Scene timing is not ready'; }
   }
 
@@ -291,7 +298,7 @@ export function ReviewAdjustTab({
       return;
     }
 
-    if (profile !== 'shorts') {
+    if (sceneBacked) {
       try {
         const config = longVideoTimeline(script);
         setTimeline(config); setDuration(config.totalDuration);
@@ -337,7 +344,7 @@ export function ReviewAdjustTab({
 
     setTimeline(config);
     onUpdate({ timelineConfig: config });
-  }, [script?.id, doneImages, audioUrl, script?.scenePlan, script?.generatedAudio]);
+  }, [script?.id, doneImages, audioUrl, script?.scenePlan, script?.generatedAudio, script?.videoImportsEnabled]);
 
   // Preview playback
   useEffect(() => {
@@ -441,14 +448,14 @@ export function ReviewAdjustTab({
   }, [currentTime, timeline]);
 
   function updateClip(clipId: string, patch: Partial<TimelineClip>) {
-    if (profile !== 'shorts') return;
+    if (sceneBacked) return;
     if (!timeline || (patch.duration !== undefined && (!Number.isFinite(patch.duration) || patch.duration < 0.1))) return;
     const clips = timeline.clips.map(c => c.id === clipId ? { ...c, ...patch } : c);
     commitTimeline({ ...timeline, clips, totalDuration: clips.reduce((sum, c) => sum + c.duration, 0) });
   }
 
   function removeClip(clipId: string) {
-    if (profile !== 'shorts') return;
+    if (sceneBacked) return;
     if (!timeline || timeline.clips.length <= 1) return;
     const index = timeline.clips.findIndex(c => c.id === clipId);
     if (index < 0) return;
@@ -460,7 +467,7 @@ export function ReviewAdjustTab({
   }
 
   function moveClip(clipId: string, direction: 'up' | 'down') {
-    if (profile !== 'shorts') return;
+    if (sceneBacked) return;
     if (!timeline) return;
     const index = timeline.clips.findIndex(c => c.id === clipId);
     const target = direction === 'up' ? index - 1 : index + 1;
@@ -471,7 +478,7 @@ export function ReviewAdjustTab({
   }
 
   function markSceneEnd() {
-    if (profile !== 'shorts') return;
+    if (sceneBacked) return;
     if (!timeline || !selectedClip) return;
     const index = timeline.clips.findIndex(c => c.id === selectedClip.id);
     if (index === timeline.clips.length - 1) return;
@@ -502,7 +509,7 @@ export function ReviewAdjustTab({
   }
 
   function autoFixDurations() {
-    if (profile !== 'shorts') return;
+    if (sceneBacked) return;
     if (timeline && audioUrl) commitTimeline(fitTimeline(timeline, duration));
   }
 
@@ -628,7 +635,7 @@ export function ReviewAdjustTab({
             ? {
                 clips: timeline.clips.map((c) => ({
                   duration: c.duration,
-                  transition: globalTransition !== 'auto' ? globalTransition : c.transition,
+                  transition: sceneBacked ? 'none' : globalTransition !== 'auto' ? globalTransition : c.transition,
                   transitionDuration: c.transitionDuration,
                 })),
                 ttsVolume,
@@ -686,7 +693,7 @@ export function ReviewAdjustTab({
   return (
     <div className="flex flex-col gap-6">
       {profile !== 'shorts' && <AutoEditPanel key={script.id} scriptId={script.id} value={editing} plan={script.scenePlan} disabled={rendering || musicBusy} onChange={changeEditing} onBusyChange={setEditingBusy} />}
-      {profile !== 'shorts' && <div role="status" className={`rounded-lg border p-4 text-sm ${syncError ? 'border-amber-600 text-amber-200' : 'border-emerald-700 text-emerald-200'}`}>
+      {sceneBacked && <div role="status" className={`rounded-lg border p-4 text-sm ${syncError ? 'border-amber-600 text-amber-200' : 'border-emerald-700 text-emerald-200'}`}>
         {syncError || `Audio sync ready: ${script.scenePlan?.scenes.length} scenes timed to the generated narration. Scene order and durations follow the audio. Select a scene to review its spoken text.`}
       </div>}
       {/* Audio element for timeline preview */}
@@ -804,7 +811,7 @@ export function ReviewAdjustTab({
           </section>
           <PresenterPanel key={script.id} value={presenter} disabled={rendering || musicBusy || editingBusy} onAvatars={setPresenterAvatars} onSave={savePresenter} onChange={value => { setPresenter(value); setRenderedVideo(null); }} />
           <div className="flex flex-wrap items-center gap-3 text-xs text-gray-300">
-            <label>Format <select aria-label="Video format" disabled={profile !== 'shorts'} value={resolution} onChange={e => {
+            <label>Format <select aria-label="Video format" disabled={sceneBacked} value={resolution} onChange={e => {
               const value = e.target.value as typeof resolution; setResolution(value);
               if (timeline) commitTimeline({ ...timeline, resolution: value === '1080x1920' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 } });
             }} className="rounded bg-surface p-2">
@@ -1013,11 +1020,11 @@ export function ReviewAdjustTab({
               <Field label="Scene Transition Style">
                 <select
                   value={globalTransition}
-                  disabled={profile !== 'shorts'}
+                  disabled={sceneBacked}
                   onChange={(e) => setGlobalTransition(e.target.value)}
                   className="w-full rounded-md border border-border bg-bg px-3 py-2 text-xs text-white outline-none focus:border-accent"
                 >
-                  <option value="auto">{profile !== 'shorts' ? 'Cuts at narration boundaries' : 'Auto (AI Dynamic Transitions)'}</option>
+                  <option value="auto">{sceneBacked ? 'Cuts at narration boundaries' : 'Auto (AI Dynamic Transitions)'}</option>
                   <option value="slideleft">Slide Left (Fast Cut)</option>
                   <option value="slideright">Slide Right</option>
                   <option value="fade">Smooth Crossfade</option>
@@ -1036,10 +1043,10 @@ export function ReviewAdjustTab({
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-white flex items-center gap-2">
-                  <Type className="h-4 w-4 text-accent" /> {profile !== 'shorts' ? 'Scene Captions' : 'Auto-Generated Subtitles'}
+                  <Type className="h-4 w-4 text-accent" /> {sceneBacked ? 'Scene Captions' : 'Auto-Generated Subtitles'}
                 </p>
                 <p className="text-xs text-gray-400">
-                  {profile !== 'shorts' ? 'Each scene’s narration stays visible for its measured audio segment.' : 'Estimated captions: word timing is approximate until speech alignment is added'}
+                  {sceneBacked ? 'Each scene’s narration stays visible for its measured audio segment.' : 'Estimated captions: word timing is approximate until speech alignment is added'}
                 </p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
@@ -1162,8 +1169,8 @@ export function ReviewAdjustTab({
           {selectedClip && (
             <div className="rounded-lg border border-border bg-bg p-3 space-y-3 text-xs text-gray-300">
               <p className="text-white">Scene {timeline.clips.findIndex(c => c.id === selectedClip.id) + 1}: {selectedClip.prompt}</p>
-              {profile !== 'shorts' && <p className="text-emerald-200">Narration: {selectedClip.caption}</p>}
-              <fieldset disabled={profile !== 'shorts'} className="flex flex-wrap items-center gap-3 disabled:opacity-50">
+              {sceneBacked && <p className="text-emerald-200">Narration: {selectedClip.caption}</p>}
+              <fieldset disabled={sceneBacked} className="flex flex-wrap items-center gap-3 disabled:opacity-50">
                 <label>Duration (seconds) <input aria-label="Scene duration" type="number" min="0.1" step="0.1" value={Number(selectedClip.duration.toFixed(3))}
                   onChange={e => updateClip(selectedClip.id, { duration: Number(e.target.value) })} className="w-24 rounded bg-surface p-2" /></label>
                 <label>Transition <select aria-label="Scene transition" value={selectedClip.transition} onChange={e => updateClip(selectedClip.id, { transition: e.target.value as TimelineClip['transition'] })} className="rounded bg-surface p-2">
@@ -1172,7 +1179,7 @@ export function ReviewAdjustTab({
                 <label>Fade seconds <input aria-label="Scene fade duration" type="number" min="0" max="3" step="0.1" value={selectedClip.transitionDuration}
                   onChange={e => { const value = Number(e.target.value); if (Number.isFinite(value) && value >= 0 && value <= 3) updateClip(selectedClip.id, { transitionDuration: value }); }} className="w-20 rounded bg-surface p-2" /></label>
               </fieldset>
-              <fieldset disabled={profile !== 'shorts'} className="flex flex-wrap gap-4 disabled:opacity-50">
+              <fieldset disabled={sceneBacked} className="flex flex-wrap gap-4 disabled:opacity-50">
                 <button onClick={() => moveClip(selectedClip.id, 'up')} className="flex items-center gap-1"><MoveUp size={14} />Earlier</button>
                 <button onClick={() => moveClip(selectedClip.id, 'down')} className="flex items-center gap-1"><MoveDown size={14} />Later</button>
                 <button onClick={markSceneEnd} disabled={timeline.clips[timeline.clips.length - 1]?.id === selectedClip.id} className="disabled:opacity-30">End scene at playhead</button>
@@ -1185,7 +1192,7 @@ export function ReviewAdjustTab({
             <div className="flex items-center gap-3">
               <button
                 onClick={autoFixDurations}
-                disabled={profile !== 'shorts'}
+                disabled={sceneBacked}
                 className="flex items-center gap-1 rounded border border-border px-2.5 py-1 text-[11px] text-gray-300 hover:bg-surface2"
               >
                 <Clock className="h-3 w-3" /> Fit timing to narration

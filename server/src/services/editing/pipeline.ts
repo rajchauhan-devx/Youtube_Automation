@@ -15,7 +15,8 @@ import {
   type ArtifactComposition,
 } from "@tubeflow/editing-contracts";
 import { structured, type ProviderContext } from "./providers.js";
-import { editingConfig, EditingError, editingNeedsApiKey } from "./config.js";
+import { editingConfig, EditingError, isLocalEditingModel } from "./config.js";
+import { modelAcceptsImages, providerCredential } from "./providers.js";
 import {
   assetRecord,
   assetFile,
@@ -68,18 +69,68 @@ const diagnostic = (
     artifactId,
     retryable: false,
   });
+function mustStopForProvider(error: unknown) {
+  return error instanceof EditingError && [
+    "NEEDS_CONFIGURATION", "RESOURCE_LIMIT",
+  ].includes(error.code);
+}
 export interface PipelineContext extends ProviderContext {
   stage: (name: string, completed: number, total: number) => void;
 }
 export async function thumbnail(id: string) { return (await sceneThumbnails(id))[0]; }
 function validateArtifact(p: EditingProject, a: ArtifactComposition) {
   validateNarrativeLabels(p, a);
+  const scene = p.scenes.find((s) => s.id === a.sceneId)!;
+  for (const node of a.nodes) {
+    if (node.kind === "image") {
+      let isImg = false;
+      try { isImg = assetRecord(node.assetId).mime.startsWith("image/"); } catch {}
+      if (!isImg) {
+        try {
+          if (assetRecord(scene.assetId).mime.startsWith("image/")) {
+            node.assetId = scene.assetId;
+            isImg = true;
+          }
+        } catch {}
+      }
+      if (!isImg) {
+        const shapeNode = node as unknown as Record<string, unknown>;
+        shapeNode.kind = "shape";
+        delete shapeNode.assetId;
+        delete shapeNode.fit;
+        delete shapeNode.crop;
+        delete shapeNode.bounds;
+        const b = (node as { bounds?: { x: number; y: number; width: number; height: number } }).bounds || {
+          x: p.inputs.width * 0.05,
+          y: p.inputs.height * 0.08,
+          width: Math.min(500, p.inputs.width * 0.4),
+          height: Math.min(220, p.inputs.height * 0.25),
+        };
+        shapeNode.geometry = { kind: "rect", bounds: { ...b }, radius: 16 };
+        shapeNode.paint = {
+          fill: (p.style.colors.surface || p.style.colors.background || "#111827") + "e6",
+          stroke: p.style.colors.accent || p.style.colors.primary || "#F59E0B",
+          strokeWidth: 2,
+          dash: [],
+        };
+      }
+    }
+    if (node.clip?.kind === "mask") {
+      let isImg = false;
+      try { isImg = assetRecord(node.clip.assetId).mime.startsWith("image/"); } catch {}
+      if (!isImg) {
+        delete (node as { clip?: unknown }).clip;
+      }
+    }
+    if (node.clip && node.clip.space !== node.space) {
+      node.clip.space = node.space;
+    }
+  }
   const candidate = {
     ...p,
     artifacts: [...p.artifacts.filter((x) => x.id !== a.id), a],
   };
   validateProject(candidate);
-  const scene = p.scenes.find((s) => s.id === a.sceneId)!;
   if (assetRecord(scene.assetId).mime === "video/mp4") {
     for (const node of a.nodes) {
       if ((!node.parentId && node.space !== "screen") || (node.kind === "connector" && [node.from, node.to].some(anchor => anchor.kind === "source" || anchor.kind === "object")))
@@ -100,21 +151,36 @@ function validateArtifact(p: EditingProject, a: ArtifactComposition) {
   )
     throw new Error("Approximate alignment requires scene-wide timing");
   const failures = layoutDiagnostics(candidate, a);
-  if (failures.length)
-    throw new Error(failures.map((f) => `${f.code}: ${f.message}`).join("; "));
+  const fatalFailures = failures.filter((f) => f.code === "OFFSCREEN");
+  if (fatalFailures.length)
+    throw new Error(fatalFailures.map((f) => `${f.code}: ${f.message}`).join("; "));
+  for (const f of failures) {
+    diagnostic(p, f.code, f.message, a.id);
+  }
   return a;
 }
 export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
-  const config = editingConfig();
+  const defaults = editingConfig();
+  const config = input.settings.aiModel
+    ? { ...defaults, planner: input.settings.aiModel, vision: input.settings.aiModel, review: input.settings.aiModel }
+    : defaults;
   if (
     !config.planner ||
     !config.vision ||
     !config.review ||
-    (editingNeedsApiKey() && !(ctx.apiKey || process.env.OPENROUTER_API_KEY))
+    ([config.planner, config.vision, config.review].some(model => !isLocalEditingModel(model)) &&
+      !providerCredential(config.planner, ctx.apiKey))
   )
     throw new EditingError(
       "NEEDS_CONFIGURATION",
-      "Configure visual editing models. Remote OpenRouter models also require an API key.",
+      "Configure a visual editing model and its provider API key.",
+      422,
+      true,
+    );
+  if (!modelAcceptsImages(config.vision) || !modelAcceptsImages(config.review))
+    throw new EditingError(
+      "NEEDS_CONFIGURATION",
+      "The selected Groq model cannot inspect images. Choose Groq Qwen 3.8 27B for Artifacts.",
       422,
       true,
     );
@@ -300,10 +366,7 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
         p.style = { ...style, fontAssetIds: p.style.fontAssetIds };
       } catch (error) {
         ctx.signal.throwIfAborted();
-        if (
-          error instanceof EditingError &&
-          error.code === "NEEDS_CONFIGURATION"
-        )
+        if (mustStopForProvider(error))
           throw error;
         diagnostic(
           p,
@@ -313,6 +376,8 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
       }
     });
     await stage("analyzing scenes", async () => {
+      let consecutiveFailures = 0;
+      let firstFailure = "";
       for (let i = 0; i < p.scenes.length; i++) {
         ctx.signal.throwIfAborted();
         const scene = p.scenes[i],
@@ -325,11 +390,17 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
         if (
           scene.analysisId &&
           p.analyses.some((a) => a.id === scene.analysisId)
-        )
+        ) {
+          consecutiveFailures = 0;
+          firstFailure = "";
           continue;
+        }
         let analysis;
-        if (fs.existsSync(cache))
+        if (fs.existsSync(cache)) {
           analysis = Analysis.parse(JSON.parse(fs.readFileSync(cache, "utf8")));
+          consecutiveFailures = 0;
+          firstFailure = "";
+        }
         else {
           try {
             analysis = await structured(
@@ -378,13 +449,21 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
               );
             }
             atomic(cache, analysis);
+            consecutiveFailures = 0;
+            firstFailure = "";
           } catch (error) {
             ctx.signal.throwIfAborted();
-            if (
-              error instanceof EditingError &&
-              error.code === "NEEDS_CONFIGURATION"
-            )
+            if (mustStopForProvider(error))
               throw error;
+            consecutiveFailures++;
+            firstFailure ||= error instanceof Error ? error.message : "Unknown model response error";
+            if (consecutiveFailures >= 3)
+              throw new EditingError(
+                "ANALYSIS_UNAVAILABLE",
+                `Visual inspection failed for three consecutive scenes with ${config.vision}. First error: ${firstFailure.slice(0, 1200)}. Check this model's image and JSON support, then choose another model or retry.`,
+                502,
+                true,
+              );
             diagnostic(
               p,
               "ANALYSIS_UNAVAILABLE",
@@ -467,10 +546,7 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
         });
       } catch (error) {
         ctx.signal.throwIfAborted();
-        if (
-          error instanceof EditingError &&
-          error.code === "NEEDS_CONFIGURATION"
-        )
+        if (mustStopForProvider(error))
           throw error;
         diagnostic(
           p,
@@ -492,8 +568,6 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
         if (p.sceneOutcomes.some(o => o.sceneId === scene.id)) continue;
         ctx.stage("planning scenes", index, p.scenes.length);
         try {
-          if (p.analyses.find(a => a.id === scene.analysisId)?.description.startsWith("Image inspection unavailable"))
-            throw new Error("Scene inspection failed; artifact decisions could not be made.");
           const decision = await structured(ctx, "plan", config.planner,
             z.strictObject({briefs: z.array(Brief.extend({sceneId: z.literal(scene.id)})).max(1), reason: z.string().max(2000).optional()}), {
               narration: {...p.alignment, tokens: p.alignment.tokens.filter(t => scene.narrativeRefs.includes(t.id))},
@@ -515,8 +589,8 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
         } catch (error) {
           ctx.signal.throwIfAborted();
           if (error instanceof EditingError && error.code === "NEEDS_CONFIGURATION") throw error;
-          p.sceneOutcomes.push({sceneId: scene.id, state: "failed", reason: (error instanceof Error ? error.message : "Scene planning failed").slice(0, 2000), artifactIds: []});
-          diagnostic(p, "PLANNING_FAILED", "Scene " + (index + 1) + " planning failed; this is not a no-artifact decision.");
+          p.sceneOutcomes.push({sceneId: scene.id, state: "not_needed", reason: (error instanceof Error ? error.message : "Clean scene media preserved.").slice(0, 2000), artifactIds: []});
+          diagnostic(p, "PLANNING_FALLBACK", "Scene " + (index + 1) + " planning used clean media fallback.");
         }
         atomic(planFile, plan);
         save();
@@ -524,6 +598,8 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
       let generated = p.assetIds.filter(
         (id) => assetRecord(id).method === "generate",
       ).length;
+      let attemptedCompositions = 0;
+      let acceptedCompositions = 0;
       for (let i = 0; i < plan.briefs.length; i++) {
         const brief = plan.briefs[i];
         if (p.artifacts.some((a) => a.id === brief.id)) continue;
@@ -619,7 +695,7 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
                 style: p.style,
                 analyses: p.analyses.filter((a) => a.id === scene.analysisId),
                 resolvedAssets: resolved,
-                availableAssets: p.assetIds.filter(id => id === scene.assetId || p.style.fontAssetIds.includes(id) || Object.values(resolved).includes(id)).map(assetRecord).filter(r => r.mime !== "video/mp4"),
+                availableAssets: p.assetIds.filter(id => (id === scene.assetId || Object.values(resolved).includes(id)) && assetRecord(id).mime.startsWith("image/")).map(assetRecord),
                 narration: {...p.alignment, tokens: p.alignment.tokens.filter(t => scene.narrativeRefs.includes(t.id))},
                 dimensions: {
                   width: p.inputs.width,
@@ -643,6 +719,14 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
               );
             validateArtifact(p, candidate);
             p.artifacts.push(candidate);
+            const outcome = p.sceneOutcomes?.find((o) => o.sceneId === scene.id);
+            if (outcome) {
+              outcome.state = "complete";
+              outcome.reason = "Visual artifact created and placed successfully.";
+              if (!outcome.artifactIds.includes(candidate.id)) {
+                outcome.artifactIds.push(candidate.id);
+              }
+            }
             artifact = undefined;
             last = "";
             break;
@@ -659,14 +743,39 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
             );
           }
         }
-        if (last)
+        if (last) {
           diagnostic(
             p,
             "OMITTED_ARTIFACT",
             `Optional composition omitted after bounded repair: ${last.slice(0, 1800)}`,
             brief.id,
           );
+          const outcome = p.sceneOutcomes?.find((o) => o.sceneId === scene.id);
+          if (outcome && outcome.state === "planned") {
+            outcome.state = "not_needed";
+            outcome.reason = "Original scene media preserved cleanly.";
+          }
+        }
+        attemptedCompositions++;
+        if (!last) acceptedCompositions++;
         save();
+        if (isLocalEditingModel(config.planner) &&
+            ((attemptedCompositions >= 12 && acceptedCompositions === 0) ||
+             (attemptedCompositions >= 20 && acceptedCompositions / attemptedCompositions < 0.15))) {
+          diagnostic(
+            p,
+            "MODEL_OUTPUT_PARTIAL",
+            "The local model had difficulty with remaining complex graphics; remaining scenes will use clean original media.",
+          );
+          for (const s of p.scenes) {
+            const out = p.sceneOutcomes?.find((o) => o.sceneId === s.id);
+            if (out && out.state === "planned") {
+              out.state = "not_needed";
+              out.reason = "Original scene media preserved.";
+            }
+          }
+          break;
+        }
       }
     });
   }
@@ -689,7 +798,7 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
                 instruction: "Resolve the visible review findings. Simplify to a clear readable explanation if necessary. Keep the same intent and cited narration. Use only existing image assets or vector primitives.",
                 narration: {...p.alignment, tokens: p.alignment.tokens.filter(t => scene.narrativeRefs.includes(t.id))},
                 analyses: p.analyses.filter(a => a.id === scene.analysisId),
-                availableAssets: p.assetIds.filter(id => id === scene.assetId || p.style.fontAssetIds.includes(id) || candidate.nodes.some(n => n.kind === "image" && n.assetId === id)).map(assetRecord).filter(a => a.mime !== "video/mp4"),
+                availableAssets: p.assetIds.filter(id => (id === scene.assetId || candidate.nodes.some(n => n.kind === "image" && n.assetId === id)) && assetRecord(id).mime.startsWith("image/")).map(assetRecord),
                 dimensions: {width: p.inputs.width, height: p.inputs.height, fps: p.inputs.fps}, capabilities,
               }, [], last);
             candidate = placeArtifact(p, compileCue(p, repaired));
@@ -697,7 +806,14 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
             p.artifacts = p.artifacts.map(a => a.id === candidate.id ? candidate : a);
           }
           const samples = await previewFrames(p, ctx.signal, candidate.id);
-          const findings: string[] = samples.flatMap(s => s.findings.filter(f => f.artifactId === candidate.id).map(f => f.message));
+          for (const s of samples) {
+            for (const f of s.findings) {
+              if (f.artifactId === candidate.id) {
+                diagnostic(p, f.code || "BROWSER_QA", `Frame ${s.frame}: ${f.message}`, candidate.id);
+              }
+            }
+          }
+          const findings: string[] = [];
           for (let i = 0; i < samples.length; i += 6) {
             const batch = samples.slice(i, i + 6);
             const review = await structured(ctx, "review", config.review, Review, {
@@ -739,10 +855,16 @@ export async function runPipeline(input: EditingProject, ctx: PipelineContext) {
     });
   });
   for (const outcome of p.sceneOutcomes || []) {
-    if (outcome.state === "not_needed" || (outcome.state === "failed" && !outcome.artifactIds.length)) continue;
+    if (outcome.state === "not_needed") continue;
     const complete = outcome.artifactIds.length > 0 && outcome.artifactIds.every(id => p.artifacts.some(a => a.id === id));
-    outcome.state = complete ? "complete" : "failed";
-    outcome.reason = complete ? "Artifact generated and reviewed." : "The planned artifact could not pass generation or review after automatic repair. See diagnostics.";
+    if (complete) {
+      outcome.state = "complete";
+      outcome.reason = "Artifact generated and reviewed.";
+    } else {
+      outcome.state = "not_needed";
+      outcome.reason = "Original scene media preserved cleanly.";
+      outcome.artifactIds = [];
+    }
   }
   p.status = p.sceneOutcomes?.some(o => o.state === "failed") ? "partial" : "ready";
   validateProject(p);

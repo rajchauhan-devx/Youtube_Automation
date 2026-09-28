@@ -177,3 +177,35 @@ test("mixed moving clips cannot be silently omitted from an enhanced project", a
     store.add("scripts", original);
   }
 });
+
+test("reset creates a clean revision without deleting the original media or history", async () => {
+  const before = await (await request(`/projects/${p.id}`, undefined, "GET")).json();
+  const response = await request(`/projects/${p.id}/reset`, { expectedRevisionId: before.project.revisionId });
+  assert.equal(response.status, 201, JSON.stringify(await response.clone().json()));
+  const fresh = await response.json();
+  assert.notEqual(fresh.project.revisionId, before.project.revisionId);
+  assert.equal(fresh.project.parentRevisionId, before.project.revisionId);
+  assert.deepEqual(fresh.project.artifacts, []);
+  assert.deepEqual(fresh.project.analyses, []);
+  assert.deepEqual(fresh.project.sceneOutcomes, []);
+  assert.equal(fresh.project.status, "draft");
+  assert.deepEqual(fresh.project.inputs, p.inputs);
+  assert.ok(fs.existsSync(path.join(dir, "voice.wav")));
+  const historical = await (await request(`/projects/${p.id}/revisions/${p.revisionId}`, undefined, "GET")).json();
+  assert.ok(historical.project.artifacts.length > 0);
+  assert.equal((await request(`/projects/${p.id}/reset`, { expectedRevisionId: before.project.revisionId })).status, 409);
+});
+
+test("simple captions publish a ready revision without a model job", async () => {
+  const before = await (await request(`/projects/${p.id}`, undefined, "GET")).json();
+  const jobsBefore = before.jobs.length;
+  const response = await request(`/projects/${p.id}/simple`, {expectedRevisionId: before.currentRevisionId});
+  assert.equal(response.status, 201, JSON.stringify(await response.clone().json()));
+  const result = await response.json();
+  assert.equal(result.project.status, "ready");
+  assert.equal(result.project.artifacts.length, 1);
+  assert.equal(result.project.sceneOutcomes[0].state, "complete");
+  assert.deepEqual(result.project.inputs, before.project.inputs);
+  assert.equal(result.jobs.length, jobsBefore);
+  assert.equal((await request(`/projects/${p.id}/simple`, {expectedRevisionId: before.currentRevisionId})).status, 409);
+});

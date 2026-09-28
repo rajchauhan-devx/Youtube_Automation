@@ -64,6 +64,10 @@ try {
     waitUntil: "networkidle0",
   });
   await page.waitForSelector('[aria-label="Timeline playhead"]');
+  assert.match(await page.$eval('body', el => el.textContent), /Clear artifacts and start fresh/);
+  const modelChoices = await page.$$eval('[aria-label="Visual editing AI model"] option', options => options.map(option => option.value));
+  for (const prefix of ['ollama/', 'gemini-', 'opencode/', 'groq/', 'openrouter/'])
+    assert.ok(modelChoices.some(model => model.startsWith(prefix)), `Missing ${prefix} model choice`);
   await page.waitForSelector("[data-editing-text]");
   assert.match(
     await page.$eval("[data-editing-text]", (el) => el.textContent),

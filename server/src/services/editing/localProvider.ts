@@ -77,7 +77,7 @@ export async function localStructured(request: {
       409,
       true,
     );
-  const images = request.images.map((image) => {
+  let images = request.images.map((image) => {
     const match = image.match(
       /^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/,
     );
@@ -98,14 +98,18 @@ export async function localStructured(request: {
   try {
     const capability = await inspectLocalModel(request.model);
     signal.throwIfAborted();
-    if (!capability.ready || (images.length && !capability.vision))
+    if (!capability.ready)
       throw new EditingError(
         "NEEDS_CONFIGURATION",
         capability.message ||
-          `Local model ${model} does not support image input.`,
+          `Local model ${model} is not available.`,
         422,
         true,
       );
+    // If model lacks vision but images are present, strip images and continue with text only
+    if (images.length && !capability.vision) {
+      images = [];
+    }
     dispatched = true;
     const response = await fetch(`${base}/api/chat`, {
       method: "POST",

@@ -1,3 +1,4 @@
+import { isTaggedShortsResponse } from '../services/shorts-package.js';
 import { currentWorkspace } from '../services/workspace.js';
 import { Router } from 'express';
 import { parseScenePlan, spokenText } from '../services/scene-plan.js';
@@ -74,11 +75,11 @@ llmRouter.post('/chat', async (req, res) => {
 
 llmRouter.post('/extract', async (req, res) => {
   try {
-    if (currentWorkspace().profile !== 'shorts') {
+    if (currentWorkspace().profile !== 'shorts' || /<long_video>/i.test(req.body?.rawText || '') || isTaggedShortsResponse(typeof req.body?.rawText === 'string' ? req.body.rawText : '')) {
       try {
         const plan = parseScenePlan(typeof req.body?.rawText === 'string' ? req.body.rawText : '', req.body?.useTimelineNarration === true);
         if (currentWorkspace().profile === 'mixed' && plan.scenes.some(scene => !scene.mediaType)) throw new Error('Mixed Media requires an image or video mediaType on every scene. Use the Mixed Media template.');
-        if (currentWorkspace().profile !== 'mixed' && plan.scenes.some(scene => scene.mediaType === 'video')) throw new Error('Video scenes belong in the Mixed Media profile.');
+        if (currentWorkspace().profile === 'long' && plan.scenes.some(scene => scene.mediaType === 'video')) throw new Error('Video scenes belong in the Mixed Media profile.');
         res.json({ script: spokenText(plan), ttsText: spokenText(plan), imagePrompts: plan.scenes.map(scene => scene.imagePrompt), scenePlan: plan });
       } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid scene plan' }); }
       return;

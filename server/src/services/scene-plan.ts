@@ -1,3 +1,4 @@
+import { isTaggedShortsResponse, parseShortsPackage } from './shorts-package.js';
 import { parseProductionPackage } from './production-package.js';
 
 export interface NarrationScene {
@@ -5,6 +6,7 @@ export interface NarrationScene {
   chapter: string;
   narration: string;
   imagePrompt: string;
+  videoPrompt?: string;
   mediaType?: 'image' | 'video';
   duration?: number;
   role: 'story' | 'cta';
@@ -25,6 +27,7 @@ export function validateScenePlan(value: unknown): ScenePlan {
   const ids = new Set<string>();
   for (const scene of p.scenes) {
     if (!scene) throw new Error('Each scene must be an object.');
+    if (scene.videoPrompt !== undefined && (typeof scene.videoPrompt !== 'string' || !scene.videoPrompt.trim() || scene.videoPrompt.length > 8000)) throw new Error('Video prompts must contain 1–8000 characters.');
     if (scene.duration !== undefined && (!Number.isFinite(scene.duration) || scene.duration <= 0 || scene.duration > 60)) throw new Error('Scene duration must be between 0 and 60 seconds.');
     if (scene.mediaType !== undefined && !['image', 'video'].includes(scene.mediaType)) throw new Error('Scene media type must be image or video.');
     if (!scene || typeof scene.id !== 'string' || !/^[A-Za-z0-9_-]{1,60}$/.test(scene.id) || ids.has(scene.id) ||
@@ -41,6 +44,7 @@ export function validateScenePlan(value: unknown): ScenePlan {
 }
 
 export function parseScenePlan(raw: string, useTimelineNarration = false): ScenePlan {
+  if (isTaggedShortsResponse(raw)) return validateScenePlan(parseShortsPackage(raw));
   const blocks = [...raw.matchAll(/<long_video>\s*([\s\S]*?)\s*<\/long_video>/gi)];
   if (blocks.some(block => /^\s*(?:\*\*)?ASSET:/im.test(block[1]))) {
     if ((raw.match(/<long_video>/gi) || []).length !== blocks.length || (raw.match(/<\/long_video>/gi) || []).length !== blocks.length) throw new Error('An asset has an incomplete <long_video> wrapper.');

@@ -30,7 +30,7 @@ ttsRouter.use((req, res, next) => {
 
 ttsRouter.post('/long/start', async (req, res) => {
   const { scriptId, language, voice, rate, pitch, speed, exaggeration, cfgWeight, temperature, seed } = req.body || {};
-  if (currentWorkspace().profile === 'shorts' || !safeSegment(scriptId) || !['hi', 'en'].includes(language) || typeof voice !== 'string' || !voice) {
+  if (!safeSegment(scriptId) || !['hi', 'en'].includes(language) || typeof voice !== 'string' || !voice) {
     res.status(400).json({ error: 'Select a Long Video script, language and voice.' }); return;
   }
   let started = false;

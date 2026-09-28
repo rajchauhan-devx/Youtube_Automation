@@ -64,7 +64,7 @@ export function GenerationTab({
             }`}
           >
             <ImageIcon className="h-4 w-4" />
-            {profile === 'mixed' ? 'Images & Videos' : 'Image Generation'}
+            {(profile === 'mixed' || profile === 'shorts') ? 'Images & Videos' : 'Image Generation'}
           </button>
           <button
             onClick={() => setGenerationSubTab('audio')}
@@ -80,7 +80,7 @@ export function GenerationTab({
         </div>
 
         {generationSubTab === 'images' ? (
-          profile === 'mixed' ? <MixedMediaContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} /> : <ImageGenerationContent script={script} onUpdate={onUpdate} />
+          (profile === 'mixed' || profile === 'shorts') ? <MixedMediaContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} /> : <ImageGenerationContent script={script} onUpdate={onUpdate} />
         ) : (
           <AudioGenerationContent script={script} onUpdate={onUpdate} />
         )}
@@ -752,6 +752,7 @@ function AudioGenerationContent({
   onUpdate: (patch: Partial<Script>) => void;
 }) {
   const { fetch, profile, account } = useWorkspaceApi();
+  const sceneBacked = profile !== 'shorts' || Boolean(script?.scenePlan);
   const [copied, setCopied] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState<'hi' | 'en'>('en');
   const [voices, setVoices] = useState<VoiceItem[]>([]);
@@ -760,7 +761,7 @@ function AudioGenerationContent({
   const voiceProviderRef = useRef('');
   function selectVoice(id: string) {
     setSelectedVoice(id);
-    rememberVoice(selectedLanguage, voiceProviderRef.current, id);
+    rememberVoice(account.id, selectedLanguage, voiceProviderRef.current, id);
   }
   const [previewVoiceId, setPreviewVoiceId] = useState<string | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
@@ -811,7 +812,7 @@ function AudioGenerationContent({
   const onLongUpdateRef = useRef(onUpdate);
   onLongUpdateRef.current = onUpdate;
   useEffect(() => {
-    if (profile === 'shorts' || !script?.id) return;
+    if (!sceneBacked || !script?.id) return;
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
@@ -837,7 +838,7 @@ function AudioGenerationContent({
     };
     void poll();
     return () => { controller.abort(); clearTimeout(timer); };
-  }, [script?.id, profile, fetch]);
+  }, [script?.id, sceneBacked, fetch]);
 
   // Synchronize script narration when the active script changes
   useEffect(() => {
@@ -924,7 +925,7 @@ function AudioGenerationContent({
   }
 
   function insertPause(durationSec: number) {
-    if (profile !== 'shorts') { setError('Edit the scene narration in the script response and extract it again.'); return; }
+    if (sceneBacked) { setError('Edit the scene narration in the script response and extract it again.'); return; }
     const tag = ` [pause ${durationSec}s] `;
     if (!textareaRef.current) {
       const updated = (narrationText ? narrationText + tag : tag).trim();
@@ -949,7 +950,7 @@ function AudioGenerationContent({
   }
 
   async function handleEnhanceNarration() {
-    if (profile !== 'shorts') { setError('Long Video narration is linked to scenes. Revise the script response and extract again.'); return; }
+    if (sceneBacked) { setError('Narration is linked to scenes. Revise the script response and extract again.'); return; }
     if (!narrationText.trim()) {
       setEnhanceError('Please enter or generate narration script text first.');
       return;
@@ -1062,7 +1063,7 @@ function AudioGenerationContent({
       const voiceList = Array.isArray(data?.voices) ? data.voices : [];
       setVoices(voiceList);
       voiceProviderRef.current = String(data.provider || '');
-      const preferred = preferredVoice(lang, voiceProviderRef.current);
+      const preferred = preferredVoice(account.id, lang, voiceProviderRef.current);
       const voiceId = (voice: VoiceItem | string) => typeof voice === 'string' ? voice : voice?.id || '';
       const preferredVoiceItem = voiceList.find((voice: VoiceItem) => voiceId(voice) === preferred);
       const currentVoiceItem = voiceList.find((voice: VoiceItem) => voiceId(voice) === selectedVoice);
@@ -1315,8 +1316,8 @@ function AudioGenerationContent({
     setUploadingVoice(true);
     setError('');
     try {
-      const voice = await saveVoiceReference(voiceName, selectedLanguage, voiceFile);
-      rememberVoice(selectedLanguage, voiceProviderRef.current, voice.id);
+      const voice = await saveVoiceReference(voiceName, selectedLanguage, voiceFile, fetch);
+      rememberVoice(account.id, selectedLanguage, voiceProviderRef.current, voice.id);
       await fetchVoices(selectedLanguage);
       selectVoice(voice.id);
       setVoiceFile(null);
@@ -1367,9 +1368,9 @@ function AudioGenerationContent({
       return;
     }
 
-    if (profile !== 'shorts') {
+    if (sceneBacked) {
       if (!script.scenePlan || normalizeNarration(textToGenerate) !== normalizeNarration(spokenText(script.scenePlan))) {
-        setError('Extract the Long Video scene map first. Change narration in the script response and extract again so visuals keep their matching words.'); return;
+        setError('Extract the scene map first. Change narration in the script response and extract again so visuals keep their matching words.'); return;
       }
       setGenerating(true); setError(''); setProgressPercent(0);
       try {
@@ -1452,7 +1453,7 @@ function AudioGenerationContent({
 
   function handleRegenerate() {
     if (!script) return;
-    if (profile !== 'shorts') { void handleGenerate(); return; }
+    if (sceneBacked) { void handleGenerate(); return; }
     const existing = (script.generatedAudio || []).filter((a) => a.language !== selectedLanguage);
     onUpdate({ generatedAudio: existing });
     handleGenerate();
@@ -2013,7 +2014,7 @@ function AudioGenerationContent({
             <button
               type="button"
               onClick={handleEnhanceNarration}
-              disabled={profile !== 'shorts' || enhancing || !narrationText.trim()}
+              disabled={sceneBacked || enhancing || !narrationText.trim()}
               className="flex items-center gap-1.5 rounded-md bg-gradient-to-r from-purple-600 to-accent px-3.5 py-1 text-xs font-semibold text-white shadow-md transition-all hover:opacity-90 disabled:opacity-40"
               title="Enhance script with emotional cadence and acoustic pause markers for Chatterbox"
             >
@@ -2043,7 +2044,7 @@ function AudioGenerationContent({
           )}
 
           {/* Quick Pause Insertion Bar */}
-          <div style={{ display: profile !== 'shorts' ? 'none' : undefined }} className="mb-2.5 flex flex-wrap items-center gap-2 rounded-md border border-border/40 bg-surface2/30 px-3 py-2">
+          <div style={{ display: sceneBacked ? 'none' : undefined }} className="mb-2.5 flex flex-wrap items-center gap-2 rounded-md border border-border/40 bg-surface2/30 px-3 py-2">
             <span className="flex items-center gap-1 text-[11px] font-medium text-gray-400">
               <Clock className="h-3 w-3 text-accent" /> Insert Acoustic Pause:
             </span>
@@ -2074,7 +2075,7 @@ function AudioGenerationContent({
           </div>
 
           <textarea
-            readOnly={profile !== 'shorts'}
+            readOnly={sceneBacked}
             ref={textareaRef}
             value={narrationText}
             onChange={(e) => {
@@ -2134,7 +2135,7 @@ function AudioGenerationContent({
           </div>
 
           {/* Real-time Generation Progress Bar */}
-          {profile !== 'shorts' && <div className="mt-3 rounded border border-border p-3 text-xs text-gray-300">
+          {sceneBacked && <div className="mt-3 rounded border border-border p-3 text-xs text-gray-300">
             Narration is linked to the scene map. Use Edit on a scene in Assets to change its words and matching visual. Completed scenes are reused when retrying with the same voice settings.
             {generating && <button className="ml-3 text-red-300" onClick={async () => {
               try {

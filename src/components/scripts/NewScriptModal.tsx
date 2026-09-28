@@ -1,3 +1,4 @@
+import { SHORTS_MEDIA_TEMPLATE } from '../../../server/src/services/shorts-media';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import { useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
@@ -13,6 +14,7 @@ function newBlockId() {
 
 export function NewScriptModal({ onClose, section, onCreated }: { onClose: () => void; section: Section; onCreated?: (script: Script) => void }) {
   const { fetch, profile, account } = useWorkspaceApi();
+  const [mediaTemplate, setMediaTemplate] = useState(false);
   const [name, setName] = useState('');
   const [model, setModel] = useState('ollama/qwen3.5:4b');
   const [duration, setDuration] = useState<number>(section !== 'shorts' ? 300 : 30);
@@ -42,6 +44,7 @@ export function NewScriptModal({ onClose, section, onCreated }: { onClose: () =>
       accountId: account.id,
       section: profile,
       name: name.trim(),
+      videoImportsEnabled: mediaTemplate,
       lastUsed: 'now',
       status: 'draft',
       locked: false,
@@ -87,6 +90,7 @@ export function NewScriptModal({ onClose, section, onCreated }: { onClose: () =>
             />
           </Field>
 
+          <div>{section === 'shorts' && <button type="button" className="rounded border border-accent px-3 py-2 text-sm text-accent" onClick={() => { setMediaTemplate(true); setModel('gemini-3.6-flash'); if (!name.trim()) setName('Shorts - Images & Videos'); setPrompts([{ id: newBlockId(), name: 'Image and video scene prompts', type: 'Custom', content: SHORTS_MEDIA_TEMPLATE }]); }}>Use image & video Shorts template</button>}</div>
           <Field label="AI Model">
             <ScriptModelSelector value={model} onChange={setModel} />
           </Field>
