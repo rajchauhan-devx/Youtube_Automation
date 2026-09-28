@@ -12,10 +12,12 @@ import { AssetsTab } from './components/assets/AssetsTab';
 import { GenerationTab } from './components/generation/GenerationTab';
 import { EditingWorkspace } from './components/editor/EditingWorkspace';
 import { ArtifactsTab } from './components/artifacts/ArtifactsTab';
+import { SetupTab } from './components/setup/SetupTab';
 import { YouTubeExportTab } from './components/export/YouTubeExportTab';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { extractScriptTagContent, parseAIResponse } from './lib/parseAIResponse.js';
+import { isTaggedShortsResponse } from '../server/src/services/shorts-package';
 import { incompleteResponse } from '../server/src/services/generation-status';
 import { apiPost, getApiKey } from './services/api.js';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -36,7 +38,7 @@ const SIDEBAR_ICONS = [
   { id: 'mixed', label: 'Mixed Media', icon: Library },
   { id: 'queue', label: 'Queue', icon: ListOrdered },
   { id: 'library', label: 'Library', icon: Library },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'settings', label: 'Setup', icon: Settings },
 ] as const;
 
 const LS_KEY = 'tubeflow:v1';
@@ -48,11 +50,27 @@ interface PersistedUiState {
   selectedScriptId: string | null;
 }
 
+type AccountUiState = Omit<PersistedUiState, 'channelId'>;
+
+function readJson<T>(raw: string | null): T | null {
+  if (!raw) return null;
+  try { return JSON.parse(raw) as T; } catch { return null; }
+}
+
+// The global key remembers the last workspace so a refresh resumes where the
+// user left off; every profile additionally keeps its own section, tab and
+// selected script so switching YouTube accounts never mixes their spaces.
 function loadUiState(): PersistedUiState | null {
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as PersistedUiState;
+    return readJson<PersistedUiState>(localStorage.getItem(LS_KEY));
+  } catch {
+    return null;
+  }
+}
+
+function loadAccountUiState(accountId: string): AccountUiState | null {
+  try {
+    return readJson<AccountUiState>(localStorage.getItem(`${LS_KEY}:${accountId}`));
   } catch {
     return null;
   }
@@ -61,6 +79,7 @@ function loadUiState(): PersistedUiState | null {
 function saveUiState(state: PersistedUiState) {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify(state));
+    localStorage.setItem(`${LS_KEY}:${state.channelId}`, JSON.stringify({ section: state.section, tab: state.tab, selectedScriptId: state.selectedScriptId }));
   } catch {
     // ignore
   }
@@ -68,17 +87,21 @@ function saveUiState(state: PersistedUiState) {
 
 type SidebarId = Section | 'queue' | 'library' | 'settings' | 'profile';
 
+function isMainSectionSidebar(id: SidebarId): boolean {
+  return id === 'shorts' || id === 'long' || id === 'mixed';
+}
+
 export default function App() {
   const initialUi = loadUiState();
-  const [activeChannel, setActiveChannel] = useState<Channel>(
-    { ...DEFAULT_ACCOUNT, id: initialUi?.channelId?.startsWith('acct_') ? initialUi.channelId : 'default' }
-  );
+  const initialAccountId = initialUi?.channelId?.startsWith('acct_') ? initialUi.channelId : 'default';
+  const restoredUi = loadAccountUiState(initialAccountId) ?? initialUi;
+  const [activeChannel, setActiveChannel] = useState<Channel>({ ...DEFAULT_ACCOUNT, id: initialAccountId });
   const [accounts, setAccounts] = useState<Channel[]>([DEFAULT_ACCOUNT]);
   const [channelSwitcherOpen, setChannelSwitcherOpen] = useState(false);
-  const [sidebar, setSidebar] = useState<SidebarId>(initialUi?.section ?? 'shorts');
-  const [section, setSection] = useState<Section>(initialUi?.section ?? 'shorts');
-  const [tab, setTab] = useState<Tab>(initialUi?.tab ?? 'scripts');
-  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(initialUi?.selectedScriptId ?? null);
+  const [sidebar, setSidebar] = useState<SidebarId>(restoredUi?.section ?? 'shorts');
+  const [section, setSection] = useState<Section>(restoredUi?.section ?? 'shorts');
+  const [tab, setTab] = useState<Tab>(restoredUi?.tab ?? 'scripts');
+  const [selectedScriptId, setSelectedScriptId] = useState<string | null>(restoredUi?.selectedScriptId ?? null);
   const [newScriptOpen, setNewScriptOpen] = useState(false);
   const [userScripts, setUserScripts] = useState<Script[]>([]);
   const [runModalScript, setRunModalScript] = useState<Script | null>(null);
@@ -429,8 +452,19 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
     setNewScriptOpen(false); setRunModalScript(null);
     setActiveChannel(ch);
     setChannelSwitcherOpen(false);
-    setSelectedScriptId(null);
+    // Each profile keeps its own workspace: restore this account's last
+    // section, tab and script instead of inheriting the previous profile's.
+    const saved = loadAccountUiState(ch.id);
+    if (saved?.section) {
+      const nextSection = saved.section;
+      setSection(nextSection);
+      if (isMainSectionSidebar(sidebar)) setSidebar(nextSection);
+      setTab(saved.tab ?? 'scripts');
+      setSelectedScriptId(saved.selectedScriptId ?? null);
+      return;
+    }
     setTab('scripts');
+    setSelectedScriptId(null);
   }
 
   async function handleImportResponse(response: string, extract: boolean) {
@@ -477,13 +511,13 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
       );
       extracted = {
         script: result.script || '',
-        ttsText: section !== 'shorts' ? result.ttsText : extractScriptTagContent(selectedScript.aiResponse),
+        ttsText: section !== 'shorts' || result.scenePlan ? result.ttsText : extractScriptTagContent(selectedScript.aiResponse),
         imagePrompts: result.imagePrompts || [],
         scenePlan: result.scenePlan,
       };
     } catch (err) {
-      if (section !== 'shorts') {
-        patchScriptState(scriptId, { pipeline: [{ id: 'response', label: 'Response', status: 'error', summary: 'Asset extraction needs attention', inputLog: '', outputPreview: err instanceof Error ? err.message : 'Check the asset tags and narration links in the response.' }] });
+      if (section !== 'shorts' || /<long_video>/i.test(selectedScript.aiResponse) || isTaggedShortsResponse(selectedScript.aiResponse)) {
+        await persistScript(scriptId, { pipeline: [{ id: 'response', label: 'Response', status: 'error', summary: 'Asset extraction needs attention', inputLog: '', outputPreview: err instanceof Error ? err.message : 'Check the asset tags and narration links in the response.' }] });
         if (activeScope.current === scopeKey) setTab('preview');
         return;
       }
@@ -492,7 +526,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
     }
 
     let sceneAnalysis: any = undefined;
-    if (section !== 'shorts') {
+    if (section !== 'shorts' || extracted.scenePlan) {
       sceneAnalysis = { transitions: extracted.imagePrompts.map(() => 'none'), effects: extracted.imagePrompts.map(() => 'zoom-in'), timings: [], mood: 'epic', colorGrade: 'warm-vintage' };
     } else {
     try {
@@ -516,7 +550,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
       imagePrompts: extracted.imagePrompts,
       narration: extracted.ttsText,
       scenePlan: extracted.scenePlan,
-      ...(section !== 'shorts' ? { generatedImages: [], generatedAudio: [], timelineConfig: undefined } : {}),
+      ...(section !== 'shorts' || extracted.scenePlan ? { generatedImages: [], generatedAudio: [], timelineConfig: undefined } : {}),
       sceneAnalysis,
       pipeline: [
         {
@@ -672,7 +706,9 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
 
         <main key={scopeKey} className="flex-1 overflow-y-auto thin-scrollbar">
           <div className="mx-auto w-full max-w-[1400px] px-6 py-6">
-            {sidebar === 'profile' ? <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} /> : !isMainSection ? (
+            {sidebar === 'profile' ? <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} /> : sidebar === 'settings' ? (
+              <SetupTab />
+            ) : !isMainSection ? (
               <PlaceholderPage label={sidebar.charAt(0).toUpperCase() + sidebar.slice(1)} />
             ) : (
               <div>

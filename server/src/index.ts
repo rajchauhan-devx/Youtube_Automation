@@ -11,6 +11,7 @@ import { youtubeRouter } from './routes/youtube.js';
 import { accountsRouter } from './routes/accounts.js';
 import { workspacesRouter } from './routes/workspaces.js';
 import { presenterRouter } from './routes/presenter.js';
+import { setupRouter } from './routes/setup.js';
 import { editingRouter } from './routes/editing.js';
 import { editingConfig } from './services/editing/config.js';
 import { acquireSchedulerLock } from './services/editing/repository.js';
@@ -46,6 +47,7 @@ app.use('/api/generate', generateRouter);
 app.use('/api/tts', ttsRouter);
 app.use('/api/render', renderRouter);
 app.use('/api/presenter', presenterRouter);
+app.use('/api/setup', setupRouter);
 app.use('/api/editing', editingRouter);
 app.use('/api/youtube', youtubeRouter);
 

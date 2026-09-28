@@ -1,6 +1,13 @@
 # Youtube_Automation
 
-**Setting up another PC?** Follow the [complete installation and migration guide](docs/NEW_PC_SETUP.md).
+**Setting up another PC?** Open the **Setup** screen in the left sidebar (ex-Settings).
+It lists every model/engine live from `/api/setup` — script LLMs (Gemini, Ollama Qwen 3.5 4B,
+OpenCode/Groq/OpenRouter free models), voice (Chatterbox V3 default, Edge, OpenRouter, legacy Omni),
+ComfyUI SDXL image, ACE-Step music, MuseTalk presenter, editing + alignment — plus where each
+API key is saved (`server/.env` vs browser `openrouter_key`), what git carries vs what you reinstall,
+and a new-PC checklist with one-click `.md` export. Secret values are never shown.
+
+Full runbook: [complete installation and migration guide](docs/NEW_PC_SETUP.md).
 It includes a prompt to give an AI installer, model download steps, external folder
 dependencies, `server/.env` configuration, and runtime verification. Git clone alone
 does not include ComfyUI, model weights, or the separate custom MuseTalk-Demo app.
