@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SCHEMA_VERSION = 1;
-export const RENDERER_VERSION = "1.0.0";
+export const RENDERER_VERSION = "2.0.0";
 export const Id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 export const UUID = z.uuid();
 export const Hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -231,6 +231,20 @@ export const Node = z.discriminatedUnion("kind", [
     assetId: Id,
   }),
 ]);
+export const MotionGraphic = z.strictObject({
+  kind: z.enum(["title", "lower-third", "badge", "spotlight"]),
+  title: z.string().trim().min(1).max(64),
+  detail: z.string().trim().max(120),
+  bounds: Rect,
+  target: z.strictObject({
+    label: z.string().trim().min(1).max(120),
+    region: Crop,
+    evidence: z.string().max(1000),
+    verified: z.literal(true),
+  }).optional(),
+}).refine(g => g.kind !== "spotlight" || !!g.target, "A spotlight needs a verified target");
+export type MotionGraphicSpec = z.infer<typeof MotionGraphic>;
+
 export const Artifact = z.strictObject({
   id: Id,
   sceneId: Id,
@@ -243,6 +257,7 @@ export const Artifact = z.strictObject({
   nodes: z.array(Node).max(128),
   assetRequestIds: z.array(Id).max(20),
   revisionInstruction: z.string().max(2000).optional(),
+  graphic: MotionGraphic.optional(),
 });
 export const Style = z.strictObject({
   id: Id,
@@ -528,6 +543,18 @@ export const RenderManifest = z.strictObject({
   durationMs: z.number().min(0),
 });
 export type EditingProject = z.infer<typeof Project>;
+/** Read old revisions without displaying retired captions, stickers or generated assets.
+ * Saved revisions remain intact; new revisions and exports use only the native graphics. */
+export function motionProject(input: EditingProject): EditingProject {
+  const p = structuredClone(input);
+  p.artifacts = p.artifacts.filter(a => a.graphic);
+  p.analyses = [];
+  p.scenes.forEach(s => { delete s.analysisId; });
+  p.style.textureAssetIds = [];
+  p.assetIds = [...new Set([p.inputs.audioAssetId, ...p.inputs.imageAssets.map(a => a.assetId), ...p.style.fontAssetIds])];
+  p.sceneOutcomes = p.sceneOutcomes?.map(s => ({ ...s, artifactIds: s.artifactIds.filter(id => p.artifacts.some(a => a.id === id)) }));
+  return p;
+}
 export type CompositionNode = z.infer<typeof Node>;
 export type ArtifactComposition = z.infer<typeof Artifact>;
 export type AssetRecord = z.infer<typeof Asset>;
@@ -546,7 +573,7 @@ export const durationFrames = (seconds: number, fps: number) =>
 export const capabilities = {
   schemaVersion: 1,
   rendererVersion: RENDERER_VERSION,
-  primitives: ["group", "text", "image", "shape", "path", "connector", "lottie", "audio"],
+  primitives: ["CinematicTitle", "CharacterLowerThird", "LocationBadge", "ObjectSpotlight"],
   coordinates:
     "design pixels; source anchors/crops normalized; keyframes artifact-local",
   limits: {
@@ -678,6 +705,13 @@ export function validateProject(value: unknown): EditingProject {
       if (!tokens.has(r) || !scene!.narrativeRefs.includes(r))
         fail(`Unresolved artifact narrative ${r}`);
     });
+    if (a.graphic) {
+      const b = a.graphic.bounds;
+      if (!a.narrativeRefs.length) fail("Motion graphics require narration evidence");
+      if (b.x < 0 || b.y < 0 || b.x + b.width > p.inputs.width || b.y + b.height > p.inputs.height)
+        fail("Motion graphic exceeds the output canvas");
+      if (a.nodes.length) fail("Motion graphics cannot include legacy composition nodes");
+    }
     if (a.nodes.some((n) => n.kind === "text") && !a.narrativeRefs.length)
       fail("Text requires supplied narrative references");
     unique(

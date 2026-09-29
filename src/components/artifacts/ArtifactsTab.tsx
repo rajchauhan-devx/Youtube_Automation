@@ -1,681 +1,139 @@
-import { useState, useRef, useEffect } from "react";
-import { Player, type PlayerRef } from "@remotion/player";
-import { VideoComposition } from "@tubeflow/video-composition";
-import type { ArtifactComposition } from "@tubeflow/editing-contracts";
-import { useEditingProject } from "../../hooks/useEditingProject";
-import { editingRequest, type EditingPayload } from "../../services/editingApi";
-import { useWorkspaceApi } from "../../services/workspaceApi";
-import { GEMINI_MODELS, type Script } from "../../data";
-import { LOCAL_MODELS } from "../../../server/src/services/local-models";
-import { OPENCODE_MODELS } from "../../../server/src/services/opencode-models";
-import { GROQ_MODELS, OPENROUTER_MODELS } from "../../../server/src/services/reasoning-models";
+import { useEffect, useRef, useState } from 'react';
+import { Player, type PlayerRef } from '@remotion/player';
+import { VideoComposition, cardBounds, graphicNames } from '@tubeflow/video-composition';
+import type { ArtifactComposition, MotionGraphicSpec } from '@tubeflow/editing-contracts';
+import { useEditingProject } from '../../hooks/useEditingProject';
+import { editingRequest, type EditingPayload } from '../../services/editingApi';
+import { useWorkspaceApi } from '../../services/workspaceApi';
+import { GEMINI_MODELS, type Script } from '../../data';
 
-const activeStates = ["queued", "running", "cancel_requested"];
-export function ArtifactsTab({
-  script,
-  onUpdate,
-  editor = false,
-}: {
-  script: Script | null;
-  onUpdate: (patch: Partial<Script>) => unknown;
-  editor?: boolean;
-}) {
-  const [model, setModel] = useState("");
-  const state = useEditingProject(script?.id, script?.editingProjectId, model || undefined),
-    { data, fetch } = state,
-    { profile } = useWorkspaceApi();
-  const [audio, setAudio] = useState(
-      script?.generatedAudio?.[0]?.filename || "",
-    ),
-    [style, setStyle] = useState(""),
-    [density, setDensity] = useState<"subtle" | "balanced" | "expressive">(
-      "balanced",
-    ),
-    [busy, setBusy] = useState(false),
-    [frame, setFrame] = useState(0),
-    [selected, setSelected] = useState(""),
-    player = useRef<PlayerRef>(null);
-  const p = data?.project,
-    job = data?.jobs
-      .filter((j) => j.revisionId === data.currentRevisionId && activeStates.includes(j.state))
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0],
-    lastJob = data?.jobs
-      .filter((j) => j.revisionId === data.currentRevisionId || j.resultRevisionId === data.currentRevisionId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0],
-    ready = p?.status === "ready" || p?.status === "partial",
-    allInspectionFailed = p?.status === "partial" && !p.artifacts.length &&
-      !!p.scenes.length && p.sceneOutcomes?.length === p.scenes.length &&
-      p.sceneOutcomes.every(outcome => outcome.state === "failed") &&
-      p.analyses.every(analysis => analysis.description.startsWith("Image inspection unavailable"));
+const activeStates = ['queued', 'running', 'cancel_requested'];
+const button = 'rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40 hover:bg-amber-300';
+const input = 'mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-white';
+export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Script | null; onUpdate: (patch: Partial<Script>) => unknown; editor?: boolean }) {
+  const [model, setModel] = useState('');
+  const state = useEditingProject(script?.id, script?.editingProjectId, model || undefined);
+  const { data, fetch } = state, { profile } = useWorkspaceApi();
+  const [audio, setAudio] = useState(''), [style, setStyle] = useState(''), [density, setDensity] = useState<'subtle' | 'balanced' | 'expressive'>('balanced');
+  const [fps, setFps] = useState(60), [busy, setBusy] = useState(false), [frame, setFrame] = useState(0), [selected, setSelected] = useState('');
+  const player = useRef<PlayerRef>(null), p = data?.project;
+  const job = data?.jobs.filter(j => activeStates.includes(j.state)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const lastJob = data?.jobs.filter(j => j.revisionId === data.currentRevisionId || j.resultRevisionId === data.currentRevisionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  const ready = p?.status === 'ready' || p?.status === 'partial';
+  const editable = !!p && p.revisionId === data?.currentRevisionId && !job && !busy;
+  useEffect(() => { setAudio(script?.generatedAudio?.[0]?.filename || ''); }, [script?.id]);
   useEffect(() => {
-    if (!script?.generatedAudio?.some(a => a.filename === audio)) setAudio(script?.generatedAudio?.[0]?.filename || "");
-  }, [script?.id, script?.generatedAudio, audio]);
+    if (!script?.generatedAudio?.some(a => a.filename === audio)) setAudio(script?.generatedAudio?.[0]?.filename || '');
+  }, [script?.generatedAudio, audio]);
   useEffect(() => {
     const instance = player.current;
     if (!instance) return;
-    const listener = ({ detail }: { detail: { frame: number } }) =>
-      setFrame(detail.frame);
-    instance.addEventListener("frameupdate", listener);
-    return () => instance.removeEventListener("frameupdate", listener);
+    const listener = ({ detail }: { detail: { frame: number } }) => setFrame(detail.frame);
+    instance.addEventListener('frameupdate', listener);
+    return () => instance.removeEventListener('frameupdate', listener);
   }, [p?.revisionId]);
-  if (!script)
-    return (
-      <p className="p-6 text-gray-400">
-        Select a script to create a visual edit.
-      </p>
-    );
-  const currentScript = script;
-  async function act(work: () => Promise<unknown>, refresh = true) {
-    setBusy(true);
-    state.setError("");
-    try {
-      await work();
-      if (refresh) await state.refresh();
-    } catch (e) {
-      state.setError(e instanceof Error ? e.message : "Visual editing failed");
-    } finally {
-      setBusy(false);
-    }
+  async function act(work: () => Promise<unknown>) {
+    setBusy(true); state.setError('');
+    try { await work(); } catch (error) { state.setError(error instanceof Error ? error.message : 'Motion graphics failed.'); }
+    finally { setBusy(false); }
   }
-  async function generate(mode: "ai" | "simple" | "motion" = "ai") {
+  async function generate() {
+    if (!script) return;
     await act(async () => {
-      const selectedAudio = currentScript.generatedAudio?.find(
-        (a) => a.filename === audio,
-      );
-      if (!selectedAudio) throw new Error("Select narration audio first.");
-      const inputs = {
-        scriptId: currentScript.id,
-        audioFilename: audio,
-        language: selectedAudio.language,
-        imageIndexes: (currentScript.generatedImages || [])
-          .filter(
-            (i) => i.status === "done" && i.url,
-          )
-          .map((i) => i.index),
-        aspect: profile === "shorts" ? "9:16" : "16:9",
-        fps: 30,
-        settings: {
-          stylePreference: style,
-          density,
-          maxProviderCalls: Math.min(2000, 3 + (currentScript.generatedImages?.length || 1) * 12),
-          maxGeneratedAssets: 4,
-          ...(model ? { aiModel: model } : {}),
-        },
-      };
-      const reuseCurrentMedia = mode !== "ai" && p && data && !data.stale &&
-        p.revisionId === data.currentRevisionId && p.inputs.audioFilename === audio &&
-        p.inputs.width === (profile === "shorts" ? 1080 : 1920);
-      const created = reuseCurrentMedia
-          ? data
-          : p && data
-          ? await editingRequest<EditingPayload>(
-              fetch,
-              `/projects/${p.id}/revisions`,
-              { expectedRevisionId: data.currentRevisionId, inputs },
-            )
-          : await editingRequest<EditingPayload>(fetch, "/projects", inputs);
-      state.setSelectedRevision("");
-      state.setProjectId(created.project.id);
-      state.setData(created);
+      const narration = script.generatedAudio?.find(a => a.filename === audio);
+      if (!narration) throw new Error('Select narration first.');
+      const inputs = { scriptId: script.id, audioFilename: audio, language: narration.language,
+        imageIndexes: (script.generatedImages || []).filter(i => i.status === 'done' && i.url).map(i => i.index),
+        aspect: profile === 'shorts' ? '9:16' : '16:9', fps,
+        settings: { stylePreference: style, density, maxProviderCalls: 40, maxGeneratedAssets: 0, ...(model ? { aiModel: model } : {}) } };
+      const created = await editingRequest<EditingPayload>(fetch, p && data ? `/projects/${p.id}/revisions` : '/projects',
+        p && data ? { expectedRevisionId: data.currentRevisionId, inputs } : inputs);
+      state.setSelectedRevision(''); state.setProjectId(created.project.id); state.setData(created);
       await onUpdate({ editingProjectId: created.project.id });
-      if (mode === "simple") {
-        const finished = await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}/simple`, {
-          expectedRevisionId: created.project.revisionId,
-        });
-        state.setData(finished);
-      } else if (mode === "motion") {
-        const finished = await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}/motion-pack`, {
-          expectedRevisionId: created.project.revisionId,
-        });
-        state.setData(finished);
-      } else {
-        await editingRequest(fetch, `/projects/${created.project.id}/generate`, {
-          expectedRevisionId: created.project.revisionId,
-        });
-      }
-    }, mode === "ai");
+      await editingRequest(fetch, `/projects/${created.project.id}/generate`, { expectedRevisionId: created.project.revisionId });
+      state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}`));
+    });
   }
-  const motionSummary = (() => {
-    const note = data?.project.diagnostics.find((d) => d.code === "MOTION_PACK");
-    return note?.message;
-  })();
-  async function reset() {
-    if (!p || !data) return;
-    setBusy(true);
-    state.setError("");
-    try {
-      const fresh = await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/reset`, {
-        expectedRevisionId: data.currentRevisionId,
-      });
-      state.setSelectedRevision("");
-      state.setData(fresh);
-      setSelected("");
-      setFrame(0);
-    } catch (error) {
-      state.setError(error instanceof Error ? error.message : "Could not clear artifacts");
-    } finally {
-      setBusy(false);
-    }
-  }
-  const download = data?.jobs
-    .filter(
-      (j) =>
-        j.operation === "render" &&
-        j.state === "succeeded" &&
-        j.revisionId === p?.revisionId,
-    )
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-  const button =
-    "rounded-md bg-blue-600 px-3 py-2 text-sm text-white disabled:opacity-40 hover:bg-blue-500";
-  return (
-    <div className="space-y-5 p-2 text-gray-200">
-      <div>
-        <h2 className="text-xl font-semibold">
-          {editor ? "Enhanced timeline & export" : "Artifacts"}
-        </h2>
-        <p className="mt-1 text-sm text-gray-400">
-          One click processes every image and video scene. AI decides where an explanation helps; no artifact prompts are required.
-        </p>
+  const download = data?.jobs.filter(j => j.operation === 'render' && j.state === 'succeeded' && j.outputUrl && j.revisionId === p?.revisionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  if (!script) return <p className="p-6 text-gray-400">Select a script to create motion graphics.</p>;
+  return <div className="space-y-5 p-2 text-gray-200">
+    <div className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 to-surface p-5">
+      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Motion studio</p>
+      <h2 className="mt-2 text-2xl font-semibold text-white">{editor ? 'Preview & export' : 'Artifacts'}</h2>
+      <p className="mt-2 max-w-2xl text-sm text-gray-400">Cinematic titles, character names, location badges and object spotlights, timed to your story.</p>
+      <div className="mt-4 flex flex-wrap gap-2">{Object.values(graphicNames).map(name => <span key={name} className="rounded-full border border-amber-300/15 px-3 py-1 text-xs text-amber-100">{name}</span>)}</div>
+    </div>
+    {state.error && <div role="alert" className="rounded-lg border border-red-800 bg-red-950/30 p-3 text-sm text-red-200">{state.error}</div>}
+    {!editor && <div className="grid gap-4 rounded-xl border border-border bg-surface p-4 md:grid-cols-2">
+      <label className="text-sm">Narration<select className={input} value={audio} onChange={e => setAudio(e.target.value)}>
+        <option value="">Select generated narration</option>{script.generatedAudio?.map(a => <option key={a.filename} value={a.filename}>{a.language === 'hi' ? 'Hindi' : 'English'} · {a.voiceName || a.voice || a.filename}</option>)}
+      </select></label>
+      <label className="text-sm">Graphics & vision model<select aria-label="Visual editing AI model" className={input} value={model} onChange={e => setModel(e.target.value)}>
+        <option value="">Server default{state.capabilities?.models?.planner ? ` · ${state.capabilities.models.planner}` : ''}</option>
+        {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+      </select></label>
+      <label className="text-sm">Graphic density<select className={input} value={density} onChange={e => setDensity(e.target.value as typeof density)}>
+        <option value="subtle">Subtle · fewer narrative beats</option><option value="balanced">Balanced</option><option value="expressive">Expressive · more emphasis</option>
+      </select></label>
+      <label className="text-sm">Frame rate<select className={input} value={fps} onChange={e => setFps(Number(e.target.value))}><option value={60}>60 fps · smooth motion</option><option value={30}>30 fps · faster export</option></select></label>
+      <label className="text-sm md:col-span-2">Direction <span className="text-gray-500">(optional)</span><input className={input} value={style} maxLength={2000} onChange={e => setStyle(e.target.value)} placeholder="Emphasize character introductions and important objects" /></label>
+      {!!state.capabilities?.missing.length && <div className="text-sm text-amber-200 md:col-span-2">{state.capabilities.missing.join(' ')}</div>}
+      <div className="md:col-span-2 flex flex-wrap items-center gap-3">
+        <button className={button} disabled={busy || !!job || !state.capabilities?.ready || !audio || !script.generatedImages?.length} onClick={() => void generate()}>Generate motion graphics</button>
+        {p && <button className="text-sm text-gray-400 disabled:opacity-40" disabled={!editable} onClick={() => void act(async () => {
+          const next = await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/reset`, { expectedRevisionId: data!.currentRevisionId });
+          state.setSelectedRevision(''); state.setData(next); setSelected(''); setFrame(0);
+        })}>Clear graphics</button>}
       </div>
-      {state.error && (
-        <div
-          role="alert"
-          className="rounded border border-red-800 bg-red-950/30 p-3 text-sm text-red-200"
-        >
-          {state.error}
+      <p className="text-xs text-gray-400 md:col-span-2">Generate scene media and narration first. Object spotlights are verified against still images; moving clips use scene graphics. Review the preview before export.</p>
+    </div>}
+    {!!data?.legacyArtifactCount && <p className="rounded-lg border border-amber-800 p-3 text-sm text-amber-200">This saved revision contains {data.legacyArtifactCount} retired graphics. They are hidden from preview and new exports. Generate motion graphics to replace them; original media and revision history remain available.</p>}
+    {job && <div role="status" className="flex items-center justify-between rounded-lg border border-amber-700/50 p-3 text-sm"><span>{job.stage}{job.total ? ` · ${job.completed}/${job.total}` : ''}</span><button className="text-red-300" disabled={job.state === 'cancel_requested'} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${job.id}/cancel`, {}); await state.refresh(); })}>{job.state === 'cancel_requested' ? 'Cancelling…' : 'Cancel'}</button></div>}
+    {lastJob && !job && ['needs_configuration', 'interrupted', 'failed'].includes(lastJob.state) && <div role="alert" className="rounded-lg border border-amber-800 p-3 text-sm text-amber-100">
+      <p>{lastJob.error || 'The graphics job stopped.'}</p><button className="mt-2 underline" disabled={busy} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${lastJob.id}/resume`, {}); await state.refresh(); })}>Resume</button>
+    </div>}
+    {data?.stale && <p className="text-sm text-amber-200">Media or narration changed. Generate a new revision to use the latest inputs.</p>}
+    {p && data && <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className="min-w-0 space-y-3">
+        <label className="block text-xs text-gray-400">Preview / export revision<select aria-label="Preview and export revision" className={input} value={state.selectedRevision} onChange={e => state.setSelectedRevision(e.target.value)}><option value="">Current revision</option>{data.revisions.filter(r => r.revisionId !== data.currentRevisionId).map(r => <option key={r.revisionId} value={r.revisionId}>{r.revisionId.slice(0, 8)} · {r.language} · {r.status}</option>)}</select></label>
+        <div className="flex justify-center overflow-hidden rounded-xl border border-border bg-black p-2"><Player key={p.revisionId} ref={player} component={VideoComposition} inputProps={{ project: p, assets: data.assets }} durationInFrames={p.inputs.durationFrames} fps={p.inputs.fps} compositionWidth={p.inputs.width} compositionHeight={p.inputs.height} controls style={{ width: '100%', maxWidth: p.inputs.height > p.inputs.width ? 360 : '100%' }} /></div>
+        <p className="text-xs text-gray-500">{(frame / p.inputs.fps).toFixed(1)} / {(p.inputs.durationFrames / p.inputs.fps).toFixed(1)} s · {p.inputs.fps} fps</p>
+        <div aria-label="Motion graphics timeline" className="space-y-2 rounded-lg border border-border p-3">
+          <input aria-label="Timeline playhead" type="range" className="w-full accent-amber-400" min={0} max={p.inputs.durationFrames - 1} value={frame} onChange={e => { setFrame(Number(e.target.value)); player.current?.seekTo(Number(e.target.value)); }} />
+          <div className="flex h-8 gap-px">{p.scenes.map((s, i) => <button key={s.id} className="truncate rounded bg-slate-700 text-xs" style={{ width: `${100 * (s.endFrame - s.startFrame) / p.inputs.durationFrames}%` }} onClick={() => player.current?.seekTo(s.startFrame)}>Scene {i + 1}</button>)}</div>
+          <div className="relative h-7">{p.artifacts.map(a => <button title={a.intent} key={a.id} className={`absolute h-7 truncate rounded px-1 text-xs ${a.enabled ? 'bg-amber-700' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames}%` }} onClick={() => { setSelected(a.id); player.current?.seekTo(a.startFrame); }}>{a.graphic?.title}</button>)}</div>
         </div>
-      )}
-      {!!state.capabilities?.missing.length && (
-        <div className="rounded border border-amber-800 bg-amber-950/20 p-3 text-sm">
-          <strong>Setup needed</strong>
-          <ul className="mt-2 list-inside list-disc">
-            {state.capabilities.missing.map((m) => (
-              <li key={m}>{m}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {!state.capabilities && !state.error && <p className="text-sm text-gray-400">Checking visual editing model and server settings...</p>}
-      {state.capabilities?.ready && state.capabilities.provider && (
-        <p className="text-sm text-emerald-300">
-          {state.capabilities.provider}
-          {state.capabilities.models?.planner &&
-            ` · ${state.capabilities.models.planner.replace(/^ollama\//, "")}`}
-          {state.capabilities.provider.startsWith("Local") &&
-            " · Runs on this computer without an API key"}
-        </p>
-      )}
-      {state.capabilities?.ready && !state.capabilities.modelsVerified &&
-        <p className="text-xs text-amber-300">This provider's image and JSON support has not been verified here. Generation may fail if the selected model lacks either capability.</p>}
-      {!editor && (
-        <div className="grid gap-3 rounded-lg border border-border bg-surface p-4 md:grid-cols-2">
-          <div className="md:col-span-2 text-sm text-gray-300">
-            <p className="font-medium">How Artifacts works</p>
-            <p className="mt-1 text-gray-400">Generate scene images or clips and narration in Generation first. Here, choose the narration and AI model. The model adds optional on-screen explanations. Review the result below, then export its video.</p>
-          </div>
-          <label className="text-sm md:col-span-2">
-            Visual editing AI model
-            <select aria-label="Visual editing AI model" className="mt-1 w-full rounded bg-bg p-2" value={model} onChange={e => setModel(e.target.value)}>
-              <option value="">Server default</option>
-              <optgroup label="Local Ollama">{LOCAL_MODELS.filter(item => !item.id.endsWith(":thinking")).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
-              <optgroup label="Google Gemini">{GEMINI_MODELS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
-              <optgroup label="OpenCode (Requires External API Access)">{OPENCODE_MODELS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
-              <optgroup label="Groq">{GROQ_MODELS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
-              <optgroup label="OpenRouter">{OPENROUTER_MODELS.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</optgroup>
-            </select>
-            <span className="mt-1 block text-xs text-gray-400">The model needs image input and JSON output. Configure its API key in server/.env; Gemini and OpenRouter can also use the key saved in app settings.</span>
-            {model === "groq/qwen/qwen3.8-27b" && <span className="mt-1 block text-xs text-emerald-300">Groq lists this model as supporting images and structured JSON. Account access and limits can vary.</span>}
-            {model.startsWith("opencode/") && <span className="mt-1 block text-xs text-amber-300">OpenCode free tier restricts direct API calls from external apps. Use Gemini (recommended), Ollama, or OpenRouter unless you have paid OpenCode API access.</span>}
-            {p?.settings.aiModel && <span className="mt-1 block text-xs text-gray-400">Current saved edit uses {p.settings.aiModel}. The selection above applies to a new edit.</span>}
-          </label>
-          <label className="text-sm">
-            Narration language & voice
-            <select
-              aria-label="Narration language and voice"
-              className="mt-1 w-full rounded bg-bg p-2"
-              value={audio}
-              onChange={(e) => setAudio(e.target.value)}
-            >
-              <option value="">Select generated narration</option>
-              {script.generatedAudio?.map((a) => (
-                <option key={a.filename} value={a.filename}>
-                  {a.language === "hi" ? "Hindi" : "English"} ·{" "}
-                  {a.voiceName || a.voice || a.filename}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm">
-            Visual density
-            <select
-              className="mt-1 w-full rounded bg-bg p-2"
-              value={density}
-              onChange={(e) => setDensity(e.target.value as typeof density)}
-            >
-              <option value="subtle">Subtle</option>
-              <option value="balanced">Balanced</option>
-              <option value="expressive">Expressive</option>
-            </select>
-          </label>
-          <label className="text-sm md:col-span-2">
-            Art direction <span className="text-gray-500">(optional)</span>
-            <input
-              className="mt-1 w-full rounded bg-bg p-2"
-              value={style}
-              onChange={(e) => setStyle(e.target.value)}
-              placeholder="Warm museum annotations, or let the story guide the style"
-              maxLength={2000}
-            />
-          </label>
-          <div className="md:col-span-2">
-            {(!script.generatedImages?.length || !script.generatedAudio?.length) &&
-              <p className="mb-2 text-sm text-amber-300">Generate at least one scene image or clip and a matching narration in Generation before creating this edit.</p>}
-            <button
-              className={button}
-              disabled={
-                busy ||
-                !!job ||
-                !state.capabilities?.ready ||
-                !audio ||
-                !script.generatedImages?.length
-              }
-              onClick={() => void generate()}
-            >
-              Generate all artifacts
-            </button>
-            <span className="ml-3 text-xs text-gray-500">
-              AI chooses the scenes, creates graphics, and checks and repairs them automatically.
-            </span>
-            <div className="mt-3">
-              <button
-                type="button"
-                className={button}
-                disabled={busy || !!job || !audio || !script.generatedImages?.length}
-                onClick={() => void generate("simple")}
-              >
-                Create simple captions (fast)
-              </button>
-              <p className="mt-1 text-xs text-gray-400">Uses the saved narration to place readable captions without an AI model. Original images, clips, and audio stay in the video. This does not create custom AI diagrams.</p>
-            </div>
-            <div className="mt-3">
-              <button
-                type="button"
-                className={button}
-                disabled={busy || !!job || !audio || !script.generatedImages?.length}
-                onClick={() => void generate("motion")}
-              >
-                Generate motion pack (deterministic)
-              </button>
-              <p className="mt-1 text-xs text-gray-400">Keyword-triggered animated graphics with sound and kinetic captions from the saved narration and word timings. No AI model is called; the same inputs always produce the same video.</p>
-              {motionSummary && <p className="mt-1 text-xs text-emerald-300">{motionSummary}</p>}
-            </div>
-            {p && <div className="mt-3">
-              <button type="button" className="rounded-md border border-amber-700 px-3 py-2 text-sm text-amber-200 disabled:opacity-40 hover:bg-amber-950/40"
-                disabled={busy || !!job} onClick={() => void reset()}>
-                Clear artifacts and start fresh
-              </button>
-              <p className="mt-1 text-xs text-gray-400">Clears the current edit and failed progress. Your scene media, narration, and older revisions stay available. Then click Generate all artifacts.</p>
-            </div>}
-          </div>
-        </div>
-      )}
-      {job && (
-        <div
-          role="status"
-          className="flex items-center justify-between rounded border border-blue-900 bg-blue-950/20 p-3"
-        >
-          <span>
-            {job.stage}
-            {job.total ? ` · ${job.completed}/${job.total}` : ""}
-          </span>
-          <button
-            disabled={job.state === "cancel_requested"}
-            className="text-sm text-red-300"
-            onClick={() =>
-              void act(() =>
-                editingRequest(fetch, `/jobs/${job.id}/cancel`, {}),
-              )
-            }
-          >
-            {job.state === "cancel_requested" ? "Cancelling…" : "Cancel"}
-          </button>
-        </div>
-      )}
-      {lastJob &&
-        !job &&
-        ["needs_configuration", "interrupted", "failed"].includes(
-          lastJob.state,
-        ) && (
-          <div className="rounded border border-amber-800 p-3 text-sm">
-            <p className="font-semibold">Job using {p?.settings.aiModel || "server default"}: {lastJob.state.replace(/_/g, " ")}</p>
-            <p>{lastJob.error || "The visual editing job stopped."}</p>
-            <button
-              className={`${button} mt-2`}
-              disabled={busy}
-              onClick={() =>
-                void act(() =>
-                  editingRequest(fetch, `/jobs/${lastJob.id}/resume`, {}),
-                )
-              }
-            >
-              Resume
-            </button>
-          </div>
-        )}
-      {data?.stale && (
-        <p className="rounded bg-amber-950/30 p-3 text-sm text-amber-200">
-          This revision uses earlier script inputs. Generate a new visual edit
-          to use the latest narration and images.
-        </p>
-      )}
-      {ready && !job && p && (
-        <div role="status" className={"rounded border p-3 text-sm " + (p.status === "partial" ? "border-amber-700 text-amber-200" : "border-emerald-800 text-emerald-200")}>
-          <strong>{p.status === "partial" ? "Finished with incomplete scenes" : "Artifact generation complete"}</strong>
-          <p>{p.artifacts.length} artifacts created. {p.sceneOutcomes?.filter(o => o.state === "not_needed").length || 0} scenes need no extra graphics. {p.sceneOutcomes?.filter(o => o.state === "failed").length || 0} scenes incomplete.</p>
-          {p.status === "partial" && p.artifacts.length > 0 && <p>Accepted artifacts and the full video are preserved. Generate again to retry failed scenes.</p>}
-        </div>
-      )}
-      {allInspectionFailed && p && (
-        <div role="alert" className="rounded border border-amber-700 bg-amber-950/20 p-3 text-sm text-amber-200">
-          <strong>No scenes could be inspected</strong>
-          <p>The selected model did not produce usable image analysis, so no artifacts were made. Choose another visual editing model and click Generate all artifacts. This attempt made {lastJob?.usage.filter(item => item.operation === "analyze").length || 0} inspection requests; further retries with the same model may use more provider quota.</p>
-        </div>
-      )}
-      {p && data && (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-          <div className="min-w-0 space-y-3">
-            <label className="block text-sm text-gray-400">
-              Preview / export revision
-              <select
-                aria-label="Preview and export revision"
-                className="mt-1 w-full rounded bg-surface p-2"
-                value={state.selectedRevision}
-                onChange={(event) =>
-                  state.setSelectedRevision(event.target.value)
-                }
-              >
-                <option value="">Current revision</option>
-                {data.revisions
-                  .filter(
-                    (rev) =>
-                      ["ready", "partial"].includes(rev.status) &&
-                      rev.revisionId !== data.currentRevisionId,
-                  )
-                  .map((rev) => (
-                    <option key={rev.revisionId} value={rev.revisionId}>
-                      {rev.revisionId.slice(0, 8)} · {rev.language} ·{" "}
-                      {rev.audioFilename}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <div className="flex justify-center rounded-lg border border-border bg-black p-2">
-              <Player
-                key={p.revisionId}
-                ref={player}
-                component={VideoComposition}
-                inputProps={{ project: p, assets: data.assets }}
-                durationInFrames={p.inputs.durationFrames}
-                fps={p.inputs.fps}
-                compositionWidth={p.inputs.width}
-                compositionHeight={p.inputs.height}
-                controls
-                style={{
-                  width: "100%",
-                  maxWidth: p.inputs.width > p.inputs.height ? "100%" : 340,
-                }}
-              />
-            </div>
-            <p className="text-xs text-gray-400">
-              {(frame / p.inputs.fps).toFixed(1)} /{" "}
-              {(p.inputs.durationFrames / p.inputs.fps).toFixed(1)} s ·{" "}
-              {p.inputs.language === "hi" ? "Hindi" : "English"} · Revision{" "}
-              {p.revisionId.slice(0, 8)}
-              {!ready ? " · Draft" : ""}
-            </p>
-            <div
-              className="space-y-2 rounded border border-border p-3"
-              aria-label="Enhanced project timeline"
-            >
-              <input
-                aria-label="Timeline playhead"
-                type="range"
-                min={0}
-                max={p.inputs.durationFrames - 1}
-                value={frame}
-                onChange={(e) => {
-                  const f = Number(e.target.value);
-                  setFrame(f);
-                  player.current?.seekTo(f);
-                }}
-                className="w-full"
-              />
-              <div className="flex h-9 gap-px">
-                {p.scenes.map((s, i) => (
-                  <button
-                    key={s.id}
-                    style={{
-                      width: `${(100 * (s.endFrame - s.startFrame)) / p.inputs.durationFrames}%`,
-                    }}
-                    className="truncate rounded bg-slate-700 px-1 text-xs"
-                    onClick={() => player.current?.seekTo(s.startFrame)}
-                  >
-                    Scene {i + 1}
-                  </button>
-                ))}
-              </div>
-              <div className="relative h-8">
-                {p.artifacts.map((a) => (
-                  <button
-                    title={a.intent}
-                    key={a.id}
-                    className={`absolute h-7 truncate rounded px-1 text-xs ${a.enabled ? "bg-violet-700" : "bg-gray-700 opacity-40"}`}
-                    style={{
-                      left: `${(100 * a.startFrame) / p.inputs.durationFrames}%`,
-                      width: `${(100 * (a.endFrame - a.startFrame)) / p.inputs.durationFrames}%`,
-                    }}
-                    onClick={() => {
-                      setSelected(a.id);
-                      player.current?.seekTo(a.startFrame);
-                    }}
-                  >
-                    {a.intent}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                className={button}
-                disabled={!ready || busy || !!job}
-                onClick={() =>
-                  void act(() =>
-                    editingRequest(fetch, `/projects/${p.id}/render`, {
-                      revisionId: p.revisionId,
-                    }),
-                  )
-                }
-              >
-                Export this revision as MP4
-              </button>
-              {download?.outputUrl && (
-                <a
-                  href={download.outputUrl}
-                  download
-                  className="text-sm text-blue-300 underline"
-                >
-                  Download MP4
-                </a>
-              )}
-            </div>
-            <p className="text-xs text-gray-500">
-              Export uses this revision, its selected audio, and the same
-              composition as the player.
-            </p>
-          </div>
-          <div className="space-y-3">
-            {!allInspectionFailed && p.scenes.map((scene, index) => {
-              const artifacts = p.artifacts.filter(
-                (a) => a.sceneId === scene.id,
-              );
-              return (
-                <section key={scene.id}>
-                  <h3 className="mb-2 text-sm font-semibold text-gray-400">
-                    Scene {index + 1}
-                    {p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.state === "failed" ? " — Incomplete" : ""}
-                    {p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.state === "not_needed" ? " — Clean media" : ""}
-                  </h3>
-                  {!artifacts.length && (
-                    <p className="mb-3 text-xs text-gray-500">
-                      {ready
-                        ? p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.reason || "Original scene media preserved cleanly."
-                        : "Design pending."}
-                    </p>
-                  )}
-                  {artifacts.map((a) => (
-                    <ArtifactCard
-                      key={`${p.revisionId}-${a.id}`}
-                      artifact={a}
-                      thumbnail={data.artifactPreviews[a.id]}
-                      fps={p.inputs.fps}
-                      selected={selected === a.id}
-                      busy={
-                        busy || !!job || p.revisionId !== data.currentRevisionId
-                      }
-                      phrase={a.narrativeRefs
-                        .map(
-                          (id) =>
-                            p.alignment.tokens.find((t) => t.id === id)?.text,
-                        )
-                        .join(" ")}
-                      onSelect={() => {
-                        setSelected(a.id);
-                        player.current?.seekTo(a.startFrame);
-                      }}
-                      onToggle={() =>
-                        act(async () => {
-                          state.setData(
-                            await editingRequest<EditingPayload>(
-                              fetch,
-                              `/projects/${p.id}/artifacts/${a.id}`,
-                              {
-                                expectedRevisionId: p.revisionId,
-                                enabled: !a.enabled,
-                              },
-                              "PATCH",
-                            ),
-                          );
-                        })
-                      }
-                      onRevise={(instruction) =>
-                        act(() =>
-                          editingRequest(
-                            fetch,
-                            `/projects/${p.id}/artifacts/${a.id}/revise`,
-                            { expectedRevisionId: p.revisionId, instruction },
-                          ),
-                        )
-                      }
-                    />
-                  ))}
-                </section>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      {!!p?.diagnostics.length && (
-        <details className="rounded border border-border p-3 text-sm">
-          <summary>{p.diagnostics.length} editing notes and fallbacks</summary>
-          <ul className="mt-3 space-y-2">
-            {p.diagnostics.map((d, i) => (
-              <li key={i}>
-                <strong>{d.code}</strong>: {d.message}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-    </div>
-  );
+        <div className="flex flex-wrap items-center gap-3"><button className={button} disabled={!ready || busy || !!job} onClick={() => void act(async () => { await editingRequest(fetch, `/projects/${p.id}/render`, { revisionId: p.revisionId }); await state.refresh(); })}>Export MP4</button>{download?.outputUrl && <a href={download.outputUrl} download className="text-sm text-amber-300 underline">Download MP4</a>}</div>
+        <p className="text-xs text-gray-500">Preview and export use the same graphics, scene media and narration.</p>
+      </div>
+      <div className="space-y-4">
+        {ready && <p role="status" className="text-sm text-amber-100">{p.artifacts.length} graphics · {p.sceneOutcomes?.filter(o => o.state === 'failed').length || 0} skipped scenes</p>}
+        {p.scenes.map((scene, index) => <section key={scene.id}>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Scene {index + 1}</h3>
+          {!p.artifacts.some(a => a.sceneId === scene.id) && <p className="text-xs text-gray-500">{p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.reason || 'Graphics not generated yet.'}</p>}
+          {p.artifacts.filter(a => a.sceneId === scene.id && a.graphic).map(a => <GraphicCard key={`${p.revisionId}-${a.id}`} artifact={a} fps={p.inputs.fps} width={p.inputs.width} height={p.inputs.height} busy={!editable} selected={selected === a.id}
+            onSelect={() => { setSelected(a.id); player.current?.seekTo(Math.min(a.endFrame - 1, a.startFrame + Math.round(p.inputs.fps * 0.9))); }}
+            onSave={patch => act(async () => { state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/artifacts/${a.id}`, { expectedRevisionId: p.revisionId, ...patch }, 'PATCH')); })}
+            onRegenerate={() => act(async () => { await editingRequest(fetch, `/projects/${p.id}/artifacts/${a.id}/revise`, { expectedRevisionId: p.revisionId, instruction: 'Reconsider this graphic for the same scene. Preserve its supported meaning and verify any spotlight against the actual image.' }); await state.refresh(); })} />)}
+        </section>)}
+      </div>
+    </div>}
+    {!!p?.diagnostics.length && <details open={p.status === 'partial'} className="rounded-lg border border-border p-3 text-sm"><summary>{p.diagnostics.length} generation notes</summary><ul className="mt-3 space-y-2">{p.diagnostics.map((d, i) => <li key={i} className={d.severity === 'warning' ? 'text-amber-200' : 'text-gray-400'}>{d.message}</li>)}</ul></details>}
+  </div>;
 }
-function ArtifactCard({
-  artifact: a,
-  fps,
-  phrase,
-  busy,
-  selected,
-  onSelect,
-  onToggle,
-  onRevise,
-  thumbnail,
-}: {
-  artifact: ArtifactComposition;
-  fps: number;
-  phrase: string;
-  busy: boolean;
-  selected: boolean;
-  onSelect: () => void;
-  onToggle: () => Promise<unknown>;
-  onRevise: (instruction: string) => Promise<unknown>;
-  thumbnail?: string;
-}) {
-  const [instruction, setInstruction] = useState("");
-  return (
-    <div
-      className={`mb-3 space-y-2 rounded-lg border p-3 ${selected ? "border-violet-500" : "border-border"} bg-surface`}
-    >
-      {thumbnail && (
-        <button className="block w-full" onClick={onSelect}>
-          <img
-            src={thumbnail}
-            alt={a.intent}
-            className="max-h-28 w-full rounded bg-black object-contain"
-          />
-        </button>
-      )}
-      <button className="text-left text-sm font-medium" onClick={onSelect}>
-        {a.intent}
-      </button>
-      <p className="text-xs text-gray-500">
-        {(a.startFrame / fps).toFixed(1)}–{(a.endFrame / fps).toFixed(1)} s ·{" "}
-        {a.enabled ? "Ready" : "Disabled"}
-      </p>
-      <p className="line-clamp-3 text-xs text-gray-400">{phrase}</p>
-      <button
-        className="mr-3 text-xs text-blue-300 disabled:opacity-40"
-        disabled={busy}
-        onClick={() => void onToggle()}
-      >
-        {a.enabled ? "Disable" : "Enable"}
-      </button>
-      <button
-        className="text-xs text-blue-300 disabled:opacity-40"
-        disabled={busy}
-        onClick={() =>
-          void onRevise(
-            "Regenerate this composition with a different arrangement while preserving its meaning and evidence.",
-          )
-        }
-      >
-        Regenerate
-      </button>
-      <textarea
-        aria-label="Revise artifact"
-        className="w-full rounded bg-bg p-2 text-sm"
-        rows={2}
-        maxLength={2000}
-        value={instruction}
-        onChange={(e) => setInstruction(e.target.value)}
-        placeholder="Magnify the detail, or reduce the movement…"
-      />
-      <button
-        className="text-xs text-violet-300 disabled:opacity-40"
-        disabled={busy || !instruction.trim()}
-        onClick={() => void onRevise(instruction)}
-      >
-        Apply revision
-      </button>
-    </div>
-  );
+
+type GraphicPatch = { enabled?: boolean; graphic?: MotionGraphicSpec; startFrame?: number; endFrame?: number };
+function GraphicCard({ artifact: a, fps, width, height, busy, selected, onSelect, onSave, onRegenerate }: { artifact: ArtifactComposition; fps: number; width: number; height: number; busy: boolean; selected: boolean; onSelect: () => void; onSave: (patch: GraphicPatch) => Promise<unknown>; onRegenerate: () => Promise<unknown> }) {
+  const [graphic, setGraphic] = useState(a.graphic!), [start, setStart] = useState(a.startFrame / fps), [end, setEnd] = useState(a.endFrame / fps);
+  const dirty = JSON.stringify(graphic) !== JSON.stringify(a.graphic) || Math.round(start * fps) !== a.startFrame || Math.round(end * fps) !== a.endFrame;
+  return <div className={`space-y-3 rounded-xl border p-4 ${selected ? 'border-amber-400/70' : 'border-border'} bg-surface`}>
+    <button className="text-left" onClick={onSelect}><span className="text-[11px] uppercase tracking-wider text-amber-300">{graphicNames[graphic.kind]}</span><span className="mt-1 block text-sm font-semibold">{a.graphic!.title}</span></button>
+    <p className="text-xs text-gray-500">{(a.startFrame / fps).toFixed(1)}–{(a.endFrame / fps).toFixed(1)} s · {a.enabled ? 'Visible' : 'Hidden'}</p>
+    <label className="block text-xs text-gray-400">Title<input aria-label="Graphic title" className={input} maxLength={64} value={graphic.title} disabled={busy} onChange={e => setGraphic({ ...graphic, title: e.target.value })} /></label>
+    <label className="block text-xs text-gray-400">Detail<textarea aria-label="Graphic detail" className={input} rows={2} maxLength={120} value={graphic.detail} disabled={busy} onChange={e => setGraphic({ ...graphic, detail: e.target.value })} /></label>
+    <div className="grid grid-cols-2 gap-2"><label className="text-xs text-gray-400">Start (seconds)<input aria-label="Graphic start" className={input} type="number" min={0} step={0.1} value={start} disabled={busy} onChange={e => setStart(Number(e.target.value))} /></label><label className="text-xs text-gray-400">End (seconds)<input aria-label="Graphic end" className={input} type="number" min={0} step={0.1} value={end} disabled={busy} onChange={e => setEnd(Number(e.target.value))} /></label></div>
+    <label className="block text-xs text-gray-400">Card position<select aria-label="Graphic position" className={input} value="" disabled={busy} onChange={e => setGraphic({ ...graphic, bounds: cardBounds(graphic.kind, width, height, e.target.value) })}><option value="" disabled>Choose a position</option><option value="top">Top</option><option value="bottom">Bottom left</option><option value="right">Bottom right</option><option value="center">Center</option></select></label>
+    {graphic.target && <p className="text-xs text-gray-400">Target: {graphic.target.label}</p>}
+    <div className="flex flex-wrap gap-3 text-xs"><button className="text-amber-300 disabled:opacity-40" disabled={busy || !dirty || !graphic.title.trim() || end <= start} onClick={() => void onSave({ graphic, startFrame: Math.round(start * fps), endFrame: Math.round(end * fps) })}>Save changes</button><button className="text-gray-300 disabled:opacity-40" disabled={busy} onClick={() => void onSave({ enabled: !a.enabled })}>{a.enabled ? 'Hide' : 'Show'}</button><button className="text-gray-300 disabled:opacity-40" disabled={busy} onClick={() => void onRegenerate()}>Regenerate</button><button className="text-gray-300" onClick={onSelect}>Preview</button></div>
+  </div>;
 }

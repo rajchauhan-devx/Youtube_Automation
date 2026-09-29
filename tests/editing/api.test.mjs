@@ -8,7 +8,7 @@ process.env.TUBEFLOW_DATA_DIR = fs.mkdtempSync(
   path.join(os.tmpdir(), "tubeflow-editing-api-"),
 );
 process.env.AI_EDITING_ENABLED = "true";
-const { fixture } = await import("./fixtures.mjs");
+const { fixture } = await import("./motion-fixtures.mjs");
 const { editingRouter } = await import("../../server/dist/routes/editing.js");
 const { assetFile } = await import(
   "../../server/dist/services/editing/repository.js"

@@ -7,6 +7,7 @@ export interface EditingPayload {
   jobs: JobRecord[];
   stale: boolean;
   currentRevisionId: string;
+  legacyArtifactCount?: number;
   artifactPreviews: Record<string, string>;
   revisions: Array<{
     revisionId: string;

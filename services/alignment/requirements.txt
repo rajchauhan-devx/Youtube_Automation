@@ -1,2 +1,0 @@
-# Isolated Python environment only. Model weights are configured separately.
-whisperx==3.8.6

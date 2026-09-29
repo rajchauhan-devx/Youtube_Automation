@@ -3,71 +3,10 @@ import {
   toFrame,
   type AlignmentResult,
   type EditingProject,
-  type ArtifactComposition,
 } from "@tubeflow/editing-contracts";
 import fs from "node:fs";
-import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { assetFile, assetRecord, atomic, objectHash, projectDir } from "./repository.js";
-import { editingConfig } from "./config.js";
-/** Compile narration references into frames; models never choose independent cue clocks. */
-export function compileCue(
-  project: EditingProject,
-  artifact: ArtifactComposition,
-): ArtifactComposition {
-  const scene = project.scenes.find((s) => s.id === artifact.sceneId);
-  if (!scene) throw new Error("Artifact references an unknown scene");
-  const tokens = artifact.narrativeRefs.map((id) => {
-    const token = project.alignment.tokens.find((t) => t.id === id);
-    if (!token || !scene.narrativeRefs.includes(id))
-      throw new Error("Unresolved artifact narrative cue");
-    return token;
-  });
-  if (!tokens.length)
-    throw new Error("A generated artifact needs a narration cue");
-  const result = structuredClone(artifact),
-    oldDuration = artifact.endFrame - artifact.startFrame;
-  if (oldDuration <= 0) throw new Error("Invalid proposed artifact duration");
-  if (project.alignment.mode === "approximate") {
-    result.startFrame = scene.startFrame;
-    result.endFrame = scene.endFrame;
-  } else {
-    result.startFrame = Math.max(
-      scene.startFrame,
-      toFrame(Math.min(...tokens.map((t) => t.start)), project.inputs.fps),
-    );
-    const words = result.nodes
-      .filter((n) => n.kind === "text")
-      .reduce((count, n) => count + n.text.split(/\s+/u).length, 0);
-    const readingFrames = Math.ceil(
-      Math.max(words ? project.style.minReadingSeconds : 0, words / 3) *
-        project.inputs.fps,
-    );
-    result.endFrame = Math.min(
-      scene.endFrame,
-      Math.max(
-        result.startFrame + Math.max(1, readingFrames),
-        toFrame(Math.max(...tokens.map((t) => t.end)), project.inputs.fps),
-      ),
-    );
-  }
-  const duration = result.endFrame - result.startFrame;
-  if (duration <= 0) throw new Error("Narration cue falls outside its scene");
-  for (const node of result.nodes)
-    for (const track of node.tracks) {
-      if (track.keyframes.some((key) => key.frame > oldDuration))
-        throw new Error("Proposed animation exceeds its interval");
-      track.keyframes = [
-        ...new Map(
-          track.keyframes.map((key) => {
-            const frame = Math.round((key.frame * duration) / oldDuration);
-            return [frame, { ...key, frame }] as const;
-          }),
-        ).values(),
-      ];
-    }
-  return result;
-}
+import { assetRecord, atomic, objectHash, projectDir } from "./repository.js";
 export function approximateAlignment(
   inputs: EditingProject["inputs"],
   duration: number,
@@ -102,67 +41,21 @@ export function approximateAlignment(
 export async function align(
   project: EditingProject,
   signal: AbortSignal,
-  useService = true,
+  _useService = false,
 ): Promise<AlignmentResult> {
-  const config = editingConfig(),
-    key = objectHash({
+  const key = objectHash({
       audio: project.inputs.audioHash,
       text: project.inputs.narrationHash,
       language: project.inputs.language,
-      backend: useService ? config.alignmentUrl : "measured-fallback",
-      version: 1,
+      backend: "saved-narration-timing",
+      sceneTiming: project.inputs.sceneTiming,
+      version: 2,
     }),
     file = path.join(projectDir(project.id), "alignment", `${key}.json`);
   if (fs.existsSync(file))
     return Alignment.parse(JSON.parse(fs.readFileSync(file, "utf8")));
   let result: AlignmentResult;
-  if (config.alignmentUrl && useService) {
-    const requestId = randomUUID();
-    const bounded = AbortSignal.any([
-      signal,
-      AbortSignal.timeout(config.providerTimeout),
-    ]);
-    const cancel = () => {
-      void fetch(`${config.alignmentUrl.replace(/\/$/, "")}/cancel`, {
-        method: "POST",
-        headers: { "X-Request-ID": requestId },
-        signal: AbortSignal.timeout(3000),
-      }).catch(() => undefined);
-    };
-    bounded.addEventListener("abort", cancel, { once: true });
-    try {
-      const form = new FormData();
-      form.append(
-        "audio",
-        new Blob([
-          new Uint8Array(
-            fs.readFileSync(assetFile(project.inputs.audioAssetId)),
-          ),
-        ]),
-        "narration.wav",
-      );
-      form.append("text", project.inputs.narrationText);
-      form.append("language", project.inputs.language);
-      form.append("audioHash", project.inputs.audioHash);
-      form.append("narrationHash", project.inputs.narrationHash);
-      const response = await fetch(
-        `${config.alignmentUrl.replace(/\/$/, "")}/align`,
-        {
-          method: "POST",
-          headers: { "X-Request-ID": requestId },
-          body: form,
-          signal: bounded,
-        },
-      );
-      if (!response.ok) throw new Error("Alignment provider is unavailable");
-      result = Alignment.parse(await response.json());
-      if (Math.abs(result.duration - project.alignment.duration) > 0.15)
-        throw new Error("Alignment duration does not match probed audio");
-      result.duration = project.alignment.duration; // Container padding can differ from decoded PCM length.
-    } finally {
-      bounded.removeEventListener("abort", cancel);
-    }
-  } else if (project.inputs.sceneTiming.length) {
+  if (project.inputs.sceneTiming.length) {
     let offset = 0;
     result = {
       ...project.alignment,

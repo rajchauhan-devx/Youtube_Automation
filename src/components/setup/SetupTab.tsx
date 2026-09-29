@@ -118,9 +118,6 @@ export function SetupTab() {
       `## Presenter — ${data.presenter.note}`,
       `- Root: ${data.presenter.root.path} installed=${data.presenter.root.installed}`,
       ``,
-      `## Editing — enabled=${data.editing.enabled} planner=${data.editing.planner} vision=${data.editing.vision} review=${data.editing.review}`,
-      `- grounding=${data.editing.grounding}; artifactWorkflow=${data.editing.artifactWorkflow}; browser=${data.editing.browser}`,
-      `- alignmentVenv=${data.editing.alignmentVenv.path} installed=${data.editing.alignmentVenv.installed}; ALIGNMENT_DEVICE=${data.editing.alignmentEnv.ALIGNMENT_DEVICE} ALIGNMENT_ASR_MODEL=${data.editing.alignmentEnv.ALIGNMENT_ASR_MODEL}`,
       ``,
       `## Storage`,
       `- dataDir=${data.storage.dataDir.path} exists=${data.storage.dataDir.installed}; hfCache=${data.storage.hfCache.path}; ollamaStore=${data.ollama.store.path}`,
@@ -203,7 +200,7 @@ export function SetupTab() {
           <Row label="ffmpeg" value={data.tools.ffmpeg || 'MISSING from PATH — install FFmpeg + ffprobe'} />
           <Row label="ffprobe" value={data.tools.ffprobe || 'MISSING from PATH'} />
           <Row label="python 3.10 (Chatterbox)" value={data.tools.python310 || 'MISSING — setup.ps1 needs py -3.10'} />
-          <Row label="python 3.12 (ComfyUI/alignment)" value={data.tools.python312 || 'MISSING'} />
+          <Row label="python 3.12 (ComfyUI)" value={data.tools.python312 || 'MISSING'} />
           <Row label="server/.env exists" value={String(data.envFile.exists)} />
           <Row label="server/.env path" value={data.envFile.path} copyId="envpath" copied={copied} onCopy={copy} />
           <Row label=".env.example keys missing" value={missingEnvKeys.map(k => k.key).join(', ') || '(none — server env covers template)'} />
@@ -291,17 +288,11 @@ export function SetupTab() {
           <Row label="MUSETALK_PYTHON" value={String(data.presenter.env.MUSETALK_PYTHON)} />
         </Card>
 
-        <Card icon={<Scissors className="h-4 w-4 text-teal-300" />} title="AI editing + alignment">
-          <Row label="AI_EDITING_ENABLED" value={String(data.editing.enabled)} />
+        <Card icon={<Scissors className="h-4 w-4 text-teal-300" />} title="Motion graphics">
+          <Row label="Timing" value={String(data.editing.alignment)} />
           <Row label="Planner" value={String(data.editing.planner)} />
-          <Row label="Vision" value={String(data.editing.vision)} />
-          <Row label="Review" value={String(data.editing.review)} />
-          <Row label="Grounding URL" value={String(data.editing.grounding)} />
-          <Row label="Artifact workflow" value={String(data.editing.artifactWorkflow)} />
-          <Row label="Background workflow" value={String(data.editing.backgroundWorkflow)} />
+          <Row label="Object verification" value={String(data.editing.grounding)} />
           <Row label="Browser executable" value={String(data.editing.browser)} />
-          <Row label="Alignment venv" value={`${data.editing.alignmentVenv.path} · installed=${data.editing.alignmentVenv.installed}`} />
-          <Row label="ALIGNMENT_DEVICE / MODEL" value={`${data.editing.alignmentEnv.ALIGNMENT_DEVICE} / ${data.editing.alignmentEnv.ALIGNMENT_ASR_MODEL}`} />
         </Card>
 
         <Card icon={<HardDrive className="h-4 w-4 text-orange-300" />} title="Storage paths (per-PC, mostly git-ignored)">

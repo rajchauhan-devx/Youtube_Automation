@@ -9,6 +9,11 @@ import path from "node:path";
 import { z } from "zod";
 import {
   capabilities,
+  RENDERER_VERSION,
+  MotionGraphic,
+  Frame,
+  validateProject,
+  motionProject,
   UUID,
   Settings,
   type EditingProject,
@@ -39,13 +44,10 @@ import {
 } from "../services/editing/scheduler.js";
 import {
   editingConfig,
-  assertEditingEnabled,
   EditingError,
-  isLocalEditingModel,
 } from "../services/editing/config.js";
-import { editingProvider, modelCapabilities, providerCredential, supportedEditingModel } from "../services/editing/providers.js";
-import { simpleArtifacts } from "../services/editing/simpleArtifacts.js";
-import { buildMotionPack } from "../services/editing/motionPackArtifacts.js";
+import { motionModel, motionCredential } from '../services/editing/motionProvider.js';
+import { graphicIssues, graphicNames } from '@tubeflow/video-composition';
 import { mediaUrl } from "../services/workspace.js";
 import { store } from "../services/store.js";
 import { sampleFrames } from "@tubeflow/video-composition";
@@ -71,10 +73,12 @@ const expected = (p: EditingProject, value: unknown) => {
 const key = (req: Request) =>
   z.string().min(1).max(128).parse(req.get("Idempotency-Key"));
 const credential = (req: Request) => req.get("x-api-key");
-function payload(p: EditingProject) {
+function payload(saved: EditingProject) {
+  const p = motionProject(saved);
   const script = store.getById<ScriptInput>("scripts", p.scriptId);
   return {
-    project: p,
+    project: { ...p, artifacts: p.artifacts.filter(a => a.graphic) },
+    legacyArtifactCount: saved.artifacts.filter(a => !a.graphic).length,
     currentRevisionId: current(p.id).revisionId,
     artifactPreviews: Object.fromEntries(
       p.artifacts.flatMap((artifact) => {
@@ -125,7 +129,14 @@ function payload(p: EditingProject) {
       }))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
     stale: !script || scriptFingerprint(script) !== p.inputs.scriptHash,
-    jobs: jobs(p.id),
+    jobs: jobs(p.id).map(job => {
+      if (job.operation !== 'render' || !job.outputUrl) return job;
+      try {
+        const manifest = JSON.parse(fs.readFileSync(path.join(projectDir(p.id), 'renders', job.id, 'manifest.json'), 'utf8'));
+        if (manifest.rendererVersion === RENDERER_VERSION) return job;
+      } catch { /* Old exports remain archived; do not offer them as current graphics output. */ }
+      return { ...job, outputUrl: undefined };
+    }),
     assets: Object.fromEntries(
       p.assetIds.map((id) => [
         id,
@@ -137,56 +148,21 @@ function payload(p: EditingProject) {
 editingRouter.get(
   "/capabilities",
   route(async (req, res) => {
-    const c = editingConfig(),
-      missing: string[] = [];
-    const selectedModel = req.query.model === undefined ? undefined : z.string().min(1).max(150).parse(req.query.model);
-    if (selectedModel && !supportedEditingModel(selectedModel)) missing.push(`Unsupported visual editing model: ${selectedModel}`);
-    if (!c.enabled) missing.push("Enable AI_EDITING_ENABLED on the server");
-    if (!selectedModel && !c.planner) missing.push("Configure EDITING_PLANNER_MODEL");
-    if (!selectedModel && !c.vision) missing.push("Configure EDITING_VISION_MODEL");
-    if (!selectedModel && !c.review) missing.push("Configure EDITING_REVIEW_MODEL");
-    const chosen = selectedModel || c.planner;
-    if (chosen && !providerCredential(chosen, credential(req))) missing.push(`Add a ${editingProvider(chosen)} API key in server/.env or app settings`);
-    let verified = false;
-    if (
-      (req.query.verify === "true" || selectedModel ||
-        (selectedModel ? isLocalEditingModel(selectedModel) : [c.planner, c.vision, c.review].every(isLocalEditingModel))) &&
-      (selectedModel || (c.planner && c.vision && c.review))
-    ) {
-      const models = await modelCapabilities(credential(req), selectedModel);
-      missing.push(...models.missing);
-      verified = models.ready;
-    }
-    res.json({
-      ...capabilities,
-      ready: missing.length === 0,
-      missing,
-      modelsVerified: verified,
-      provider: selectedModel ? editingProvider(selectedModel) : [c.planner, c.vision, c.review].every(isLocalEditingModel)
-        ? "Local · Ollama"
-        : "OpenRouter / configured models",
-      models: { planner: selectedModel || c.planner, vision: selectedModel || c.vision, review: selectedModel || c.review },
-      alignment: c.alignmentUrl
-        ? "configured service"
-        : "measured TTS scenes or approximate fallback",
-      grounding: !!c.groundingUrl,
-      artifactGeneration: !!c.workflow && fs.existsSync(c.workflow),
-      backgroundRemoval:
-        !!c.backgroundWorkflow && fs.existsSync(c.backgroundWorkflow),
-      renderer: "remotion",
-      browserConfigured: !!c.browser,
-      limits: {
-        ...capabilities.limits,
-        maxProviderCalls: c.maxCalls,
-        maxGeneratedAssets: c.maxAssets,
-      },
-    });
+    const c = editingConfig(), missing: string[] = [];
+    const selected = req.query.model === undefined ? undefined : z.string().min(1).max(150).parse(req.query.model);
+    let model = '';
+    try { model = motionModel(selected); } catch (error) { missing.push(error instanceof Error ? error.message : 'Select a Gemini model.'); }
+    if (!motionCredential(credential(req))) missing.push('Add GEMINI_API_KEY in server/.env.');
+    res.json({ ...capabilities, ready: missing.length === 0, missing,
+      provider: 'Gemini', models: { planner: model, vision: model, review: model }, modelsVerified: false,
+      alignment: 'Saved narration scene timing; estimated timing when unavailable', grounding: true,
+      artifactGeneration: false, renderer: 'remotion', graphics: Object.keys(graphicNames),
+      limits: { maxProviderCalls: c.maxCalls, maxGeneratedAssets: 0 } });
   }),
 );
 editingRouter.post(
   "/projects",
   route(async (req, res) => {
-    assertEditingEnabled();
     const p = await createProject(req.body);
     res
       .status(201)
@@ -222,37 +198,10 @@ editingRouter.get(
 editingRouter.post(
   "/projects/:projectId/generate",
   route((req, res) => {
-    assertEditingEnabled();
     const p = current(req.params.projectId);
     expected(p, req.body.expectedRevisionId);
     const job = enqueue(p, "generate", key(req), credential(req));
     res.status(202).json({ jobId: job.id, revisionId: p.revisionId });
-  }),
-);
-editingRouter.post(
-  "/projects/:projectId/simple",
-  route((req, res) => {
-    const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
-    const p = current(req.params.projectId);
-    expected(p, body.expectedRevisionId);
-    if (jobs(p.id).some(job => ["queued", "running", "cancel_requested"].includes(job.state)))
-      throw new EditingError("JOB_ACTIVE", "Cancel the current Artifacts job before creating simple captions.", 409);
-    const fresh = simpleArtifacts(p);
-    publish(fresh, p.revisionId);
-    res.status(201).json(payload(fresh));
-  }),
-);
-editingRouter.post(
-  "/projects/:projectId/motion-pack",
-  route((req, res) => {
-    const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
-    const p = current(req.params.projectId);
-    expected(p, body.expectedRevisionId);
-    if (jobs(p.id).some(job => ["queued", "running", "cancel_requested"].includes(job.state)))
-      throw new EditingError("JOB_ACTIVE", "Cancel the current Artifacts job before generating the motion pack.", 409);
-    const fresh = buildMotionPack(p);
-    publish(fresh, p.revisionId);
-    res.status(201).json(payload(fresh));
   }),
 );
 editingRouter.post(
@@ -309,16 +258,29 @@ editingRouter.post(
 editingRouter.patch(
   "/projects/:projectId/artifacts/:artifactId",
   route((req, res) => {
-    const change = z
-        .strictObject({ expectedRevisionId: UUID, enabled: z.boolean() })
-        .parse(req.body),
-      p = current(req.params.projectId);
+    const change = z.strictObject({ expectedRevisionId: UUID, enabled: z.boolean().optional(),
+      graphic: MotionGraphic.optional(), startFrame: Frame.optional(), endFrame: Frame.optional() }).parse(req.body);
+    const p = current(req.params.projectId);
     expected(p, change.expectedRevisionId);
-    const next = nextRevision(p),
-      artifact = next.artifacts.find((a) => a.id === req.params.artifactId);
-    if (!artifact)
-      throw new EditingError("NOT_FOUND", "Artifact not found", 404);
-    artifact.enabled = change.enabled;
+    if (jobs(p.id).some(j => ['queued', 'running', 'cancel_requested'].includes(j.state)))
+      throw new EditingError('JOB_ACTIVE', 'Wait for the current graphics job before editing this card.', 409);
+    const next = nextRevision(p), artifact = next.artifacts.find(a => a.id === req.params.artifactId);
+    if (!artifact?.graphic) throw new EditingError('NOT_FOUND', 'Motion graphic not found. Regenerate legacy artifacts first.', 404);
+    if (change.enabled !== undefined) artifact.enabled = change.enabled;
+    if (change.graphic) {
+      // A text/layout edit cannot forge or replace the model-verified target.
+      if (JSON.stringify(change.graphic.target) !== JSON.stringify(artifact.graphic.target) || change.graphic.kind !== artifact.graphic.kind)
+        throw new EditingError('INVALID_TARGET', 'Regenerate the spotlight to change its target.');
+      artifact.graphic = change.graphic;
+      artifact.intent = `${graphicNames[change.graphic.kind]}: ${change.graphic.title}`;
+    }
+    if (change.startFrame !== undefined) artifact.startFrame = change.startFrame;
+    if (change.endFrame !== undefined) artifact.endFrame = change.endFrame;
+    const scene = next.scenes.find(s => s.id === artifact.sceneId)!;
+    const source = assetRecord(scene.assetId);
+    const issues = graphicIssues(next, artifact, { width: source.width!, height: source.height! });
+    if (issues.length) throw new EditingError('INVALID_LAYOUT', issues.join(' '));
+    validateProject(next);
     publish(next, p.revisionId);
     res.json(payload(next));
   }),
@@ -326,7 +288,6 @@ editingRouter.patch(
 editingRouter.post(
   "/projects/:projectId/artifacts/:artifactId/revise",
   route((req, res) => {
-    assertEditingEnabled();
     const body = z
         .strictObject({
           expectedRevisionId: UUID,
@@ -347,7 +308,6 @@ editingRouter.post(
 editingRouter.post(
   "/projects/:projectId/render",
   route((req, res) => {
-    assertEditingEnabled();
     const body = z.strictObject({ revisionId: UUID }).parse(req.body),
       p = revision(req.params.projectId, body.revisionId);
     if (!["ready", "partial"].includes(p.status))
@@ -367,7 +327,6 @@ editingRouter.post(
 editingRouter.post(
   "/jobs/:jobId/resume",
   route((req, res) => {
-    assertEditingEnabled();
     res.status(202).json(resume(req.params.jobId, credential(req)));
   }),
 );

@@ -49,7 +49,7 @@ Enable and verify local AI editing after basic generation works.
 For the presenter, inspect whether the custom MuseTalk-Demo app or a transfer
 bundle is available. If absent, report the exact missing dependency and continue
 with all independent setup; do not substitute a bare upstream MuseTalk clone.
-Install optional WhisperX only if requested for accurate word alignment.
+Artifacts uses the saved narration scene timing.
 Do not overwrite secrets or existing environments. Do not print credentials.
 Check every external command's exit code and actual readiness, since some bundled
 setup scripts can print completion after a failed command. Test one real output
@@ -71,13 +71,12 @@ Install the following before running the commands:
 | Git | Application, ComfyUI, and Chatterbox source dependency |
 | Node.js + npm | Use Node 24.x; the existing setup notes record Node 24.16.0 and npm 11.13.0. Retain the committed lockfiles. |
 | Python 3.10 x64 | Chatterbox; the bootstrap script specifically looks for 3.10 |
-| Python 3.12 x64 | Separate ComfyUI environment and optional alignment environment |
+| Python 3.12 x64 | Separate ComfyUI environment |
 | FFmpeg + ffprobe on PATH | Audio conversion, subtitles, and MP4 rendering; both executables required |
 | NVIDIA driver | CUDA acceleration for the documented local GPU setup; verify with `nvidia-smi` |
 | Edge or Chrome | Chromium rendering for enhanced editing |
 | Ollama for Windows | Local script and editing models |
 | Miniconda | Presenter only; separate `musetalk-demo` environment |
-| uv 0.8.22 | Optional frozen alignment installation only |
 
 Use official installers: [Node](https://nodejs.org/en/download), [Python](https://www.python.org/downloads/windows/), [Git](https://git-scm.com/downloads/win), [FFmpeg download options](https://ffmpeg.org/download.html), and [Ollama](https://ollama.com/download/windows). Reopen PowerShell after changing PATH.
 
@@ -142,7 +141,6 @@ COMFYUI_SEED_INPUT_KEY=seed
 COMFYUI_TIMEOUT_MS=600000
 COMFYUI_LOW_VRAM=true
 
-AI_EDITING_ENABLED=false
 ```
 
 Start with enhanced editing disabled; configure it in section 9. Keep existing blank provider key entries from `.env.example` if desired. Local Ollama, Chatterbox, ComfyUI, and ACE-Step do not require a cloud inference API key.
@@ -326,39 +324,11 @@ The TubeFlow worker sets Hugging Face/Transformers **offline mode**. Finish down
 
 Verify `GET http://localhost:3001/api/presenter/status`: `installed` should be true and the expected avatars should appear. That status only checks a subset of files; finish with a short real presenter render. If the custom application is unavailable, leave AI Presenter off and explicitly record the feature as blocked. See [presenter usage](ai-presenter.md).
 
-## 9. Enable AI-directed editing and optional alignment
+## 9. Set up Artifacts motion graphics
 
-Once Ollama, narration and rendering work, merge into `server/.env`:
+Set `GEMINI_API_KEY` in `server/.env` and select a Gemini model in Artifacts. The optional `EDITING_PLANNER_MODEL` controls its default model. No separate alignment or grounding service is required: existing narration scene boundaries supply timing, and Gemini detects and verifies targets in still images.
 
-```dotenv
-AI_EDITING_ENABLED=true
-EDITING_PLANNER_MODEL=ollama/qwen3.5:4b
-EDITING_VISION_MODEL=ollama/qwen3.5:4b
-EDITING_REVIEW_MODEL=ollama/qwen3.5:4b
-EDITING_LOCAL_CONTEXT=16384
-EDITING_LOCAL_OUTPUT_TOKENS=4096
-EDITING_LOCAL_TIMEOUT_MS=300000
-EDITING_RENDER_CONCURRENCY=1
-EDITING_GPU_CONCURRENCY=1
-```
-
-Restart the backend, then check `/api/editing/capabilities?verify=true`. If Chromium discovery fails, set `EDITING_BROWSER_EXECUTABLE` to the actual installed Edge/Chrome executable. Test **Artifacts > Generate visual edit** and an enhanced MP4 export. A completed run may validly retain zero artifacts after review; installation success does not guarantee the small local model's design quality.
-
-The separate WhisperX service is optional for word-level alignment. Without it, the application uses measured scene boundaries where available or explicitly approximate timing. To install it, use an isolated environment and the frozen lock:
-
-```powershell
-uv sync --frozen --project services/alignment --python 3.12
-$env:ALIGNMENT_DEVICE = 'cpu'
-$env:ALIGNMENT_ASR_MODEL = 'small'
-& ./services/alignment/.venv/Scripts/python.exe -c "import whisperx; whisperx.load_model('small', 'cpu', compute_type='int8', language='en'); whisperx.load_align_model(language_code='en', device='cpu'); whisperx.load_align_model(language_code='hi', device='cpu')"
-& ./services/alignment/.venv/Scripts/python.exe services/alignment/server.py
-```
-
-`small` is an example Whisper model identifier for initial testing, not an accuracy guarantee. The explicit preload can download ASR, VAD, and English/Hindi alignment assets; inspect all errors and access requirements. Record the resolved models/cache paths. Use the same environment and cache when starting the service again. Its `ALIGNMENT_*` settings belong to the Python process, not just Node's `.env`.
-
-Only after successful installation and actual alignment testing set `EDITING_ALIGNMENT_URL=http://127.0.0.1:8765` in `server/.env`. A response from port 8765 only proves that the adapter is up. CPU is the conservative initial configuration to avoid competing GPU environments. See [alignment instructions](../services/alignment/README.md) and [editing qualification limits](AI_VIDEO_EDITING_SETUP.md).
-
-Leave `EDITING_GROUNDING_URL`, `EDITING_ARTIFACT_WORKFLOW_PATH`, and `EDITING_BACKGROUND_REMOVAL_WORKFLOW_PATH` empty unless separately implementing and verifying those integrations. This repository does not ship a ready grounding service or a qualified artifact/background-removal model installation. The ordinary scene-image workflow does not satisfy all artifact-generation requirements; see [artifact workflow contract](../server/workflows/artifacts/README.md).
+FFmpeg/ffprobe and Chrome/Edge are needed for preview/export. Set `EDITING_BROWSER_EXECUTABLE` if automatic browser discovery fails. See [motion graphics setup](AI_VIDEO_EDITING_SETUP.md) for the workflow, limits and verification commands.
 
 ## 10. Start and verify the entire installation
 
@@ -371,7 +341,7 @@ npm run test:editing
 npm run dev
 ```
 
-Open `http://localhost:5173`. `npm run dev` starts Vite and Node, and builds the shared packages/server worker. It does **not** start every model service or download models. Start Ollama separately; use the image/audio UI controls for ComfyUI/Chatterbox. Presenter starts on demand during rendering. Start alignment separately if configured. `npm start --prefix server` runs only the built API server; it does not serve the frontend as a complete production deployment.
+Open `http://localhost:5173`. `npm run dev` starts Vite and Node, and builds the shared packages/server worker. It does **not** start every model service or download models. Start Ollama separately; use the image/audio UI controls for ComfyUI/Chatterbox. Presenter starts on demand during rendering. `npm start --prefix server` runs only the built API server; it does not serve the frontend as a complete production deployment.
 
 In another terminal:
 

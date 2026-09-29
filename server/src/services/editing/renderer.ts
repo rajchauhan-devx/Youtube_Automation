@@ -12,6 +12,7 @@ import {
 } from "@remotion/renderer";
 import {
   validateProject,
+  motionProject,
   RENDERER_VERSION,
   RenderManifest,
   type EditingProject,
@@ -29,6 +30,7 @@ import {
 } from "./repository.js";
 import { editingConfig } from "./config.js";
 import { mediaUrl } from "../workspace.js";
+import { graphicIssues } from "@tubeflow/video-composition";
 import { runMedia } from "../media-process.js";
 let bundlePromise: Promise<string> | undefined;
 export function rendererBundle() {
@@ -47,6 +49,7 @@ export async function renderSession(
   project: EditingProject,
   signal: AbortSignal,
 ) {
+  project = motionProject(project);
   validateProject(project);
   signal.throwIfAborted();
   const audioRecord = assetRecord(project.inputs.audioAssetId);
@@ -69,76 +72,10 @@ export async function renderSession(
     if (assetRecord(id).mime !== "font/woff2")
       throw new Error("Approved font asset has the wrong media type");
   for (const artifact of project.artifacts) {
-    artifact.nodes = artifact.nodes.filter((node) => {
-      if (node.kind !== "audio") return true;
-      try {
-        return assetRecord(node.assetId).mime.startsWith("audio/");
-      } catch {
-        return false;
-      }
-    });
-    for (const node of artifact.nodes) {
-      if (
-        node.kind === "image" &&
-        !assetRecord(node.assetId).mime.startsWith("image/")
-      ) {
-        const shapeNode = node as unknown as Record<string, unknown>;
-        shapeNode.kind = "shape";
-        delete shapeNode.assetId;
-        delete shapeNode.fit;
-        delete shapeNode.crop;
-        delete shapeNode.bounds;
-        const b = (node as { bounds?: { x: number; y: number; width: number; height: number } }).bounds || {
-          x: project.inputs.width * 0.05,
-          y: project.inputs.height * 0.08,
-          width: Math.min(500, project.inputs.width * 0.4),
-          height: Math.min(220, project.inputs.height * 0.25),
-        };
-        shapeNode.geometry = {
-          kind: "rect",
-          bounds: { ...b },
-          radius: 16,
-        };
-        shapeNode.paint = {
-          fill: (project.style.colors.surface || project.style.colors.background || "#111827") + "e6",
-          stroke: project.style.colors.accent || project.style.colors.primary || "#F59E0B",
-          strokeWidth: 2,
-          dash: [],
-        };
-      }
-      if (
-        node.kind === "lottie" &&
-        assetRecord(node.assetId).mime !== "application/json"
-      ) {
-        const shapeNode = node as unknown as Record<string, unknown>;
-        shapeNode.kind = "shape";
-        delete shapeNode.assetId;
-        delete shapeNode.loop;
-        const b = (node as { bounds?: { x: number; y: number; width: number; height: number } }).bounds || {
-          x: project.inputs.width * 0.05,
-          y: project.inputs.height * 0.08,
-          width: Math.min(500, project.inputs.width * 0.4),
-          height: Math.min(220, project.inputs.height * 0.25),
-        };
-        delete shapeNode.bounds;
-        shapeNode.geometry = {
-          kind: "rect",
-          bounds: { ...b },
-          radius: 16,
-        };
-        shapeNode.paint = {
-          fill: (project.style.colors.surface || project.style.colors.background || "#111827") + "e6",
-          stroke: project.style.colors.accent || project.style.colors.primary || "#F59E0B",
-          strokeWidth: 2,
-          dash: [],
-        };
-      }
-      if (
-        node.clip?.kind === "mask" &&
-        !assetRecord(node.clip.assetId).mime.startsWith("image/")
-      )
-        delete (node as { clip?: unknown }).clip;
-    }
+    const scene = project.scenes.find(s => s.id === artifact.sceneId)!;
+    const source = assetRecord(scene.assetId);
+    const issues = graphicIssues(project, artifact, { width: source.width!, height: source.height! });
+    if (artifact.enabled && issues.length) throw new Error(`Graphic ${artifact.id}: ${issues.join(' ')}`);
   }
   const records = Object.fromEntries(
       project.assetIds.map((id) => [id, assetRecord(id)]),
@@ -278,6 +215,7 @@ export async function exportVideo(
 ) {
   if (!["ready", "partial"].includes(project.status))
     throw new Error("Only ready revisions can be exported");
+  project = motionProject(project);
   const start = Date.now(),
     dir = path.join(projectDir(project.id), "renders", jobId);
   fs.mkdirSync(dir, { recursive: true });

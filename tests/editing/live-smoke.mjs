@@ -1,4 +1,4 @@
-// Opt-in, bounded provider smoke test with synthetic fixtures only; ollama/ stays local.
+// Opt-in Gemini smoke test with a synthetic scene and a bounded request budget.
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -19,14 +19,10 @@ const { runPipeline } = await import(
 const { exportVideo } = await import(
   "../../server/dist/services/editing/renderer.js"
 );
-const { modelCapabilities } = await import(
-  "../../server/dist/services/editing/providers.js"
-);
 const { atomic, objectHash, projectDir } = await import(
   "../../server/dist/services/editing/repository.js"
 );
-const ready = await modelCapabilities();
-if (!ready.ready) throw new Error(ready.missing.join("; "));
+if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY is required.');
 const p = await fixture("museum", false, true);
 p.status = "draft";
 p.settings.maxGeneratedAssets = 0;

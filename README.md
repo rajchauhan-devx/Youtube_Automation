@@ -3,7 +3,7 @@
 **Setting up another PC?** Open the **Setup** screen in the left sidebar (ex-Settings).
 It lists every model/engine live from `/api/setup` — script LLMs (Gemini, Ollama Qwen 3.5 4B,
 OpenCode/Groq/OpenRouter free models), voice (Chatterbox V3 default, Edge, OpenRouter, legacy Omni),
-ComfyUI SDXL image, ACE-Step music, MuseTalk presenter, editing + alignment — plus where each
+ComfyUI SDXL image, ACE-Step music, MuseTalk presenter, motion graphics — plus where each
 API key is saved (`server/.env` vs browser `openrouter_key`), what git carries vs what you reinstall,
 and a new-PC checklist with one-click `.md` export. Secret values are never shown.
 

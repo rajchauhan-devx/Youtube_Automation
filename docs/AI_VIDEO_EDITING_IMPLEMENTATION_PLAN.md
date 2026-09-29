@@ -1,3 +1,5 @@
+> Historical architecture. Superseded by the native motion graphics workflow in [AI_VIDEO_EDITING_SETUP.md](AI_VIDEO_EDITING_SETUP.md).
+
 # AI-directed video editing: implementation specification
 
 Status: planning only; application implementation has not started.

@@ -117,7 +117,6 @@ setupRouter.get('/', async (_req, res) => {
   const ollamaStore = process.env.OLLAMA_MODELS || path.join(os.homedir(), '.ollama', 'models');
   const pkusegDir = process.env.PKUSEG_HOME || path.join(SERVER_ROOT, 'data', 'model-cache', 'pkuseg');
   const voiceDir = path.resolve(process.env.CHATTERBOX_VOICE_DIR || path.join(SERVER_ROOT, 'data', 'voices'));
-  const alignmentVenv = path.join(SERVER_ROOT, '..', 'services', 'alignment', '.venv', 'Scripts', 'python.exe');
 
   // Live readiness (best-effort, short timeouts — never fail the whole endpoint).
   const [ollamaLive, chatterboxLive, comfyLive] = await Promise.all([
@@ -146,7 +145,7 @@ setupRouter.get('/', async (_req, res) => {
     { group: 'Caches / model stores', vars: ['HF_HOME', 'HF_HUB_CACHE', 'HF_TOKEN', 'OLLAMA_MODELS'] },
     { group: 'Image + music (ComfyUI)', vars: ['COMFYUI_PATH', 'COMFYUI_PYTHON', 'COMFYUI_BASE_URL', 'COMFYUI_WORKFLOW_PATH', 'COMFYUI_PROMPT_NODE_ID', 'COMFYUI_SEED_NODE_ID', 'COMFYUI_SEED_INPUT_KEY', 'COMFYUI_TIMEOUT_MS', 'COMFYUI_LOW_VRAM'] },
     { group: 'Presenter', vars: ['MUSETALK_ROOT', 'MUSETALK_PYTHON'] },
-    { group: 'Editing + alignment', vars: ['AI_EDITING_ENABLED', 'EDITING_PLANNER_MODEL', 'EDITING_VISION_MODEL', 'EDITING_REVIEW_MODEL', 'EDITING_LOCAL_CONTEXT', 'EDITING_LOCAL_OUTPUT_TOKENS', 'EDITING_LOCAL_TIMEOUT_MS', 'EDITING_ALIGNMENT_URL', 'EDITING_GROUNDING_URL', 'EDITING_ARTIFACT_WORKFLOW_PATH', 'EDITING_BACKGROUND_REMOVAL_WORKFLOW_PATH', 'EDITING_MAX_REPAIR_ATTEMPTS', 'EDITING_MAX_PROVIDER_CALLS', 'EDITING_MAX_GENERATED_ASSETS', 'EDITING_RENDER_CONCURRENCY', 'EDITING_GPU_CONCURRENCY', 'EDITING_PROVIDER_TIMEOUT_MS', 'EDITING_RENDER_TIMEOUT_MS', 'EDITING_BROWSER_EXECUTABLE', 'ALIGNMENT_DEVICE', 'ALIGNMENT_ASR_MODEL'] },
+    { group: 'Motion graphics', vars: ['EDITING_PLANNER_MODEL', 'EDITING_MAX_PROVIDER_CALLS', 'EDITING_RENDER_CONCURRENCY', 'EDITING_PROVIDER_TIMEOUT_MS', 'EDITING_RENDER_TIMEOUT_MS', 'EDITING_BROWSER_EXECUTABLE'] },
     { group: 'YouTube', vars: ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REDIRECT_URI'] },
   ];
   const envMatrix = ENV_GROUPS.map(g => ({
@@ -163,7 +162,7 @@ setupRouter.get('/', async (_req, res) => {
     repoRoot: path.resolve(SERVER_ROOT, '..'),
     node: process.version,
     platform: `${os.platform()} ${os.arch()}`,
-    ports: { frontend: 'http://localhost:5173 (vite)', backend: `http://localhost:${process.env.PORT || '3001'}`, chatterbox: process.env.CHATTERBOX_URL || 'http://127.0.0.1:8880', comfyui: process.env.COMFYUI_BASE_URL || 'http://127.0.0.1:8188', ollama: 'http://127.0.0.1:11434', alignment: process.env.EDITING_ALIGNMENT_URL || '(not configured)' },
+    ports: { frontend: 'http://localhost:5173 (vite)', backend: `http://localhost:${process.env.PORT || '3001'}`, chatterbox: process.env.CHATTERBOX_URL || 'http://127.0.0.1:8880', comfyui: process.env.COMFYUI_BASE_URL || 'http://127.0.0.1:8188', ollama: 'http://127.0.0.1:11434' },
     scriptModels: {
       default: 'gemini-3.6-flash (cloud, needs GEMINI_API_KEY)',
       geminiEditOverride: process.env.GEMINI_EDIT_MODEL || '(unset — defaults to gemini-3.6-flash)',
@@ -214,18 +213,10 @@ setupRouter.get('/', async (_req, res) => {
       env: { MUSETALK_ROOT: process.env.MUSETALK_ROOT || '(unset)', MUSETALK_PYTHON: process.env.MUSETALK_PYTHON || '(unset)' },
     },
     editing: {
-      enabled: editing.enabled,
-      planner: editing.planner || '(unset — e.g. ollama/qwen3.5:4b)',
-      vision: editing.vision || '(unset)',
-      review: editing.review || '(unset)',
-      recommendedLocal: 'ollama/qwen3.5:4b for all three roles (no key)',
-      alignment: editing.alignmentUrl || '(unset — optional WhisperX at http://127.0.0.1:8765 via services/alignment/.venv)',
-      grounding: editing.groundingUrl || '(unset — no bundled grounding service)',
-      artifactWorkflow: editing.workflow || '(unset — ordinary scene workflow does not satisfy artifact contract)',
-      backgroundWorkflow: editing.backgroundWorkflow || '(unset)',
-      browser: editing.browser || '(auto-detect Edge/Chrome failed)',
-      alignmentVenv: { path: alignmentVenv, installed: exists(alignmentVenv) },
-      alignmentEnv: { ALIGNMENT_DEVICE: process.env.ALIGNMENT_DEVICE || '(unset — README default cpu)', ALIGNMENT_ASR_MODEL: process.env.ALIGNMENT_ASR_MODEL || '(unset — e.g. small)' },
+      planner: process.env.EDITING_PLANNER_MODEL || process.env.GEMINI_EDIT_MODEL || 'gemini-3.6-flash',
+      alignment: 'Saved narration scene boundaries, or estimated scene timing',
+      grounding: 'Gemini image detection and crop verification',
+      browser: editing.browser || '(Remotion managed browser)',
     },
     ollama: {
       endpoint: 'http://127.0.0.1:11434',
