@@ -176,6 +176,7 @@ export function saveAsset(
     "audio/mpeg": "mp3",
     "font/woff2": "woff2",
     "video/mp4": "mp4",
+    "application/json": "json",
   }[meta.mime];
   const relative = `${digest}/asset.${ext}`,
     file = path.join(root, relative);

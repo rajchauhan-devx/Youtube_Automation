@@ -15,7 +15,9 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@remotion/lottie": "4.0.527",
     "@tubeflow/editing-contracts": "1.0.0",
+    "lottie-web": "5.13.0",
     "react": "^18.3.1",
     "remotion": "4.0.527"
   }

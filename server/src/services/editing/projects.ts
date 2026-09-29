@@ -14,6 +14,7 @@ import {
   readNarrationMetadata,
 } from "./media.js";
 import { objectHash, hash, publish } from "./repository.js";
+import { analyzeAssetInBackground } from "./motionPack/vision.js";
 import { approximateAlignment, mapScenes } from "./timing.js";
 import { EditingError, editingConfig } from "./config.js";
 import { supportedEditingModel } from "./providers.js";
@@ -170,6 +171,13 @@ async function createProjectSnapshot(value: unknown, publishNew = true) {
       promptIndex: image.index,
       prompt: image.prompt,
     });
+    // Motion Pack offline vision: best-effort sidecar for deterministic
+    // placement. Fire-and-forget; failures fall back to safe-zone templates.
+    try {
+      analyzeAssetInBackground(asset.id);
+    } catch {
+      // Never block project creation on the offline vision pass.
+    }
   }
   const fonts = registerFonts(),
     inputs: EditingProject["inputs"] = {

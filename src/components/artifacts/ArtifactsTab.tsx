@@ -77,7 +77,7 @@ export function ArtifactsTab({
       setBusy(false);
     }
   }
-  async function generate(mode: "ai" | "simple" = "ai") {
+  async function generate(mode: "ai" | "simple" | "motion" = "ai") {
     await act(async () => {
       const selectedAudio = currentScript.generatedAudio?.find(
         (a) => a.filename === audio,
@@ -102,7 +102,7 @@ export function ArtifactsTab({
           ...(model ? { aiModel: model } : {}),
         },
       };
-      const reuseCurrentMedia = mode === "simple" && p && data && !data.stale &&
+      const reuseCurrentMedia = mode !== "ai" && p && data && !data.stale &&
         p.revisionId === data.currentRevisionId && p.inputs.audioFilename === audio &&
         p.inputs.width === (profile === "shorts" ? 1080 : 1920);
       const created = reuseCurrentMedia
@@ -123,6 +123,11 @@ export function ArtifactsTab({
           expectedRevisionId: created.project.revisionId,
         });
         state.setData(finished);
+      } else if (mode === "motion") {
+        const finished = await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}/motion-pack`, {
+          expectedRevisionId: created.project.revisionId,
+        });
+        state.setData(finished);
       } else {
         await editingRequest(fetch, `/projects/${created.project.id}/generate`, {
           expectedRevisionId: created.project.revisionId,
@@ -130,6 +135,10 @@ export function ArtifactsTab({
       }
     }, mode === "ai");
   }
+  const motionSummary = (() => {
+    const note = data?.project.diagnostics.find((d) => d.code === "MOTION_PACK");
+    return note?.message;
+  })();
   async function reset() {
     if (!p || !data) return;
     setBusy(true);
@@ -287,6 +296,18 @@ export function ArtifactsTab({
                 Create simple captions (fast)
               </button>
               <p className="mt-1 text-xs text-gray-400">Uses the saved narration to place readable captions without an AI model. Original images, clips, and audio stay in the video. This does not create custom AI diagrams.</p>
+            </div>
+            <div className="mt-3">
+              <button
+                type="button"
+                className={button}
+                disabled={busy || !!job || !audio || !script.generatedImages?.length}
+                onClick={() => void generate("motion")}
+              >
+                Generate motion pack (deterministic)
+              </button>
+              <p className="mt-1 text-xs text-gray-400">Keyword-triggered animated graphics with sound and kinetic captions from the saved narration and word timings. No AI model is called; the same inputs always produce the same video.</p>
+              {motionSummary && <p className="mt-1 text-xs text-emerald-300">{motionSummary}</p>}
             </div>
             {p && <div className="mt-3">
               <button type="button" className="rounded-md border border-amber-700 px-3 py-2 text-sm text-amber-200 disabled:opacity-40 hover:bg-amber-950/40"

@@ -45,6 +45,7 @@ import {
 } from "../services/editing/config.js";
 import { editingProvider, modelCapabilities, providerCredential, supportedEditingModel } from "../services/editing/providers.js";
 import { simpleArtifacts } from "../services/editing/simpleArtifacts.js";
+import { buildMotionPack } from "../services/editing/motionPackArtifacts.js";
 import { mediaUrl } from "../services/workspace.js";
 import { store } from "../services/store.js";
 import { sampleFrames } from "@tubeflow/video-composition";
@@ -237,6 +238,19 @@ editingRouter.post(
     if (jobs(p.id).some(job => ["queued", "running", "cancel_requested"].includes(job.state)))
       throw new EditingError("JOB_ACTIVE", "Cancel the current Artifacts job before creating simple captions.", 409);
     const fresh = simpleArtifacts(p);
+    publish(fresh, p.revisionId);
+    res.status(201).json(payload(fresh));
+  }),
+);
+editingRouter.post(
+  "/projects/:projectId/motion-pack",
+  route((req, res) => {
+    const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
+    const p = current(req.params.projectId);
+    expected(p, body.expectedRevisionId);
+    if (jobs(p.id).some(job => ["queued", "running", "cancel_requested"].includes(job.state)))
+      throw new EditingError("JOB_ACTIVE", "Cancel the current Artifacts job before generating the motion pack.", 409);
+    const fresh = buildMotionPack(p);
     publish(fresh, p.revisionId);
     res.status(201).json(payload(fresh));
   }),

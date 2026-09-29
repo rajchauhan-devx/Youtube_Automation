@@ -218,6 +218,18 @@ export const Node = z.discriminatedUnion("kind", [
     paint: Paint,
     route: z.enum(["line", "elbow", "curve"]),
   }),
+  z.strictObject({
+    ...nodeBase,
+    kind: z.literal("lottie"),
+    assetId: Id,
+    bounds: Rect,
+    loop: z.boolean().optional(),
+  }),
+  z.strictObject({
+    ...nodeBase,
+    kind: z.literal("audio"),
+    assetId: Id,
+  }),
 ]);
 export const Artifact = z.strictObject({
   id: Id,
@@ -332,6 +344,7 @@ export const Asset = z.strictObject({
     "audio/mpeg",
     "font/woff2",
     "video/mp4",
+    "application/json",
   ]),
   width: positive.optional(),
   height: positive.optional(),
@@ -533,7 +546,7 @@ export const durationFrames = (seconds: number, fps: number) =>
 export const capabilities = {
   schemaVersion: 1,
   rendererVersion: RENDERER_VERSION,
-  primitives: ["group", "text", "image", "shape", "path", "connector"],
+  primitives: ["group", "text", "image", "shape", "path", "connector", "lottie", "audio"],
   coordinates:
     "design pixels; source anchors/crops normalized; keyframes artifact-local",
   limits: {
@@ -686,6 +699,18 @@ export function validateProject(value: unknown): EditingProject {
     for (const n of a.nodes) {
       visit(n);
       if (n.kind === "image") asset(n.assetId);
+      if (n.kind === "lottie") {
+        asset(n.assetId);
+        if (!n.bounds || n.bounds.width <= 0 || n.bounds.height <= 0)
+          fail("Lottie node requires positive bounds");
+      }
+      if (n.kind === "audio") {
+        asset(n.assetId);
+        if (JSON.stringify(n.transform) !== JSON.stringify(identity()))
+          fail("Audio nodes carry no visual transform");
+        if (n.tracks.some((t) => t.property !== "opacity"))
+          fail("Audio nodes animate volume (opacity) only");
+      }
       if (n.kind === "text") {
         asset(n.style.fontAssetId);
         if (!p.style.fontAssetIds.includes(n.style.fontAssetId))

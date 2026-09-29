@@ -11,6 +11,7 @@ import {
   continueRender,
   cancelRender,
 } from "remotion";
+import { Lottie } from "@remotion/lottie";
 import type {
   EditingProject,
   CompositionNode,
@@ -22,6 +23,7 @@ import {
   nodeMatrix,
   sourceMatrix,
   resolveAnchor,
+  transformMatrix,
 } from "./math.js";
 export type CompositionProps = {
   project: EditingProject;
@@ -329,6 +331,167 @@ export function NodeRenderer({
   );
 }
 const videoRate = (duration: number, target: number) => Math.max(0.5, Math.min(1, duration / target));
+
+/** Kinetic caption artifacts render per-word highlights when their word
+ *  timings resolve; otherwise the caller falls back to static nodes. */
+function isKineticCaptions(a: ArtifactComposition, project: EditingProject) {
+  return (
+    a.intent.startsWith("Kinetic captions") &&
+    a.nodes.some((n) => n.kind === "text") &&
+    a.narrativeRefs.some((id) => project.alignment.tokens.some((t) => t.id === id))
+  );
+}
+
+/** Fetch-once Lottie payload. Frame sync is handled by <Lottie> itself. */
+function LottieData({ url }: { url: string }) {
+  const [handle] = useState(() => delayRender("Load motion-pack animation"));
+  const [data, setData] = useState<{ fr: number; w: number; h: number; op: number } & Record<string | number | symbol, unknown> | null>(null);
+  useEffect(() => {
+    let active = true;
+    fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Lottie asset ${r.status}`);
+        return r.json();
+      })
+      .then((json) => {
+        if (active) {
+          if (typeof json?.fr !== "number" || typeof json?.w !== "number" || typeof json?.h !== "number" || typeof json?.op !== "number") {
+            throw new Error("Lottie asset has an invalid header");
+          }
+          setData(json);
+          continueRender(handle);
+        }
+      })
+      .catch((e) => {
+        if (active) cancelRender(e);
+      });
+    return () => {
+      active = false;
+    };
+  }, [url, handle]);
+  if (!data) return null;
+  return <Lottie animationData={data} style={{ width: "100%", height: "100%" }} />;
+}
+
+/** HTML overlay for a lottie node: positioned by its world matrix, played in
+ *  artifact-local time via Sequence so every render of a frame is identical. */
+function LottieOverlay({
+  node,
+  artifact,
+  project,
+  assets,
+  frame,
+}: {
+  node: Extract<CompositionNode, { kind: "lottie" }>;
+  artifact: ArtifactComposition;
+  frame: number;
+} & CompositionProps) {
+  const state = evaluateTransform(node, frame - artifact.startFrame),
+    m = transformMatrix(state.transform),
+    b = node.bounds;
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: b.x,
+        top: b.y,
+        width: b.width,
+        height: b.height,
+        transform: `matrix(${m.join(",")})`,
+        transformOrigin: "0 0",
+        opacity: state.opacity,
+      }}
+    >
+      <Sequence
+        from={artifact.startFrame}
+        durationInFrames={artifact.endFrame - artifact.startFrame}
+        name={`lottie-${artifact.id}-${node.id}`}
+      >
+        <LottieData url={assets[node.assetId].url} />
+      </Sequence>
+    </div>
+  );
+}
+
+/** Words emphasized even when not active. Keep in sync with the Motion Pack
+ *  trigger dictionary (server/.../motionPack/triggers.ts EMPHASIS_WORDS). */
+const EMPHASIS = new Set([
+  "growth", "increase", "money", "revenue", "profit", "earn", "income",
+  "idea", "tip", "secret", "warning", "mistake", "subscribe", "follow",
+  "one", "two", "three", "first", "second", "third", "1", "2", "3",
+]);
+
+/** TikTok-style per-word highlight for kinetic caption artifacts. Timing comes
+ *  from the narration alignment (deterministic project data, no new fields). */
+function KineticCaptions({
+  artifact,
+  project,
+}: {
+  artifact: ArtifactComposition;
+  project: EditingProject;
+}) {
+  const frame = useCurrentFrame();
+  const line = artifact.nodes.find((n) => n.kind === "text");
+  const tokens = artifact.narrativeRefs
+    .map((id) => project.alignment.tokens.find((t) => t.id === id))
+    .filter((t): t is NonNullable<typeof t> => !!t)
+    .sort((a, b) => a.start - b.start);
+  if (!line || line.kind !== "text" || !tokens.length) return null;
+  const tSec = frame / project.inputs.fps;
+  const style = line.style;
+  const b = line.bounds;
+  return (
+    <svg
+      width={project.inputs.width}
+      height={project.inputs.height}
+      viewBox={`0 0 ${project.inputs.width} ${project.inputs.height}`}
+      style={{ position: "absolute", inset: 0 }}
+    >
+      <foreignObject {...b}>
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexWrap: "wrap",
+            alignContent: "center",
+            justifyContent: "center",
+            gap: `${Math.round(style.fontSize * 0.28)}px`,
+            fontFamily: [style.fontAssetId, ...project.style.fontAssetIds.filter((id) => id !== style.fontAssetId)]
+              .map((id) => fontFamily(id))
+              .join(","),
+            fontSize: style.fontSize,
+            fontWeight: style.fontWeight,
+            lineHeight: style.lineHeight,
+            background: style.background,
+            overflow: "hidden",
+          }}
+        >
+          {tokens.map((t) => {
+            const active = t.start <= tSec && tSec < t.end;
+            const word = t.text.toLocaleLowerCase("en").replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
+            const emphasized = EMPHASIS.has(word) || /\d/.test(t.text);
+            return (
+              <span
+                key={t.id}
+                style={{
+                  display: "inline-block",
+                  color: active ? "#1a1a1a" : emphasized ? "#f2bd65" : style.color,
+                  background: active ? "#f2bd65" : "transparent",
+                  borderRadius: 8,
+                  padding: active ? "0 8px" : undefined,
+                  transform: active ? "scale(1.15)" : "scale(1)",
+                }}
+              >
+                {t.text}
+              </span>
+            );
+          })}
+        </div>
+      </foreignObject>
+    </svg>
+  );
+}
 export function VideoComposition({ project, assets }: CompositionProps) {
   const frame = useCurrentFrame(),
     { width, height } = project.inputs;
@@ -386,10 +549,11 @@ export function VideoComposition({ project, assets }: CompositionProps) {
                     frame < a.endFrame,
                 )
                 .sort((a, b) => a.priority - b.priority)
+                .filter((a) => !isKineticCaptions(a, project))
                 .map((a) => (
                   <g key={a.id}>
                     {a.nodes
-                      .filter((n) => !n.parentId)
+                      .filter((n) => !n.parentId && n.kind !== "lottie" && n.kind !== "audio")
                       .sort((x, y) => x.zIndex - y.zIndex)
                       .map((node) => (
                         <NodeRenderer
@@ -404,6 +568,55 @@ export function VideoComposition({ project, assets }: CompositionProps) {
                   </g>
                 ))}
             </svg>
+            {project.artifacts
+              .filter(
+                (a) =>
+                  a.enabled &&
+                  a.sceneId === scene.id &&
+                  frame >= a.startFrame &&
+                  frame < a.endFrame,
+              )
+              .sort((a, b) => a.priority - b.priority)
+              .map((a) =>
+                isKineticCaptions(a, project) ? (
+                  <KineticCaptions key={a.id} artifact={a} project={project} />
+                ) : (
+                  <React.Fragment key={a.id}>
+                    {a.nodes
+                      .filter((n) => !n.parentId && n.kind === "lottie")
+                      .map((node) =>
+                        node.kind === "lottie" ? (
+                          <LottieOverlay
+                            key={node.id}
+                            node={node}
+                            artifact={a}
+                            project={project}
+                            assets={assets}
+                            frame={frame}
+                          />
+                        ) : null,
+                      )}
+                    {a.nodes
+                      .filter((n) => !n.parentId && n.kind === "audio")
+                      .map((node) =>
+                        node.kind === "audio" ? (
+                          <Sequence
+                            key={node.id}
+                            from={a.startFrame}
+                            durationInFrames={a.endFrame - a.startFrame}
+                            layout="none"
+                            name={`sfx-${a.id}-${node.id}`}
+                          >
+                            <Audio
+                              src={assets[node.assetId].url}
+                              volume={evaluateTransform(node, frame - a.startFrame).opacity}
+                            />
+                          </Sequence>
+                        ) : null,
+                      )}
+                  </React.Fragment>
+                ),
+              )}
           </AbsoluteFill>
         );
       })}
