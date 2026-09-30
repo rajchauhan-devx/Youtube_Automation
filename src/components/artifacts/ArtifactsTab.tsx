@@ -21,6 +21,14 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   const lastJob = data?.jobs.filter(j => j.revisionId === data.currentRevisionId || j.resultRevisionId === data.currentRevisionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   const ready = p?.status === 'ready' || p?.status === 'partial';
   const editable = !!p && p.revisionId === data?.currentRevisionId && !job && !busy;
+  const oldPlanningFailures = p?.diagnostics.filter(d => d.code === 'GRAPHIC_SKIPPED' && d.message.includes('Graphics planning failed after the allowed attempts.')) || [];
+  const diagnostics = (p?.diagnostics.filter(d => !oldPlanningFailures.includes(d)) || []).concat(oldPlanningFailures.length ? [{
+    ...oldPlanningFailures[0], message: `An earlier graphics planning attempt failed for ${oldPlanningFailures.length} scenes. Select the current Gemini model and generate a new revision.`,
+  }] : []);
+  useEffect(() => {
+    if (p?.settings.aiModel && GEMINI_MODELS.some(item => item.id === p.settings.aiModel))
+      setModel(p.settings.aiModel);
+  }, [p?.revisionId, p?.settings.aiModel]);
   useEffect(() => { setAudio(script?.generatedAudio?.[0]?.filename || ''); }, [script?.id]);
   useEffect(() => {
     if (!script?.generatedAudio?.some(a => a.filename === audio)) setAudio(script?.generatedAudio?.[0]?.filename || '');
@@ -93,6 +101,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
       <p>{lastJob.error || 'The graphics job stopped.'}</p><button className="mt-2 underline" disabled={busy} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${lastJob.id}/resume`, {}); await state.refresh(); })}>Resume</button>
     </div>}
     {data?.stale && <p className="text-sm text-amber-200">Media or narration changed. Generate a new revision to use the latest inputs.</p>}
+    {!editor && oldPlanningFailures.length > 0 && <p role="alert" className="rounded-lg border border-amber-800 p-3 text-sm text-amber-100">The earlier planning attempt used {p?.settings.aiModel || 'a Gemini model'} and failed. Select the current server default above, then click Generate motion graphics to create a new revision.</p>}
     {p && data && <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="min-w-0 space-y-3">
         <label className="block text-xs text-gray-400">Preview / export revision<select aria-label="Preview and export revision" className={input} value={state.selectedRevision} onChange={e => state.setSelectedRevision(e.target.value)}><option value="">Current revision</option>{data.revisions.filter(r => r.revisionId !== data.currentRevisionId).map(r => <option key={r.revisionId} value={r.revisionId}>{r.revisionId.slice(0, 8)} · {r.language} · {r.status}</option>)}</select></label>
@@ -107,7 +116,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         <p className="text-xs text-gray-500">Preview and export use the same graphics, scene media and narration.</p>
       </div>
       <div className="space-y-4">
-        {ready && <p role="status" className="text-sm text-amber-100">{p.artifacts.length} graphics · {p.sceneOutcomes?.filter(o => o.state === 'failed').length || 0} skipped scenes</p>}
+        {ready && <p role="status" className="text-sm text-amber-100">{p.artifacts.length} {p.artifacts.length === 1 ? 'graphic' : 'graphics'} · {p.sceneOutcomes?.filter(o => o.state === 'failed').length || 0} skipped scenes</p>}
         {p.scenes.map((scene, index) => <section key={scene.id}>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Scene {index + 1}</h3>
           {!p.artifacts.some(a => a.sceneId === scene.id) && <p className="text-xs text-gray-500">{p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.reason || 'Graphics not generated yet.'}</p>}
@@ -118,7 +127,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         </section>)}
       </div>
     </div>}
-    {!!p?.diagnostics.length && <details open={p.status === 'partial'} className="rounded-lg border border-border p-3 text-sm"><summary>{p.diagnostics.length} generation notes</summary><ul className="mt-3 space-y-2">{p.diagnostics.map((d, i) => <li key={i} className={d.severity === 'warning' ? 'text-amber-200' : 'text-gray-400'}>{d.message}</li>)}</ul></details>}
+    {!!diagnostics.length && <details open={p?.status === 'partial'} className="rounded-lg border border-border p-3 text-sm"><summary>{diagnostics.length} generation notes</summary><ul className="mt-3 space-y-2">{diagnostics.map((d, i) => <li key={i} className={d.severity === 'warning' ? 'text-amber-200' : 'text-gray-400'}>{d.message}</li>)}</ul></details>}
   </div>;
 }
 
@@ -126,13 +135,14 @@ type GraphicPatch = { enabled?: boolean; graphic?: MotionGraphicSpec; startFrame
 function GraphicCard({ artifact: a, fps, width, height, busy, selected, onSelect, onSave, onRegenerate }: { artifact: ArtifactComposition; fps: number; width: number; height: number; busy: boolean; selected: boolean; onSelect: () => void; onSave: (patch: GraphicPatch) => Promise<unknown>; onRegenerate: () => Promise<unknown> }) {
   const [graphic, setGraphic] = useState(a.graphic!), [start, setStart] = useState(a.startFrame / fps), [end, setEnd] = useState(a.endFrame / fps);
   const dirty = JSON.stringify(graphic) !== JSON.stringify(a.graphic) || Math.round(start * fps) !== a.startFrame || Math.round(end * fps) !== a.endFrame;
+  const position = ['top', 'bottom', 'right', 'center'].find(value => JSON.stringify(cardBounds(graphic.kind, width, height, value)) === JSON.stringify(graphic.bounds)) || 'custom';
   return <div className={`space-y-3 rounded-xl border p-4 ${selected ? 'border-amber-400/70' : 'border-border'} bg-surface`}>
     <button className="text-left" onClick={onSelect}><span className="text-[11px] uppercase tracking-wider text-amber-300">{graphicNames[graphic.kind]}</span><span className="mt-1 block text-sm font-semibold">{a.graphic!.title}</span></button>
     <p className="text-xs text-gray-500">{(a.startFrame / fps).toFixed(1)}–{(a.endFrame / fps).toFixed(1)} s · {a.enabled ? 'Visible' : 'Hidden'}</p>
     <label className="block text-xs text-gray-400">Title<input aria-label="Graphic title" className={input} maxLength={64} value={graphic.title} disabled={busy} onChange={e => setGraphic({ ...graphic, title: e.target.value })} /></label>
     <label className="block text-xs text-gray-400">Detail<textarea aria-label="Graphic detail" className={input} rows={2} maxLength={120} value={graphic.detail} disabled={busy} onChange={e => setGraphic({ ...graphic, detail: e.target.value })} /></label>
     <div className="grid grid-cols-2 gap-2"><label className="text-xs text-gray-400">Start (seconds)<input aria-label="Graphic start" className={input} type="number" min={0} step={0.1} value={start} disabled={busy} onChange={e => setStart(Number(e.target.value))} /></label><label className="text-xs text-gray-400">End (seconds)<input aria-label="Graphic end" className={input} type="number" min={0} step={0.1} value={end} disabled={busy} onChange={e => setEnd(Number(e.target.value))} /></label></div>
-    <label className="block text-xs text-gray-400">Card position<select aria-label="Graphic position" className={input} value="" disabled={busy} onChange={e => setGraphic({ ...graphic, bounds: cardBounds(graphic.kind, width, height, e.target.value) })}><option value="" disabled>Choose a position</option><option value="top">Top</option><option value="bottom">Bottom left</option><option value="right">Bottom right</option><option value="center">Center</option></select></label>
+    <label className="block text-xs text-gray-400">Graphic position<select aria-label="Graphic position" className={input} value={position} disabled={busy} onChange={e => setGraphic({ ...graphic, bounds: cardBounds(graphic.kind, width, height, e.target.value) })}><option value="custom" disabled>Custom position</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="right">Right</option><option value="center">Center</option></select></label>
     {graphic.target && <p className="text-xs text-gray-400">Target: {graphic.target.label}</p>}
     <div className="flex flex-wrap gap-3 text-xs"><button className="text-amber-300 disabled:opacity-40" disabled={busy || !dirty || !graphic.title.trim() || end <= start} onClick={() => void onSave({ graphic, startFrame: Math.round(start * fps), endFrame: Math.round(end * fps) })}>Save changes</button><button className="text-gray-300 disabled:opacity-40" disabled={busy} onClick={() => void onSave({ enabled: !a.enabled })}>{a.enabled ? 'Hide' : 'Show'}</button><button className="text-gray-300 disabled:opacity-40" disabled={busy} onClick={() => void onRegenerate()}>Regenerate</button><button className="text-gray-300" onClick={onSelect}>Preview</button></div>
   </div>;

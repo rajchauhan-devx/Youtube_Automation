@@ -20,18 +20,25 @@ export function intersects(a: MotionGraphicSpec['bounds'], b: MotionGraphicSpec[
 export function contains(a: MotionGraphicSpec['bounds'], b: MotionGraphicSpec['bounds'], pad = 0) {
   return b.x >= a.x + pad && b.y >= a.y + pad && b.x + b.width <= a.x + a.width - pad && b.y + b.height <= a.y + a.height - pad;
 }
+export function targetMostlyVisible(box: MotionGraphicSpec['bounds'], width: number, height: number) {
+  const visibleWidth = Math.max(0, Math.min(width, box.x + box.width) - Math.max(0, box.x));
+  const visibleHeight = Math.max(0, Math.min(height, box.y + box.height) - Math.max(0, box.y));
+  const centerX = box.x + box.width / 2, centerY = box.y + box.height / 2;
+  return box.width > 0 && box.height > 0 && centerX >= 0 && centerX <= width && centerY >= 0 && centerY <= height &&
+    visibleWidth * visibleHeight >= box.width * box.height * 0.8;
+}
 /** Both preview and export use this exact source-to-screen geometry. */
 export function graphicIssues(p: EditingProject, a: ArtifactComposition, source: { width: number; height: number }) {
   const g = a.graphic;
   if (!g) return [];
   const safe = graphicSafeArea(p.inputs.width, p.inputs.height);
   const issues: string[] = [];
-  if (!contains(safe, g.bounds)) issues.push('The text card exceeds the format safe area.');
+  if (!contains(safe, g.bounds)) issues.push('The graphic exceeds the format safe area.');
   if (g.kind === 'spotlight') {
     // Camera motion is piecewise linear, but inspect every rendered frame to cover all extrema.
     for (let frame = a.startFrame; frame < a.endFrame; frame++) {
       const box = targetOnScreen(p, a, frame, source);
-      if (!box || !contains(safe, box, 6)) { issues.push('The target leaves the visible safe area during the shot.'); break; }
+      if (!box || !targetMostlyVisible(box, p.inputs.width, p.inputs.height)) { issues.push('The target leaves the visible frame during the shot.'); break; }
       if (intersects(g.bounds, box, p.inputs.width * 0.018)) { issues.push('The callout would cover its target.'); break; }
     }
   }
@@ -40,9 +47,9 @@ export function graphicIssues(p: EditingProject, a: ArtifactComposition, source:
 
 export function cardBounds(kind: MotionGraphicSpec['kind'], width: number, height: number, position = 'bottom') {
   const safe = graphicSafeArea(width, height), portrait = height > width;
-  const w = kind === 'title' ? safe.width : kind === 'badge' ? safe.width * (portrait ? 0.85 : 0.48) : safe.width * (portrait ? 1 : 0.49);
-  const h = height * (kind === 'title' ? (portrait ? 0.23 : 0.31) : kind === 'badge' ? (portrait ? 0.105 : 0.15) : (portrait ? 0.18 : 0.24));
-  const x = position === 'right' ? safe.x + safe.width - w : kind === 'title' || portrait ? safe.x + (safe.width - w) / 2 : safe.x;
-  const y = position === 'top' || kind === 'badge' ? safe.y : position === 'center' || kind === 'title' ? safe.y + (safe.height - h) / 2 : safe.y + safe.height - h;
+  const w = safe.width * (kind === 'title' ? 1 : kind === 'lower-third' ? (portrait ? 0.78 : 0.52) : kind === 'badge' ? (portrait ? 0.64 : 0.38) : (portrait ? 0.70 : 0.46));
+  const h = height * (kind === 'title' ? (portrait ? 0.20 : 0.27) : kind === 'lower-third' ? (portrait ? 0.12 : 0.18) : kind === 'badge' ? (portrait ? 0.08 : 0.12) : (portrait ? 0.11 : 0.16));
+  const x = position === 'right' ? safe.x + safe.width - w : position === 'center' || kind === 'title' ? safe.x + (safe.width - w) / 2 : safe.x;
+  const y = position === 'top' ? safe.y : position === 'center' ? safe.y + (safe.height - h) / 2 : safe.y + safe.height - h;
   return { x, y, width: w, height: h };
 }

@@ -34,7 +34,7 @@ export async function motionJson<T>(ctx: MotionContext, model: string, operation
   for (let attempt = 0; attempt < 2; attempt++) {
     ctx.signal.throwIfAborted();
     if (ctx.job.usage.length >= ctx.maxCalls) throw new EditingError('RESOURCE_LIMIT', 'The motion graphics request budget is exhausted.');
-    const usage = { operation, model, promptVersion: 'motion-v1', prompt_tokens: 0, completion_tokens: 0 };
+    const usage = { operation, model, promptVersion: 'motion-v2', prompt_tokens: 0, completion_tokens: 0 };
     ctx.job.usage.push(usage); ctx.persist();
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
@@ -44,8 +44,12 @@ export async function motionJson<T>(ctx: MotionContext, model: string, operation
           contents: [{ role: 'user', parts: [{ text: JSON.stringify(data) }, ...imageParts] }],
           generationConfig: { temperature: 0.15, maxOutputTokens: 8192, responseMimeType: 'application/json', responseJsonSchema: jsonSchema } }),
       });
-      if (!response.ok) throw new EditingError([401, 403, 404].includes(response.status) ? 'NEEDS_CONFIGURATION' : 'PROVIDER_ERROR',
-        `Gemini returned HTTP ${response.status}. ${response.status === 429 ? 'Request quota reached.' : 'Check the model and account access.'}`, 502, response.status === 429 || response.status >= 500);
+      if (!response.ok) {
+        const details = response.status === 400 ? await response.json().catch(() => null) as { error?: { message?: string } } | null : null;
+        throw new EditingError([401, 403, 404].includes(response.status) ? 'NEEDS_CONFIGURATION' : 'PROVIDER_ERROR',
+        `Gemini returned HTTP ${response.status}. ${details?.error?.message?.slice(0, 400) || (response.status === 429 ? 'Request quota reached. Try again later.' : response.status === 503 ? 'The selected model is temporarily overloaded. Choose another Gemini model and generate again.' : 'Check the model and account access.')}`,
+        502, response.status === 429 || response.status >= 500);
+      }
       const body = await response.json() as { candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[]; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } };
       usage.prompt_tokens = body.usageMetadata?.promptTokenCount || 0;
       usage.completion_tokens = body.usageMetadata?.candidatesTokenCount || 0;
@@ -56,7 +60,14 @@ export async function motionJson<T>(ctx: MotionContext, model: string, operation
       return schema.parse(JSON.parse(text.replace(/^```json\s*|\s*```$/g, '')));
     } catch (error) {
       ctx.signal.throwIfAborted();
-      if (attempt === 1 || error instanceof EditingError && !error.retryable) throw error;
+      const failure = error instanceof EditingError ? error
+        : error instanceof z.ZodError ? new EditingError('INVALID_PROVIDER_OUTPUT',
+          `Gemini returned graphics that failed validation (${error.issues.slice(0, 3).map(issue => issue.path.join('.') || 'response').join(', ')}). Choose another Gemini model and generate again.`, 502, true)
+        : error instanceof SyntaxError ? new EditingError('INVALID_PROVIDER_OUTPUT', 'Gemini returned invalid JSON. Choose another Gemini model and generate again.', 502, true)
+        : error instanceof Error && error.name === 'TimeoutError' ? new EditingError('PROVIDER_TIMEOUT',
+          'Gemini did not respond before the timeout. The selected model may be overloaded; choose another Gemini model and generate again.', 502, true)
+        : new EditingError('PROVIDER_ERROR', 'Could not complete the Gemini graphics request. Check the connection or choose another Gemini model and generate again.', 502, true);
+      if (attempt === 1 || !failure.retryable) throw failure;
       await wait(700, undefined, { signal: ctx.signal });
     }
   }

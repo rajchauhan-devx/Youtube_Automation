@@ -7,7 +7,7 @@ import { randomUUID } from "node:crypto";
 process.env.TUBEFLOW_DATA_DIR = fs.mkdtempSync(
   path.join(os.tmpdir(), "tubeflow-editing-worker-"),
 );
-const { fixture } = await import("./fixtures.mjs");
+const { fixture } = await import("./motion-fixtures.mjs");
 const { renderInWorker } = await import(
   "../../server/dist/services/editing/renderWorker.js"
 );

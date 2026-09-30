@@ -196,16 +196,12 @@ test("reset creates a clean revision without deleting the original media or hist
   assert.equal((await request(`/projects/${p.id}/reset`, { expectedRevisionId: before.project.revisionId })).status, 409);
 });
 
-test("simple captions publish a ready revision without a model job", async () => {
+test("retired simple-caption endpoint cannot create subtitle artifacts", async () => {
   const before = await (await request(`/projects/${p.id}`, undefined, "GET")).json();
-  const jobsBefore = before.jobs.length;
   const response = await request(`/projects/${p.id}/simple`, {expectedRevisionId: before.currentRevisionId});
-  assert.equal(response.status, 201, JSON.stringify(await response.clone().json()));
-  const result = await response.json();
-  assert.equal(result.project.status, "ready");
-  assert.equal(result.project.artifacts.length, 1);
-  assert.equal(result.project.sceneOutcomes[0].state, "complete");
-  assert.deepEqual(result.project.inputs, before.project.inputs);
-  assert.equal(result.jobs.length, jobsBefore);
-  assert.equal((await request(`/projects/${p.id}/simple`, {expectedRevisionId: before.currentRevisionId})).status, 409);
+  assert.equal(response.status, 404);
+  const after = await (await request(`/projects/${p.id}`, undefined, "GET")).json();
+  assert.equal(after.currentRevisionId, before.currentRevisionId);
+  assert.deepEqual(after.project.artifacts, before.project.artifacts);
+  assert.equal(after.jobs.length, before.jobs.length);
 });

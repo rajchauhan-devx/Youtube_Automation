@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { AbsoluteFill, continueRender, delayRender, interpolate, spring } from 'remotion';
 import type { ArtifactComposition, EditingProject } from '@tubeflow/editing-contracts';
-import { graphicSafeArea, contains, targetOnScreen } from './graphics.js';
+import { targetMostlyVisible, targetOnScreen } from './graphics.js';
 
 type Props = { project: EditingProject; artifact: ArtifactComposition; frame: number; source: { width: number; height: number } };
 function Text({ text, size, height, family, color = '#ffffff', weight = 700 }: { text: string; size: number; height: number; family: string; color?: string; weight?: number }) {
@@ -30,34 +30,73 @@ function animation({ project, artifact, frame }: Props) {
   return { enter, opacity: Math.min(1, local / Math.max(1, fps * 0.14)) * exit, fps, local };
 }
 
-function Card(props: Props & { variant: 'title' | 'lower-third' | 'badge' | 'spotlight'; delay?: number }) {
-  const { project, artifact, variant } = props, g = artifact.graphic!, b = g.bounds;
-  const { enter, opacity } = animation({ ...props, frame: props.frame - (props.delay || 0) });
-  const scale = project.inputs.width / 1080, pad = Math.min(b.width * 0.055, 30 * scale);
-  const titleHeight = (b.height - pad * 2) * (g.detail ? 0.60 : 1);
-  const family = project.style.fontAssetIds.map(id => `"editing-${id}"`).join(', ');
-  const accent = project.style.colors.accent || '#f2bd65';
-  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, boxSizing: 'border-box', padding: pad,
-    opacity, transformOrigin: 'center', transform: `translateY(${(1 - enter) * 16 * scale}px) scale(${0.975 + enter * 0.025})`,
-    background: 'linear-gradient(130deg, rgba(9,18,32,0.97), rgba(17,28,43,0.94))', backdropFilter: 'blur(16px)',
-    border: `1px solid ${accent}66`, borderRadius: variant === 'badge' ? 12 * scale : 20 * scale,
-    boxShadow: '0 18px 60px #00000066', overflow: 'hidden', textAlign: variant === 'title' ? 'center' : 'left' }}>
-    <div style={{ position: 'absolute', left: 0, top: 0, height: variant === 'lower-third' ? '100%' : 3 * scale,
-      width: variant === 'lower-third' ? 5 * scale : `${enter * 100}%`, background: `linear-gradient(90deg, ${accent}, #fff0)` }} />
+const familyFor = (project: EditingProject) => project.style.fontAssetIds.map(id => `"editing-${id}"`).join(', ');
+const accentFor = (project: EditingProject) => project.style.colors.accent || '#f2bd65';
+
+export function CinematicTitle(props: Props) {
+  const { project, artifact } = props, g = artifact.graphic!, b = g.bounds;
+  const { enter, opacity } = animation(props), scale = project.inputs.width / 1080, accent = accentFor(project);
+  const mainHeight = b.height * (g.detail ? 0.71 : 0.87);
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height,
+    opacity, transform: `translateY(${(1 - enter) * 70 * scale}px) scale(${0.91 + enter * 0.09})`,
+    transformOrigin: 'center', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center',
+    filter: 'drop-shadow(0 3px 10px #000e) drop-shadow(0 0 25px #000a)' }}>
     <div style={{ clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
-      <Text text={g.title} family={family} size={variant === 'title' ? b.width * 0.105 : b.width * 0.084} height={titleHeight} color={variant === 'title' ? '#ffe7ad' : '#ffffff'} />
-      {g.detail && <Text text={g.detail} family={family} size={b.width * 0.047} height={(b.height - pad * 2) - titleHeight} color="#e4eaf3" weight={400} />}
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.13} height={mainHeight} color="#fff5df" />
+    </div>
+    <div style={{ alignSelf: 'center', width: `${enter * 56}%`, height: Math.max(2, 5 * scale), background: accent, boxShadow: `0 0 ${18 * scale}px ${accent}`, marginTop: 2 * scale }} />
+    {g.detail && <div style={{ marginTop: 6 * scale, clipPath: `inset(0 0 ${(1 - enter) * 100}% 0)` }}>
+      <Text text={g.detail} family={familyFor(project)} size={b.width * 0.052} height={b.height - mainHeight - 9 * scale} weight={500} />
+    </div>}
+  </div>;
+}
+
+export function CharacterLowerThird(props: Props) {
+  const { project, artifact } = props, g = artifact.graphic!, b = g.bounds;
+  const { enter, opacity } = animation(props), scale = project.inputs.width / 1080, accent = accentFor(project);
+  const pad = Math.max(5, 18 * scale), nameHeight = b.height * (g.detail ? 0.58 : 0.78);
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height,
+    opacity, transform: `translateX(${(enter - 1) * 78 * scale}px)`, display: 'flex', alignItems: 'center',
+    textShadow: '0 2px 7px #000, 0 0 16px #000' }}>
+    <div style={{ width: Math.max(3, 6 * scale), height: `${enter * 82}%`, background: accent, boxShadow: `0 0 ${12 * scale}px ${accent}`, flexShrink: 0 }} />
+    <div style={{ paddingLeft: pad, width: b.width - pad - 6 * scale, overflow: 'hidden', clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.115} height={nameHeight} />
+      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.055} height={b.height - nameHeight} color="#e5edf1" weight={500} />}
     </div>
   </div>;
 }
-export const CinematicTitle = (props: Props) => <Card {...props} variant="title" />;
-export const CharacterLowerThird = (props: Props) => <Card {...props} variant="lower-third" />;
-export const LocationBadge = (props: Props) => <Card {...props} variant="badge" />;
+
+export function LocationBadge(props: Props) {
+  const { project, artifact } = props, g = artifact.graphic!, b = g.bounds;
+  const { enter, opacity } = animation(props), scale = project.inputs.width / 1080, accent = accentFor(project);
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height,
+    opacity, transform: `scale(${0.72 + enter * 0.28})`, transformOrigin: 'left center', display: 'flex', alignItems: 'center',
+    padding: `0 ${Math.max(7, 18 * scale)}px`, boxSizing: 'border-box', borderLeft: `${Math.max(3, 5 * scale)}px solid ${accent}`,
+    borderBottom: `1px solid ${accent}bb`, background: 'linear-gradient(90deg, #09121cdd, #09121c44 82%, transparent)',
+    textShadow: '0 2px 6px #000' }}>
+    <div style={{ width: '100%' }}><Text text={g.title} family={familyFor(project)} size={b.width * 0.12} height={b.height * (g.detail ? 0.58 : 0.8)} />
+      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.065} height={b.height * 0.32} color="#e5edf1" weight={400} />}</div>
+  </div>;
+}
+
+function SpotlightLabel(props: Props) {
+  const { project, artifact } = props, g = artifact.graphic!, b = g.bounds;
+  const { enter, opacity } = animation(props), scale = project.inputs.width / 1080;
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity,
+    transform: `translateY(${(1 - enter) * 40 * scale}px)`, boxSizing: 'border-box',
+    display: 'flex', alignItems: 'center', padding: `0 ${Math.max(6, 16 * scale)}px`,
+    borderLeft: `${Math.max(3, 5 * scale)}px solid ${accentFor(project)}`, textShadow: '0 2px 8px #000, 0 0 18px #000', WebkitTextStroke: `${Math.max(1, 1.5 * scale)}px #07111d` }}>
+    <div style={{ width: '100%', clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.10} height={b.height * (g.detail ? 0.58 : 0.82)} />
+      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.05} height={b.height * 0.34} color="#e5edf1" weight={400} />}
+    </div>
+  </div>;
+}
 
 export function ObjectSpotlight(props: Props) {
   const { project, artifact, frame, source } = props;
   const b = targetOnScreen(project, artifact, frame, source);
-  if (!b || !contains(graphicSafeArea(project.inputs.width, project.inputs.height), b, 6)) return null;
+  if (!b || !targetMostlyVisible(b, project.inputs.width, project.inputs.height)) return null;
   const { enter, opacity, local, fps } = animation(props), card = artifact.graphic!.bounds;
   const cx = b.x + b.width / 2, cy = b.y + b.height / 2, rx = b.width / 2 + 4, ry = b.height / 2 + 4;
   const from = { x: Math.max(card.x, Math.min(cx, card.x + card.width)), y: Math.max(card.y, Math.min(cy, card.y + card.height)) };
@@ -77,7 +116,7 @@ export function ObjectSpotlight(props: Props) {
       <path d={`M${from.x},${from.y} Q${from.x},${to.y} ${to.x},${to.y}`} fill="none" stroke={accent} strokeWidth={width}
         pathLength={1} strokeDasharray={1} strokeDashoffset={1 - draw} markerEnd={draw > 0.98 ? `url(#${arrowId})` : undefined} />
     </svg>
-    <Card {...props} variant="spotlight" />
+    <SpotlightLabel {...props} />
   </AbsoluteFill>;
 }
 

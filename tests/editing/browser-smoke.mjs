@@ -5,7 +5,7 @@ import puppeteer from "puppeteer";
 import assert from "node:assert/strict";
 process.env.TUBEFLOW_DATA_DIR = path.resolve("artifacts/editing-browser-data");
 process.env.AI_EDITING_ENABLED = "true";
-const { fixture } = await import("./fixtures.mjs");
+const { fixture } = await import("./motion-fixtures.mjs");
 const { store } = await import("../../server/dist/services/store.js");
 const { workspacesRouter } = await import(
   "../../server/dist/routes/workspaces.js"
@@ -64,15 +64,12 @@ try {
     waitUntil: "networkidle0",
   });
   await page.waitForSelector('[aria-label="Timeline playhead"]');
-  assert.match(await page.$eval('body', el => el.textContent), /Clear artifacts and start fresh/);
+  assert.match(await page.$eval('body', el => el.textContent), /Clear graphics/);
   const modelChoices = await page.$$eval('[aria-label="Visual editing AI model"] option', options => options.map(option => option.value));
-  for (const prefix of ['ollama/', 'gemini-', 'opencode/', 'groq/', 'openrouter/'])
-    assert.ok(modelChoices.some(model => model.startsWith(prefix)), `Missing ${prefix} model choice`);
+  assert.ok(modelChoices.some(model => model.startsWith('gemini-')), 'Missing Gemini vision model choice');
   await page.waitForSelector("[data-editing-text]");
-  assert.match(
-    await page.$eval("[data-editing-text]", (el) => el.textContent),
-    /पानी/,
-  );
+  assert.equal(await page.$eval("[data-editing-text]", (el) => el.textContent), p.artifacts[0].graphic.title);
+  assert.equal(await page.$eval('[aria-label="Graphic position"]', el => el.value), 'center');
   await page.$eval('[aria-label="Timeline playhead"]', (el) => {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,
@@ -95,29 +92,29 @@ try {
       }
     throw new Error("Missing button " + text);
   };
-  await clickText("Disable");
+  await clickText("Hide");
   await page.waitForFunction(() =>
-    document.body.textContent.includes("Disabled"),
+    document.body.textContent.includes("Hidden"),
   );
   await page.reload({ waitUntil: "networkidle0" });
   await page.waitForFunction(() =>
-    document.body.textContent.includes("Disabled"),
+    document.body.textContent.includes("Hidden"),
   );
-  await clickText("Enable");
+  await clickText("Show");
   await page.waitForFunction(
     () =>
-      document.body.textContent.includes("Disable") &&
-      !document.body.textContent.includes("Disabled"),
+      document.body.textContent.includes("Hide") &&
+      document.body.textContent.includes("Visible"),
   );
   await clickText("Timeline & Render");
   await page.waitForSelector('[aria-label="Timeline playhead"]');
   assert.match(
     await page.$eval("body", (el) => el.textContent),
-    /Enhanced timeline & export/,
+    /Preview & export/,
   );
   assert.deepEqual(errors, []);
   console.log(
-    "BROWSER_SMOKE_PASSED: Hindi player, scrubbing, disable/enable, refresh persistence, enhanced editor",
+    "BROWSER_SMOKE_PASSED: graphic player, position, scrubbing, hide/show, refresh persistence, enhanced editor",
   );
 } finally {
   await browser.close();

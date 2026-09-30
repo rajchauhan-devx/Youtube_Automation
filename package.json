@@ -17,7 +17,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "npm run build:packages && tsc --noEmit -p tsconfig.app.json",
-    "test:editing": "npm run build --prefix server && node --test tests/editing/*.test.mjs",
+    "test:editing": "npm run build --prefix server && node --test --test-concurrency=1 tests/editing/*.test.mjs",
     "test:editing:render": "npm run build --prefix server && node tests/editing/render-smoke.mjs",
     "test:editing:browser": "npm run build && npm run build --prefix server && node tests/editing/browser-smoke.mjs",
     "test:editing:live": "npm run build --prefix server && node tests/editing/live-smoke.mjs",
