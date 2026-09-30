@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Player, type PlayerRef } from '@remotion/player';
 import { VideoComposition, cardBounds, graphicNames } from '@tubeflow/video-composition';
 import type { ArtifactComposition, MotionGraphicSpec } from '@tubeflow/editing-contracts';
@@ -6,6 +6,7 @@ import { useEditingProject } from '../../hooks/useEditingProject';
 import { editingRequest, type EditingPayload } from '../../services/editingApi';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import { GEMINI_MODELS, type Script } from '../../data';
+import { makeStyleTestProject } from './styleTest';
 
 const activeStates = ['queued', 'running', 'cancel_requested'];
 const button = 'rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40 hover:bg-amber-300';
@@ -16,7 +17,12 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   const { data, fetch } = state, { profile } = useWorkspaceApi();
   const [audio, setAudio] = useState(''), [style, setStyle] = useState(''), [density, setDensity] = useState<'subtle' | 'balanced' | 'expressive'>('balanced');
   const [fps, setFps] = useState(60), [busy, setBusy] = useState(false), [frame, setFrame] = useState(0), [selected, setSelected] = useState('');
+  const [showStyleTest, setShowStyleTest] = useState(false);
   const player = useRef<PlayerRef>(null), p = data?.project;
+  const styleTest = useMemo(() => p ? makeStyleTestProject(p) : null, [p]);
+  const previewProject = showStyleTest && styleTest ? styleTest.project : p;
+  const previewProps = useMemo(() => previewProject && data ? { project: previewProject, assets: data.assets } : undefined, [previewProject, data?.assets]);
+  const previewStyle = useMemo(() => ({ width: '100%', maxWidth: p && p.inputs.height > p.inputs.width ? 360 : '100%' }), [p?.inputs.width, p?.inputs.height]);
   const job = data?.jobs.filter(j => activeStates.includes(j.state)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   const lastJob = data?.jobs.filter(j => j.revisionId === data.currentRevisionId || j.resultRevisionId === data.currentRevisionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   const ready = p?.status === 'ready' || p?.status === 'partial';
@@ -30,6 +36,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
       setModel(p.settings.aiModel);
   }, [p?.revisionId, p?.settings.aiModel]);
   useEffect(() => { setAudio(script?.generatedAudio?.[0]?.filename || ''); }, [script?.id]);
+  useEffect(() => { setShowStyleTest(false); setFrame(0); }, [p?.revisionId]);
   useEffect(() => {
     if (!script?.generatedAudio?.some(a => a.filename === audio)) setAudio(script?.generatedAudio?.[0]?.filename || '');
   }, [script?.generatedAudio, audio]);
@@ -37,9 +44,10 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
     const instance = player.current;
     if (!instance) return;
     const listener = ({ detail }: { detail: { frame: number } }) => setFrame(detail.frame);
-    instance.addEventListener('frameupdate', listener);
-    return () => instance.removeEventListener('frameupdate', listener);
-  }, [p?.revisionId]);
+    instance.addEventListener('timeupdate', listener);
+    instance.addEventListener('seeked', listener);
+    return () => { instance.removeEventListener('timeupdate', listener); instance.removeEventListener('seeked', listener); };
+  }, [p?.revisionId, showStyleTest]);
   async function act(work: () => Promise<unknown>) {
     setBusy(true); state.setError('');
     try { await work(); } catch (error) { state.setError(error instanceof Error ? error.message : 'Motion graphics failed.'); }
@@ -105,12 +113,14 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
     {p && data && <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="min-w-0 space-y-3">
         <label className="block text-xs text-gray-400">Preview / export revision<select aria-label="Preview and export revision" className={input} value={state.selectedRevision} onChange={e => state.setSelectedRevision(e.target.value)}><option value="">Current revision</option>{data.revisions.filter(r => r.revisionId !== data.currentRevisionId).map(r => <option key={r.revisionId} value={r.revisionId}>{r.revisionId.slice(0, 8)} · {r.language} · {r.status}</option>)}</select></label>
-        <div className="flex justify-center overflow-hidden rounded-xl border border-border bg-black p-2"><Player key={p.revisionId} ref={player} component={VideoComposition} inputProps={{ project: p, assets: data.assets }} durationInFrames={p.inputs.durationFrames} fps={p.inputs.fps} compositionWidth={p.inputs.width} compositionHeight={p.inputs.height} controls style={{ width: '100%', maxWidth: p.inputs.height > p.inputs.width ? 360 : '100%' }} /></div>
+        <div className="flex flex-wrap items-center gap-3"><button type="button" className={button} disabled={!styleTest} onClick={() => { setShowStyleTest(value => !value); setFrame(0); }}>{showStyleTest ? 'Exit style test' : 'Test all 4 graphic types'}</button>{!styleTest && <span className="text-xs text-amber-200">The test needs four scenes and a verified object spotlight.</span>}</div>
+        {showStyleTest && styleTest && <div role="status" className="rounded-lg border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-100"><p>Style test preview only. Demo labels are added locally; the saved revision and Export MP4 stay unchanged.</p><div className="mt-2 flex flex-wrap gap-2">{styleTest.samples.map(sample => <button type="button" aria-label={`Preview ${graphicNames[sample.kind]}`} key={sample.kind} className="rounded border border-amber-300/50 px-2 py-1" onClick={() => player.current?.seekTo(sample.frame)}>{graphicNames[sample.kind]}</button>)}</div></div>}
+        <div className="flex justify-center overflow-hidden rounded-xl border border-border bg-black p-2"><Player key={`${p.revisionId}-${showStyleTest ? 'style-test' : 'saved'}`} ref={player} component={VideoComposition} inputProps={previewProps!} durationInFrames={p.inputs.durationFrames} fps={p.inputs.fps} compositionWidth={p.inputs.width} compositionHeight={p.inputs.height} controls loop={false} moveToBeginningWhenEnded={false} style={previewStyle} /></div>
         <p className="text-xs text-gray-500">{(frame / p.inputs.fps).toFixed(1)} / {(p.inputs.durationFrames / p.inputs.fps).toFixed(1)} s · {p.inputs.fps} fps</p>
         <div aria-label="Motion graphics timeline" className="space-y-2 rounded-lg border border-border p-3">
           <input aria-label="Timeline playhead" type="range" className="w-full accent-amber-400" min={0} max={p.inputs.durationFrames - 1} value={frame} onChange={e => { setFrame(Number(e.target.value)); player.current?.seekTo(Number(e.target.value)); }} />
           <div className="flex h-8 gap-px">{p.scenes.map((s, i) => <button key={s.id} className="truncate rounded bg-slate-700 text-xs" style={{ width: `${100 * (s.endFrame - s.startFrame) / p.inputs.durationFrames}%` }} onClick={() => player.current?.seekTo(s.startFrame)}>Scene {i + 1}</button>)}</div>
-          <div className="relative h-7">{p.artifacts.map(a => <button title={a.intent} key={a.id} className={`absolute h-7 truncate rounded px-1 text-xs ${a.enabled ? 'bg-amber-700' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames}%` }} onClick={() => { setSelected(a.id); player.current?.seekTo(a.startFrame); }}>{a.graphic?.title}</button>)}</div>
+          <div className="relative h-7">{previewProject?.artifacts.map(a => <button title={a.intent} key={a.id} className={`absolute h-7 truncate rounded px-1 text-xs ${a.enabled ? 'bg-amber-700' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames}%` }} onClick={() => { setSelected(a.id); player.current?.seekTo(a.startFrame); }}>{a.graphic?.title}</button>)}</div>
         </div>
         <div className="flex flex-wrap items-center gap-3"><button className={button} disabled={!ready || busy || !!job} onClick={() => void act(async () => { await editingRequest(fetch, `/projects/${p.id}/render`, { revisionId: p.revisionId }); await state.refresh(); })}>Export MP4</button>{download?.outputUrl && <a href={download.outputUrl} download className="text-sm text-amber-300 underline">Download MP4</a>}</div>
         <p className="text-xs text-gray-500">Preview and export use the same graphics, scene media and narration.</p>

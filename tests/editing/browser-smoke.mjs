@@ -70,6 +70,18 @@ try {
   await page.waitForSelector("[data-editing-text]");
   assert.equal(await page.$eval("[data-editing-text]", (el) => el.textContent), p.artifacts[0].graphic.title);
   assert.equal(await page.$eval('[aria-label="Graphic position"]', el => el.value), 'center');
+  await page.click('[aria-label="Play video"]');
+  const playback = await page.evaluate(async () => {
+    const frames = [];
+    const playhead = document.querySelector('[aria-label="Timeline playhead"]');
+    for (let i = 0; i < 85; i++) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+      frames.push(Number(playhead.value));
+    }
+    return { frames, end: Number(playhead.max) };
+  });
+  assert.ok(playback.frames.every((value, index) => !index || value >= playback.frames[index - 1]), 'The preview moved backward while playing');
+  assert.ok(playback.frames.at(-1) >= playback.end - 1, 'The preview reset after reaching the end');
   await page.$eval('[aria-label="Timeline playhead"]', (el) => {
     const setter = Object.getOwnPropertyDescriptor(
       HTMLInputElement.prototype,

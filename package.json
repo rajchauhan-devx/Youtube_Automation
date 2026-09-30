@@ -7,8 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "predev": "npm run build:packages",
-    "dev": "concurrently -n client,server -c cyan,green \"vite\" \"npm run dev:server\"",
+    "dev": "concurrently -k -n server,client -c green,cyan \"npm run dev:server\" \"node scripts/wait-for-server.mjs && npm run dev:client\"",
     "dev:client": "vite",
     "dev:server": "npm run dev --prefix server",
     "setup:tts": "powershell -ExecutionPolicy Bypass -File server/chatterbox/setup.ps1",
