@@ -1,5 +1,21 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { Zap, Clapperboard, ListOrdered, Library, Settings, ChevronDown } from 'lucide-react';
+import {
+  Zap,
+  Clapperboard,
+  Layers,
+  ListOrdered,
+  Library,
+  Settings,
+  ChevronDown,
+  Play,
+  Eye,
+  Images,
+  Wand2,
+  Film,
+  Rocket,
+  ScrollText,
+  CircleUserRound,
+} from 'lucide-react';
 import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './services/workspaceApi';
 import type { Section, Tab, Channel, Script } from './data';
 import { PlaceholderPage } from './components/PlaceholderPage';
@@ -20,26 +36,42 @@ import { extractScriptTagContent, parseAIResponse } from './lib/parseAIResponse.
 import { isTaggedShortsResponse } from '../server/src/services/shorts-package';
 import { incompleteResponse } from '../server/src/services/generation-status';
 import { apiPost, getApiKey } from './services/api.js';
+import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'scripts', label: 'Scripts' },
-  { id: 'preview', label: 'Preview' },
-  { id: 'assets', label: 'Assets' },
-  { id: 'generation', label: 'Generation' },
-  { id: 'artifacts', label: 'Artifacts' },
-  { id: 'review', label: 'Timeline & Render' },
-  { id: 'export', label: 'YouTube Export' },
+const TABS: { id: Tab; label: string; icon: typeof ScrollText; step: string }[] = [
+  { id: 'scripts', label: 'Scripts', icon: ScrollText, step: '01' },
+  { id: 'preview', label: 'Preview', icon: Eye, step: '02' },
+  { id: 'assets', label: 'Assets', icon: Images, step: '03' },
+  { id: 'generation', label: 'Generation', icon: Wand2, step: '04' },
+  { id: 'artifacts', label: 'Artifacts', icon: Film, step: '05' },
+  { id: 'review', label: 'Timeline & Render', icon: Clapperboard, step: '06' },
+  { id: 'export', label: 'YouTube Export', icon: Rocket, step: '07' },
 ];
 
-const SIDEBAR_ICONS = [
-  { id: 'shorts', label: 'Shorts', icon: Zap },
-  { id: 'long', label: 'Long Video', icon: Clapperboard },
-  { id: 'mixed', label: 'Mixed Media', icon: Library },
-  { id: 'queue', label: 'Queue', icon: ListOrdered },
-  { id: 'library', label: 'Library', icon: Library },
-  { id: 'settings', label: 'Setup', icon: Settings },
-] as const;
+type SidebarGroup = { title: string; items: { id: string; label: string; icon: typeof Zap; badge?: string }[] };
+
+const SIDEBAR_GROUPS: SidebarGroup[] = [
+  {
+    title: 'Create',
+    items: [
+      { id: 'shorts', label: 'Shorts', icon: Zap, badge: '9:16' },
+      { id: 'long', label: 'Long Video', icon: Clapperboard, badge: '16:9' },
+      { id: 'mixed', label: 'Mixed Media', icon: Layers },
+    ],
+  },
+  {
+    title: 'Manage',
+    items: [
+      { id: 'queue', label: 'Queue', icon: ListOrdered },
+      { id: 'library', label: 'Library', icon: Library },
+    ],
+  },
+  {
+    title: 'System',
+    items: [{ id: 'settings', label: 'Setup', icon: Settings }],
+  },
+];
 
 const LS_KEY = 'tubeflow:v1';
 
@@ -129,11 +161,12 @@ export default function App() {
     const controller = new AbortController();
     globalThis.fetch('/api/accounts', { signal: controller.signal }).then(async response => {
       if (!response.ok) throw new Error('Could not load YouTube accounts');
-      const data = await response.json();
+      const data = await parseJsonResponse<{ accounts?: Channel[] }>(response, {});
       if (!Array.isArray(data.accounts)) throw new Error('Invalid account list');
+      if (controller.signal.aborted) return;
       setAccounts(data.accounts);
-      setActiveChannel(current => data.accounts.find((item: Channel) => item.id === current.id) || data.accounts[0] || DEFAULT_ACCOUNT);
-    }).catch(error => { if (!controller.signal.aborted) setSaveError(error.message); });
+      setActiveChannel(current => data.accounts!.find((item: Channel) => item.id === current.id) || data.accounts![0] || DEFAULT_ACCOUNT);
+    }).catch(error => { if (!controller.signal.aborted && !isAbortError(error)) setSaveError(safeErrorMessage(error, 'Could not load YouTube accounts')); });
     return () => controller.abort();
   }, []);
 
@@ -142,14 +175,14 @@ export default function App() {
     setUserScripts([]);
     fetch('/api/scripts', { signal: controller.signal }).then(async response => {
       if (!response.ok) throw new Error('Could not load workspace scripts');
-      const data: Script[] = await response.json();
+      const data = await parseJsonResponse<Script[]>(response, []);
       if (!Array.isArray(data)) throw new Error('Invalid script list');
       if (!controller.signal.aborted) {
         const normalized = data.map(script => ({ ...script, accountId: activeChannel.id, section }));
         setUserScripts(normalized);
         setSelectedScriptId(current => normalized.some(script => script.id === current) ? current : normalized[0]?.id || null);
       }
-    }).catch(error => { if (!controller.signal.aborted) setSaveError(error.message); });
+    }).catch(error => { if (!controller.signal.aborted && !isAbortError(error)) setSaveError(safeErrorMessage(error, 'Could not load workspace scripts')); });
     return () => { controller.abort(); generationAbortRef.current?.abort(); };
   }, [fetch, activeChannel.id, section]);
 
@@ -159,33 +192,41 @@ export default function App() {
   }
 
   async function persistScript(id: string, patch: Partial<Script>) {
+    const scopeAtCall = scopeKey;
     const full = userScripts.find(script => script.id === id);
-    if (!full) return;
+    if (!full) return false;
     const updated = { ...full, ...patch };
     patchScriptState(id, patch);
     let saved = false;
     const save = async () => {
       try {
-        let response = await fetch('/api/scripts/' + id, {
+        const safeId = encodeURIComponent(id);
+        let response = await fetch('/api/scripts/' + safeId, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
         });
-        if (response.status === 404) {
+        if (response.status === 404 && activeScope.current === scopeAtCall) {
           response = await fetch('/api/scripts', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updated),
           });
         }
         if (!response.ok) throw new Error(`Save failed (HTTP ${response.status})`);
         saved = true;
-        setSaveError('');
+        if (activeScope.current === scopeAtCall) setSaveError('');
       } catch (error) {
-        setSaveError(error instanceof Error ? error.message : 'Could not save changes');
+        if (isAbortError(error)) return;
+        if (activeScope.current === scopeAtCall) {
+          setSaveError(safeErrorMessage(error, 'Could not save changes'));
+        }
       }
     };
     const saveKey = `${scopeKey}:${id}`;
-    const pending = (saveQueues.current.get(saveKey) || Promise.resolve()).then(save);
+    // Prevent unbounded queue growth across long sessions.
+    if (saveQueues.current.size > 50) saveQueues.current.clear();
+    const pending = (saveQueues.current.get(saveKey) || Promise.resolve()).then(save).finally(() => {
+      if (saveQueues.current.get(saveKey) === pending) saveQueues.current.delete(saveKey);
+    });
     saveQueues.current.set(saveKey, pending);
     await pending;
-    if (saveQueues.current.get(saveKey) === pending) saveQueues.current.delete(saveKey);
     return saved;
   }
 
@@ -293,14 +334,11 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
         });
 
         if (!res.ok) {
-          const body = await res.text();
+          const body = await res.text().catch(() => '');
           let message = `Generation failed (HTTP ${res.status})`;
-          try {
-            const parsed = JSON.parse(body);
-            if (parsed.error) message = parsed.error;
-          } catch {
-            if (body.trim()) message = body.trim();
-          }
+          const parsed = safeJsonParse<{ error?: string }>(body, {});
+          if (parsed?.error?.trim()) message = parsed.error;
+          else if (body.trim()) message = body.trim().slice(0, 500);
           throw new Error(message);
         }
 
@@ -309,6 +347,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
 
         const decoder = new TextDecoder();
         let sseBuffer = '';
+        let streamDamaged = false;
 
         const handleEvent = (eventBlock: string) => {
           const dataStr = eventBlock
@@ -324,7 +363,9 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
           try {
             parsed = JSON.parse(dataStr);
           } catch {
-            throw new Error('Received a damaged response stream. Partial text has been saved; retry generation.');
+            // Don't kill the whole stream on one damaged chunk — keep partial text.
+            streamDamaged = true;
+            return;
           }
 
           if (parsed.error) throw new Error(parsed.error);
@@ -349,18 +390,42 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
           if (parsed.finishReason) finishReason = parsed.finishReason.toUpperCase();
         };
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        try {
+          while (true) {
+            if (controller.signal.aborted) break;
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          sseBuffer += decoder.decode(value, { stream: true });
-          const events = sseBuffer.split(/\r?\n\r?\n/);
-          sseBuffer = events.pop() || '';
-          events.forEach(handleEvent);
+            sseBuffer += decoder.decode(value, { stream: true });
+            const events = sseBuffer.split(/\r?\n\r?\n/);
+            sseBuffer = events.pop() || '';
+            for (const event of events) {
+              try {
+                handleEvent(event);
+              } catch (error) {
+                // Server-sent error payload — abort cleanly with message.
+                try { await reader.cancel(); } catch { /* already closed */ }
+                throw error;
+              }
+            }
+          }
+
+          sseBuffer += decoder.decode();
+          if (sseBuffer.trim()) {
+            try {
+              handleEvent(sseBuffer);
+            } catch (error) {
+              try { await reader.cancel(); } catch { /* already closed */ }
+              throw error;
+            }
+          }
+        } finally {
+          try { reader.releaseLock(); } catch { /* lock already released */ }
         }
 
-        sseBuffer += decoder.decode();
-        if (sseBuffer.trim()) handleEvent(sseBuffer);
+        if (streamDamaged && !fullResponse.trim()) {
+          throw new Error('Received a damaged response stream. Partial text could not be recovered; retry generation.');
+        }
 
         incomplete = incompleteResponse(promptText, fullResponse);
         const needsContinuation = !finishReason || finishReason === 'STREAM_INTERRUPTED' || finishReason === 'MAX_TOKENS' || (finishReason === 'STOP' && Boolean(incomplete));
@@ -625,30 +690,48 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
   }
 
   const isMainSection = sidebar === 'shorts' || sidebar === 'long' || sidebar === 'mixed';
+  const activeStepIndex = Math.max(0, TABS.findIndex((t) => t.id === tab));
 
   return (
     <WorkspaceApiContext.Provider value={{ account: activeChannel, profile: section, fetch }}>
-    <div className="flex h-screen w-screen overflow-hidden bg-bg text-white">
-      {saveError && <div role="alert" className="fixed right-4 top-4 z-50 rounded-lg border border-red-500 bg-red-950 p-4 text-sm text-red-100">{saveError}. Changes remain in this tab; check the server before closing.</div>}
+    <div className="studio-bg flex h-screen w-screen overflow-hidden text-white">
+      {saveError && (
+        <div role="alert" className="fixed right-4 top-4 z-[80] studio-card max-w-sm border-danger/40 bg-[#1a0f14] p-4 text-[13px] leading-relaxed text-red-100 shadow-pop animate-scale-in">
+          <p className="font-semibold text-red-200">Sync issue</p>
+          <p className="mt-1 text-red-100/80">{saveError}. Changes remain in this tab; check the server before closing.</p>
+        </div>
+      )}
       {/* Sidebar */}
-      <aside className="group flex w-16 flex-col border-r border-border bg-surface transition-all duration-200 hover:w-[200px]">
-        {/* Channel avatar */}
-        <div className="relative flex h-16 items-center justify-center border-b border-border">
+      <aside className="hidden w-[248px] shrink-0 flex-col border-r border-borderSoft bg-[#0b0e15]/90 backdrop-blur-xl md:flex">
+        {/* Brand */}
+        <div className="flex h-[68px] items-center gap-3 border-b border-borderSoft px-5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-b from-[#ff4d6d] to-[#c40f35] shadow-glow">
+            <Play className="h-4 w-4 fill-white text-white" />
+          </span>
+          <span className="leading-tight">
+            <span className="block text-[15px] font-extrabold tracking-tight">TubeFlow</span>
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Studio Pro</span>
+          </span>
+        </div>
+
+        {/* Channel */}
+        <div className="relative px-3 pt-3">
           <button
             aria-label="Switch YouTube account"
             onClick={() => setChannelSwitcherOpen((v) => !v)}
-            className="flex items-center gap-3 rounded-lg p-2 hover:bg-surface2"
+            className="flex w-full items-center gap-3 rounded-studio border border-borderSoft bg-surface px-3 py-2.5 text-left shadow-card transition-colors hover:border-[#334054] hover:bg-surface2"
           >
             <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-extrabold text-white"
               style={{ backgroundColor: activeChannel.color }}
             >
               {activeChannel.avatar}
             </div>
-            <span className="hidden whitespace-nowrap text-sm font-medium group-hover:block">
-              {activeChannel.name}
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold">{activeChannel.name}</span>
+              <span className="block text-[11px] text-faint">YouTube channel</span>
             </span>
-            <ChevronDown className="hidden h-4 w-4 text-gray-400 group-hover:block" />
+            <ChevronDown className={`h-4 w-4 shrink-0 text-faint transition-transform ${channelSwitcherOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {channelSwitcherOpen && (
@@ -662,40 +745,78 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
           )}
         </div>
 
-        {/* Icons */}
-        <nav className="flex flex-1 flex-col gap-1 p-2">
-          {SIDEBAR_ICONS.map((item) => {
-            const Icon = item.icon;
-            const active = sidebar === item.id;
-            return (
-              <button
-                key={item.id}
-                aria-label={item.label}
-                onClick={() => selectSidebar(item.id)}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
-                  active ? 'bg-surface2 text-white' : 'text-gray-400 hover:bg-surface2 hover:text-white'
-                }`}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                <span className="hidden whitespace-nowrap group-hover:block">{item.label}</span>
-              </button>
-            );
-          })}
+        {/* Nav */}
+        <nav className="thin-scrollbar flex-1 space-y-5 overflow-y-auto px-3 py-4">
+          {SIDEBAR_GROUPS.map((group) => (
+            <div key={group.title}>
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-faint">{group.title}</p>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = sidebar === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      aria-label={item.label}
+                      onClick={() => selectSidebar(item.id as SidebarId)}
+                      className={
+                        active
+                          ? 'studio-nav-btn border border-accent/25 bg-accentSoft text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                          : 'studio-nav-btn border border-transparent text-muted hover:bg-white/[0.04] hover:text-white'
+                      }
+                    >
+                      <span className={active ? 'flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white shadow-glow' : 'flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.05] text-muted'}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {item.badge && (
+                        <span className={active ? 'rounded-md bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent' : 'rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-faint'}>
+                          {item.badge}
+                        </span>
+                      )}
+                      {active && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        {/* Profile avatar */}
-        <div className="flex h-16 items-center justify-center border-t border-border">
-          <button aria-label="Profile and voices" title="Profile and voices" onClick={() => setSidebar('profile')} className="flex items-center gap-3 rounded-lg p-2 hover:bg-surface2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-700 text-xs font-bold">
-              JD
-            </div>
-            <span className="hidden whitespace-nowrap text-sm group-hover:block">Profile & Voices</span>
+        {/* Profile */}
+        <div className="border-t border-borderSoft p-3">
+          <button aria-label="Profile and voices" title="Profile and voices" onClick={() => setSidebar('profile')} className={`studio-nav-btn border ${sidebar === 'profile' ? 'border-accent/25 bg-accentSoft text-white' : 'border-transparent text-muted hover:bg-white/[0.04] hover:text-white'}`}>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-b from-[#3a4358] to-[#202636] text-xs font-bold text-white">
+              <CircleUserRound className="h-5 w-5" />
+            </span>
+            <span className="flex-1 text-left">
+              <span className="block text-[13px] font-semibold">Profile & Voices</span>
+              <span className="block text-[11px] text-faint">Accounts · TTS · Clones</span>
+            </span>
           </button>
         </div>
       </aside>
 
+      {/* Mobile sidebar */}
+      <aside className="flex w-16 shrink-0 flex-col items-center border-r border-borderSoft bg-[#0b0e15] py-3 md:hidden">
+        {SIDEBAR_GROUPS.flatMap((g) => g.items).map((item) => {
+          const Icon = item.icon;
+          const active = sidebar === item.id;
+          return (
+            <button
+              key={item.id}
+              aria-label={item.label}
+              onClick={() => selectSidebar(item.id as SidebarId)}
+              className={active ? 'mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-white shadow-glow' : 'mb-1 flex h-11 w-11 items-center justify-center rounded-xl text-muted hover:bg-white/5 hover:text-white'}
+            >
+              <Icon className="h-5 w-5" />
+            </button>
+          );
+        })}
+      </aside>
+
       {/* Main */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header
           channel={activeChannel}
           section={sidebar === 'shorts' || sidebar === 'long' || sidebar === 'mixed' ? section : (sidebar as string)}
@@ -704,25 +825,45 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
           onNewScript={() => { setSidebar(section); setTab('scripts'); setNewScriptOpen(true); }}
         />
 
-        <main key={scopeKey} className="flex-1 overflow-y-auto thin-scrollbar">
-          <div className="mx-auto w-full max-w-[1400px] px-6 py-6">
+        <main key={scopeKey} className="thin-scrollbar flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-[1440px] px-5 py-6 sm:px-7">
             {sidebar === 'profile' ? <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} /> : sidebar === 'settings' ? (
               <SetupTab />
             ) : !isMainSection ? (
               <PlaceholderPage label={sidebar.charAt(0).toUpperCase() + sidebar.slice(1)} />
             ) : (
-              <div>
-                {/* Tabs */}
-                <div className="mb-6 flex gap-1 border-b border-border">
+              <div className="animate-fade-up">
+                {/* Pipeline stepper */}
+                <div className="studio-card mb-5 hidden items-center gap-1 overflow-x-auto p-2 no-scrollbar lg:flex">
+                  {TABS.map((t, i) => {
+                    const StepIcon = t.icon;
+                    const done = i < activeStepIndex;
+                    const current = i === activeStepIndex;
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => setTab(t.id)}
+                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors ${current ? 'bg-accentSoft text-white' : 'text-muted hover:bg-white/[0.04] hover:text-white'}`}
+                      >
+                        <span className={current ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-white shadow-glow' : done ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success/15 text-emerald-300' : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-faint'}>
+                          <StepIcon className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-[9px] font-bold uppercase tracking-[0.14em] text-faint">Step {t.step}</span>
+                          <span className="block truncate text-[12px] font-semibold">{t.label}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Tabs (mobile / compact) */}
+                <div className="mb-5 flex gap-1.5 overflow-x-auto rounded-studio border border-borderSoft bg-surface/70 p-1.5 no-scrollbar lg:hidden">
                   {TABS.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => setTab(t.id)}
-                      className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                        tab === t.id
-                          ? 'border-accent text-white'
-                          : 'border-transparent text-gray-400 hover:text-white'
-                      }`}
+                      className={tab === t.id ? 'studio-tab-btn shrink-0 bg-accent text-white shadow-glow' : 'studio-tab-btn shrink-0 text-muted hover:bg-white/5 hover:text-white'}
                     >
                       {t.label}
                     </button>

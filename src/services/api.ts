@@ -1,17 +1,26 @@
-export async function apiPost(path: string, body: unknown, apiKey: string, fetcher: typeof fetch = fetch) {
-  const res = await fetcher(path, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(apiKey ? { 'x-api-key': apiKey } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`API error ${res.status}: ${text}`);
+import { parseJsonResponse, isAbortError } from '../lib/safe';
+
+export async function apiPost<T = any>(path: string, body: unknown, apiKey: string, fetcher: typeof fetch = fetch): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetcher(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'x-api-key': apiKey } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (error) {
+    if (isAbortError(error)) throw error;
+    throw new Error(error instanceof Error ? error.message : 'Request failed — check the server connection');
   }
-  return res.json();
+  if (!res.ok) {
+    const data = await parseJsonResponse<{ error?: string }>(res, {});
+    const detail = typeof data?.error === 'string' && data.error.trim() ? data.error : `Request failed (HTTP ${res.status})`;
+    throw new Error(detail);
+  }
+  return parseJsonResponse<T>(res, {} as T);
 }
 
 export function getApiKey(): string {

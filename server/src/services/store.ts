@@ -22,9 +22,15 @@ function read<T>(name: string): T[] {
   const fp = filePath(name);
   if (!fs.existsSync(fp)) return [];
   try {
-    return JSON.parse(fs.readFileSync(fp, 'utf-8'));
+    const parsed: unknown = JSON.parse(fs.readFileSync(fp, 'utf-8'));
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
   } catch {
-    throw new Error(`Cannot read ${name} storage. Restore a backup before making changes.`);
+    // Preserve the corrupt file for recovery instead of crashing every route.
+    try {
+      const backup = `${fp}.corrupt-${Date.now()}`;
+      fs.copyFileSync(fp, backup);
+    } catch { /* backup is best-effort */ }
+    return [];
   }
 }
 
@@ -32,8 +38,13 @@ function write<T>(name: string, data: T[]): void {
   ensureDir();
   const destination = filePath(name);
   const temporary = `${destination}.tmp`;
-  fs.writeFileSync(temporary, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(temporary, destination);
+  try {
+    fs.writeFileSync(temporary, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(temporary, destination);
+  } catch (error) {
+    try { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); } catch { /* cleanup best-effort */ }
+    throw error;
+  }
 }
 
 export const store = {

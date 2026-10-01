@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Image as ImageIcon, Music, Copy, Pencil, Play, Loader2 } from 'lucide-react';
 import type { Script } from '../../data';
+import { copyTextToClipboard, safeArray } from '../../lib/safe';
 import { spokenText, validateScenePlan } from '../../../server/src/services/scene-plan';
 import { isTaggedShortsResponse, serializeShortsPackage } from '../../../server/src/services/shorts-package';
 
@@ -40,7 +41,9 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
 
   const responseStep = script.pipeline?.find((p) => p.id === 'response');
   const isExtracting = responseStep?.status === 'running';
-  const hasAssets = (script.imagePrompts?.length ?? 0) > 0 || script.narration;
+  const hasAssets = (script.imagePrompts?.length ?? 0) > 0 || Boolean(script.narration?.trim());
+  const scenes = safeArray<{ mediaType?: string }>(script.scenePlan?.scenes);
+  const videoCount = scenes.filter(scene => scene?.mediaType === 'video').length;
 
   if (isExtracting) {
     return (
@@ -87,7 +90,7 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500">
-            {script.imagePrompts?.length ?? 0} scenes, {script.scenePlan?.scenes.filter(scene => scene.mediaType === 'video').length || 0} videos, {script.narration ? '1 narration' : 'no narration'}
+            {script.imagePrompts?.length ?? 0} scenes, {videoCount} videos, {script.narration ? '1 narration' : 'no narration'}
           </span>
           {hasAssets && (script.imagePrompts?.length ?? 0) > 0 && onProceedToGeneration && (
             <button
@@ -101,10 +104,10 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-6">
-        {script.scenePlan && <details className="mb-4 rounded-lg border border-border p-4 text-sm text-gray-300">
-          <summary className="cursor-pointer">{script.scenePlan.scenes.length} narration-linked scenes · Separate thumbnail prompt</summary>
+        {script.scenePlan && Array.isArray(script.scenePlan.scenes) && <details className="mb-4 rounded-lg border border-border p-4 text-sm text-gray-300">
+          <summary className="cursor-pointer">{scenes.length} narration-linked scenes · Separate thumbnail prompt</summary>
           <p className="mt-3 whitespace-pre-wrap">{script.scenePlan.thumbnailPrompt}</p>
-          <button className="mt-2 text-accent" onClick={() => navigator.clipboard.writeText(script.scenePlan!.thumbnailPrompt)}>Copy thumbnail prompt</button>
+          <button className="mt-2 text-accent" onClick={() => { void copyTextToClipboard(script.scenePlan?.thumbnailPrompt || ''); }}>Copy thumbnail prompt</button>
         </details>}
         {!hasAssets ? (
           <div className="flex h-full flex-col items-center justify-center text-gray-500">
@@ -139,7 +142,7 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
                     <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-gray-300">
                       {prompt}
                     </p>
-                    {script.scenePlan?.scenes[i]?.videoPrompt && <div className="mb-3 text-sm text-purple-200"><strong>Video prompt</strong><p>{script.scenePlan.scenes[i].videoPrompt}</p><button className="mt-2 text-xs text-accent" onClick={() => navigator.clipboard.writeText(script.scenePlan!.scenes[i].videoPrompt!)}>Copy video prompt</button></div>}
+                    {script.scenePlan?.scenes[i]?.videoPrompt && <div className="mb-3 text-sm text-purple-200"><strong>Video prompt</strong><p>{script.scenePlan.scenes[i].videoPrompt}</p><button className="mt-2 text-xs text-accent" onClick={() => { void copyTextToClipboard(script.scenePlan?.scenes[i]?.videoPrompt || ''); }}>Copy video prompt</button></div>}
                     {script.scenePlan?.scenes[i] && <p className="mb-3 text-sm text-emerald-200"><strong>{script.scenePlan.scenes[i].chapter} · {script.scenePlan.scenes[i].id}</strong><br />{script.scenePlan.scenes[i].narration}</p>}
                     {editingScene === i && <div className="mb-3 space-y-2">
                       {sceneType === 'video' && <label className="block text-xs text-gray-300">Video prompt<textarea aria-label="Video prompt" value={sceneVideo} onChange={event => setSceneVideo(event.target.value)} className="mt-1 w-full rounded border border-border bg-bg p-2" /></label>}
@@ -153,7 +156,7 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
                     </div>}
                     <div className="flex gap-2">
                       <button
-                        onClick={() => navigator.clipboard.writeText(prompt)}
+                        onClick={() => { void copyTextToClipboard(prompt); }}
                         className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2"
                       >
                         <Copy className="h-3.5 w-3.5" />
@@ -194,7 +197,7 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
                 </p>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => navigator.clipboard.writeText(script.narration!)}
+                    onClick={() => { void copyTextToClipboard(script.narration || ''); }}
                     className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2"
                   >
                     <Copy className="h-3.5 w-3.5" />

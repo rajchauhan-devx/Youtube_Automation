@@ -22,21 +22,24 @@ export function ScriptRunModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-[500px] rounded-2xl border border-border bg-bg shadow-2xl">
-        <div className="flex items-center justify-between border-b border-border p-4">
-          <h2 className="text-lg font-semibold">Run AI Script</h2>
-          <button onClick={onClose} className="rounded-lg p-2 hover:bg-surface">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="studio-card w-full max-w-[520px] overflow-hidden shadow-pop animate-scale-in">
+        <div className="flex items-center justify-between border-b border-borderSoft p-5">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-accent">AI Production</p>
+            <h2 className="mt-0.5 text-lg font-bold tracking-tight">Run AI Script</h2>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-white/5 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6">
-          <p className="mb-6 text-sm text-gray-400">
-            Running <strong>{script.name}</strong>. Provide a topic and optional instructions.
+        <form onSubmit={handleSubmit} className="space-y-4 p-5 sm:p-6">
+          <p className="-mt-1 text-[13px] leading-relaxed text-muted">
+            Running <strong className="text-white">{script.name}</strong>. Provide a topic and optional instructions.
           </p>
-          <div className="mb-4 space-y-2">
-            <label htmlFor="run-topic" className="text-sm font-medium">
-              Topic Name (Required)
+          <div className="space-y-2">
+            <label htmlFor="run-topic" className="studio-label">
+              Topic name · Required
             </label>
             <input
               id="run-topic"
@@ -44,30 +47,30 @@ export function ScriptRunModal({
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
               placeholder="e.g. History of Rome"
-              className="w-full rounded-lg border border-border bg-surface px-4 py-2 text-sm focus:border-accent focus:outline-none"
+              className="studio-input"
               required
             />
           </div>
-          <div className="mb-6 space-y-2">
-            <label htmlFor="run-instructions" className="text-sm font-medium">
-              AI Instructions (Optional)
+          <div className="space-y-2">
+            <label htmlFor="run-instructions" className="studio-label">
+              AI instructions · Optional
             </label>
             <textarea
               id="run-instructions"
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
               placeholder="e.g. Make it dramatic, focus on Caesar..."
-              className="h-24 w-full resize-none rounded-lg border border-border bg-surface px-4 py-2 text-sm focus:border-accent focus:outline-none"
+              className="studio-input h-24 resize-none"
             />
           </div>
-          <div className="flex justify-end gap-3">
-            <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm hover:bg-surface">
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="studio-btn-ghost">
               Cancel
             </button>
             <button
               type="submit"
               disabled={!topic.trim()}
-              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="studio-btn-primary min-w-[120px]"
             >
               Run Script
             </button>

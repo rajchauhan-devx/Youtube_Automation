@@ -72,11 +72,14 @@ export function NewScriptModal({ onClose, section, onCreated }: { onClose: () =>
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto thin-scrollbar rounded-lg border border-border bg-surface p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-base font-semibold">New Script</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-white">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="studio-card thin-scrollbar max-h-[90vh] w-full max-w-xl overflow-y-auto p-6 shadow-pop animate-scale-in">
+        <div className="mb-5 flex items-center justify-between">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-accent">Studio Pro</p>
+            <h3 className="mt-0.5 text-lg font-bold tracking-tight">New Script</h3>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted hover:bg-white/5 hover:text-white">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -180,18 +183,18 @@ export function NewScriptModal({ onClose, section, onCreated }: { onClose: () =>
             </Field>
           )}
         </div>
-        <div className="mt-6 flex justify-end gap-2">
+        <div className="mt-6 flex justify-end gap-2 border-t border-borderSoft pt-4">
           <button
             onClick={onClose}
             disabled={saving}
-            className="rounded-lg border border-border px-4 py-2 text-sm text-gray-200 hover:bg-surface2 disabled:opacity-50"
+            className="studio-btn-ghost"
           >
             Cancel
           </button>
           <button
             onClick={handleCreate}
             disabled={!name.trim() || saving}
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            className="studio-btn-primary min-w-[140px]"
           >
             {saving ? 'Saving...' : 'Create Script'}
           </button>

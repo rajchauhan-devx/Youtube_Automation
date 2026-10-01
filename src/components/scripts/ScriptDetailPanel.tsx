@@ -62,21 +62,22 @@ export function ScriptDetailPanel({
   }
 
   return (
-    <div className="w-80 shrink-0 rounded-lg border border-border bg-surface p-4">
+    <div className="studio-card w-full max-w-sm shrink-0 animate-scale-in p-5 lg:sticky lg:top-2 lg:w-[360px]">
       {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="rounded-lg border border-border bg-surface p-6 shadow-lg max-w-sm w-full mx-4">
-            <p className="mb-4 text-sm text-gray-200">Delete "{script.name}"?</p>
-            <div className="flex justify-end gap-2">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="studio-card w-full max-w-sm p-6 shadow-pop animate-scale-in">
+            <p className="text-[15px] font-semibold text-white">Delete "{script.name}"?</p>
+            <p className="mt-1 text-[13px] text-muted">This removes the template and its workspace state.</p>
+            <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={() => setShowDeleteConfirm(false)}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm text-gray-300 hover:bg-surface2"
+                className="studio-btn-ghost"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                className="rounded-lg bg-red-600 px-3 py-1.5 text-sm text-white hover:bg-red-700"
+                className="studio-btn-danger !border-danger/50 !bg-danger !text-white hover:!bg-red-600"
               >
                 Delete
               </button>
@@ -86,52 +87,55 @@ export function ScriptDetailPanel({
       )}
 
       {showClearConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <div className="rounded-lg border border-border bg-surface p-6 shadow-lg max-w-md w-full mx-4">
-            <h4 className="text-base font-semibold text-white mb-2">Clear Generated Content?</h4>
-            <p className="mb-4 text-sm text-gray-300 leading-relaxed">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="studio-card w-full max-w-md p-6 shadow-pop animate-scale-in">
+            <h4 className="text-base font-bold text-white">Clear generated content?</h4>
+            <p className="mb-4 mt-2 text-[13px] leading-relaxed text-muted">
               Clear all generated content for <span className="font-semibold text-white">"{script.name}"</span>? The template (prompts, duration, settings) will be preserved.
             </p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowClearConfirm(false)}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm text-gray-300 hover:bg-surface2"
+                className="studio-btn-ghost"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmClear}
-                className="rounded-lg bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+                className="studio-btn-primary"
               >
-                Clear Data
+                Clear data
               </button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-white truncate pr-2">{script.name}</h3>
-        <button onClick={onClose} className="text-gray-500 hover:text-white">
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="studio-label !mb-1">Selected script</p>
+          <h3 className="truncate text-[15px] font-bold text-white">{script.name}</h3>
+        </div>
+        <button onClick={onClose} aria-label="Close panel" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-white/5 hover:text-white">
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="space-y-3">
+      <div className="thin-scrollbar max-h-[52vh] space-y-4 overflow-y-auto pr-1">
         <div>
-          <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-            Prompts
+          <div className="studio-label">
+            Prompts · {script.prompts.length}
           </div>
           <div className="space-y-2">
             {script.prompts.map((p) => (
-              <div key={p.id} className="rounded-md bg-bg p-2">
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="rounded bg-surface2 px-1.5 py-0.5 text-[10px] font-medium text-gray-400">
+              <div key={p.id} className="rounded-xl border border-borderSoft bg-bg/60 p-3">
+                <div className="mb-1.5 flex items-center gap-2">
+                  <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-muted">
                     {p.type || 'Prompt'}
                   </span>
-                  <span className="text-xs font-medium text-white">{p.name}</span>
+                  <span className="truncate text-xs font-semibold text-white">{p.name}</span>
                 </div>
-                <div className="text-sm text-gray-300">{p.content}</div>
+                <div className="line-clamp-3 text-[13px] leading-relaxed text-muted">{p.content}</div>
               </div>
             ))}
           </div>
@@ -139,29 +143,29 @@ export function ScriptDetailPanel({
 
         {/* Duration Selector */}
         <div>
-          <div className="mb-1 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-gray-500">
-            <span>Duration</span>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="studio-label !mb-0">Duration</span>
             <button
               onClick={() => setIsEditingDuration(!isEditingDuration)}
-              className="flex items-center gap-1 text-[11px] font-normal text-accent hover:text-blue-400"
+              className="flex items-center gap-1 text-[11px] font-semibold text-accent hover:text-white"
             >
               <Pencil className="h-3 w-3" />
               {isEditingDuration ? 'Done' : 'Edit'}
             </button>
           </div>
           {isEditingDuration ? (
-            <div className="rounded-md bg-bg p-2 space-y-2">
+            <div className="rounded-xl border border-borderSoft bg-bg/60 p-2.5">
               <div className="flex flex-wrap gap-1.5">
                 {((script.section === 'long' || script.section === 'mixed') ? LONG_DURATION_PRESETS : DURATION_PRESETS).filter(dur => !script.maxDurationSeconds || dur <= script.maxDurationSeconds).map((dur) => (
                   <button
                     key={dur}
                     type="button"
                     onClick={() => handleSaveDuration(dur)}
-                    className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={
                       script.duration === dur
-                        ? 'bg-accent text-white'
-                        : 'border border-border bg-surface text-gray-300 hover:bg-surface2 hover:text-white'
-                    }`}
+                        ? 'rounded-lg bg-accent px-2.5 py-1.5 text-xs font-bold text-white shadow-glow'
+                        : 'rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-gray-300 hover:bg-surface2 hover:text-white'
+                    }
                   >
                     {dur >= 60 && dur % 60 === 0 ? `${dur / 60}m` : `${dur}s`}
                   </button>
@@ -169,9 +173,9 @@ export function ScriptDetailPanel({
               </div>
             </div>
           ) : (
-            <div className="rounded-md bg-bg p-2 text-sm text-gray-300 flex items-center justify-between">
-              <span>{script.duration}s target</span>
-              <span className="text-xs text-gray-500">
+            <div className="flex items-center justify-between rounded-xl border border-borderSoft bg-bg/60 px-3 py-2.5 text-[13px] text-gray-300">
+              <span className="font-semibold text-white">{script.duration}s target</span>
+              <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-muted">
                 {script.duration <= 60 ? 'Short' : 'Long-form'}
               </span>
             </div>
@@ -180,14 +184,14 @@ export function ScriptDetailPanel({
 
         {/* AI Model Selector */}
         <div>
-          <div className="mb-1 flex items-center justify-between text-xs font-medium uppercase tracking-wide text-gray-500">
-            <span className="flex items-center gap-1">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="studio-label !mb-0 flex items-center gap-1.5">
               <Sparkles className="h-3 w-3 text-accent" />
               AI Model
             </span>
             <button
               onClick={() => setIsEditingModel(!isEditingModel)}
-              className="flex items-center gap-1 text-[11px] font-normal text-accent hover:text-blue-400"
+              className="flex items-center gap-1 text-[11px] font-semibold text-accent hover:text-white"
             >
               <Pencil className="h-3 w-3" />
               {isEditingModel ? 'Done' : 'Change'}
@@ -197,12 +201,12 @@ export function ScriptDetailPanel({
           {isEditingModel ? (
             <ScriptModelSelector value={currentModelId} onChange={handleSelectModel} />
           ) : (
-            <div className="rounded-md bg-bg p-2 flex items-center justify-between text-sm text-gray-200">
+            <div className="flex items-center justify-between rounded-xl border border-borderSoft bg-bg/60 px-3 py-2.5">
               <div className="flex flex-col">
-                <span className="font-medium text-white text-xs">{activeModelObj.name}</span>
-                <span className="text-[10px] text-gray-400">{activeModelObj.badge || 'Google Gemini'}</span>
+                <span className="text-xs font-semibold text-white">{activeModelObj.name}</span>
+                <span className="text-[10px] text-faint">{activeModelObj.badge || 'Google Gemini'}</span>
               </div>
-              <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+              <span className="rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
                 Active
               </span>
             </div>
@@ -211,20 +215,20 @@ export function ScriptDetailPanel({
 
         {script.howItWorks && (
           <div>
-            <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-              How It Works
+            <div className="studio-label">
+              How it works
             </div>
-            <div className="rounded-md bg-bg p-2 text-sm text-gray-300">{script.howItWorks}</div>
+            <div className="rounded-xl border border-borderSoft bg-bg/60 p-3 text-[13px] leading-relaxed text-muted">{script.howItWorks}</div>
           </div>
         )}
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex gap-2 border-t border-borderSoft pt-4">
         {hasRunData && (
           <button
             onClick={() => setShowClearConfirm(true)}
             title="Clear all generated runs and reset to clean template"
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-gray-300 hover:bg-surface2 hover:text-white transition-colors"
+            className="studio-btn-ghost"
           >
             <RotateCcw className="h-4 w-4 text-accent" />
             Clear
@@ -232,15 +236,15 @@ export function ScriptDetailPanel({
         )}
         <button
           onClick={onRun}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 transition-colors"
+          className="studio-btn-primary flex-1"
         >
-          <Play className="h-4 w-4" />
+          <Play className="h-4 w-4 fill-current" />
           Run Script
         </button>
         <button
           onClick={handleDelete}
           title="Delete Script"
-          className="flex items-center justify-center rounded-lg border border-border px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
+          className="studio-btn-danger !px-3"
         >
           <Trash2 className="h-4 w-4" />
         </button>

@@ -15,11 +15,17 @@ import {
 } from 'lucide-react';
 import { Field } from '../layout/Field';
 import type { Section, Script, GeneratedImage } from '../../data';
+import { parseJsonResponse, copyTextToClipboard } from '../../lib/safe';
 
 function urlToServerPath(url: string, scriptId: string): string {
   if (!url) return '';
-  const parts = url.split('/');
-  return parts[parts.length - 1];
+  try {
+    const clean = url.split('?')[0].split('#')[0];
+    const parts = clean.split('/').filter(Boolean);
+    return parts[parts.length - 1] || '';
+  } catch {
+    return '';
+  }
 }
 
 export function ExportTab({
@@ -50,14 +56,27 @@ export function ExportTab({
   const [availableTracks, setAvailableTracks] = useState<{ id: string; name: string; mood: string }[]>([]);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    fetch('/api/render/music-tracks')
-      .then((r) => r.json())
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/render/music-tracks', { signal: controller.signal })
+      .then((r) => parseJsonResponse<{ tracks?: unknown }>(r, {}))
       .then((d) => {
-        if (Array.isArray(d.tracks)) setAvailableTracks(d.tracks);
+        if (!controller.signal.aborted && Array.isArray(d.tracks) && mountedRef.current) setAvailableTracks(d.tracks);
       })
       .catch(() => {});
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -78,10 +97,10 @@ export function ExportTab({
 
   async function checkExistingVideos(scriptId: string) {
     try {
-      const res = await fetch(`/api/render/status/${scriptId}`);
-      const data = await res.json();
-      if (data.videos?.length > 0) {
-        setRenderedVideo(data.videos[0].url);
+      const res = await fetch(`/api/render/status/${encodeURIComponent(scriptId)}`);
+      const data = await parseJsonResponse<{ videos?: { url?: string }[] }>(res, {});
+      if (Array.isArray(data.videos) && data.videos.length > 0 && data.videos[0]?.url && mountedRef.current) {
+        setRenderedVideo(data.videos[0].url!);
       }
     } catch {
       // ignore
@@ -175,23 +194,40 @@ export function ExportTab({
         }),
       });
 
-      const data = await res.json();
+      const data = await parseJsonResponse<{ error?: string }>(res, {});
       if (!res.ok) throw new Error(data.error || 'Render failed');
 
+      if (pollRef.current) clearInterval(pollRef.current);
+      let polls = 0;
+      const scriptIdAtStart = script.id;
       const progressInterval = setInterval(async () => {
+        polls += 1;
+        // Stop after ~10 minutes to avoid infinite polling on stuck renders.
+        if (polls > 600 || !mountedRef.current) {
+          clearInterval(progressInterval);
+          if (pollRef.current === progressInterval) pollRef.current = null;
+          if (mountedRef.current && polls > 600) {
+            setRendering(false);
+            setError('Render timed out while waiting for status. Check the Timeline tab.');
+          }
+          return;
+        }
         try {
-          const statusRes = await fetch(`/api/render/status/${script.id}`);
-          const statusData = await statusRes.json();
+          const statusRes = await fetch(`/api/render/status/${encodeURIComponent(scriptIdAtStart)}`);
+          const statusData = await parseJsonResponse<{ status?: string; error?: string; progress?: number; videos?: { url?: string }[] }>(statusRes, {});
+          if (!mountedRef.current) return;
 
           if (statusData.status === 'error') {
             clearInterval(progressInterval);
+            if (pollRef.current === progressInterval) pollRef.current = null;
             setRendering(false);
             setError(statusData.error || 'Render failed');
-          } else if (statusData.status === 'done' && statusData.videos?.length > 0) {
+          } else if (statusData.status === 'done' && Array.isArray(statusData.videos) && statusData.videos.length > 0) {
             clearInterval(progressInterval);
+            if (pollRef.current === progressInterval) pollRef.current = null;
             setRendering(false);
             setProgress(100);
-            setRenderedVideo(statusData.videos[0].url);
+            if (statusData.videos[0]?.url) setRenderedVideo(statusData.videos[0].url!);
           } else if (statusData.status === 'running') {
             if (typeof statusData.progress === 'number') {
               setProgress(statusData.progress);
@@ -201,9 +237,12 @@ export function ExportTab({
           }
         } catch {}
       }, 1000);
+      pollRef.current = progressInterval;
     } catch (err: any) {
-      setRendering(false);
-      setError(err.message || 'Failed to render video');
+      if (mountedRef.current) {
+        setRendering(false);
+        setError(err?.message || 'Failed to render video');
+      }
     }
   }
 
@@ -584,7 +623,7 @@ export function ExportTab({
           <button
             onClick={() => {
               if (script) {
-                navigator.clipboard.writeText(`Topic: ${script.topicName || ''}\nScript:\n${script.narration || ''}`);
+                void copyTextToClipboard(`Topic: ${script.topicName || ''}\nScript:\n${script.narration || ''}`);
               }
             }}
             className="flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-gray-200 hover:bg-surface2"

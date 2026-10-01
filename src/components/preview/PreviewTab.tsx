@@ -11,6 +11,7 @@ import {
   User,
 } from 'lucide-react';
 import type { PipelineStep, Script } from '../../data';
+import { copyTextToClipboard } from '../../lib/safe';
 
 interface PreviewTabProps {
   pipeline: PipelineStep[];
@@ -73,7 +74,8 @@ export function PreviewTab({
 
   function handleCopy() {
     if (!script?.aiResponse) return;
-    navigator.clipboard.writeText(script.aiResponse).then(() => {
+    copyTextToClipboard(script.aiResponse).then((ok) => {
+      if (!ok) return;
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });

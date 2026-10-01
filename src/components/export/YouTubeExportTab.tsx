@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { Field } from '../layout/Field';
 import type { Script, GeneratedImage } from '../../data';
+import { copyTextToClipboard } from '../../lib/safe';
 
 interface YouTubeChannelInfo {
   id?: string;
@@ -291,11 +292,13 @@ export function YouTubeExportTab({
     }
   }
 
-  // Copy helper
+  // Copy helper — never throws, only shows Copied on success.
   function copyToClipboard(text: string, fieldName: string) {
-    navigator.clipboard.writeText(text);
-    setCopiedField(fieldName);
-    setTimeout(() => setCopiedField(null), 2000);
+    copyTextToClipboard(text).then((ok) => {
+      if (!ok) return;
+      setCopiedField(fieldName);
+      setTimeout(() => setCopiedField(null), 2000);
+    });
   }
 
   // 5. Upload Video Directly

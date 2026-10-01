@@ -124,10 +124,24 @@ Rules:
 
     const content = result.choices?.[0]?.message?.content || '';
     const cleaned = content.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-    const parsed = JSON.parse(cleaned);
+    let parsed: { script?: unknown; imagePrompts?: unknown } = {};
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      // LLMs often wrap JSON in prose/fences — extract the first {...} block.
+      const start = cleaned.indexOf('{');
+      const end = cleaned.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        try {
+          parsed = JSON.parse(cleaned.slice(start, end + 1));
+        } catch {
+          parsed = {};
+        }
+      }
+    }
 
     res.json({
-      script: parsed.script || '',
+      script: typeof parsed.script === 'string' ? parsed.script : '',
       // Narration must be the literal content of <script> only, never inferred by the model.
       ttsText: extractScriptTagContent(rawText),
       imagePrompts: Array.isArray(parsed.imagePrompts) ? parsed.imagePrompts : [],

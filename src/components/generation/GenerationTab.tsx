@@ -28,6 +28,7 @@ import { ErrorBoundary } from '../ErrorBoundary';
 import { MixedMediaContent } from './MixedMediaContent';
 import { saveVoiceReference, rememberVoice, preferredVoice, VOICES_CHANGED } from '../../services/voiceLibrary';
 import { normalizeNarration, spokenText } from '../../../server/src/services/scene-plan';
+import { parseJsonResponse } from '../../lib/safe';
 
 function getErrorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -152,8 +153,8 @@ function ImageGenerationContent({
   async function checkServer() {
     setServerStatus('checking');
     const status = await fetch('/api/generate/status')
-      .then((r) => r.json())
-      .catch((err) => ({ online: false, detail: err.message }));
+      .then(async (r) => parseJsonResponse<{ online?: boolean; detail?: string }>(r, {}))
+      .catch((err) => ({ online: false as boolean, detail: err?.message as string | undefined }));
     setServerStatus(status.online ? 'online' : 'offline');
     setServerError(status.detail || '');
     return status.online as boolean;
@@ -162,7 +163,7 @@ function ImageGenerationContent({
   async function loadModels() {
     try {
       const res = await fetch('/api/generate/models');
-      const data = await res.json();
+      const data = await parseJsonResponse<{ models?: unknown }>(res, {});
       if (Array.isArray(data.models) && data.models.length > 0) {
         setModels(data.models);
         if (!selectedModel) {
@@ -206,7 +207,7 @@ function ImageGenerationContent({
           seed: seedMode === 'fixed' ? fixedSeed : undefined,
         }),
       });
-      const data = await res.json();
+      const data = await parseJsonResponse<{ url?: string; seed?: number; elapsedMs?: number; error?: string; code?: string }>(res, {});
       if (!res.ok) throw Object.assign(new Error(data.error || 'Generation failed'), { code: data.code });
       updateImage(item.index, {
         status: 'done',
@@ -1146,6 +1147,10 @@ function AudioGenerationContent({
         const blob = await res.blob();
         if (previewVoiceIdRef.current !== vId) return;
         const url = URL.createObjectURL(blob);
+        if (previewVoiceIdRef.current !== vId) {
+          URL.revokeObjectURL(url);
+          return;
+        }
         audioUrlRef.current = url;
         const audio = new Audio(url);
         audioRef.current = audio;

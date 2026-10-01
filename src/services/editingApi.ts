@@ -1,6 +1,7 @@
 import type { EditingProject, JobRecord } from "@tubeflow/editing-contracts";
 import type { CompositionProps } from "@tubeflow/video-composition";
 import { getApiKey } from "./api";
+import { parseJsonResponse } from "../lib/safe";
 export interface EditingPayload {
   project: EditingProject;
   assets: CompositionProps["assets"];
@@ -44,8 +45,10 @@ export async function editingRequest<T>(
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  const data = await response.json();
-  if (!response.ok)
-    throw new Error(data.error?.message || "Visual editing request failed");
+  const data = await parseJsonResponse<{ error?: { message?: string } | string }>(response, {});
+  if (!response.ok) {
+    const message = typeof data?.error === 'string' ? data.error : data?.error?.message;
+    throw new Error(message || `Visual editing request failed (HTTP ${response.status})`);
+  }
   return data as T;
 }

@@ -14,19 +14,22 @@ export function EditingWorkspace({
   );
   return (
     <>
-      <div className="mb-4 flex gap-2">
+      <div className="studio-card mb-4 flex flex-wrap items-center gap-2 p-2">
         <button
-          className={`rounded px-3 py-2 text-sm ${mode === "legacy" ? "bg-blue-700 text-white" : "bg-surface text-gray-400"}`}
+          className={mode === "legacy" ? "studio-btn-primary !py-2" : "studio-btn-ghost !border-transparent !bg-transparent"}
           onClick={() => setMode("legacy")}
         >
           Legacy timeline & export
         </button>
         <button
-          className={`rounded px-3 py-2 text-sm ${mode === "enhanced" ? "bg-blue-700 text-white" : "bg-surface text-gray-400"}`}
+          className={mode === "enhanced" ? "studio-btn-primary !py-2" : "studio-btn-ghost !border-transparent !bg-transparent"}
           onClick={() => setMode("enhanced")}
         >
           Enhanced revision & export
         </button>
+        <span className="ml-auto hidden px-2 text-[11px] font-medium text-faint sm:block">
+          {mode === "legacy" ? "Classic editor workflow" : "AI revision workflow"}
+        </span>
       </div>
       {mode === "legacy" ? (
         <ReviewAdjustTab script={script} onUpdate={onUpdate} />

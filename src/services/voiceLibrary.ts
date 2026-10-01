@@ -15,6 +15,8 @@ const PREFERENCE_KEY = (accountId: string, provider: string, language: string) =
 
 export type WorkspaceFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
+import { parseJsonResponse } from '../lib/safe';
+
 // Voice selections belong to one profile: each account remembers its own
 // preferred reference so switching YouTube accounts never carries a voice over.
 export function rememberVoice(accountId: string, language: string, provider: string, id: string) {
@@ -35,10 +37,10 @@ export async function listVoices(
   signal?: AbortSignal,
 ): Promise<{ voices: SavedVoice[]; provider: string }> {
   const response = await workspaceFetch(`/api/tts/voices?language=${language}`, { signal });
-  const data = await response.json();
+  const data = await parseJsonResponse<{ voices?: unknown; provider?: string; error?: string }>(response, {});
   if (!response.ok) throw new Error(data.error || 'Could not load saved voices');
   if (!Array.isArray(data.voices)) throw new Error('Invalid voice library response');
-  return data;
+  return data as { voices: SavedVoice[]; provider: string };
 }
 
 export async function saveVoiceReference(
@@ -62,8 +64,9 @@ export async function saveVoiceReference(
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: name.trim(), language, dataUrl }),
   });
-  const data = await response.json();
+  const data = await parseJsonResponse<{ voice?: SavedVoice; error?: string }>(response, {});
   if (!response.ok) throw new Error(data.error || 'Could not save the voice reference');
+  if (!data.voice) throw new Error('Could not save the voice reference');
   window.dispatchEvent(new Event(VOICES_CHANGED));
   return data.voice;
 }
@@ -71,7 +74,7 @@ export async function saveVoiceReference(
 export async function removeVoiceReference(id: string, workspaceFetch: WorkspaceFetch): Promise<void> {
   const response = await workspaceFetch(`/api/tts/voices/${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!response.ok) {
-    const data = await response.json();
+    const data = await parseJsonResponse<{ error?: string }>(response, {});
     throw new Error(data.error || 'Could not delete voice reference');
   }
   window.dispatchEvent(new Event(VOICES_CHANGED));
