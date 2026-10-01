@@ -17,11 +17,11 @@ export function motionModel(selected?: string) {
   if (!supportedMotionModel(model)) throw new EditingError('NEEDS_CONFIGURATION', 'Select a Gemini vision model for motion graphics.');
   return model;
 }
-export const motionCredential = (_requestKey?: string) => process.env.GEMINI_API_KEY?.trim();
+export const motionCredential = () => process.env.GEMINI_API_KEY?.trim();
 
 /** Every actual provider request is recorded; one retry, no model switching or hidden loops. */
-export async function motionJson<T>(ctx: MotionContext, model: string, operation: string, schema: z.ZodType<T>, system: string, data: unknown, images: string[] = []): Promise<T> {
-  const key = motionCredential(ctx.apiKey);
+export async function motionJson<T>(ctx: MotionContext, model: string, operation: string, schema: z.ZodType<T>, system: string, data: unknown, images: string[] = [], attempts = 2): Promise<T> {
+  const key = motionCredential();
   if (!key) throw new EditingError('NEEDS_CONFIGURATION', 'Add GEMINI_API_KEY in server/.env to generate motion graphics.');
   motionModel(model);
   const jsonSchema = z.toJSONSchema(schema);
@@ -31,10 +31,10 @@ export async function motionJson<T>(ctx: MotionContext, model: string, operation
     if (!match) throw new EditingError('INVALID_IMAGE', 'The scene image could not be prepared.');
     return { inlineData: { mimeType: match[1], data: match[2] } };
   });
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < attempts; attempt++) {
     ctx.signal.throwIfAborted();
     if (ctx.job.usage.length >= ctx.maxCalls) throw new EditingError('RESOURCE_LIMIT', 'The motion graphics request budget is exhausted.');
-    const usage = { operation, model, promptVersion: 'motion-v2', prompt_tokens: 0, completion_tokens: 0 };
+    const usage = { operation, model, promptVersion: 'motion-v3', prompt_tokens: 0, completion_tokens: 0 };
     ctx.job.usage.push(usage); ctx.persist();
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
@@ -67,7 +67,7 @@ export async function motionJson<T>(ctx: MotionContext, model: string, operation
         : error instanceof Error && error.name === 'TimeoutError' ? new EditingError('PROVIDER_TIMEOUT',
           'Gemini did not respond before the timeout. The selected model may be overloaded; choose another Gemini model and generate again.', 502, true)
         : new EditingError('PROVIDER_ERROR', 'Could not complete the Gemini graphics request. Check the connection or choose another Gemini model and generate again.', 502, true);
-      if (attempt === 1 || !failure.retryable) throw failure;
+      if (attempt === attempts - 1 || !failure.retryable) throw failure;
       await wait(700, undefined, { signal: ctx.signal });
     }
   }

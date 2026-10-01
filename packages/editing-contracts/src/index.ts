@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SCHEMA_VERSION = 1;
-export const RENDERER_VERSION = "2.0.0";
+export const RENDERER_VERSION = "3.0.0";
 export const Id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 export const UUID = z.uuid();
 export const Hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -231,8 +231,65 @@ export const Node = z.discriminatedUnion("kind", [
     assetId: Id,
   }),
 ]);
+/** Custom graphics use local normalized bounds and progress-based animation, never executable code. */
+export const CustomTrack = z.strictObject({
+  property: z.enum(["x", "y", "opacity", "draw", "value", "scale", "rotation"]),
+  keyframes: z.array(z.strictObject({ at: unit, value: z.number().finite().min(-100000).max(100000), easing: z.enum(["linear", "smooth"]) })).min(2).max(16),
+});
+export const CustomElement = z.strictObject({
+  id: Id,
+  kind: z.enum(["text", "rect", "ellipse", "path", "counter", "image"]),
+  assetId: Id.optional(),
+  bounds: Crop,
+  text: z.string().max(160),
+  evidence: z.string().trim().min(1).max(1000),
+  color: Color,
+  fill: Color.nullable(),
+  fontSize: z.number().min(0.02).max(0.3),
+  align: z.enum(["left", "center", "right"]),
+  strokeWidth: z.number().min(0).max(0.03),
+  points: z.array(z.strictObject({ x: unit, y: unit })).max(32),
+  tracks: z.array(CustomTrack).max(7),
+});
+export const CustomDesign = z.strictObject({
+  version: z.literal(1),
+  name: z.string().trim().min(1).max(80),
+  elements: z.array(CustomElement).min(1).max(32),
+});
+export type CustomDesignSpec = z.infer<typeof CustomDesign>;
+export type CustomElementSpec = z.infer<typeof CustomElement>;
+/** Shared validation is also applied to saved projects and manual edits. */
+export function customDesignIssues(design: CustomDesignSpec) {
+  const issues: string[] = [];
+  const ids = new Set<string>();
+  for (const e of design.elements) {
+    if (ids.has(e.id)) issues.push(`Duplicate element ${e.id}`);
+    ids.add(e.id);
+    if ((e.kind === "text" || e.kind === "counter") && !e.text.trim()) issues.push(`${e.id}: missing text`);
+    if (e.kind === "path" && e.points.length < 2) issues.push(`${e.id}: path needs two points`);
+    if (e.kind === "image" && !e.assetId) issues.push(`${e.id}: image needs an approved asset`);
+    if (e.kind !== "image" && e.assetId) issues.push(`${e.id}: only images may reference assets`);
+    const properties = new Set<string>();
+    for (const track of e.tracks) {
+      if (properties.has(track.property)) issues.push(`${e.id}: duplicate animation property`);
+      properties.add(track.property);
+      track.keyframes.forEach((k, i) => {
+        if (i && k.at <= track.keyframes[i - 1].at) issues.push(`${e.id}: keyframes must increase`);
+        if (["opacity", "draw"].includes(track.property) && (k.value < 0 || k.value > 1)) issues.push(`${e.id}: invalid animation range`);
+        if (track.property === "scale" && (k.value <= 0 || k.value > 3)) issues.push(`${e.id}: invalid scale`);
+        if (track.property === "rotation" && Math.abs(k.value) > 360) issues.push(`${e.id}: invalid rotation`);
+        if (track.property === "value" && !Number.isInteger(k.value)) issues.push(`${e.id}: counters require integer values`);
+        if (track.property === "value" && e.kind !== "counter") issues.push(`${e.id}: value animation requires counter`);
+        if (track.property === "x" && (e.bounds.x + k.value < 0 || e.bounds.x + k.value + e.bounds.width > 1.000001)) issues.push(`${e.id}: animation exceeds horizontal bounds`);
+        if (track.property === "y" && (e.bounds.y + k.value < 0 || e.bounds.y + k.value + e.bounds.height > 1.000001)) issues.push(`${e.id}: animation exceeds vertical bounds`);
+      });
+    }
+  }
+  return issues;
+}
 export const MotionGraphic = z.strictObject({
-  kind: z.enum(["title", "lower-third", "badge", "spotlight"]),
+  kind: z.enum(["title", "lower-third", "badge", "spotlight", "custom"]),
+  design: CustomDesign.optional(),
   title: z.string().trim().min(1).max(64),
   detail: z.string().trim().max(120),
   bounds: Rect,
@@ -242,7 +299,9 @@ export const MotionGraphic = z.strictObject({
     evidence: z.string().max(1000),
     verified: z.literal(true),
   }).optional(),
-}).refine(g => g.kind !== "spotlight" || !!g.target, "A spotlight needs a verified target");
+}).refine(g => g.kind === "custom" ? !!g.design && !g.target : !g.design, "Custom graphics require a design; native graphics cannot include one")
+.refine(g => !g.design || !customDesignIssues(g.design).length, "Invalid custom animation")
+.refine(g => g.kind !== "spotlight" || !!g.target, "A spotlight needs a verified target");
 export type MotionGraphicSpec = z.infer<typeof MotionGraphic>;
 
 export const Artifact = z.strictObject({
@@ -711,6 +770,25 @@ export function validateProject(value: unknown): EditingProject {
       if (b.x < 0 || b.y < 0 || b.x + b.width > p.inputs.width || b.y + b.height > p.inputs.height)
         fail("Motion graphic exceeds the output canvas");
       if (a.nodes.length) fail("Motion graphics cannot include legacy composition nodes");
+      if (a.graphic.design) {
+        const narration = scene!.narrativeRefs.map(id => p.alignment.tokens.find(t => t.id === id)?.text || "").join(" ");
+        const normalize = (text: string) => text.normalize("NFC").replace(/\s+/g, " ").trim().toLocaleLowerCase();
+        const numbers = (text: string) => (text.replace(/[०-९]/g, char => String(char.charCodeAt(0) - 0x0966)).match(/-?\d+(?:[.,]\d+)*/g) || []).map(value => value.replace(/,/g, ""));
+        for (const element of a.graphic.design.elements) {
+          if (element.assetId) {
+            asset(element.assetId);
+            if (!p.inputs.imageAssets.some(image => image.assetId === element.assetId)) fail("Custom images must use approved scene media");
+          }
+          if (!normalize(narration).includes(normalize(element.evidence))) fail(`Missing narration evidence for ${element.id}`);
+          const supported = numbers(element.evidence);
+          if (numbers(element.text).some(value => !supported.includes(value))) fail(`Unsupported number in ${element.id}`);
+          if (element.kind === "counter") {
+            const track = element.tracks.find(t => t.property === "value");
+            if (!track || !element.text.includes("{value}")) fail("Counter needs a value animation and placeholder");
+            if (track && [track.keyframes[0], track.keyframes[track.keyframes.length - 1]].some(k => !supported.includes(String(k.value)))) fail("Counter endpoints require narration evidence");
+          }
+        }
+      }
     }
     if (a.nodes.some((n) => n.kind === "text") && !a.narrativeRefs.length)
       fail("Text requires supplied narrative references");

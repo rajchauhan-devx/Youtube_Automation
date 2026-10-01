@@ -1,11 +1,11 @@
 import { z } from 'zod';
-import { Artifact, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
+import { Artifact, type ArtifactComposition, type EditingProject, type MotionGraphicSpec, type CustomDesignSpec } from '@tubeflow/editing-contracts';
 import { cardBounds, graphicIssues, graphicNames } from '@tubeflow/video-composition';
 import { assetRecord } from './repository.js';
 
 export const GraphicProposal = z.strictObject({
   sceneId: z.string(),
-  kind: z.enum(['title', 'lower-third', 'badge', 'spotlight']),
+  kind: z.enum(['title', 'lower-third', 'badge', 'spotlight', 'custom']),
   title: z.string().trim().min(1).max(64),
   detail: z.string().trim().max(120),
   target: z.string().trim().max(120),
@@ -18,12 +18,17 @@ export function sceneNarration(p: EditingProject, sceneId: string) {
   const scene = p.scenes.find(s => s.id === sceneId)!;
   return scene.narrativeRefs.map(id => p.alignment.tokens.find(t => t.id === id)?.text || '').join(' ');
 }
-export function compileGraphic(p: EditingProject, proposal: Proposal, target?: MotionGraphicSpec['target'], id = `graphic-${proposal.sceneId}`): ArtifactComposition {
+export function compileGraphic(p: EditingProject, proposal: Proposal, target?: MotionGraphicSpec['target'], id = `graphic-${proposal.sceneId}`, design?: CustomDesignSpec): ArtifactComposition {
   const scene = p.scenes.find(s => s.id === proposal.sceneId);
   if (!scene || !normalize(sceneNarration(p, scene.id)).includes(normalize(proposal.quote))) throw new Error('The proposed graphic has no matching narration evidence.');
+  if (proposal.kind === 'custom' && !design) throw new Error('A custom graphic needs a design.');
+  if (design) for (const element of design.elements) {
+    if (!normalize(sceneNarration(p, scene.id)).includes(normalize(element.evidence))) throw new Error(`${element.id}: content has no matching narration evidence.`);
+    if (element.kind === 'counter' && (!element.text.includes('{value}') || !element.tracks.some(t => t.property === 'value'))) throw new Error(`${element.id}: counter needs a value placeholder and animation.`);
+  }
   const title = proposal.kind === 'spotlight' && target ? target.label.slice(0, 64).replace(/^./u, first => first.toLocaleUpperCase()) : proposal.title;
   const sceneSeconds = (scene.endFrame - scene.startFrame) / p.inputs.fps;
-  const readingSeconds = (detail: string) => Math.max(2.5, Math.min(8, `${title} ${detail}`.trim().split(/\s+/u).length / 3 + 0.8));
+  const readingSeconds = (detail: string) => Math.max(2.5, Math.min(8, (design ? design.elements.filter(e => e.kind === 'text' || e.kind === 'counter').map(e => e.text).join(' ') : `${title} ${detail}`).trim().split(/\s+/u).length / 3 + 0.8));
   let detail = proposal.kind === 'spotlight' ? '' : proposal.detail;
   if (proposal.kind === 'title' && sceneSeconds < Math.min(readingSeconds(detail), 3)) detail = '';
   const seconds = readingSeconds(detail);
@@ -37,7 +42,7 @@ export function compileGraphic(p: EditingProject, proposal: Proposal, target?: M
   const endFrame = Math.min(scene.endFrame, startFrame + Math.ceil(seconds * p.inputs.fps));
   if (endFrame - startFrame < p.inputs.fps * 2) throw new Error('The cue leaves insufficient reading time.');
   const graphic: MotionGraphicSpec = { kind: proposal.kind, title, detail,
-    bounds: cardBounds(proposal.kind, p.inputs.width, p.inputs.height, proposal.position || (proposal.kind === 'title' ? 'center' : 'bottom')), ...(target ? { target } : {}) };
+    ...(design ? { design } : {}), bounds: cardBounds(proposal.kind, p.inputs.width, p.inputs.height, proposal.position || (proposal.kind === 'title' ? 'center' : 'bottom')), ...(target ? { target } : {}) };
   const artifact = Artifact.parse({ id, sceneId: scene.id, enabled: true, intent: `${graphicNames[proposal.kind]}: ${title}`,
     narrativeRefs: scene.narrativeRefs.slice(0, 100), startFrame, endFrame, priority: 5, nodes: [], assetRequestIds: [], graphic });
   const source = assetRecord(scene.assetId);

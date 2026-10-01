@@ -11,7 +11,7 @@ export function makeStyleTestProject(project: EditingProject): { project: Editin
 
   const usedScenes = new Set([spotlight.sceneId]);
   const artifacts: ArtifactComposition[] = [spotlight];
-  const labels: Record<Exclude<Kind, 'spotlight'>, { title: string; detail: string; position: string }> = {
+  const labels: Record<Exclude<Kind, 'spotlight' | 'custom'>, { title: string; detail: string; position: string }> = {
     title: { title: 'Title style', detail: '', position: 'center' },
     'lower-third': { title: 'Character name', detail: 'Style test', position: 'bottom' },
     badge: { title: 'Location / Era', detail: 'Style test', position: 'top' },

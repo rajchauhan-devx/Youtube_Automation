@@ -152,7 +152,7 @@ editingRouter.get(
     const selected = req.query.model === undefined ? undefined : z.string().min(1).max(150).parse(req.query.model);
     let model = '';
     try { model = motionModel(selected); } catch (error) { missing.push(error instanceof Error ? error.message : 'Select a Gemini model.'); }
-    if (!motionCredential(credential(req))) missing.push('Add GEMINI_API_KEY in server/.env.');
+    if (!motionCredential()) missing.push('Add GEMINI_API_KEY in server/.env.');
     res.json({ ...capabilities, ready: missing.length === 0, missing,
       provider: 'Gemini', models: { planner: model, vision: model, review: model }, modelsVerified: false,
       alignment: 'Saved narration scene timing; estimated timing when unavailable', grounding: true,
@@ -271,6 +271,9 @@ editingRouter.patch(
       // A text/layout edit cannot forge or replace the model-verified target.
       if (JSON.stringify(change.graphic.target) !== JSON.stringify(artifact.graphic.target) || change.graphic.kind !== artifact.graphic.kind)
         throw new EditingError('INVALID_TARGET', 'Regenerate the spotlight to change its target.');
+      for (const element of change.graphic.design?.elements || []) {
+        if (element.assetId && !assetRecord(element.assetId).mime.startsWith('image/')) throw new EditingError('INVALID_ASSET', 'Custom images require still image assets.');
+      }
       artifact.graphic = change.graphic;
       artifact.intent = `${graphicNames[change.graphic.kind]}: ${change.graphic.title}`;
     }

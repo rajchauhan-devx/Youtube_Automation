@@ -3,12 +3,14 @@ import os from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
 import { z } from 'zod';
-import { Crop, validateProject, motionProject, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
+import { RENDERER_VERSION, CustomDesign, Crop, validateProject, motionProject, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { atomic, assetFile, assetRecord, nextRevision, objectHash, projectDir } from './repository.js';
 import { align, mapScenes } from './timing.js';
 import { EditingError } from './config.js';
 import { motionJson, motionModel, type MotionContext } from './motionProvider.js';
 import { compileGraphic, GraphicProposal, sceneNarration, type Proposal } from './motionPackArtifacts.js';
+import { previewFrames } from './renderer.js';
+import { cardBounds } from '@tubeflow/video-composition';
 import { runMedia } from '../media-process.js';
 
 const Plan = z.strictObject({ graphics: z.array(GraphicProposal).max(16) });
@@ -18,11 +20,16 @@ type Observation = z.infer<typeof VisualScene>;
 const Detection = z.strictObject({ found: z.boolean(), description: z.string().max(1000), box: z.array(z.number().min(0).max(1000)).length(4).nullable() });
 const Verification = z.strictObject({ matches: z.boolean(), unambiguous: z.boolean(), evidence: z.string().max(1000) });
 const PLAN_PROMPT = `You are a documentary motion graphics editor. Choose a small number of important narrative beats.
-Allowed graphics: title (2-5 word chapter/hook headline), lower-third (character name and short identity), badge (place or era), spotlight (a clearly named visible physical object).
+Prefer custom graphics: invent a concise visual explanation (timeline, comparison, process, relationship diagram, drawn annotation, or another useful composition). These are purposes, not a fixed template list. Use custom whenever a visual explanation adds value. Native graphics remain available: title (2-5 word chapter/hook headline), lower-third (character name and short identity), badge (place or era), spotlight (a clearly named visible physical object).
 No subtitles, narration excerpts as display text, social buttons, keyword stickers or generic motivational labels. Do not invent names, dates, statistics, identities or claims.
 Write labels in the narration language. Every proposal must cite an exact quote from its scene's narration. title/detail must be supported by that quote.
-Use at most one graphic per scene, and respect the supplied limits. Leave scenes clean when a graphic adds no value. For spotlight, target must name a specific physical object listed in visibleObjects; title must name that visible object rather than inferred contents or identity. Never propose a spotlight for an absent or unclear object. For other types, target is empty.
+Use at most one graphic per scene, and respect the supplied limits. Leave scenes clean when a graphic adds no value. For spotlight, target must name a specific physical object listed in visibleObjects; title must name that visible object rather than inferred contents or identity. Never propose a spotlight for an absent or unclear object. For other types, target is empty. For custom, title names the design and detail describes its visual purpose; the next stage designs the actual elements. Custom graphics are screen-based, never pretend to track physical objects. Maintain one visual direction and avoid repeating the same composition across scenes.
 The visual inventory describes what is actually visible. Prefer the openArea for text placement; use position top, bottom, left, right, or center as appropriate. Avoid repeated titles when another supported graphic type is suitable. The supplied mediaType indicates whether a scene is a still or moving clip. Use scene graphics for moving clips; spotlights require still images. Return graphics:[] if none are warranted.`;
+
+const DESIGN_PROMPT = `Design a custom documentary motion graphic as JSON, never code. Use the proposed purpose, narration evidence, visual inventory and project theme.
+Compose text, rect, ellipse, path, counter and approved image elements; combine these building blocks freely. Element order is back to front. Bounds are normalized 0..1 relative to the supplied graphic area, not the full screen. Text fontSize and strokeWidth are fractions of graphic-area width. Font size must be >= supplied minimumFontSize. Text line height is 1.3; leave generous room for wrapping, especially Hindi. Keep labels concise. Each element must cite an exact nonempty narration quote as evidence. Never invent claims, dates or numbers. Every displayed number and counter endpoint must appear in its cited evidence; counters use text containing {value}.
+All fields are required. Use empty text for shapes, points:[] except paths, tracks:[] for static elements, fill:null for no fill. Paths use normalized points relative to their own bounds. Use color values from the supplied palette. Image assetId must come from approvedImages; omit assetId for other elements. No arbitrary assets, URLs, HTML or scripts.
+Animation keyframes use at:0..1 across the graphic duration, strictly increasing. Supported properties: x/y (normalized translation offsets, remaining inside the area), opacity/draw (0..1), value (counters only), scale (0.01..3, centered), rotation (-360..360 degrees, centered). Transformed elements must remain inside their area; allow generous margins when rotating. Easing is linear or smooth. Omit unsupported properties. Use subtle entrance/exit opacity, progressive path drawing and staggered reveals. Keep all labels readable for most of the duration. Avoid dense layouts and decorative clutter. Return version:1, a descriptive name, and at most 32 elements.`;
 
 async function sceneImage(assetId: string, signal: AbortSignal): Promise<string> {
   const record = assetRecord(assetId);
@@ -84,7 +91,7 @@ async function locate(ctx: MotionContext, model: string, assetId: string, label:
   return { label, region, evidence: verified.evidence, verified: true };
 }
 
-type Checkpoint = { version: 'motion-v2'; inputHash: string; project: EditingProject; observations?: Observation[]; proposals?: Proposal[]; completed: string[] };
+type Checkpoint = { version: 'motion-v3'; inputHash: string; project: EditingProject; observations?: Observation[]; proposals?: Proposal[]; completed: string[] };
 export async function runPipeline(input: EditingProject, ctx: MotionContext): Promise<EditingProject> {
   const model = motionModel(input.settings.aiModel), revise = ctx.job.operation === 'revise';
   const file = path.join(projectDir(input.id), 'jobs', `${ctx.job.id}.checkpoint.json`);
@@ -92,7 +99,7 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
   let checkpoint: Checkpoint | undefined;
   if (fs.existsSync(file)) {
     const saved = JSON.parse(fs.readFileSync(file, 'utf8')) as Checkpoint;
-    if (saved.version === 'motion-v2' && saved.inputHash === inputHash) { validateProject(saved.project); checkpoint = saved; }
+    if (saved.version === 'motion-v3' && saved.inputHash === inputHash) { validateProject(saved.project); checkpoint = saved; }
   }
   if (!checkpoint) {
     const project = motionProject(nextRevision(input));
@@ -105,7 +112,7 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
       project.sceneOutcomes = project.scenes.map(s => ({ sceneId: s.id, state: 'not_needed', reason: 'No extra graphic is needed for this scene.', artifactIds: [] }));
       if (project.alignment.mode !== 'word') project.diagnostics.push({ severity: 'info', code: 'SCENE_TIMING', stage: 'timing', message: project.alignment.mode === 'phrase' ? 'Graphics use measured narration scene boundaries. Timing can be adjusted on each graphic.' : 'Narration timing is estimated. Graphics start at scene boundaries; review timing before export.', retryable: false });
     }
-    checkpoint = { version: 'motion-v2', inputHash, project, completed: [] };
+    checkpoint = { version: 'motion-v3', inputHash, project, completed: [] };
   }
   const p = checkpoint.project;
   const save = () => { ctx.signal.throwIfAborted(); atomic(file, checkpoint); };
@@ -155,6 +162,53 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
       if (proposal.kind === 'spotlight') {
         const target = await locate(ctx, model, scene.assetId, proposal.target || proposal.title);
         artifact = compileGraphic(p, proposal, target, old?.id);
+      } else if (proposal.kind === 'custom') {
+        const designHash = objectHash({ proposal, model, prompt: DESIGN_PROMPT, rendererVersion: RENDERER_VERSION,
+          narration: sceneNarration(p, scene.id), visual: checkpoint.observations?.find(o => o.sceneId === scene.id),
+          media: p.inputs.imageAssets.map(image => image.hash), width: p.inputs.width, height: p.inputs.height,
+          fps: p.inputs.fps, sceneFrames: scene.endFrame - scene.startFrame, theme: p.style, direction: p.settings.stylePreference });
+        const cacheFile = path.join(projectDir(p.id), 'designs', `${designHash}.json`);
+        let cached: unknown;
+        if (!revise && fs.existsSync(cacheFile)) {
+          try { cached = CustomDesign.parse(JSON.parse(fs.readFileSync(cacheFile, 'utf8'))); }
+          catch { /* Invalid cache entries are regenerated and revalidated. */ }
+        }
+        let repair: { previous?: unknown; errors?: string } = {};
+        let accepted: ArtifactComposition | undefined;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          ctx.signal.throwIfAborted();
+          let design: unknown;
+          try {
+            const bounds = cardBounds('custom', p.inputs.width, p.inputs.height, proposal.position || 'bottom');
+            design = cached ?? await motionJson(ctx, model, attempt ? 'repair-custom-graphic' : 'design-custom-graphic', CustomDesign, DESIGN_PROMPT, {
+              proposal, narration: sceneNarration(p, scene.id), visual: checkpoint.observations?.find(o => o.sceneId === scene.id),
+              approvedImages: p.inputs.imageAssets.filter(image => assetRecord(image.assetId).mime.startsWith('image/')).map(image => image.assetId), theme: p.style, artDirection: p.settings.stylePreference, language: p.inputs.language,
+              graphicArea: bounds, minimumFontSize: p.inputs.width * 0.018 / bounds.width,
+              sceneSeconds: (scene.endFrame - scene.startFrame) / p.inputs.fps,
+              previousAccepted: old?.graphic, instruction: ctx.job.instruction,
+              otherDesigns: p.artifacts.filter(a => a.sceneId !== scene.id).map(a => a.graphic?.design?.name || a.graphic?.kind), ...repair,
+            }, [], 1);
+            const candidate = compileGraphic(p, proposal, undefined, old?.id, CustomDesign.parse(design));
+            const previewProject = { ...p, artifacts: [...p.artifacts.filter(a => a.id !== candidate.id), candidate] };
+            for (const element of candidate.graphic!.design!.elements) {
+              if (element.assetId && !assetRecord(element.assetId).mime.startsWith('image/')) throw new Error('Custom images require still image assets.');
+            }
+            validateProject(previewProject);
+            const previews = await previewFrames(previewProject, ctx.signal, candidate.id);
+            const findings = previews.flatMap(frame => frame.findings);
+            if (findings.length) throw new Error(findings.map(f => f.message).join(' '));
+            atomic(cacheFile, design);
+            accepted = candidate; break;
+          } catch (error) {
+            ctx.signal.throwIfAborted();
+            if (error instanceof EditingError && ['NEEDS_CONFIGURATION', 'RESOURCE_LIMIT'].includes(error.code)) throw error;
+            if (attempt === 1) throw error;
+            cached = undefined;
+            repair = { previous: design, errors: error instanceof Error ? error.message.slice(0, 2000) : 'Invalid design' };
+          }
+        }
+        if (!accepted) throw new Error('No valid custom design was produced.');
+        artifact = accepted;
       } else artifact = compileGraphic(p, proposal, undefined, old?.id);
       if (old) {
         artifact.enabled = old.enabled;
@@ -165,7 +219,7 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
       if (outcome) { outcome.state = 'complete'; outcome.reason = artifact.intent; outcome.artifactIds = [artifact.id]; }
     } catch (error) {
       ctx.signal.throwIfAborted();
-      if (error instanceof EditingError && error.code === 'NEEDS_CONFIGURATION') throw error;
+      if (error instanceof EditingError && ['NEEDS_CONFIGURATION', 'RESOURCE_LIMIT'].includes(error.code)) throw error;
       fail(proposal.sceneId, `${proposal.kind === 'spotlight' ? 'Object spotlight' : 'Graphic'} skipped: ${error instanceof Error ? error.message.slice(0, 600) : 'Validation failed.'}${old ? ' Previous graphic preserved.' : ' Original scene media preserved.'}`, old?.id);
     }
     checkpoint.completed.push(proposal.sceneId); save();

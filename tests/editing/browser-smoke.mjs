@@ -11,7 +11,18 @@ const { workspacesRouter } = await import(
   "../../server/dist/routes/workspaces.js"
 );
 const { accountsRouter } = await import("../../server/dist/routes/accounts.js");
-const p = await fixture("science", true);
+let p = await fixture("science", true);
+const customMode = process.env.EDITING_CUSTOM_SMOKE === 'true';
+if (customMode) {
+  const { compileGraphic } = await import('../../server/dist/services/editing/motionPackArtifacts.js');
+  const { nextRevision, publish } = await import('../../server/dist/services/editing/repository.js');
+  const previous = p;
+  p = nextRevision(p);
+  p.artifacts = [compileGraphic(p, { sceneId: p.scenes[0].id, kind: 'custom', title: 'Water diagram', detail: '', target: '', quote: 'पानी गर्म होता है।', position: 'center' }, undefined, 'explanation', {
+    version: 1, name: 'Water explanation', elements: [{ id: 'label', kind: 'text', bounds: { x: 0.1, y: 0.1, width: 0.8, height: 0.5 }, text: 'पानी', evidence: 'पानी गर्म होता है।', color: '#ffffff', fill: '#172033', fontSize: 0.07, align: 'center', strokeWidth: 0, points: [], tracks: [] }],
+  })];
+  publish(p, previous.revisionId);
+}
 store.add("scripts", {
   id: p.scriptId,
   name: "Visual editing browser fixture",
@@ -39,7 +50,7 @@ const server = await new Promise((resolve) => {
 const browser = await puppeteer.launch({
   executablePath:
     process.env.EDITING_BROWSER_EXECUTABLE ||
-    "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
+    await puppeteer.executablePath(),
   headless: true,
 });
 try {
@@ -68,7 +79,7 @@ try {
   const modelChoices = await page.$$eval('[aria-label="Visual editing AI model"] option', options => options.map(option => option.value));
   assert.ok(modelChoices.some(model => model.startsWith('gemini-')), 'Missing Gemini vision model choice');
   await page.waitForSelector("[data-editing-text]");
-  assert.equal(await page.$eval("[data-editing-text]", (el) => el.textContent), p.artifacts[0].graphic.title);
+  assert.equal(await page.$eval("[data-editing-text]", (el) => el.textContent), customMode ? p.artifacts[0].graphic.design.elements[0].text : p.artifacts[0].graphic.title);
   assert.equal(await page.$eval('[aria-label="Graphic position"]', el => el.value), 'center');
   await page.click('[aria-label="Play video"]');
   const playback = await page.evaluate(async () => {
@@ -98,12 +109,26 @@ try {
   const clickText = async (text) => {
     const handles = await page.$$("button");
     for (const button of handles)
-      if ((await button.evaluate((el) => el.textContent)).trim() === text) {
+      if ((await button.evaluate((el) => el.textContent)).trim().endsWith(text) && await button.boundingBox()) {
         await button.click();
         return;
       }
     throw new Error("Missing button " + text);
   };
+  if (customMode) {
+    await page.waitForSelector('[aria-label="Graphic text label"]');
+    await page.$eval('[aria-label="Graphic text label"]', el => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+      setter.call(el, 'गर्म पानी');
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await clickText('Save changes');
+    await page.waitForFunction(() => document.querySelector('[data-editing-text="custom"]')?.textContent === 'गर्म पानी');
+    await page.reload({ waitUntil: 'networkidle0' });
+    await page.waitForSelector('[aria-label="Graphic text label"]');
+    assert.equal(await page.$eval('[aria-label="Graphic text label"]', el => el.value), 'गर्म पानी');
+    await page.waitForSelector('[aria-label="Graphic revision instructions"]');
+  }
   await clickText("Hide");
   await page.waitForFunction(() =>
     document.body.textContent.includes("Hidden"),

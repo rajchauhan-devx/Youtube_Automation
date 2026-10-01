@@ -72,6 +72,9 @@ export async function renderSession(
     if (assetRecord(id).mime !== "font/woff2")
       throw new Error("Approved font asset has the wrong media type");
   for (const artifact of project.artifacts) {
+    for (const element of artifact.graphic?.design?.elements || []) {
+      if (element.assetId && !assetRecord(element.assetId).mime.startsWith('image/')) throw new Error('Custom images require still image assets.');
+    }
     const scene = project.scenes.find(s => s.id === artifact.sceneId)!;
     const source = assetRecord(scene.assetId);
     const issues = graphicIssues(project, artifact, { width: source.width!, height: source.height! });
@@ -111,7 +114,13 @@ export async function renderSession(
     res.setHeader("Content-Length", end - start + 1);
     fs.createReadStream(file, { start, end }).pipe(res);
   });
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
   const port = (server.address() as { port: number }).port,
     props: CompositionProps = {
       project,

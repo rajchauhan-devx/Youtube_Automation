@@ -109,7 +109,7 @@ export function VideoComposition({ project, assets }: CompositionProps) {
               }}
             />}
             {fontsReady && project.artifacts.filter(a => a.graphic && a.enabled && a.sceneId === scene.id && frame >= a.startFrame && frame < a.endFrame)
-              .map(a => <MotionGraphicRenderer key={a.id} artifact={a} project={project} frame={frame} source={{ width: asset.record.width!, height: asset.record.height! }} />)}
+              .map(a => <MotionGraphicRenderer key={a.id} artifact={a} assets={assets} project={project} frame={frame} source={{ width: asset.record.width!, height: asset.record.height! }} />)}
           </AbsoluteFill>
         );
       })}

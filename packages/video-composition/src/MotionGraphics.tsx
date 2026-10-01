@@ -1,9 +1,10 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { AbsoluteFill, continueRender, delayRender, interpolate, spring } from 'remotion';
 import type { ArtifactComposition, EditingProject } from '@tubeflow/editing-contracts';
+import { CustomGraphicRenderer } from './CustomGraphics.js';
 import { targetMostlyVisible, targetOnScreen } from './graphics.js';
 
-type Props = { project: EditingProject; artifact: ArtifactComposition; frame: number; source: { width: number; height: number } };
+type Props = { project: EditingProject; artifact: ArtifactComposition; frame: number; source: { width: number; height: number }; assets: Record<string, { url: string }> };
 function Text({ text, size, height, family, color = '#ffffff', weight = 700 }: { text: string; size: number; height: number; family: string; color?: string; weight?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [handle] = useState(() => delayRender('Fit motion graphic typography'));
@@ -123,6 +124,7 @@ export function ObjectSpotlight(props: Props) {
 export function MotionGraphicRenderer(props: Props) {
   const graphic = props.artifact.graphic;
   if (!graphic) return null;
+  if (graphic.kind === 'custom' && graphic.design) return <CustomGraphicRenderer design={graphic.design} bounds={graphic.bounds} progress={(props.frame - props.artifact.startFrame) / Math.max(1, props.artifact.endFrame - props.artifact.startFrame - 1)} family={familyFor(props.project)} assets={props.assets} />;
   if (graphic.kind === 'title') return <CinematicTitle {...props} />;
   if (graphic.kind === 'lower-third') return <CharacterLowerThird {...props} />;
   if (graphic.kind === 'badge') return <LocationBadge {...props} />;
