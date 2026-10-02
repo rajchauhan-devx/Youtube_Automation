@@ -32,8 +32,7 @@ import { SetupTab } from './components/setup/SetupTab';
 import { YouTubeExportTab } from './components/export/YouTubeExportTab';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
-import { extractScriptTagContent, parseAIResponse } from './lib/parseAIResponse.js';
-import { isTaggedShortsResponse } from '../server/src/services/shorts-package';
+import { withScenePlanFormat } from '../server/src/services/scene-plan-format';
 import { incompleteResponse } from '../server/src/services/generation-status';
 import { apiPost, getApiKey } from './services/api.js';
 import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
@@ -263,12 +262,12 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
       .filter((p) => p.content.trim())
       .map((p) => p.content)
       .join('\n\n');
-    const promptText = buildPrompt(
+    const promptText = withScenePlanFormat(buildPrompt(
       template || script.howItWorks || '',
       topic,
       instructions,
       script.duration || 30
-    );
+    ), section);
 
     const initialPatch: Partial<Script> = {
       id: scriptId,
@@ -558,7 +557,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
           id: 'response',
           label: 'Response',
           status: 'running' as const,
-          summary: 'Extracting assets with AI...',
+          summary: 'Extracting scene assets...',
           inputLog: selectedScript.topicName || '',
           outputPreview: '',
         },
@@ -566,7 +565,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
     });
     setTab('assets');
 
-    let extracted: { script: string; ttsText: string; imagePrompts: string[]; scenePlan?: Script['scenePlan'] };
+    let extracted: { script: string; ttsText: string; imagePrompts: string[]; scenePlan?: Script['scenePlan']; normalizedResponse?: string };
 
     try {
       const result = await apiPost(
@@ -576,41 +575,21 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
       );
       extracted = {
         script: result.script || '',
-        ttsText: section !== 'shorts' || result.scenePlan ? result.ttsText : extractScriptTagContent(selectedScript.aiResponse),
+        ttsText: result.ttsText,
         imagePrompts: result.imagePrompts || [],
         scenePlan: result.scenePlan,
+        normalizedResponse: result.normalizedResponse,
       };
     } catch (err) {
-      if (section !== 'shorts' || /<long_video>/i.test(selectedScript.aiResponse) || isTaggedShortsResponse(selectedScript.aiResponse)) {
-        await persistScript(scriptId, { pipeline: [{ id: 'response', label: 'Response', status: 'error', summary: 'Asset extraction needs attention', inputLog: '', outputPreview: err instanceof Error ? err.message : 'Check the asset tags and narration links in the response.' }] });
-        if (activeScope.current === scopeKey) setTab('preview');
-        return;
-      }
-      console.error('AI extraction failed, falling back to regex parser:', err);
-      extracted = parseAIResponse(selectedScript.aiResponse);
+      await persistScript(scriptId, { pipeline: [{ id: 'response', label: 'Response', status: 'error', summary: 'Asset extraction needs attention', inputLog: '', outputPreview: err instanceof Error ? err.message : 'Check the scene plan and narration links in the response.' }] });
+      if (activeScope.current === scopeKey) setTab('preview');
+      return;
     }
 
-    let sceneAnalysis: any = undefined;
-    if (section !== 'shorts' || extracted.scenePlan) {
-      sceneAnalysis = { transitions: extracted.imagePrompts.map(() => 'none'), effects: extracted.imagePrompts.map(() => 'zoom-in'), timings: [], mood: 'epic', colorGrade: 'warm-vintage' };
-    } else {
-    try {
-      sceneAnalysis = await apiPost(
-        '/api/llm/scene-analysis',
-        {
-          script: extracted.script,
-          narration: extracted.ttsText,
-          imagePrompts: extracted.imagePrompts,
-          duration: selectedScript.duration || 30,
-        },
-        getApiKey(), fetch
-      );
-    } catch (e) {
-      console.warn('Scene analysis fetch error:', e);
-    }
-    }
+    const sceneAnalysis = { transitions: extracted.imagePrompts.map(() => 'none'), effects: extracted.imagePrompts.map(() => 'zoom-in'), timings: [], mood: 'epic', colorGrade: 'warm-vintage' };
 
     const patch: Partial<Script> = {
+      ...(extracted.normalizedResponse && extracted.normalizedResponse !== selectedScript.aiResponse ? { aiResponse: extracted.normalizedResponse } : {}),
       extractedScript: extracted.script,
       imagePrompts: extracted.imagePrompts,
       narration: extracted.ttsText,
@@ -622,7 +601,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
           id: 'response',
           label: 'Response',
           status: 'done' as const,
-          summary: 'Assets extracted & scene effects analyzed',
+          summary: 'Assets extracted in the shared scene format',
           inputLog: selectedScript.topicName || '',
           outputPreview: extracted.script.slice(0, 120) + '...',
         },

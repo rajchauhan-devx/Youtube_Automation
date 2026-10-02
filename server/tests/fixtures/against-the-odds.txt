@@ -1,0 +1,500 @@
+AI Script Assistant
+Ready
+
+Paste AI Response
+Extract Assets
+Copy
+Take any topic from the internet
+
+```text
+Type: A (Survival Story)
+Format: SHORT — IMAGE + VIDEO
+Title: Left For Dead on Everest
+Target Duration: ~30 seconds
+Content: The miraculous survival of Beck Weathers during the 1996 Mount Everest disaster.
+Sources:
+S01 | Into Thin Air | Jon Krakauer | 1997 | Villard Books | Chapters 17–21
+S02 | Left for Dead: My Journey Home from Everest | Beck Weathers | 2000 | Random House | Chapters 1–3
+Confirmed Facts: Beck Weathers suffered altitude blindness, was left unconscious in a massive blizzard on the South Col of Everest on May 10–11, 1996. Two search teams assessed him as near death and left him to preserve resources. He lay in a hypothermic coma for approximately 15 hours, woke up due to a vision of his family, stood up, and walked back to Camp IV on his own. He suffered severe frostbite, leading to amputations.
+Uncertain / Disputed Details: The exact internal thoughts Beck had while unconscious are reconstructed from his later testimony; they are presented as his own recollected experience.
+Episode Bible: Filled under Part 2.
+TTS Mode: PLAIN
+Visual Approach: FACELESS (Using silhouettes, extreme weather, close-ups of gear, and wide atmospheric environmental shots to avoid generating an inaccurate face).
+Video Clip Budget: 2
+Channel Handle: @AgainstTheOdds
+CTA: NONE
+Constraints: Respectful tone, no graphic gore, high accuracy.
+```
+
+---
+
+# PART 2 — 🧭 THE BIBLE
+
+## 👤 CHARACTER / PEOPLE BIBLE
+
+```text
+PERSON ID: P01
+Verified Name / Role: Beck Weathers / Survivor, American pathologist
+Age at Event: 49
+Documented Appearance: Dark hair, rugged build, wearing heavy 1996-era high-altitude mountaineering gear.
+Documented Clothing / Equipment: Bright yellow and black down-filled expedition suit, thick glacier goggles (removed later), heavy insulated climbing boots, crampons, wool balaclava.
+Timeline State: Hypothermic, face covered in ice and frost, hands frozen solid, stiff limbs.
+Verified Actions / Attributed Statements: Survived a 15-hour hypothermic coma, regained consciousness, walked back to Camp IV unaided.
+Reference Photo: NONE
+Depiction Mode: ANONYMOUS_RECONSTRUCTION (Focusing on the yellow down suit, ice-encrusted hood, and silhouette rather than a detailed facial likeness).
+Unknowns / Do Not Invent: Do not invent dialogue or show him speaking while unconscious.
+Sources: S01, S02
+```
+
+## 🗺️ LOCATION BIBLE
+
+```text
+LOCATION ID: L01
+Verified Name / Region: South Col, Mount Everest (Elevation: ~7,900 meters / 25,900 feet)
+Terrain / Water / Cave Features: Flat, wind-swept, gravel-strewn ice plateau surrounded by towering snow peaks.
+Date / Season / Time: May 10–11, 1996 / Spring Climbing Season / Night transitioning to late afternoon.
+Weather at This Story Beat: Hurricane-force blizzard winds, sub-zero temperatures (minus 30 degrees Celsius), blinding whiteout snow.
+Landmarks / Route / Relative Distances: Camp IV tents (small domes of yellow and blue nylon) acting as the only sanctuary on the barren plateau.
+Relevant Scale / Orientation: A vast, desolate, frozen expanse where tents are easily lost in a whiteout just dozens of meters away.
+Depiction Mode: ILLUSTRATIVE_RECONSTRUCTION
+Locked Visual Descriptor: Howling snowstorm over a flat, icy mountain saddle, dark blue-grey shadows, bright yellow and blue dome tents in the distance shaking violently in the wind.
+Forbidden Contradictions: No sunny, calm weather during the storm; no green vegetation or low-altitude trees.
+Sources: S01
+```
+
+---
+
+# PART 3 — 🧭 SCRIPT PROMPT (Creative Pass)
+
+## 📜 SECTION 1 — SCRIPT
+
+**ESTIMATED RUNTIME:** 32 seconds
+**WORD COUNT:** 64 words
+**PRIMARY EMOTION:** Courage
+
+```text
+🎬 SCENE 1 — THE FROZEN BODY
+Duration: 6 seconds
+Emotion: Tension
+
+Visual: A wide shot of a lone figure in a yellow down suit lying face-up, partially buried in snow on a frozen mountain plateau during a raging blizzard.
+Camera: Slow, low-angle push-in, keeping the figure's face obscured by ice and a hood.
+
+LINE 1:
+Text: Left for dead in an Everest blizzard, his body was frozen solid.
+Tone: calm
+Speed: medium
+Pause: 1.0s
+On-Screen Text: LEFT FOR DEAD
+Source: S01 Chapter 19
+
+🎬 SCENE 2 — THE ABANDONMENT
+Duration: 7 seconds
+Emotion: Isolation
+
+Visual: Two mountaineers in heavy gear turning their backs to the storm, retreating toward distant, faintly glowing yellow tents in a blinding whiteout.
+Camera: High-angle wide shot, static, emphasizing the vast, hostile environment.
+
+LINE 2:
+Text: For fifteen hours, Beck Weathers lay in a sub-zero coma. Rescuers abandoned him, certain he was gone.
+Tone: restrained
+Speed: medium
+Pause: 0.8s
+On-Screen Text: 15 HOURS IN A COMA
+Source: S01 Chapter 20
+
+🎬 SCENE 3 — THE AWAKENING
+Duration: 6 seconds
+Emotion: Hope
+
+Visual: Macro close-up of an ice-encrusted hood and balaclava. Suddenly, a pair of bloodshot, frost-damaged eyes open wide.
+Camera: Static close-up, shallow depth of field.
+
+LINE 3:
+Text: But then, his eyes opened.
+Tone: tense
+Speed: slow
+Pause: 1.2s
+On-Screen Text: BUT THEN...
+Source: S02 Chapter 1
+
+🎬 SCENE 4 — THE STUMBLE
+Duration: 7 seconds
+Emotion: Courage
+
+Visual: A silhouetted figure in a yellow down suit, limbs stiff like wood, struggling to stand up against howling winds and stumbling forward.
+Camera: Mid-shot, tracking slowly beside the figure as he takes painful, uncoordinated steps.
+
+LINE 4:
+Text: Blind, and with hands frozen like ice, he stood up. He stumbled toward a tiny blue smudge on the white horizon.
+Tone: warm
+Speed: medium
+Pause: 0.5s
+On-Screen Text: WALKING ON ICE
+Source: S02 Chapter 2
+
+🎬 SCENE 5 — THE RETURN
+Duration: 6 seconds
+Emotion: Relief
+
+Visual: The silhouette of Beck Weathers reaching the yellow and blue tents of Camp IV, collapsing into the arms of waiting climbers who emerge from the shelter.
+Camera: Low-angle wide shot, looking up at the tents as the rescue occurs.
+
+LINE 5:
+Text: Beck Weathers was walking back to life.
+Tone: reflective
+Speed: slow
+Pause: 1.0s
+On-Screen Text: BACK TO LIFE
+Source: S01 Chapter 21
+```
+
+### EVIDENCE LEDGER
+
+| Claim ID | Scene/Line | Claim | Status | Source/Page | Qualification |
+|---|---|---|---|---|---|
+| C01 | Scene 1 / Line 1 | Left for dead, frozen solid | VERIFIED | S01, Ch. 19 | He was clinically assessed as dying and left on the South Col. |
+| C02 | Scene 2 / Line 2 | 15 hours in a sub-zero coma | VERIFIED | S02, Ch. 1 | He lay unconscious from the night of May 10 to the afternoon of May 11. |
+| C03 | Scene 3 / Line 3 | His eyes opened | VERIFIED | S02, Ch. 1 | He regained consciousness and realized he was alone. |
+| C04 | Scene 4 / Line 4 | Blind, frozen hands, blue smudge | VERIFIED | S02, Ch. 2 | His vision was severely blurred; he saw a blue tent as a "blue smudge." |
+| C05 | Scene 5 / Line 5 | Walked back to life / Camp IV | VERIFIED | S01, Ch. 21 | He walked into Camp IV unaided, shocking the survivors. |
+
+### PRONUNCIATION NOTES
+- Beck Weathers: /bɛk ˈwɛðərz/
+
+### COVERAGE SUMMARY
+- **Duration Estimate:** 32 seconds
+- **Word Count:** 64 words
+- **Scene Count:** 5
+- **Primary Re-hook Line:** "But then, his eyes opened." (Line 3)
+- **People/Locations:** Beck Weathers (P01), South Col, Mount Everest (L01)
+- **Visual Needs:** 16:9 vertical format-ready stills, high-altitude snowstorms, yellow down suit continuity.
+
+---
+
+## 🎙️ SECTION 2 — ELEVENLABS TTS SCRIPT (WITH TIMESTAMPS)
+
+`TIMING STATUS: ESTIMATED — re-time after audio generation`
+
+```text
+[0:00 – 0:06]
+Left for dead in an Everest blizzard, his body was frozen solid.
+
+[0:06 – 0:13]
+For fifteen hours, Beck Weathers lay in a sub-zero coma. Rescuers abandoned him, certain he was gone.
+
+[0:13 – 0:19]
+But then, his eyes opened.
+
+[0:19 – 0:26]
+Blind, and with hands frozen like ice, he stood up. He stumbled toward a tiny blue smudge on the white horizon.
+
+[0:26 – 0:32]
+Beck Weathers was walking back to life.
+```
+
+---
+
+## 🎙️ SECTION 2B — ELEVENLABS COMPLETE VOICED SCRIPT (PASTE-READY)
+
+<script>
+Left for dead in an Everest blizzard, his body was frozen solid.
+
+For fifteen hours, Beck Weathers lay in a sub-zero coma. Rescuers abandoned him, certain he was gone.
+
+But then, his eyes opened.
+
+Blind, and with hands frozen like ice, he stood up. He stumbled toward a tiny blue smudge on the white horizon.
+
+Beck Weathers was walking back to life.
+</script>
+
+---
+---
+
+# PART 4 — 🧭 PRODUCTION PROMPT (Asset Pass)
+
+## 🖼️ SECTION 3 — LEONARDO.AI IMAGE PROMPTS
+
+<image_prompt>
+#image 0
+🖼️ IMAGE 0 — THUMBNAIL
+
+Prompt:
+A dramatic, high-contrast, vertical close-up of a mountaineer's face covered in thick layers of white frost and ice, wearing a bright yellow down-filled hood. His eyes are wide open, bloodshot, showing intense shock and determination. The background is a dark, howling sub-zero blizzard on Mount Everest, with snow whipping past in sharp white streaks. Clear focal point on the eyes. Aspect ratio 9:16. Bold ivory text at the top reads "LEFT FOR DEAD".
+
+Negative Prompt:
+cartoon, anime, fantasy, extra limbs, distorted face, soft skin, warm sunny lighting, green vegetation, watermarks, logos, low resolution, duplicated subjects.
+
+Style Tags:
+cinematic documentary realism, physically plausible environment, story-accurate period and terrain, natural textures, restrained contrast, cold blue-grey lighting, 9:16, clear focal point, high-detail image.
+</image_prompt>
+
+<image_prompt>
+#image 1
+🖼️ IMAGE 1 — THE FROZEN BODY
+(Scene: 1 — A)
+
+Prompt:
+A wide-angle, dramatic vertical shot of a lone human figure lying face-up, partially buried in deep snow on a flat, barren ice plateau. The figure wears a bright yellow and black down-filled expedition suit with the hood up, face obscured by snow. A ferocious blizzard with howling white winds and horizontal snow sweeps across the dark blue-grey landscape of Mount Everest's South Col. Aspect ratio 9:16.
+
+Negative Prompt:
+cartoon, anime, warm colors, sunny sky, clear visibility, modern plastic gear, extra people, face visible, text, logos, watermarks.
+
+Style Tags:
+cinematic documentary realism, physically plausible environment, story-accurate period and terrain, natural textures, restrained contrast, cold twilight light, 9:16, clear focal point, high-detail image.
+</image_prompt>
+
+<image_prompt>
+#image 2
+🖼️ IMAGE 2 — THE ABANDONMENT
+(Scene: 2 — A)
+
+Prompt:
+An atmospheric, high-angle wide vertical shot of two mountaineers in heavy red and blue down suits turning away from the camera, battling a severe whiteout blizzard. In the far background, the faint, blurred, warm yellow glow of small dome tents is barely visible through the thick, swirling snow. The foreground shows a frozen, wind-swept ice plateau. Aspect ratio 9:16.
+
+Negative Prompt:
+cartoon, anime, sunny weather, clear sky, close-up faces, warm summer colors, green grass, text, logos, watermarks.
+
+Style Tags:
+cinematic documentary realism, physically plausible environment, story-accurate period and terrain, natural textures, restrained contrast, dark blue-grey storm light, 9:16, clear focal point, high-detail image.
+</image_prompt>
+
+<image_prompt>
+#image 3
+🖼️ IMAGE 3 — THE AWAKENING
+(Scene: 3 — A)
+
+Prompt:
+An extreme close-up vertical shot of a mountaineer's face tightly framed inside a yellow down-suit hood encrusted with frozen white ice crystals. His eyes, bloodshot and strained, suddenly open wide in shock and survival instinct. The lighting is cold, dark, and dramatic, casting deep shadows over his frostbitten skin. No modern logos visible on the gear. Aspect ratio 9:16.
+
+Negative Prompt:
+cartoon, anime, clean skin, smiling, warm sunny lighting, extra eyes, distorted anatomy, text, logos, watermarks.
+
+Style Tags:
+cinematic documentary realism, physically plausible environment, story-accurate period and terrain, natural textures, restrained contrast, cold dramatic illumination, 9:16, clear focal point, high-detail image.
+</image_prompt>
+
+<image_prompt>
+#image 4
+🖼️ IMAGE 4 — THE STUMBLE
+(Scene: 4 — A)
+
+Prompt:
+A full-length vertical shot of a lone silhouetted figure in a yellow down suit struggling to stand up on a vast, flat ice sheet. The figure's limbs are stiff, and his hands, devoid of thick outer gloves, are pale and frozen. He stumbles forward against a powerful, howling wind. In the far distance, a single tiny, blurry blue nylon tent stands as a faint shape amidst the blinding white snow storm. Aspect ratio 9:16.
+
+Negative Prompt:
+cartoon, anime, warm colors, trees, mountains without snow, multiple people, face close-up, text, logos, watermarks.
+
+Style Tags:
+cinematic documentary realism, physically plausible environment, story-accurate period and terrain, natural textures, restrained contrast, cold whiteout light, 9:16, clear focal point, high-detail image.
+</image_prompt>
+
+<image_prompt>
+#image 5
+🖼️ IMAGE 5 — THE RETURN
+(Scene: 5 — A)
+
+Prompt:
+A low-angle vertical shot looking towards a small cluster of yellow and blue dome tents shaking violently in a high-altitude blizzard. A silhouetted figure in a yellow down suit stumbles out of the whiteout, collapsing forward. Two blurry figures in climbing gear emerge from a tent opening, reaching out to catch him. Swirling snow and dark blue-grey shadows dominate the frame. Aspect ratio 9:16.
+
+Negative Prompt:
+cartoon, anime, clear sunny day, green grass, calm weather, text, logos, watermarks.
+
+Style Tags:
+cinematic documentary realism, physically plausible environment, story-accurate period and terrain, natural textures, restrained contrast, cold twilight light, 9:16, clear focal point, high-detail image.
+</image_prompt>
+
+<image_prompt>
+#image 6
+🖼️ IMAGE 6 — FOLLOW FRAME
+
+Prompt:
+A clean, minimalist vertical graphic with a deep charcoal navy background. A subtle, stylized orange line traces the sharp silhouette of a mountain ridge at the bottom. In the center, legible, elegant warm-ivory typography reads "Subscribe for more true survival stories." The branding text "AGAINST THE ODDS" is written in a smaller, clean sans-serif font at the top. Aspect ratio 9:16.
+
+Negative Prompt:
+photorealistic people, snow, storm, messy layout, bright chaotic colors, low contrast, unreadable text.
+
+Style Tags:
+clean documentary graphic, navy background, ivory labels, orange route accents, simple readable geometry, uncluttered composition, 9:16.
+</image_prompt>
+
+<image_prompt>
+#image 7
+🖼️ IMAGE 7 — END CARD
+
+Prompt:
+A clean, minimalist vertical graphic with a deep charcoal navy background and a subtle, dark-blue stylized map grid pattern. In the center, a clean, bold orange accent line forms a mountain peak shape. Clean, warm-ivory text reads "AGAINST THE ODDS" in the upper third, leaving the lower half completely empty and clear for platform interactive elements. Aspect ratio 9:16.
+
+Negative Prompt:
+buttons, fake icons, chaotic textures, photorealistic landscapes, distorted text, logos, watermarks.
+
+Style Tags:
+clean documentary graphic, navy background, ivory labels, orange route accents, simple readable geometry, uncluttered composition, 9:16.
+</image_prompt>
+
+---
+
+## 🎬 SECTION 3B — VIDEO PROMPTS / IMAGE-TO-VIDEO MOTION
+
+<video_prompt>
+#video 1
+🎬 VIDEO 1 — THE FROZEN BODY
+(Scene: 1 — Lines: 1–1)
+Mode: IMAGE_TO_VIDEO
+Reference Image: #image 1
+Related image tag: #image 1
+Target Usable Duration: 6 seconds
+
+Prompt:
+Animate this image using the uploaded image as the first frame. The camera slowly pushes forward and down toward the partially buried figure in the yellow down suit. Swirling, violent whiteout snow drifts rapidly across the dark blue-grey ice plateau from left to right, partially obscuring and then revealing the frozen body. The figure remains completely motionless. The lighting remains cold, dark, and constant throughout the shot.
+
+Negative Prompt:
+No movement of the frozen figure, no sudden camera cuts, no changes in the yellow suit color, no transition to sunny weather, no warping of the mountain background, no text overlays.
+
+Continuity Lock:
+A motionless figure in a yellow and black down suit on a frozen, snow-swept Everest South Col plateau under a dark, howling blizzard.
+
+Evidence / Disclosure:
+Illustrative reconstruction of the South Col environment. S01 Chapter 19.
+</video_prompt>
+
+<video_prompt>
+#video 2
+🎬 VIDEO 2 — THE STUMBLE
+(Scene: 4 — Lines: 4–4)
+Mode: IMAGE_TO_VIDEO
+Reference Image: #image 4
+Related image tag: #image 4
+Target Usable Duration: 7 seconds
+
+Prompt:
+Animate this image using the uploaded image as the first frame. Keep the camera locked in a stable mid-shot. The silhouetted climber in the yellow down suit slowly and painfully takes two uncoordinated, staggering steps forward against the heavy, howling wind. Swirling white snow particles blow fiercely across the screen, creating a dense atmosphere. The distant blue tent remains a faint, stable shape on the horizon.
+
+Negative Prompt:
+No sudden camera transitions, no fast running, no change in down suit style, no disappearance of the blue tent, no face morphing, no text deforming.
+
+Continuity Lock:
+A stiffly moving silhouette in a yellow down suit stumbling through a whiteout blizzard on a flat ice sheet toward a distant blue tent.
+
+Evidence / Disclosure:
+Illustrative reconstruction of Beck Weathers' journey. S02 Chapter 2.
+</video_prompt>
+
+---
+
+## 🇬🇧 SECTION 4 — ENGLISH TEXT OVERLAYS
+
+```text
+🔤 ENGLISH TEXT OVERLAYS — LEFT FOR DEAD ON EVEREST
+
+━━━━━━━━━━━━━━━━━━━━━
+🖼️ THUMBNAIL TEXT
+━━━━━━━━━━━━━━━━━━━━━
+Image ID:       #image 0
+Overlay text:   LEFT FOR DEAD
+Font style:     Bold ivory/orange, high contrast, heavy drop shadow
+Placement:      Top third, centered, away from edge crop zones
+Design note:    Highly readable on mobile screens
+
+━━━━━━━━━━━━━━━━━━━━━
+📖 FRAME 1 TEXT
+━━━━━━━━━━━━━━━━━━━━━
+Image ID:       #image 1
+Text:           LEFT FOR DEAD
+Timing:         0:00 – 0:06
+Style:          Bold warm-ivory, centered
+
+━━━━━━━━━━━━━━━━━━━━━
+📖 IN-VIDEO SCENE TITLES / FACT LABELS
+━━━━━━━━━━━━━━━━━━━━━
+Scene:          2
+Image ID:       #image 2
+Text:           15 HOURS IN A COMA
+Timing:         0:06 – 0:13
+Source:         S02 Chapter 1
+Disclosure:     Illustrative reconstruction
+
+Scene:          3
+Image ID:       #image 3
+Text:           BUT THEN...
+Timing:         0:13 – 0:19
+Source:         S02 Chapter 1
+Disclosure:     Illustrative reconstruction
+
+Scene:          4
+Image ID:       #image 4
+Text:           WALKING ON ICE
+Timing:         0:19 – 0:26
+Source:         S02 Chapter 2
+Disclosure:     Illustrative reconstruction
+
+Scene:          5
+Image ID:       #image 5
+Text:           BACK TO LIFE
+Timing:         0:26 – 0:32
+Source:         S01 Chapter 21
+Disclosure:     Illustrative reconstruction
+
+━━━━━━━━━━━━━━━━━━━━━
+📲 FOLLOW FRAME TEXT
+━━━━━━━━━━━━━━━━━━━━━
+Image ID:       #image 6
+Text Line 1:    Subscribe for more true survival stories.
+Text Line 2:    AGAINST THE ODDS
+Timing:         NOT USED IN PLAYBACK (CTA is set to NONE)
+
+━━━━━━━━━━━━━━━━━━━━━
+🧭 END CARD TEXT
+━━━━━━━━━━━━━━━━━━━━━
+Image ID:       #image 7
+Line 1:         AGAINST THE ODDS
+Line 2:         @AgainstTheOdds
+Timing:         Post-video hold (optional native end screen)
+```
+
+### COVERAGE AND ASSET MANIFEST
+
+```text
+Time Range  | Scene/Line | Image ID / Video ID | Visual Purpose              | Editor Movement   | Rights/Source | Disclosure
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+0:00–0:06   | Scene 1/L1 | #video 1            | Establish the predicament   | Slow zoom-in      | S01 Ch. 19    | Reconstruction
+0:06–0:13   | Scene 2/L2 | #image 2            | Depict the abandonment      | Slow pan-right    | S01 Ch. 20    | Reconstruction
+0:13–0:19   | Scene 3/L3 | #image 3            | Show the sudden awakening   | Static hold       | S02 Ch. 1     | Reconstruction
+0:19–0:26   | Scene 4/L4 | #video 2            | Depict the struggle to walk | Slow tracking pan | S02 Ch. 2     | Reconstruction
+0:26–0:32   | Scene 5/L5 | #image 5            | Show the ultimate rescue    | Slow zoom-out     | S01 Ch. 21    | Reconstruction
+```
+
+- **Pronunciation Checklist:** Beck Weathers (/bɛk ˈwɛðərz/)
+- **Audio/Music/SFX Notes:** Low, ominous sub-bass drone starting at 0:00. Loud howling wind sound effects throughout, dipping slightly in volume during spoken lines. A sudden, sharp metallic "ping" or heartbeat sound at 0:13 (the awakening). Music swells into a warm, emotional resolve from 0:26 to 0:32.
+- **Asset Rights Checklist:** All images and video clips are custom generated illustrative reconstructions. No real historical photos are used to avoid identity inaccuracy.
+
+---
+
+## 🙏 SECTION 5 — THE REFLECTION ENGINE
+
+### 🎯 REFLECTION PROMPT
+
+"What part of Beck's pure determination to see his family again stayed with you the most?"
+
+### PUBLISHING PACKAGE
+
+```text
+Title Options:
+1. Left for Dead on Mount Everest 🏔️
+2. The Man Who Woke Up Frozen on Everest
+3. He Survived 15 Hours Frozen in a Coma
+
+Description:
+In 1996, mountaineer Beck Weathers was left for dead in a blinding blizzard on Mount Everest. After 15 hours in a sub-zero hypothermic coma, his rescuers had given up. This is the extraordinary true story of how he opened his eyes and walked back to life.
+
+Sources:
+- "Into Thin Air" by Jon Krakauer (1997)
+- "Left for Dead" by Beck Weathers (2000)
+
+Pinned Comment:
+What part of Beck's pure determination to see his family again stayed with you the most? 👇
+
+Keywords:
+Beck Weathers, Mount Everest 1996, Everest disaster, true survival story, against the odds, survival stories, mountain rescue, frozen alive, survival shorts
+```

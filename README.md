@@ -9,6 +9,7 @@ and a new-PC checklist with one-click `.md` export. Secret values are never show
 
 Full runbook: [complete installation and migration guide](docs/NEW_PC_SETUP.md).
 Remote image and video generation: [Colab API setup and usage](docs/COLAB_MEDIA_API.md).
+All profiles share [one script extraction format](docs/SHARED_SCRIPT_FORMAT.md), with content-preserving conversion for supported older responses.
 It includes a prompt to give an AI installer, model download steps, external folder
 dependencies, `server/.env` configuration, and runtime verification. Git clone alone
 does not include ComfyUI, model weights, or the separate custom MuseTalk-Demo app.

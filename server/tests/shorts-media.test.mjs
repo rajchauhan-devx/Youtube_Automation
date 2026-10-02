@@ -56,11 +56,11 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
     assert.equal(created.status, 201);
     list = await (await originalFetch(host + prefix + '/scripts')).json();
     assert.equal(list.filter(s => s.id === 'shorts_images_videos').length, 1);
-    assert.match(list[0].prompts[0].content, /<video_prompt>/);
+    assert.match(list[0].prompts[0].content, /"videoPrompt"/);
     list = await (await originalFetch(host + prefix + '/scripts')).json();
     assert.equal(list.length, 1, 'explicitly created template persists');
     ws.workspaceContext.run(scope, () => store.add('scripts', { ...list[0], narration: 'Keep existing work', prompts: [{ ...list[0].prompts[0], content: LEGACY_SHORTS_MEDIA_TEMPLATE }] }));
-    ws.workspaceContext.run(scope, () => store.remove('template_migrations', 'shorts-media-v3'));
+    ws.workspaceContext.run(scope, () => store.remove('template_migrations', 'shorts-media-v4'));
     const upgraded = (await (await originalFetch(host + prefix + '/scripts')).json())[0];
     assert.equal(upgraded.prompts[0].content, SHORTS_MEDIA_TEMPLATE);
     assert.equal(upgraded.narration, 'Keep existing work');
@@ -104,7 +104,7 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
 
     if (process.env.SHORTS_MEDIA_BROWSER === '1') {
       const { default: puppeteer } = await import('puppeteer');
-      browser = await puppeteer.launch({ headless: true });
+      browser = await puppeteer.launch({ headless: true, executablePath: process.env.EDITING_BROWSER_EXECUTABLE });
       const page = await browser.newPage(); await page.setViewport({ width: 1440, height: 1050 });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
       await page.evaluateOnNewDocument(() => { if (!localStorage.getItem('tubeflow:v1')) localStorage.setItem('tubeflow:v1', JSON.stringify({ channelId: 'default', section: 'shorts', tab: 'generation', selectedScriptId: 'episode' })); });
@@ -136,7 +136,11 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
       // Exercise the actual Preview -> Assets path, rather than only its API.
       await json('/scripts', { id: 'tagged-ui', name: 'Tagged Shorts extraction', section: 'shorts', status: 'draft', duration: 30,
         prompts: [{ id: 'master', name: 'Production master', content: SHORTS_MEDIA_TEMPLATE }], videoImportsEnabled: true });
-      await page.evaluate(() => localStorage.setItem('tubeflow:v1', JSON.stringify({ channelId: 'default', section: 'shorts', tab: 'preview', selectedScriptId: 'tagged-ui' })));
+      await page.evaluate(() => {
+        const state = JSON.stringify({ channelId: 'default', section: 'shorts', tab: 'preview', selectedScriptId: 'tagged-ui' });
+        localStorage.setItem('tubeflow:v1', state);
+        localStorage.setItem('tubeflow:v1:default', state);
+      });
       await page.reload({ waitUntil: 'networkidle0' });
       const click = text => page.evaluate(text => {
         const button = [...document.querySelectorAll('button')].find(el => el.textContent.trim() === text);
@@ -164,7 +168,7 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
       await page.waitForFunction(() => !document.querySelector('[aria-label="Video prompt"]'));
       uiScript = await (await originalFetch(host + prefix + '/scripts/tagged-ui')).json();
       assert.equal(uiScript.scenePlan.scenes[1].videoPrompt, revisedPrompt);
-      assert.match(uiScript.aiResponse, /^<shorts>/);
+      assert.match(uiScript.aiResponse, /^<long_video>/);
       assert.equal(uiScript.narration, extracted.ttsText);
       await click('Generation');
       await page.waitForSelector('[aria-label="Add or replace video for scene 2"]');
@@ -182,6 +186,22 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
       assert.equal(uiScript.pipeline[0].status, 'error');
       await page.reload({ waitUntil: 'networkidle0' });
       await page.waitForFunction(() => document.body.innerText.includes('Incomplete or unexpected Shorts tags'));
+      // The user's older master-prompt format converts through the same UI path.
+      const againstTheOdds = fs.readFileSync(new URL('./fixtures/against-the-odds.txt', import.meta.url), 'utf8');
+      await click('Paste AI Response');
+      await fill('#external-ai-response', againstTheOdds);
+      await click('Save & Extract Assets');
+      await page.waitForFunction(() => document.body.innerText.includes('THE STUMBLE'));
+      uiScript = await (await originalFetch(host + prefix + '/scripts/tagged-ui')).json();
+      assert.deepEqual(uiScript.scenePlan.scenes.map(scene => scene.mediaType), ['video', 'image', 'image', 'video', 'image']);
+      assert.equal(uiScript.pipeline[0].status, 'done');
+      assert.equal(uiScript.scenePlan.scenes.length, 5);
+      assert.match(uiScript.aiResponse, /<long_video>/);
+      assert.ok(!uiScript.aiResponse.includes('<video_prompt>'));
+      assert.equal(uiScript.narration.replace(/\r/g, ''), againstTheOdds.match(/<script>([\s\S]*?)<\/script>/i)[1].trim().replace(/\r/g, ''));
+      assert.deepEqual(errors, []);
+      await page.reload({ waitUntil: 'networkidle0' });
+      await page.waitForFunction(() => document.body.innerText.includes('THE STUMBLE'));
       assert.deepEqual(errors, []);
     }
 

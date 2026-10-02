@@ -1,5 +1,6 @@
 import { isTaggedShortsResponse, parseShortsPackage } from './shorts-package.js';
 import { parseProductionPackage } from './production-package.js';
+import { parseLegacyScenePackage } from './legacy-scene-package.js';
 
 export interface NarrationScene {
   id: string;
@@ -22,7 +23,7 @@ export function validateScenePlan(value: unknown): ScenePlan {
   if (!p || p.version !== 1 || typeof p.title !== 'string' || !p.title.trim() ||
       typeof p.thumbnailPrompt !== 'string' || !p.thumbnailPrompt.trim() ||
       !Array.isArray(p.scenes) || !p.scenes.length || p.scenes.length > 160) {
-    throw new Error('Long Video needs a complete scene plan with a title, thumbnail and 1–160 scenes. Generate with the Long Video template.');
+    throw new Error('The shared scene plan needs a title, thumbnail and 1–160 scenes. Use the shared extraction format.');
   }
   const ids = new Set<string>();
   for (const scene of p.scenes) {
@@ -44,15 +45,19 @@ export function validateScenePlan(value: unknown): ScenePlan {
 }
 
 export function parseScenePlan(raw: string, useTimelineNarration = false): ScenePlan {
-  if (isTaggedShortsResponse(raw)) return validateScenePlan(parseShortsPackage(raw));
   const blocks = [...raw.matchAll(/<long_video>\s*([\s\S]*?)\s*<\/long_video>/gi)];
+  // The shared JSON container is authoritative in every profile.
+  if ((raw.match(/<long_video>/gi) || []).length !== blocks.length || (raw.match(/<\/long_video>/gi) || []).length !== blocks.length) throw new Error('An asset has an incomplete <long_video> wrapper.');
+  if (!blocks.length) {
+    if (isTaggedShortsResponse(raw)) return validateScenePlan(parseShortsPackage(raw));
+    if (/<image_prompt>\s*#image\s+\d+/i.test(raw)) return validateScenePlan(parseLegacyScenePackage(raw));
+  }
   if (blocks.some(block => /^\s*(?:\*\*)?ASSET:/im.test(block[1]))) {
-    if ((raw.match(/<long_video>/gi) || []).length !== blocks.length || (raw.match(/<\/long_video>/gi) || []).length !== blocks.length) throw new Error('An asset has an incomplete <long_video> wrapper.');
     return validateScenePlan(parseProductionPackage(raw, blocks.map(block => block[1]), useTimelineNarration));
   }
-  if (blocks.length !== 1) throw new Error('No complete scene assets found. Include a production timeline and separate <long_video> asset blocks, or one legacy JSON scene-plan block.');
+  if (blocks.length !== 1) throw new Error('Include exactly one complete <long_video> JSON scene-plan block using the shared extraction format. Keep the original story and narration.');
   let value: unknown;
-  try { value = JSON.parse(blocks[0][1]); } catch { throw new Error('The Long Video scene plan contains incomplete or invalid JSON. Regenerate the response.'); }
+  try { value = JSON.parse(blocks[0][1]); } catch { throw new Error('The shared scene plan contains incomplete or invalid JSON. Correct the format without changing the story or narration.'); }
   const plan = validateScenePlan(value);
   const script = raw.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
   if (script && normalizeNarration(script[1]) !== normalizeNarration(spokenText(plan))) throw new Error('The full narration differs from the scene narration. Correct the scene plan before extracting.');

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { Plus, Trash2, X } from 'lucide-react';
 import type { PromptBlock, Script } from '../../data';
 import { spokenText, validateScenePlan } from '../../../server/src/services/scene-plan';
-import { isTaggedShortsResponse, serializeShortsPackage } from '../../../server/src/services/shorts-package';
+import { serializeScenePlan } from '../../../server/src/services/scene-plan-format';
 
 export function EditScriptModal({ script, onClose, onSavePatch, onSaveSpoken }: {
   script: Script;
@@ -45,7 +45,7 @@ export function EditScriptModal({ script, onClose, onSavePatch, onSaveSpoken }: 
         const scenePlan = validateScenePlan({ ...script.scenePlan, scenes: script.scenePlan.scenes.map((scene, index) => ({ ...scene, narration: scenes[index]?.trim() || '' })) });
         const narration = spokenText(scenePlan);
         saved = await onSavePatch({ scenePlan, narration, extractedScript: narration,
-          aiResponse: isTaggedShortsResponse(script.aiResponse || '') ? serializeShortsPackage(scenePlan) : `<long_video>\n${JSON.stringify(scenePlan, null, 2)}\n</long_video>`,
+          aiResponse: serializeScenePlan(scenePlan),
           generatedAudio: [], generatedMusic: undefined, timelineConfig: undefined, youtubeExport: undefined });
       } else {
         if (!spoken.trim()) throw new Error('Enter the spoken script.');

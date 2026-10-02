@@ -1,5 +1,7 @@
-export const SHORTS_MEDIA_TEMPLATE = `# SHORTS — IMAGE, VIDEO & AUDIO PRODUCTION MASTER
-## Complete tagged production package · Version 3 (Production Level)
+import { withScenePlanFormat } from './scene-plan-format.js';
+
+export const SHORTS_MEDIA_TEMPLATE = withScenePlanFormat(`# SHORTS — IMAGE, VIDEO & AUDIO PRODUCTION MASTER
+## Shared scene production package · Version 4 (Production Level)
 
 ## 0. DEEP RESEARCH FIRST — MANDATORY, DO THIS BEFORE ANYTHING ELSE
 
@@ -88,45 +90,22 @@ Keep the action achievable in the stated duration. Avoid elaborate simultaneous 
 
 Self-check before returning: count the words of EVERY video_prompt. If any is under 80 words, expand with concrete action beats, camera behavior, and ending-frame description until it passes.
 
-## 9. Audio and narration tag rules
+## 9. Audio and narration rules
 
-Return exactly ONE audio_prompt block containing exactly ONE script block. The text inside script is the complete paste-ready spoken narration in story order. It must contain spoken words and punctuation only: no scene numbers, timestamps, speaker labels, emotional directions, bracketed pauses, SSML, Markdown, production notes or prompt instructions.
+Place each scene's exact spoken segment in its narration field. Joining the scene segments in order produces the complete paste-ready voice script. Spoken words and punctuation only: no scene numbers, timestamps, speaker labels, emotional directions, bracketed pauses, SSML, Markdown, production notes or prompt instructions. Do not paraphrase, omit or add words when mapping narration into scenes.
 
-Use punctuation and sentence length for natural delivery. Keep language and pronunciation style consistent. Do not insert English visual directions into Hindi speech. Do not include thumbnail wording, titles, source notes or calls to an image/video generator in the audio.
-
-Also place each scene's exact spoken segment inside its narration tag. Concatenating these scene segments in order, allowing only whitespace differences, MUST reproduce the full script word for word. This repetition is intentional: the full script is for audio copy/export, while each narration segment links its visual to measured speech. Do not paraphrase, omit or add words in either copy. The app synthesizes scene narration once; it does not speak both copies.
+Use punctuation and sentence length for natural delivery. Keep language and pronunciation style consistent. Do not insert English visual directions into Hindi speech. Do not include thumbnail wording, titles, source notes or calls to an image/video generator in the audio. The app synthesizes each scene's narration once.
 
 ## 10. Separate thumbnail
 
-Supply exactly one thumbnail_prompt outside the scenes. Describe a compelling portrait cover with one strong focal subject, clear emotion and readable contrast that truthfully represents the Short — a scroll-stopper that pays off the hook without clickbait. Write a self-contained DETAILED English image-generation prompt (60–100 words) with any required character continuity, lighting, composition (rule of thirds, negative space for platform UI), and emotional close-up or decisive action. Do not bake in lettering. The thumbnail must never become a narration scene or an extra numbered image asset.
+Supply exactly one thumbnailPrompt outside the scenes. Describe a compelling portrait cover with one strong focal subject, clear emotion and readable contrast that truthfully represents the Short — a scroll-stopper that pays off the hook without clickbait. Write a self-contained DETAILED English image-generation prompt (60–100 words) with any required character continuity, lighting, composition (rule of thirds, negative space for platform UI), and emotional close-up or decisive action. Do not bake in lettering. The thumbnail must never become a narration scene or an extra numbered image asset.
 
-## 11. Exact tagged output contract
+## 11. Shared output contract
 
-Return exactly one shorts block containing the complete production package. Use the tags below literally, with balanced closing tags. Do NOT output JSON, a long_video wrapper, Markdown fences, a second alternative script, explanations before the package or commentary after it. The contents shown below are field descriptions, not words to copy into the final answer:
-
-<shorts>
-<title>Specific finished title in the narration language</title>
-<audio_prompt>
-<script>Complete clean spoken narration, with all scene segments in order</script>
-</audio_prompt>
-<thumbnail_prompt>Complete separate portrait thumbnail generation prompt</thumbnail_prompt>
-<scene id="scene_001" media_type="video" duration="5" chapter="Hook" role="story">
-<narration>Exact opening spoken segment from the full script</narration>
-<image_prompt>Complete standalone portrait still-image alternative for this scene</image_prompt>
-<video_prompt>Complete standalone portrait continuous-shot video prompt for this scene</video_prompt>
-</scene>
-<scene id="scene_002" media_type="image" duration="5" chapter="Development" role="story">
-<narration>Exact next spoken segment from the full script</narration>
-<image_prompt>Complete standalone portrait still-image prompt for this scene</image_prompt>
-</scene>
-</shorts>
-
-Generate as many fully written scene blocks as the story needs; the two blocks above illustrate syntax only. Use sequential, unique IDs scene_001, scene_002 and onward without gaps. media_type is exactly image or video. duration is a positive number of seconds, without units. chapter is a concise beat name such as Hook, Development, Turn or Payoff. role is story, except a separate final CTA scene may use cta. Attribute values use double quotes. Do not place literal quote characters inside an attribute value.
-
-Each scene contains exactly one narration and one image_prompt. Video scenes additionally contain exactly one video_prompt; image scenes omit video_prompt. Keep the audio_prompt, script, title and thumbnail_prompt outside scene blocks. Do not wrap the thumbnail in image_prompt, add image numbering inside prompt text, put scene labels into narration, or output unused prompt blocks. Use plain text inside leaf tags, without additional markup. Avoid literal angle brackets in text.
+Use the shared <long_video> JSON scene-plan format below, which also applies to Shorts. Keep all production requirements above. Every scene has exact narration, a complete imagePrompt and an explicit mediaType; video scenes additionally have a complete videoPrompt. The thumbnailPrompt remains outside the scenes. Do not output a separate script or audio package: the scene narration is the authoritative voice script.
 
 ## 12. Final silent production check
 
-Before returning, verify: the topic was researched and the hook angle is specific (not generic); the hook pays off; the story is complete within its speech budget; claims follow the source; narration is natural and in the requested language; every word is linked to one scene; the full script exactly matches the scene narration; scene IDs are unique and ordered; planned durations are coherent; both media types are used when requested; every scene has an independently usable DETAILED image prompt (70–120 words, all seven slots covered, none under 60 words); every video scene has a complete DETAILED video prompt (90–150 words, none under 80 words) plus a matching still alternative; scene_001 works as a scroll-stopper; continuity and portrait framing hold throughout; the thumbnail is separate and detailed; all tags and attributes are complete.
+Before returning, verify: the topic was researched and the hook angle is specific (not generic); the hook pays off; the story is complete within its speech budget; claims follow the source; narration is natural and in the requested language; every word is linked to one scene; the full script exactly matches the scene narration; scene IDs are unique and ordered; planned durations are coherent; both media types are used when requested; every scene has an independently usable DETAILED image prompt (70–120 words, all seven slots covered, none under 60 words); every video scene has a complete DETAILED video prompt (90–150 words, none under 80 words) plus a matching still alternative; scene_001 works as a scroll-stopper; continuity and portrait framing hold throughout; the thumbnail is separate and detailed; the shared scene-plan JSON and closing tag are complete.
 
-Write actual finished content in every field. No placeholders, "repeat for the remaining scenes," summary-only prompts, one-line visual prompts, empty tags or ellipses standing for omitted scenes. If generation is interrupted, continue from the exact interruption point and close the existing package without repeating completed material or starting another shorts block.`;
+Write actual finished content in every field. No placeholders, "repeat for the remaining scenes," summary-only prompts, one-line visual prompts, empty tags or ellipses standing for omitted scenes. If generation is interrupted, continue from the exact interruption point and close the existing package without repeating completed material or starting another scene-plan block.`, 'shorts');

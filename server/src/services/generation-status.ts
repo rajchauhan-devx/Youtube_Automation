@@ -1,3 +1,5 @@
+import { SCENE_PLAN_FORMAT_MARKER } from './scene-plan-format.js';
+
 /** Check only structure explicitly requested by the user; impose no output format. */
 export function incompleteResponse(prompt: string, response: string): string | undefined {
   const sections = (text: string) => [...text.matchAll(/^\s*#{1,6}\s+SECTION\s+(\d+)\b/gim)].map(match => match[1]);
@@ -12,5 +14,6 @@ export function incompleteResponse(prompt: string, response: string): string | u
     const closes = (response.match(new RegExp(`</${tag}\\s*>`, 'gi')) || []).length;
     if (opens > closes) return `Unfinished <${tag}> block`;
   }
+  if (prompt.includes(SCENE_PLAN_FORMAT_MARKER) && !/<long_video>/i.test(response)) return 'Missing shared <long_video> scene-plan block';
   return undefined;
 }

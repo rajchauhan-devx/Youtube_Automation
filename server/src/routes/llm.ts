@@ -1,5 +1,5 @@
 import { getXkiroModels } from '../services/xkiro-models.js';
-import { isTaggedShortsResponse } from '../services/shorts-package.js';
+import { normalizeScenePlanResponse } from '../services/scene-plan-format.js';
 import { currentWorkspace } from '../services/workspace.js';
 import { Router } from 'express';
 import { parseScenePlan, spokenText } from '../services/scene-plan.js';
@@ -64,11 +64,6 @@ function getApiKey(req: any): string {
   );
 }
 
-function extractScriptTagContent(text: string): string {
-  const match = text.match(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/i);
-  return match ? match[1].trim() : '';
-}
-
 llmRouter.post('/chat', async (req, res) => {
   try {
     const apiKey = getApiKey(req);
@@ -85,82 +80,16 @@ llmRouter.post('/chat', async (req, res) => {
 });
 
 llmRouter.post('/extract', async (req, res) => {
+  const rawText = req.body?.rawText;
+  if (typeof rawText !== 'string' || !rawText.trim()) { res.status(400).json({ error: 'rawText is required' }); return; }
   try {
-    if (currentWorkspace().profile !== 'shorts' || /<long_video>/i.test(req.body?.rawText || '') || isTaggedShortsResponse(typeof req.body?.rawText === 'string' ? req.body.rawText : '')) {
-      try {
-        const plan = parseScenePlan(typeof req.body?.rawText === 'string' ? req.body.rawText : '', req.body?.useTimelineNarration === true);
-        if (currentWorkspace().profile === 'mixed' && plan.scenes.some(scene => !scene.mediaType)) throw new Error('Mixed Media requires an image or video mediaType on every scene. Use the Mixed Media template.');
-        if (currentWorkspace().profile === 'long' && plan.scenes.some(scene => scene.mediaType === 'video')) throw new Error('Video scenes belong in the Mixed Media profile.');
-        res.json({ script: spokenText(plan), ttsText: spokenText(plan), imagePrompts: plan.scenes.map(scene => scene.imagePrompt), scenePlan: plan });
-      } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid scene plan' }); }
-      return;
-    }
-    const apiKey = getApiKey(req);
-    if (!apiKey) {
-      res.status(401).json({ error: 'Missing Gemini API key' });
-      return;
-    }
-    const { rawText } = req.body;
-    if (!rawText || typeof rawText !== 'string') {
-      res.status(400).json({ error: 'rawText is required' });
-      return;
-    }
-
-    const result = await chat(apiKey, {
-      model: 'gemini-3.6-flash',
-      temperature: 0,
-      max_tokens: 8192,
-      messages: [
-        {
-          role: 'system',
-          content: `You extract structured assets from a YouTube script-generation document. The input format varies between responses — headings, numbering, and section names may differ. The document may contain explicit tag markers: <image_prompt> (with optional #image N numbering) wraps each image prompt, and <script> wraps the spoken narration. Read the whole document and identify the content by MEANING, not by exact keywords.
-
-Return ONLY a single valid JSON object, no markdown fences, no commentary, in this exact shape:
-{
-  "script": "the full narrative/scene-by-scene script text — prefer content inside <script> tags if present, otherwise extract by meaning",
-  "ttsText": "the narration/voiceover text optimized for text-to-speech (no scene labels, no timestamps, no stage directions). Use commas for natural breath pauses, ellipses for suspense, and exclamation marks for emphasis. Ensure short, punchy sentences that sound conversational and engaging when spoken aloud like a top YouTuber speaking to the camera.",
-  "imagePrompts": ["prompt for image 1", "prompt for image 2", ...]
-}
-
-Rules:
-- ttsText must be the exact inner text of <script>...</script> and nothing else. If no <script> tag exists, return an empty string; never infer or rewrite narration.
-- imagePrompts must contain ONLY the actual AI image-generation prompt text for each image (the descriptive visual prompt), one string per image, in order. Prefer content inside <image_prompt> tags (one string per tag). Do not include labels like "Purpose:", "Narration covered:", "Character reference:", scene numbers, or negative prompts as separate array entries — merge continuity/negative-prompt detail into the same string as its image only if useful, otherwise omit it.
-- If there is no image prompt section, return an empty array.
-- If there is no separate narration/TTS section, use the closest match (e.g. a paste-ready voiceover block) or derive clean spoken narration from the script.
-- Do not invent content that isn't in the source text.`,
-        },
-        { role: 'user', content: rawText },
-      ],
-    });
-
-    const content = result.choices?.[0]?.message?.content || '';
-    const cleaned = content.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-    let parsed: { script?: unknown; imagePrompts?: unknown } = {};
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      // LLMs often wrap JSON in prose/fences — extract the first {...} block.
-      const start = cleaned.indexOf('{');
-      const end = cleaned.lastIndexOf('}');
-      if (start >= 0 && end > start) {
-        try {
-          parsed = JSON.parse(cleaned.slice(start, end + 1));
-        } catch {
-          parsed = {};
-        }
-      }
-    }
-
-    res.json({
-      script: typeof parsed.script === 'string' ? parsed.script : '',
-      // Narration must be the literal content of <script> only, never inferred by the model.
-      ttsText: extractScriptTagContent(rawText),
-      imagePrompts: Array.isArray(parsed.imagePrompts) ? parsed.imagePrompts : [],
-    });
-  } catch (err: any) {
-    console.error('Extract error:', err);
-    res.status(500).json({ error: err.message || 'Extraction failed' });
-  }
+    const plan = parseScenePlan(rawText, req.body?.useTimelineNarration === true);
+    const profile = currentWorkspace().profile;
+    if (profile === 'mixed' && plan.scenes.some(scene => !scene.mediaType)) throw new Error('Mixed Media requires an image or video mediaType on every scene. Use the shared scene-plan format.');
+    if (profile === 'long' && plan.scenes.some(scene => scene.mediaType === 'video')) throw new Error('Video scenes belong in the Mixed Media profile.');
+    res.json({ script: spokenText(plan), ttsText: spokenText(plan), imagePrompts: plan.scenes.map(scene => scene.imagePrompt), scenePlan: plan,
+      normalizedResponse: normalizeScenePlanResponse(rawText, plan) });
+  } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid scene plan' }); }
 });
 
 llmRouter.post('/scene-analysis', async (req, res) => {

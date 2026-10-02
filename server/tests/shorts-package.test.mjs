@@ -4,6 +4,7 @@ import { parseScenePlan } from '../dist/services/scene-plan.js';
 import { serializeShortsPackage } from '../dist/services/shorts-package.js';
 import { incompleteResponse } from '../dist/services/generation-status.js';
 import { mediaScenes, SHORTS_MEDIA_TEMPLATE } from '../dist/services/shorts-media.js';
+import { serializeScenePlan } from '../dist/services/scene-plan-format.js';
 
 const plan = { version: 1, title: 'वन की यात्रा', thumbnailPrompt: 'Portrait forest cover, no text', scenes: [
   { id: 'scene_001', chapter: 'Hook', role: 'story', mediaType: 'video', duration: 5, narration: 'वन में एक नई यात्रा शुरू हुई।', imagePrompt: 'Portrait still of a traveler & forest', videoPrompt: 'Five-second portrait shot of the traveler walking into the forest' },
@@ -16,7 +17,8 @@ test('tagged Shorts preserve Hindi speech, separate video/image prompts and excl
   assert.deepEqual(parsed, plan);
   assert.deepEqual(mediaScenes({ section: 'shorts', videoImportsEnabled: false, scenePlan: parsed }).map(s => s.imagePrompt), plan.scenes.map(s => s.imagePrompt));
   assert.equal(mediaScenes({ section: 'shorts', videoImportsEnabled: true, scenePlan: parsed })[0].imagePrompt, plan.scenes[0].videoPrompt);
-  assert.equal(incompleteResponse(SHORTS_MEDIA_TEMPLATE, tagged), undefined);
+  assert.match(incompleteResponse(SHORTS_MEDIA_TEMPLATE, tagged), /Missing shared/);
+  assert.equal(incompleteResponse(SHORTS_MEDIA_TEMPLATE, serializeScenePlan(plan)), undefined);
 });
 
 test('tagged Shorts reject missing, duplicate, mismatched and unlinked assets instead of guessing', () => {
@@ -42,8 +44,11 @@ test('stream completeness detects interrupted video and audio blocks', () => {
   assert.match(incompleteResponse(SHORTS_MEDIA_TEMPLATE, '<video_prompt>unfinished'), /video_prompt/);
 });
 
-test('the full production template requests all supported tags and substantial production direction', () => {
-  assert.ok(SHORTS_MEDIA_TEMPLATE.length > 12000);
-  for (const tag of ['shorts', 'audio_prompt', 'script', 'image_prompt', 'video_prompt', 'thumbnail_prompt']) assert.ok(SHORTS_MEDIA_TEMPLATE.includes(`<${tag}>`));
+test('the full production template requests the shared format and substantial production direction', () => {
+  assert.ok(SHORTS_MEDIA_TEMPLATE.length > 10000);
+  assert.ok(SHORTS_MEDIA_TEMPLATE.includes('<long_video>'));
+  assert.ok(SHORTS_MEDIA_TEMPLATE.includes('Shared extraction format V1'));
+  assert.ok(!SHORTS_MEDIA_TEMPLATE.includes('<shorts>'));
+  for (const field of ['narration', 'imagePrompt', 'videoPrompt', 'thumbnailPrompt']) assert.ok(SHORTS_MEDIA_TEMPLATE.includes(`"${field}"`));
   for (const instruction of ['Character, location', 'Duration and scene budgeting', 'still-image alternative', 'Final silent production check']) assert.ok(SHORTS_MEDIA_TEMPLATE.includes(instruction));
 });

@@ -3,7 +3,7 @@ import { Image as ImageIcon, Music, Copy, Pencil, Play, Loader2 } from 'lucide-r
 import type { Script } from '../../data';
 import { copyTextToClipboard, safeArray } from '../../lib/safe';
 import { spokenText, validateScenePlan } from '../../../server/src/services/scene-plan';
-import { isTaggedShortsResponse, serializeShortsPackage } from '../../../server/src/services/shorts-package';
+import { serializeScenePlan } from '../../../server/src/services/scene-plan-format';
 
 export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script: Script | null; onProceedToGeneration?: () => void; onUpdate?: (patch: Partial<Script>) => unknown }) {
   const [activeSubTab, setActiveSubTab] = useState<'images' | 'narration'>('images');
@@ -21,7 +21,7 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
     try {
       const scenePlan = validateScenePlan({ ...script.scenePlan, scenes: script.scenePlan.scenes.map((scene, i) => i === editingScene ? { ...scene, narration: sceneText.trim(), imagePrompt: sceneImage.trim(), ...(sceneVideo.trim() ? { videoPrompt: sceneVideo.trim() } : { videoPrompt: undefined }), ...((script.section === 'mixed' || script.section === 'shorts') ? { mediaType: sceneType, duration: sceneType === 'video' ? scene.duration || 5 : undefined } : {}) } : scene) });
       const narration = spokenText(scenePlan);
-      const saved = await onUpdate({ scenePlan, narration, extractedScript: narration, aiResponse: isTaggedShortsResponse(script.aiResponse || '') ? serializeShortsPackage(scenePlan) : `<long_video>\n${JSON.stringify(scenePlan, null, 2)}\n</long_video>`,
+      const saved = await onUpdate({ scenePlan, narration, extractedScript: narration, aiResponse: serializeScenePlan(scenePlan),
         imagePrompts: scenePlan.scenes.map(scene => scene.imagePrompt), generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined,
         generatedImages: script.generatedImages?.filter(image => (image.mediaType === 'video' ? scenePlan.scenes[image.index]?.videoPrompt || scenePlan.scenes[image.index]?.imagePrompt : scenePlan.scenes[image.index]?.imagePrompt) === image.prompt && (script.section === 'shorts' && (image.mediaType || 'image') === 'image' || (scenePlan.scenes[image.index]?.mediaType || 'image') === (image.mediaType || 'image'))) });
       if (saved === false) throw new Error('Could not save the scene. Check the server connection.');

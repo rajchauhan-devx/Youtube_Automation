@@ -1,6 +1,6 @@
 import type { ScenePlan } from './scene-plan.js';
 
-export const isTaggedShortsResponse = (raw: string) => /<(?:shorts|scene|video_prompt|audio_prompt)\b/i.test(raw);
+export const isTaggedShortsResponse = (raw: string) => /<(?:shorts|scene)\b/i.test(raw);
 type Block = { name: string; attributes: Record<string, string>; text: string };
 const decode = (text: string) => text.replace(/&(lt|gt|amp|quot|apos);/g, (_, key: string) => ({ lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" }[key]!));
 
@@ -13,7 +13,7 @@ function blocks(raw: string, allowed: string[]): Block[] {
   while (cursor < source.length) {
     pattern.lastIndex = cursor;
     const match = pattern.exec(source);
-    if (!match || !allowed.includes(match[1].toLowerCase())) throw new Error('Incomplete or unexpected Shorts tags. Return one complete <shorts> production package.');
+    if (!match || !allowed.includes(match[1].toLowerCase())) throw new Error('Incomplete or unexpected Shorts tags. Correct the legacy tags or use the shared <long_video> JSON scene plan.');
     const attributes: Record<string, string> = {};
     let remaining = match[2].trim();
     while (remaining) {
