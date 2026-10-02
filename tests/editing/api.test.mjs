@@ -89,6 +89,23 @@ test("creation imports immutable media, probes duration, and preserves legacy so
     data.projectId,
   );
 });
+test('motion captions have a separate endpoint and preserve narration evidence without an AI key', async () => {
+  const created = await (await request('/projects', body)).json();
+  const response = await request(`/projects/${created.projectId}/captions`, { expectedRevisionId: created.project.revisionId });
+  assert.equal(response.status, 201, JSON.stringify(await response.clone().json()));
+  const result = await response.json();
+  assert.ok(result.project.artifacts.length > 0);
+  assert.ok(result.project.artifacts.every(a => a.graphic.kind === 'caption'));
+  assert.equal(result.project.inputs.audioHash, created.project.inputs.audioHash);
+  assert.equal((await request(`/projects/${created.projectId}/captions`, { expectedRevisionId: created.project.revisionId })).status, 409);
+  const graphicsCleared = await request(`/projects/${created.projectId}/graphics/clear`, { expectedRevisionId: result.project.revisionId });
+  assert.equal(graphicsCleared.status, 201);
+  const preserved = await graphicsCleared.json();
+  assert.equal(preserved.project.artifacts.length, result.project.artifacts.length);
+  const cleared = await request(`/projects/${created.projectId}/captions/clear`, { expectedRevisionId: preserved.project.revisionId });
+  assert.equal(cleared.status, 201);
+  assert.equal((await cleared.json()).project.artifacts.length, 0);
+});
 test("old audio without identity and wrong selected language fail explicitly", async () => {
   assert.equal(
     (await request("/projects", { ...body, language: "hi" })).status,

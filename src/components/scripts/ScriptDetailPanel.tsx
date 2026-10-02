@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ScriptModelSelector, SCRIPT_MODELS } from './ScriptModelSelector';
 import { Play, Trash2, X, RotateCcw, Pencil, Sparkles } from 'lucide-react';
 import { DURATION_PRESETS, LONG_DURATION_PRESETS, type Script } from '../../data';
+import { EditScriptModal } from './EditScriptModal';
 
 export function ScriptDetailPanel({
   script,
@@ -11,6 +12,8 @@ export function ScriptDetailPanel({
   onClear,
   onUpdateDuration,
   onUpdateModel,
+  onSaveScript,
+  onSaveSpoken,
 }: {
   script: Script;
   onClose: () => void;
@@ -19,7 +22,10 @@ export function ScriptDetailPanel({
   onClear?: () => void;
   onUpdateDuration?: (duration: number) => void;
   onUpdateModel?: (model: string) => void;
+  onSaveScript: (patch: Partial<Script>) => Promise<boolean>;
+  onSaveSpoken: (text: string) => Promise<boolean>;
 }) {
+  const [showEditor, setShowEditor] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isEditingDuration, setIsEditingDuration] = useState(false);
@@ -63,6 +69,7 @@ export function ScriptDetailPanel({
 
   return (
     <div className="studio-card w-full max-w-sm shrink-0 animate-scale-in p-5 lg:sticky lg:top-2 lg:w-[360px]">
+      {showEditor && <EditScriptModal script={script} onClose={() => setShowEditor(false)} onSavePatch={onSaveScript} onSaveSpoken={onSaveSpoken} />}
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
           <div className="studio-card w-full max-w-sm p-6 shadow-pop animate-scale-in">
@@ -91,7 +98,7 @@ export function ScriptDetailPanel({
           <div className="studio-card w-full max-w-md p-6 shadow-pop animate-scale-in">
             <h4 className="text-base font-bold text-white">Clear generated content?</h4>
             <p className="mb-4 mt-2 text-[13px] leading-relaxed text-muted">
-              Clear all generated content for <span className="font-semibold text-white">"{script.name}"</span>? The template (prompts, duration, settings) will be preserved.
+              Clear all generated content for <span className="font-semibold text-white">"{script.name}"</span>? Saved responses, extracted assets, run logs, generated files and editing projects will be permanently deleted. The template (prompts, duration, settings) will be preserved.
             </p>
             <div className="flex justify-end gap-2">
               <button
@@ -224,6 +231,7 @@ export function ScriptDetailPanel({
       </div>
 
       <div className="mt-4 flex gap-2 border-t border-borderSoft pt-4">
+        <button onClick={() => setShowEditor(true)} className="studio-btn-ghost" title="Edit script and prompts"><Pencil className="h-4 w-4" />Edit</button>
         {hasRunData && (
           <button
             onClick={() => setShowClearConfirm(true)}

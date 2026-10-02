@@ -23,6 +23,14 @@ export const generateRouter = Router();
 generateRouter.use(presenterGuard(['/start', '/image']));
 
 const activeControllers = new Map<string, AbortController>();
+const imageCompletions = new Map<string, Promise<void>>();
+export async function cancelScriptImages(scriptId: string) {
+  const prefix = workspaceKey(`${scriptId}:`);
+  const keys = [...activeControllers.keys()].filter(key => key.startsWith(prefix));
+  for (const key of keys) activeControllers.get(key)?.abort();
+  if (keys.length) await interruptComfyUI();
+  await Promise.all(keys.map(key => imageCompletions.get(key)));
+}
 const statusCode: Record<string, number> = {
   OFFLINE: 503,
   TIMEOUT: 504,
@@ -92,6 +100,8 @@ generateRouter.post('/image', async (req, res) => {
   if (activeControllers.size) { res.status(409).json({ error: 'An image is already generating. Wait for completion before retrying.' }); return; }
   const controller = new AbortController();
   activeControllers.set(key, controller);
+  let finishImage!: () => void;
+  imageCompletions.set(key, new Promise<void>(resolve => { finishImage = resolve; }));
   presenterState.imageRequests++;
 
   try {
@@ -128,6 +138,8 @@ generateRouter.post('/image', async (req, res) => {
     }
   } finally {
     activeControllers.delete(key);
+    imageCompletions.delete(key);
+    finishImage();
     presenterState.imageRequests--;
   }
 });

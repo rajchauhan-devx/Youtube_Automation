@@ -35,6 +35,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
     if (p?.settings.aiModel && GEMINI_MODELS.some(item => item.id === p.settings.aiModel))
       setModel(p.settings.aiModel);
   }, [p?.revisionId, p?.settings.aiModel]);
+  useEffect(() => { if (p?.inputs.fps) setFps(p.inputs.fps); }, [p?.id, p?.inputs.fps]);
   useEffect(() => { setAudio(script?.generatedAudio?.[0]?.filename || ''); }, [script?.id]);
   useEffect(() => { setShowStyleTest(false); setFrame(0); }, [p?.revisionId]);
   useEffect(() => {
@@ -53,7 +54,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
     try { await work(); } catch (error) { state.setError(error instanceof Error ? error.message : 'Motion graphics failed.'); }
     finally { setBusy(false); }
   }
-  async function generate() {
+  async function generate(mode: 'graphics' | 'captions') {
     if (!script) return;
     await act(async () => {
       const narration = script.generatedAudio?.find(a => a.filename === audio);
@@ -62,12 +63,19 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         imageIndexes: (script.generatedImages || []).filter(i => i.status === 'done' && i.url).map(i => i.index),
         aspect: profile === 'shorts' ? '9:16' : '16:9', fps,
         settings: { stylePreference: style, density, maxProviderCalls: 40, maxGeneratedAssets: 0, ...(model ? { aiModel: model } : {}) } };
-      const created = await editingRequest<EditingPayload>(fetch, p && data ? `/projects/${p.id}/revisions` : '/projects',
+      const reuse = mode === 'captions' && p && data && !data.stale && p.revisionId === data.currentRevisionId &&
+        p.inputs.audioFilename === audio && p.inputs.fps === fps && p.inputs.width === (profile === 'shorts' ? 1080 : 1920) &&
+        p.inputs.imageAssets.map(i => i.promptIndex).join(',') === inputs.imageIndexes.join(',');
+      const created = reuse ? data : await editingRequest<EditingPayload>(fetch, p && data ? `/projects/${p.id}/revisions` : '/projects',
         p && data ? { expectedRevisionId: data.currentRevisionId, inputs } : inputs);
       state.setSelectedRevision(''); state.setProjectId(created.project.id); state.setData(created);
       await onUpdate({ editingProjectId: created.project.id });
-      await editingRequest(fetch, `/projects/${created.project.id}/generate`, { expectedRevisionId: created.project.revisionId });
-      state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}`));
+      if (mode === 'captions') {
+        state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}/captions`, { expectedRevisionId: created.project.revisionId }));
+      } else {
+        await editingRequest(fetch, `/projects/${created.project.id}/generate`, { expectedRevisionId: created.project.revisionId });
+        state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}`));
+      }
     });
   }
   const download = data?.jobs.filter(j => j.operation === 'render' && j.state === 'succeeded' && j.outputUrl && j.revisionId === p?.revisionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
@@ -76,7 +84,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
     <div className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 to-surface p-5">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Motion studio</p>
       <h2 className="mt-2 text-2xl font-semibold text-white">{editor ? 'Preview & export' : 'Artifacts'}</h2>
-      <p className="mt-2 max-w-2xl text-sm text-gray-400">Cinematic titles, character names, location badges and object spotlights, timed to your story.</p>
+      <p className="mt-2 max-w-2xl text-sm text-gray-400">Story matched graphics for important moments, plus optional animated narration captions.</p>
       <div className="mt-4 flex flex-wrap gap-2">{Object.values(graphicNames).map(name => <span key={name} className="rounded-full border border-amber-300/15 px-3 py-1 text-xs text-amber-100">{name}</span>)}</div>
     </div>
     {state.error && <div role="alert" className="rounded-lg border border-red-800 bg-red-950/30 p-3 text-sm text-red-200">{state.error}</div>}
@@ -95,13 +103,15 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
       <label className="text-sm md:col-span-2">Direction <span className="text-gray-500">(optional)</span><input className={input} value={style} maxLength={2000} onChange={e => setStyle(e.target.value)} placeholder="Emphasize character introductions and important objects" /></label>
       {!!state.capabilities?.missing.length && <div className="text-sm text-amber-200 md:col-span-2">{state.capabilities.missing.join(' ')}</div>}
       <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-        <button className={button} disabled={busy || !!job || !state.capabilities?.ready || !audio || !script.generatedImages?.length} onClick={() => void generate()}>Generate motion graphics</button>
+        <button className={button} disabled={busy || !!job || !state.capabilities?.ready || !audio || !script.generatedImages?.length} onClick={() => void generate('graphics')}>Generate motion graphics</button>
+        <button className="rounded-lg border border-sky-400/60 bg-sky-400/10 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-400/20 disabled:opacity-40" disabled={busy || !!job || !audio || !script.generatedImages?.length} onClick={() => void generate('captions')}>Create motion captions</button>
+        {p?.artifacts.some(a => a.graphic?.kind === 'caption') && <button className="text-sm text-sky-300 disabled:opacity-40" disabled={!editable} onClick={() => void act(async () => { state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/captions/clear`, { expectedRevisionId: data!.currentRevisionId })); })}>Remove captions</button>}
         {p && <button className="text-sm text-gray-400 disabled:opacity-40" disabled={!editable} onClick={() => void act(async () => {
-          const next = await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/reset`, { expectedRevisionId: data!.currentRevisionId });
+          const next = await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/graphics/clear`, { expectedRevisionId: data!.currentRevisionId });
           state.setSelectedRevision(''); state.setData(next); setSelected(''); setFrame(0);
         })}>Clear graphics</button>}
       </div>
-      <p className="text-xs text-gray-400 md:col-span-2">Generate scene media and narration first. Object spotlights are verified against still images; moving clips use scene graphics. Review the preview before export.</p>
+      <p className="text-xs text-gray-400 md:col-span-2">Graphics appear only where they add context. Captions use saved narration timing and can be created separately. Review the preview before export.</p>
     </div>}
     {!!data?.legacyArtifactCount && <p className="rounded-lg border border-amber-800 p-3 text-sm text-amber-200">This saved revision contains {data.legacyArtifactCount} retired graphics. They are hidden from preview and new exports. Generate motion graphics to replace them; original media and revision history remain available.</p>}
     {job && <div role="status" className="flex items-center justify-between rounded-lg border border-amber-700/50 p-3 text-sm"><span>{job.stage}{job.total ? ` · ${job.completed}/${job.total}` : ''}</span><button className="text-red-300" disabled={job.state === 'cancel_requested'} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${job.id}/cancel`, {}); await state.refresh(); })}>{job.state === 'cancel_requested' ? 'Cancelling…' : 'Cancel'}</button></div>}
@@ -120,20 +130,22 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         <div aria-label="Motion graphics timeline" className="space-y-2 rounded-lg border border-border p-3">
           <input aria-label="Timeline playhead" type="range" className="w-full accent-amber-400" min={0} max={p.inputs.durationFrames - 1} value={frame} onChange={e => { setFrame(Number(e.target.value)); player.current?.seekTo(Number(e.target.value)); }} />
           <div className="flex h-8 gap-px">{p.scenes.map((s, i) => <button key={s.id} className="truncate rounded bg-slate-700 text-xs" style={{ width: `${100 * (s.endFrame - s.startFrame) / p.inputs.durationFrames}%` }} onClick={() => player.current?.seekTo(s.startFrame)}>Scene {i + 1}</button>)}</div>
-          <div className="relative h-7">{previewProject?.artifacts.map(a => <button title={a.intent} key={a.id} className={`absolute h-7 truncate rounded px-1 text-xs ${a.enabled ? 'bg-amber-700' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames}%` }} onClick={() => { setSelected(a.id); player.current?.seekTo(a.startFrame); }}>{a.graphic?.title}</button>)}</div>
+          <div className="relative h-7">{previewProject?.artifacts.filter(a => a.graphic?.kind !== 'caption').map(a => <button title={a.intent} key={a.id} className={`absolute h-7 truncate rounded px-1 text-xs ${a.enabled ? 'bg-amber-700' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames}%` }} onClick={() => { setSelected(a.id); player.current?.seekTo(a.startFrame); }}>{a.graphic?.title}</button>)}</div>
+          {previewProject?.artifacts.some(a => a.graphic?.kind === 'caption') && <div aria-label="Motion captions timeline" className="relative h-5">{previewProject.artifacts.filter(a => a.graphic?.kind === 'caption').map(a => <button aria-label={`Caption: ${a.graphic?.title}`} title={a.graphic?.title} key={a.id} className={`absolute h-5 rounded ${a.enabled ? 'bg-sky-600' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${Math.max(0.2, 100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames)}%` }} onClick={() => player.current?.seekTo(a.startFrame)} />)}</div>}
         </div>
         <div className="flex flex-wrap items-center gap-3"><button className={button} disabled={!ready || busy || !!job} onClick={() => void act(async () => { await editingRequest(fetch, `/projects/${p.id}/render`, { revisionId: p.revisionId }); await state.refresh(); })}>Export MP4</button>{download?.outputUrl && <a href={download.outputUrl} download className="text-sm text-amber-300 underline">Download MP4</a>}</div>
         <p className="text-xs text-gray-500">Preview and export use the same graphics, scene media and narration.</p>
       </div>
       <div className="space-y-4">
-        {ready && <p role="status" className="text-sm text-amber-100">{p.artifacts.length} {p.artifacts.length === 1 ? 'graphic' : 'graphics'} · {p.sceneOutcomes?.filter(o => o.state === 'failed').length || 0} skipped scenes</p>}
+        {ready && <p role="status" className="text-sm text-amber-100">{p.artifacts.filter(a => a.graphic?.kind !== 'caption').length} graphics · {p.artifacts.filter(a => a.graphic?.kind === 'caption').length} captions · {p.sceneOutcomes?.filter(o => o.state === 'failed').length || 0} skipped scenes</p>}
         {p.scenes.map((scene, index) => <section key={scene.id}>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Scene {index + 1}</h3>
-          {!p.artifacts.some(a => a.sceneId === scene.id) && <p className="text-xs text-gray-500">{p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.reason || 'Graphics not generated yet.'}</p>}
-          {p.artifacts.filter(a => a.sceneId === scene.id && a.graphic).map(a => <GraphicCard key={`${p.revisionId}-${a.id}`} artifact={a} fps={p.inputs.fps} width={p.inputs.width} height={p.inputs.height} busy={!editable} selected={selected === a.id}
+          {!p.artifacts.some(a => a.sceneId === scene.id && a.graphic?.kind !== 'caption') && <p className="text-xs text-gray-500">{p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.reason || 'No extra graphic is needed for this scene.'}</p>}
+          {p.artifacts.filter(a => a.sceneId === scene.id && a.graphic?.kind !== 'caption').map(a => <GraphicCard key={`${p.revisionId}-${a.id}`} artifact={a} fps={p.inputs.fps} width={p.inputs.width} height={p.inputs.height} busy={!editable} selected={selected === a.id}
             onSelect={() => { setSelected(a.id); player.current?.seekTo(Math.min(a.endFrame - 1, a.startFrame + Math.round(p.inputs.fps * 0.9))); }}
             onSave={patch => act(async () => { state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/artifacts/${a.id}`, { expectedRevisionId: p.revisionId, ...patch }, 'PATCH')); })}
             onRegenerate={() => act(async () => { await editingRequest(fetch, `/projects/${p.id}/artifacts/${a.id}/revise`, { expectedRevisionId: p.revisionId, instruction: 'Reconsider this graphic for the same scene. Preserve its supported meaning and verify any spotlight against the actual image.' }); await state.refresh(); })} />)}
+          {p.artifacts.some(a => a.sceneId === scene.id && a.graphic?.kind === 'caption') && <p className="text-xs text-sky-300">{p.artifacts.filter(a => a.sceneId === scene.id && a.graphic?.kind === 'caption').length} motion captions</p>}
         </section>)}
       </div>
     </div>}

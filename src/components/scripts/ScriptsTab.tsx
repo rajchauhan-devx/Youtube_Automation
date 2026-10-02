@@ -17,6 +17,8 @@ export function ScriptsTab({
   onClear,
   onUpdateDuration,
   onUpdateModel,
+  onSaveScript,
+  onSaveSpoken,
 }: {
   scripts: Script[];
   section: Section;
@@ -30,6 +32,8 @@ export function ScriptsTab({
   onClear?: (id: string) => void;
   onUpdateDuration?: (id: string, duration: number) => void;
   onUpdateModel?: (id: string, model: string) => void;
+  onSaveScript: (id: string, patch: Partial<Script>) => Promise<boolean>;
+  onSaveSpoken: (id: string, text: string) => Promise<boolean>;
 }) {
   const activeCount = scripts.filter((s) => s.status === 'active').length;
   return (
@@ -105,6 +109,7 @@ export function ScriptsTab({
 
       {selectedScript && (
         <ScriptDetailPanel
+          key={selectedScript.id}
           script={selectedScript}
           onClose={onClosePanel}
           onRun={() => onRunScript(selectedScript)}
@@ -112,6 +117,8 @@ export function ScriptsTab({
           onClear={onClear ? () => onClear(selectedScript.id) : undefined}
           onUpdateDuration={onUpdateDuration ? (dur) => onUpdateDuration(selectedScript.id, dur) : undefined}
           onUpdateModel={onUpdateModel ? (mod) => onUpdateModel(selectedScript.id, mod) : undefined}
+          onSaveScript={(patch) => onSaveScript(selectedScript.id, patch)}
+          onSaveSpoken={(text) => onSaveSpoken(selectedScript.id, text)}
         />
       )}
     </div>

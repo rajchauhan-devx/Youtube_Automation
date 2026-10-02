@@ -10,6 +10,7 @@ const { fixture } = await import('./motion-fixtures.mjs');
 const { runPipeline, decodeBox } = await import('../../server/dist/services/editing/pipeline.js');
 const { motionJson } = await import('../../server/dist/services/editing/motionProvider.js');
 const { compileGraphic } = await import('../../server/dist/services/editing/motionPackArtifacts.js');
+const { createMotionCaptions } = await import('../../server/dist/services/editing/motionCaptions.js');
 const { targetMostlyVisible } = await import('@tubeflow/video-composition');
 const { z } = await import('zod');
 const { objectHash } = await import('../../server/dist/services/editing/repository.js');
@@ -43,6 +44,16 @@ test('scene graphics use saved timing and a batched visual inventory', async () 
   assert.equal(p.artifacts.length, 0, 'input revision is immutable');
   const again = await runPipeline(p, ctx);
   assert.equal(again.revisionId, result.revisionId); assert.equal(ctx.job.usage.length, 2, 'checkpoint avoids repeated provider work');
+});
+test('a clean scene stays clean and graphics generation preserves separate captions', async () => {
+  const source = await fixture('museum', false, true);
+  const captioned = await createMotionCaptions(source, new AbortController().signal);
+  globalThis.fetch = async (_, options) => isInspection(options) ? response(inventory(captioned)) : response({ graphics: [], theme: 'modern' });
+  const result = await runPipeline(captioned, context(captioned));
+  assert.equal(result.artifacts.filter(a => a.graphic.kind !== 'caption').length, 0);
+  assert.equal(result.artifacts.filter(a => a.graphic.kind === 'caption').length, captioned.artifacts.length);
+  assert.equal(result.sceneOutcomes[0].state, 'not_needed');
+  assert.equal(result.style.colors.accent, '#69d6ec');
 });
 test('spotlight requires both a valid box and independent crop verification', async () => {
   const p = await fixture('museum', false, true), ctx = context(p);

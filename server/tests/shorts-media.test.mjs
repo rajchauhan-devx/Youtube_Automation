@@ -50,10 +50,15 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
   let browser;
   try {
     let list = await (await originalFetch(host + prefix + '/scripts')).json();
+    assert.deepEqual(list, [], 'new profiles do not inherit starter scripts');
+    const created = await json('/scripts', { id: 'shorts_images_videos', name: 'Shorts media template',
+      prompts: [{ id: 'master', content: SHORTS_MEDIA_TEMPLATE }], status: 'draft', duration: 60 });
+    assert.equal(created.status, 201);
+    list = await (await originalFetch(host + prefix + '/scripts')).json();
     assert.equal(list.filter(s => s.id === 'shorts_images_videos').length, 1);
     assert.match(list[0].prompts[0].content, /<video_prompt>/);
     list = await (await originalFetch(host + prefix + '/scripts')).json();
-    assert.equal(list.length, 1, 'template is installed once');
+    assert.equal(list.length, 1, 'explicitly created template persists');
     ws.workspaceContext.run(scope, () => store.add('scripts', { ...list[0], narration: 'Keep existing work', prompts: [{ ...list[0].prompts[0], content: LEGACY_SHORTS_MEDIA_TEMPLATE }] }));
     ws.workspaceContext.run(scope, () => store.remove('template_migrations', 'shorts-media-v2'));
     const upgraded = (await (await originalFetch(host + prefix + '/scripts')).json())[0];

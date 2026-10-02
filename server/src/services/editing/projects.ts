@@ -17,6 +17,7 @@ import { objectHash, hash, publish } from "./repository.js";
 import { approximateAlignment, mapScenes } from "./timing.js";
 import { EditingError, editingConfig } from "./config.js";
 import { supportedMotionModel } from "./motionProvider.js";
+import { applyMotionTheme, inferMotionTheme } from './motionTheme.js';
 export interface ScriptInput {
   id: string;
   narration?: string;
@@ -86,6 +87,14 @@ export async function reviseProjectInputs(
       );
     next.id = existing.id;
     next.parentRevisionId = existing.revisionId;
+    if (next.inputs.audioHash === existing.inputs.audioHash && next.inputs.narrationHash === existing.inputs.narrationHash &&
+      next.inputs.fps === existing.inputs.fps && next.inputs.width === existing.inputs.width && next.inputs.height === existing.inputs.height &&
+      next.inputs.imageAssets.map(a => a.hash).join('|') === existing.inputs.imageAssets.map(a => a.hash).join('|')) {
+      next.alignment = structuredClone(existing.alignment);
+      next.scenes = structuredClone(existing.scenes);
+      next.artifacts = structuredClone(existing.artifacts.filter(a => a.graphic?.kind === 'caption'));
+      next.status = next.artifacts.length ? 'ready' : 'draft';
+    }
     publish(next, existing.revisionId);
     const script = store.getById<ScriptInput>("scripts", existing.scriptId)!;
     store.add("scripts", { ...script, editingProjectId: existing.id });
@@ -208,7 +217,7 @@ async function createProjectSnapshot(value: unknown, publishNew = true) {
       id: "story-style",
       direction:
         request.settings.stylePreference || "Clear, calm explanatory graphics",
-      colors: { background: "#172033", text: "#ffffff", accent: "#f2bd65" },
+      colors: { background: "#192333", text: "#f7faff", accent: "#8bb9e8" },
       fontAssetIds: fonts.map((f) => f.id),
       headingSize: 64,
       bodySize: 42,
@@ -234,6 +243,7 @@ async function createProjectSnapshot(value: unknown, publishNew = true) {
     createdAt: new Date().toISOString(),
   };
   p.scenes = mapScenes(p);
+  applyMotionTheme(p, inferMotionTheme(`${request.settings.stylePreference} ${narration} ${selected.map(image => image.prompt).join(' ')}`));
   // Recheck after asynchronous inspection; never overwrite concurrent edits to Script.
   const latest = store.getById<ScriptInput>("scripts", script.id);
   if (!latest || scriptFingerprint(latest) !== inputs.scriptHash)

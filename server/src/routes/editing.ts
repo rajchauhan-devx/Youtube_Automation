@@ -51,6 +51,7 @@ import { graphicIssues, graphicNames } from '@tubeflow/video-composition';
 import { mediaUrl } from "../services/workspace.js";
 import { store } from "../services/store.js";
 import { sampleFrames } from "@tubeflow/video-composition";
+import { createMotionCaptions } from '../services/editing/motionCaptions.js';
 export const editingRouter = Router();
 const route =
   (fn: (req: Request, res: Response) => Promise<unknown> | unknown) =>
@@ -205,6 +206,55 @@ editingRouter.post(
   }),
 );
 editingRouter.post(
+  '/projects/:projectId/captions',
+  route(async (req, res) => {
+    const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
+    const p = current(req.params.projectId);
+    expected(p, body.expectedRevisionId);
+    if (jobs(p.id).some(job => ['queued', 'running', 'cancel_requested'].includes(job.state)))
+      throw new EditingError('JOB_ACTIVE', 'Wait for the current Artifacts job before creating captions.', 409);
+    const script = store.getById<ScriptInput>('scripts', p.scriptId);
+    if (!script || scriptFingerprint(script) !== p.inputs.scriptHash)
+      throw new EditingError('STALE_INPUT', 'Media or narration changed. Create a new revision first.', 409);
+    const next = await createMotionCaptions(p, new AbortController().signal);
+    publish(next, p.revisionId);
+    res.status(201).json(payload(next));
+  }),
+);
+editingRouter.post(
+  '/projects/:projectId/captions/clear',
+  route((req, res) => {
+    const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
+    const p = current(req.params.projectId);
+    expected(p, body.expectedRevisionId);
+    if (jobs(p.id).some(job => ['queued', 'running', 'cancel_requested'].includes(job.state)))
+      throw new EditingError('JOB_ACTIVE', 'Wait for the current Artifacts job before removing captions.', 409);
+    const next = nextRevision(p);
+    next.artifacts = next.artifacts.filter(a => a.graphic?.kind !== 'caption');
+    next.diagnostics = next.diagnostics.filter(d => d.code !== 'CAPTION_TIMING_ESTIMATED');
+    next.status = next.artifacts.some(a => a.graphic) ? (next.diagnostics.some(d => d.code === 'GRAPHIC_SKIPPED') ? 'partial' : 'ready') : 'draft';
+    publish(next, p.revisionId);
+    res.status(201).json(payload(next));
+  }),
+);
+editingRouter.post(
+  '/projects/:projectId/graphics/clear',
+  route((req, res) => {
+    const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
+    const p = current(req.params.projectId);
+    expected(p, body.expectedRevisionId);
+    if (jobs(p.id).some(job => ['queued', 'running', 'cancel_requested'].includes(job.state)))
+      throw new EditingError('JOB_ACTIVE', 'Wait for the current Artifacts job before removing graphics.', 409);
+    const next = nextRevision(p);
+    next.artifacts = next.artifacts.filter(a => a.graphic?.kind === 'caption');
+    next.sceneOutcomes = next.scenes.map(scene => ({ sceneId: scene.id, state: 'not_needed', reason: 'No extra graphic is needed for this scene.', artifactIds: [] }));
+    next.diagnostics = next.diagnostics.filter(d => d.stage !== 'graphics');
+    next.status = next.artifacts.length ? 'ready' : 'draft';
+    publish(next, p.revisionId);
+    res.status(201).json(payload(next));
+  }),
+);
+editingRouter.post(
   "/projects/:projectId/reset",
   route((req, res) => {
     const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
@@ -296,8 +346,8 @@ editingRouter.post(
         .parse(req.body),
       p = current(req.params.projectId);
     expected(p, body.expectedRevisionId);
-    if (!p.artifacts.some((a) => a.id === req.params.artifactId))
-      throw new EditingError("NOT_FOUND", "Artifact not found", 404);
+    if (!p.artifacts.some((a) => a.id === req.params.artifactId && a.graphic?.kind !== 'caption'))
+      throw new EditingError("NOT_FOUND", "Motion graphic not found", 404);
     const job = enqueue(p, "revise", key(req), credential(req), {
       artifactId: req.params.artifactId,
       instruction: body.instruction,

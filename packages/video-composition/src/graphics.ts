@@ -1,7 +1,7 @@
 import type { ArtifactComposition, EditingProject, MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { sourceToScreen } from './math.js';
 
-export const graphicNames = { title: 'Cinematic title', 'lower-third': 'Character lower third', badge: 'Location / era', spotlight: 'Object spotlight' };
+export const graphicNames = { title: 'Cinematic title', 'lower-third': 'Character lower third', badge: 'Location / era', spotlight: 'Object spotlight', caption: 'Motion caption' };
 export function graphicSafeArea(width: number, height: number) {
   const portrait = height > width;
   return { x: width * 0.06, y: height * (portrait ? 0.15 : 0.06), width: width * (portrait ? 0.78 : 0.88), height: height * (portrait ? 0.60 : 0.88) };
@@ -31,7 +31,9 @@ export function targetMostlyVisible(box: MotionGraphicSpec['bounds'], width: num
 export function graphicIssues(p: EditingProject, a: ArtifactComposition, source: { width: number; height: number }) {
   const g = a.graphic;
   if (!g) return [];
-  const safe = graphicSafeArea(p.inputs.width, p.inputs.height);
+  const safe = g.kind === 'caption'
+    ? { x: p.inputs.width * 0.06, y: p.inputs.height * 0.08, width: p.inputs.width * 0.88, height: p.inputs.height * 0.86 }
+    : graphicSafeArea(p.inputs.width, p.inputs.height);
   const issues: string[] = [];
   if (!contains(safe, g.bounds)) issues.push('The graphic exceeds the format safe area.');
   if (g.kind === 'spotlight') {
@@ -47,9 +49,10 @@ export function graphicIssues(p: EditingProject, a: ArtifactComposition, source:
 
 export function cardBounds(kind: MotionGraphicSpec['kind'], width: number, height: number, position = 'bottom') {
   const safe = graphicSafeArea(width, height), portrait = height > width;
-  const w = safe.width * (kind === 'title' ? 1 : kind === 'lower-third' ? (portrait ? 0.78 : 0.52) : kind === 'badge' ? (portrait ? 0.64 : 0.38) : (portrait ? 0.70 : 0.46));
-  const h = height * (kind === 'title' ? (portrait ? 0.20 : 0.27) : kind === 'lower-third' ? (portrait ? 0.12 : 0.18) : kind === 'badge' ? (portrait ? 0.08 : 0.12) : (portrait ? 0.11 : 0.16));
-  const x = position === 'right' ? safe.x + safe.width - w : position === 'center' || kind === 'title' ? safe.x + (safe.width - w) / 2 : safe.x;
-  const y = position === 'top' ? safe.y : position === 'center' ? safe.y + (safe.height - h) / 2 : safe.y + safe.height - h;
+  const w = safe.width * (kind === 'title' ? 1 : kind === 'caption' ? (portrait ? 0.94 : 0.76) : kind === 'lower-third' ? (portrait ? 0.78 : 0.52) : kind === 'badge' ? (portrait ? 0.64 : 0.38) : (portrait ? 0.70 : 0.46));
+  const h = height * (kind === 'title' ? (portrait ? 0.20 : 0.27) : kind === 'caption' ? (portrait ? 0.12 : 0.18) : kind === 'lower-third' ? (portrait ? 0.12 : 0.18) : kind === 'badge' ? (portrait ? 0.08 : 0.12) : (portrait ? 0.11 : 0.16));
+  const x = position === 'right' ? safe.x + safe.width - w : position === 'center' || kind === 'title' || kind === 'caption' ? safe.x + (safe.width - w) / 2 : safe.x;
+  const y = kind === 'caption' ? height - h - height * (portrait ? 0.075 : 0.06)
+    : position === 'top' ? safe.y : position === 'center' ? safe.y + (safe.height - h) / 2 : safe.y + safe.height - h;
   return { x, y, width: w, height: h };
 }

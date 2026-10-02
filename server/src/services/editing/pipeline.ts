@@ -10,8 +10,9 @@ import { EditingError } from './config.js';
 import { motionJson, motionModel, type MotionContext } from './motionProvider.js';
 import { compileGraphic, GraphicProposal, sceneNarration, type Proposal } from './motionPackArtifacts.js';
 import { runMedia } from '../media-process.js';
+import { applyMotionTheme, type MotionTheme } from './motionTheme.js';
 
-const Plan = z.strictObject({ graphics: z.array(GraphicProposal).max(16) });
+const Plan = z.strictObject({ graphics: z.array(GraphicProposal).max(16), theme: z.enum(['devotional', 'modern', 'documentary', 'nature', 'mystery', 'dramatic', 'neutral']).optional() });
 const VisualScene = z.strictObject({ sceneId: z.string(), visibleObjects: z.array(z.string().trim().min(1).max(80)).max(8), openArea: z.enum(['top', 'bottom', 'left', 'right', 'center', 'none']) });
 const VisualInventory = z.strictObject({ scenes: z.array(VisualScene).max(16) });
 type Observation = z.infer<typeof VisualScene>;
@@ -21,8 +22,8 @@ const PLAN_PROMPT = `You are a documentary motion graphics editor. Choose a smal
 Allowed graphics: title (2-5 word chapter/hook headline), lower-third (character name and short identity), badge (place or era), spotlight (a clearly named visible physical object).
 No subtitles, narration excerpts as display text, social buttons, keyword stickers or generic motivational labels. Do not invent names, dates, statistics, identities or claims.
 Write labels in the narration language. Every proposal must cite an exact quote from its scene's narration. title/detail must be supported by that quote.
-Use at most one graphic per scene, and respect the supplied limits. Leave scenes clean when a graphic adds no value. For spotlight, target must name a specific physical object listed in visibleObjects; title must name that visible object rather than inferred contents or identity. Never propose a spotlight for an absent or unclear object. For other types, target is empty.
-The visual inventory describes what is actually visible. Prefer the openArea for text placement; use position top, bottom, left, right, or center as appropriate. Avoid repeated titles when another supported graphic type is suitable. The supplied mediaType indicates whether a scene is a still or moving clip. Use scene graphics for moving clips; spotlights require still images. Return graphics:[] if none are warranted.`;
+Use at most one graphic per scene, and respect the supplied limits as ceilings, not targets. Propose a graphic only when it adds specific information or emphasis that the footage and narration do not already make clear. Leave ordinary scenes clean. For spotlight, target must name a specific physical object listed in visibleObjects; title must name that visible object rather than inferred contents or identity. Never propose a spotlight for an absent or unclear object. For other types, target is empty.
+The visual inventory describes what is actually visible. Prefer the openArea for text placement; use position top, bottom, left, right, or center as appropriate. Avoid repeated titles when another supported graphic type is suitable. The supplied mediaType indicates whether a scene is a still or moving clip. Use scene graphics for moving clips; spotlights require still images. Choose one theme matching the actual story and visual media: devotional, modern, documentary, nature, mystery, dramatic, or neutral. Do not default to yellow/gold. Return graphics:[] if none are warranted.`;
 
 async function sceneImage(assetId: string, signal: AbortSignal): Promise<string> {
   const record = assetRecord(assetId);
@@ -99,7 +100,7 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
     project.artifacts = project.artifacts.filter(a => a.graphic);
     project.diagnostics = revise ? project.diagnostics.filter(d => d.artifactId !== ctx.job.artifactId) : [];
     if (!revise) {
-      project.artifacts = []; project.analyses = [];
+      project.artifacts = project.artifacts.filter(a => a.graphic?.kind === 'caption'); project.analyses = [];
       project.alignment = await align(project, ctx.signal, false);
       project.scenes = mapScenes(project);
       project.sceneOutcomes = project.scenes.map(s => ({ sceneId: s.id, state: 'not_needed', reason: 'No extra graphic is needed for this scene.', artifactIds: [] }));
@@ -121,7 +122,7 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
     if (revise && !old?.graphic) throw new EditingError('NOT_FOUND', 'Generate new motion graphics before revising this legacy artifact.', 404);
     const scenes = old ? p.scenes.filter(s => s.id === old.sceneId) : p.scenes;
     if (!checkpoint.observations) { checkpoint.observations = await inspectScenes(ctx, model, scenes); save(); }
-    const sceneLimit = { subtle: 2, balanced: 3, expressive: 4 }[p.settings.density];
+    const sceneLimit = Math.min(16, Math.ceil(p.inputs.durationFrames / p.inputs.fps / 60) * { subtle: 2, balanced: 3, expressive: 4 }[p.settings.density]);
     const spotlightLimit = Math.min(8, Math.ceil(p.inputs.durationFrames / p.inputs.fps / 20));
     try {
       const result = await motionJson(ctx, model, 'plan-graphics', Plan, PLAN_PROMPT, {
@@ -130,11 +131,12 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
         scenes: scenes.map((s, index) => ({ sceneId: s.id, narration: sceneNarration(p, s.id), mediaType: assetRecord(s.assetId).mime === 'video/mp4' ? 'video' : 'image', duration: (s.endFrame - s.startFrame) / p.inputs.fps, visual: checkpoint.observations![index] })),
         ...(old ? { previous: old.graphic, instruction: ctx.job.instruction, mustProduceOneReplacement: true } : {}),
       });
+      if (result.theme && !revise) applyMotionTheme(p, result.theme as MotionTheme);
       const used = new Set<string>(); let graphics = 0, spotlights = 0;
       checkpoint.proposals = result.graphics.filter(g => {
         if (!scenes.some(s => s.id === g.sceneId) || used.has(g.sceneId)) return false;
-        if (g.kind === 'spotlight' ? spotlights >= spotlightLimit : graphics >= sceneLimit) return false;
-        used.add(g.sceneId); if (g.kind === 'spotlight') spotlights++; else graphics++;
+        if (graphics >= sceneLimit || (g.kind === 'spotlight' && spotlights >= spotlightLimit)) return false;
+        used.add(g.sceneId); graphics++; if (g.kind === 'spotlight') spotlights++;
         return true;
       });
       if (revise && !checkpoint.proposals.length) fail(old!.sceneId, 'The revision produced no valid replacement; the previous graphic is preserved.', old!.id);

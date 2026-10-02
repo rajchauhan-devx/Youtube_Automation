@@ -78,6 +78,48 @@ test('three accounts and both profiles isolate scripts, pipelines, media, and as
   assert.equal((await request(`${scope(a.id,'long')}/scripts/same-id`,undefined,'GET')).status,200);
 });
 
+test('new profiles start empty and Clear physically removes only the active workspace run', async () => {
+  const fresh = accounts.createAccount('Fresh empty channel');
+  for (const profile of ['shorts', 'long', 'mixed']) {
+    const response = await request(`${scope(fresh.id, profile)}/scripts`, undefined, 'GET');
+    assert.deepEqual(await response.json(), []);
+  }
+  const contexts = [
+    { accountId: fresh.id, profile: 'shorts' },
+    { accountId: fresh.id, profile: 'long' },
+    { accountId: b.id, profile: 'shorts' },
+  ];
+  for (const context of contexts) ws.workspaceContext.run(context, () => {
+    store.add('scripts', { id: 'clear-same', name: 'Keep template', prompts: [{ id: 'p', content: 'Keep prompt' }],
+      duration: 60, aiResponse: 'Private response', narration: 'Private narration', topicName: 'Topic',
+      content: 'Old content', chapters: ['Old chapter'], editingProjectId: 'stale',
+      narrationSync: { state: 'done' }, generatedMusic: { url: 'old.wav' }, youtubeExport: { uploadedVideoId: 'old' } });
+    store.set('pipeline_clear-same', [{ outputPreview: 'Private log' }]);
+    for (const dir of [ws.generatedDir(), ws.outputDir()]) {
+      fs.mkdirSync(path.join(dir, 'clear-same'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'clear-same', 'old.wav'), 'private media');
+    }
+  });
+  const response = await request(`${scope(fresh.id)}/scripts/clear-same/clear`, undefined);
+  assert.equal(response.status, 200, await response.clone().text());
+  const clean = await response.json();
+  assert.equal(clean.name, 'Keep template');
+  assert.equal(clean.prompts[0].content, 'Keep prompt');
+  assert.equal(clean.aiResponse, '');
+  for (const field of ['content', 'chapters', 'topicName', 'editingProjectId', 'narrationSync', 'generatedMusic', 'youtubeExport'])
+    assert.equal(field in clean, false, field);
+  ws.workspaceContext.run(contexts[0], () => {
+    assert.equal(fs.existsSync(path.join(ws.workspaceDir(), 'pipeline_clear-same.json')), false);
+    assert.equal(fs.existsSync(path.join(ws.generatedDir(), 'clear-same')), false);
+    assert.equal(fs.existsSync(path.join(ws.outputDir(), 'clear-same')), false);
+  });
+  for (const context of contexts.slice(1)) ws.workspaceContext.run(context, () => {
+    assert.equal(store.getById('scripts', 'clear-same').aiResponse, 'Private response');
+    assert.equal(fs.existsSync(path.join(ws.generatedDir(), 'clear-same', 'old.wav')), true);
+  });
+  assert.equal((await request(`${scope(fresh.id)}/scripts/missing/clear`, undefined)).status, 404);
+});
+
 test('OAuth connections bind to independent accounts with cookie/state protection and no default token fallback', async () => {
   assert.deepEqual(auth.createOAuth2Client(a.id).credentials, {});
   const pending = [];

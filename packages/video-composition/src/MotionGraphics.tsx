@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { AbsoluteFill, continueRender, delayRender, interpolate, spring } from 'remotion';
 import type { ArtifactComposition, EditingProject } from '@tubeflow/editing-contracts';
-import { targetMostlyVisible, targetOnScreen } from './graphics.js';
+import { cardBounds, targetMostlyVisible, targetOnScreen } from './graphics.js';
 
 type Props = { project: EditingProject; artifact: ArtifactComposition; frame: number; source: { width: number; height: number } };
 function Text({ text, size, height, family, color = '#ffffff', weight = 700 }: { text: string; size: number; height: number; family: string; color?: string; weight?: number }) {
@@ -31,7 +31,9 @@ function animation({ project, artifact, frame }: Props) {
 }
 
 const familyFor = (project: EditingProject) => project.style.fontAssetIds.map(id => `"editing-${id}"`).join(', ');
-const accentFor = (project: EditingProject) => project.style.colors.accent || '#f2bd65';
+const accentFor = (project: EditingProject) => project.style.colors.accent || '#8bb9e8';
+const textFor = (project: EditingProject) => project.style.colors.text || '#ffffff';
+const backgroundFor = (project: EditingProject) => project.style.colors.background || '#172033';
 
 export function CinematicTitle(props: Props) {
   const { project, artifact } = props, g = artifact.graphic!, b = g.bounds;
@@ -42,7 +44,7 @@ export function CinematicTitle(props: Props) {
     transformOrigin: 'center', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center',
     filter: 'drop-shadow(0 3px 10px #000e) drop-shadow(0 0 25px #000a)' }}>
     <div style={{ clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
-      <Text text={g.title} family={familyFor(project)} size={b.width * 0.13} height={mainHeight} color="#fff5df" />
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.13} height={mainHeight} color={textFor(project)} />
     </div>
     <div style={{ alignSelf: 'center', width: `${enter * 56}%`, height: Math.max(2, 5 * scale), background: accent, boxShadow: `0 0 ${18 * scale}px ${accent}`, marginTop: 2 * scale }} />
     {g.detail && <div style={{ marginTop: 6 * scale, clipPath: `inset(0 0 ${(1 - enter) * 100}% 0)` }}>
@@ -60,8 +62,8 @@ export function CharacterLowerThird(props: Props) {
     textShadow: '0 2px 7px #000, 0 0 16px #000' }}>
     <div style={{ width: Math.max(3, 6 * scale), height: `${enter * 82}%`, background: accent, boxShadow: `0 0 ${12 * scale}px ${accent}`, flexShrink: 0 }} />
     <div style={{ paddingLeft: pad, width: b.width - pad - 6 * scale, overflow: 'hidden', clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
-      <Text text={g.title} family={familyFor(project)} size={b.width * 0.115} height={nameHeight} />
-      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.055} height={b.height - nameHeight} color="#e5edf1" weight={500} />}
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.115} height={nameHeight} color={textFor(project)} />
+      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.055} height={b.height - nameHeight} color={textFor(project)} weight={500} />}
     </div>
   </div>;
 }
@@ -72,10 +74,10 @@ export function LocationBadge(props: Props) {
   return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height,
     opacity, transform: `scale(${0.72 + enter * 0.28})`, transformOrigin: 'left center', display: 'flex', alignItems: 'center',
     padding: `0 ${Math.max(7, 18 * scale)}px`, boxSizing: 'border-box', borderLeft: `${Math.max(3, 5 * scale)}px solid ${accent}`,
-    borderBottom: `1px solid ${accent}bb`, background: 'linear-gradient(90deg, #09121cdd, #09121c44 82%, transparent)',
+    borderBottom: `1px solid ${accent}bb`, background: `linear-gradient(90deg, ${backgroundFor(project)}ee, ${backgroundFor(project)}66 82%, transparent)`,
     textShadow: '0 2px 6px #000' }}>
-    <div style={{ width: '100%' }}><Text text={g.title} family={familyFor(project)} size={b.width * 0.12} height={b.height * (g.detail ? 0.58 : 0.8)} />
-      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.065} height={b.height * 0.32} color="#e5edf1" weight={400} />}</div>
+    <div style={{ width: '100%' }}><Text text={g.title} family={familyFor(project)} size={b.width * 0.12} height={b.height * (g.detail ? 0.58 : 0.8)} color={textFor(project)} />
+      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.065} height={b.height * 0.32} color={textFor(project)} weight={400} />}</div>
   </div>;
 }
 
@@ -87,8 +89,8 @@ function SpotlightLabel(props: Props) {
     display: 'flex', alignItems: 'center', padding: `0 ${Math.max(6, 16 * scale)}px`,
     borderLeft: `${Math.max(3, 5 * scale)}px solid ${accentFor(project)}`, textShadow: '0 2px 8px #000, 0 0 18px #000', WebkitTextStroke: `${Math.max(1, 1.5 * scale)}px #07111d` }}>
     <div style={{ width: '100%', clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
-      <Text text={g.title} family={familyFor(project)} size={b.width * 0.10} height={b.height * (g.detail ? 0.58 : 0.82)} />
-      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.05} height={b.height * 0.34} color="#e5edf1" weight={400} />}
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.10} height={b.height * (g.detail ? 0.58 : 0.82)} color={textFor(project)} />
+      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.05} height={b.height * 0.34} color={textFor(project)} weight={400} />}
     </div>
   </div>;
 }
@@ -103,7 +105,7 @@ export function ObjectSpotlight(props: Props) {
   const dx = from.x - cx, dy = from.y - cy, factor = 1 / Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
   const to = { x: cx + dx * factor, y: cy + dy * factor };
   const draw = interpolate(local, [fps * 0.2, fps * 0.8], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-  const accent = project.style.colors.accent || '#f2bd65', width = Math.max(2, project.inputs.width / 360);
+  const accent = accentFor(project), width = Math.max(2, project.inputs.width / 360);
   const arrowId = `arrow-${artifact.id}`, glowId = `glow-${artifact.id}`;
   return <AbsoluteFill style={{ opacity }}>
     <svg width={project.inputs.width} height={project.inputs.height} style={{ position: 'absolute', inset: 0, overflow: 'visible' }}>
@@ -126,5 +128,30 @@ export function MotionGraphicRenderer(props: Props) {
   if (graphic.kind === 'title') return <CinematicTitle {...props} />;
   if (graphic.kind === 'lower-third') return <CharacterLowerThird {...props} />;
   if (graphic.kind === 'badge') return <LocationBadge {...props} />;
+  if (graphic.kind === 'caption') return <MotionCaption {...props} />;
   return <ObjectSpotlight {...props} />;
+}
+
+export function MotionCaption(props: Props) {
+  const { project, artifact } = props, g = artifact.graphic!, b = cardBounds('caption', project.inputs.width, project.inputs.height);
+  const { opacity, local, fps } = animation(props);
+  const words = g.title.split(/\s+/u).filter(Boolean);
+  const duration = Math.max(1, artifact.endFrame - artifact.startFrame);
+  const weight = words.reduce((total, word) => total + word.length, 0);
+  let spoken = 0;
+  const active = words.findIndex(word => { spoken += word.length; return local / duration * weight < spoken; });
+  const fontSize = Math.min(b.height * 0.42, b.width * (project.inputs.height > project.inputs.width ? 0.095 : 0.064));
+  const delay = Math.min(fps * 0.075, duration * 0.35 / Math.max(1, words.length));
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity, zIndex: 2,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', alignContent: 'center',
+    columnGap: '0.4em', rowGap: '0.02em', fontFamily: familyFor(project), fontWeight: 800,
+    fontSize, lineHeight: 1.13, textAlign: 'center', textShadow: '0 2px 2px #000, 0 4px 8px #000, 0 0 14px #000' }} data-editing-text="motion-caption">
+    {words.map((word, index) => {
+      const reveal = spring({ frame: Math.max(0, local - index * delay), fps, config: { stiffness: 230, damping: 17, overshootClamping: false } });
+      const emphasized = index === active;
+      return <span key={`${index}-${word}`} style={{ display: 'inline-block', color: emphasized ? accentFor(project) : textFor(project),
+        opacity: reveal, transform: `translateY(${(1 - reveal) * 0.42}em) scale(${0.78 + reveal * 0.22 + (emphasized ? 0.05 : 0)})`,
+        transformOrigin: 'center bottom' }}>{word}</span>;
+    })}
+  </div>;
 }

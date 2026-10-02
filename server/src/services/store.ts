@@ -48,6 +48,9 @@ function write<T>(name: string, data: T[]): void {
 }
 
 export const store = {
+  delete(name: string): void {
+    fs.rmSync(filePath(name), { force: true });
+  },
   get<T>(name: string): T[] {
     return read<T>(name);
   },

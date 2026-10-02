@@ -235,7 +235,7 @@ export default function App() {
       return [template, topic.trim() ? `Topic: ${topic}` : '', instructions.trim()].filter(Boolean).join('\n\n');
     }
     const targetDurationStr = duration
-      ? `Target Duration: ~${duration} seconds. Pace the script naturally for this length — you may go slightly shorter or longer if the content demands it, but aim for this ballpark.`
+      ? `Target Duration: ~${duration} seconds. Pace the script naturally for this length â€” you may go slightly shorter or longer if the content demands it, but aim for this ballpark.`
       : '';
     const optionalInstructions = instructions.trim()
       ? `Additional Instructions: ${instructions.trim()}`
@@ -363,7 +363,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
           try {
             parsed = JSON.parse(dataStr);
           } catch {
-            // Don't kill the whole stream on one damaged chunk — keep partial text.
+            // Don't kill the whole stream on one damaged chunk â€” keep partial text.
             streamDamaged = true;
             return;
           }
@@ -403,7 +403,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
               try {
                 handleEvent(event);
               } catch (error) {
-                // Server-sent error payload — abort cleanly with message.
+                // Server-sent error payload â€” abort cleanly with message.
                 try { await reader.cancel(); } catch { /* already closed */ }
                 throw error;
               }
@@ -454,7 +454,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
             label: 'Response',
             status: completedNormally ? ('done' as const) : ('warning' as const),
             summary: completedNormally
-              ? 'Response complete — click Extract Assets to process'
+              ? 'Response complete â€” click Extract Assets to process'
               : `Response incomplete: ${incomplete || (finishReason || 'stream interrupted').toLowerCase().replace(/_/g, ' ')}`,
             inputLog: topic,
             outputPreview: fullResponse.slice(-200),
@@ -540,7 +540,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
       aiResponse: response.trim(), extractedScript: '', imagePrompts: [], narration: '',
       generatedImages: [], generatedAudio: [], scenePlan: undefined, timelineConfig: undefined,
       sceneAnalysis: undefined, youtubeExport: undefined, status: 'active', lastUsed: new Date().toISOString(),
-      pipeline: [{ id: 'response', label: 'Response', status: 'done', summary: 'Response imported — ready to extract', inputLog: '', outputPreview: response.slice(0, 120) }],
+      pipeline: [{ id: 'response', label: 'Response', status: 'done', summary: 'Response imported â€” ready to extract', inputLog: '', outputPreview: response.slice(0, 120) }],
     };
     if (!await persistScript(selectedScript.id, patch)) throw new Error('Could not save the imported response. Your pasted text is still here; please retry.');
     if (activeScope.current !== scopeKey) return;
@@ -636,35 +636,19 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
   async function handleClearScript(id: string) {
     generationAbortRef.current?.abort();
     generationAbortRef.current = null;
-    const resetPatch: Partial<Script> = {
-      topicName: undefined,
-      aiInstructions: undefined,
-      aiResponse: '',
-      extractedScript: '',
-      imagePrompts: [],
-      narration: '',
-      generatedImages: [],
-      generatedAudio: [],
-      timelineConfig: undefined,
-      sceneAnalysis: undefined,
-      youtubeExport: undefined,
-      scenePlan: undefined,
-      pipeline: [
-        {
-          id: 'response',
-          label: 'Response',
-          status: 'pending' as const,
-          summary: 'Waiting to start',
-          inputLog: '',
-          outputPreview: '',
-        },
-      ],
-      lastUsed: 'Never',
-      status: 'draft' as const,
-    };
-
-    patchScriptState(id, resetPatch);
-    await persistScript(id, resetPatch);
+    const scopeAtCall = scopeKey;
+    await saveQueues.current.get(`${scopeKey}:${id}`);
+    try {
+      const response = await fetch(`/api/scripts/${encodeURIComponent(id)}/clear`, { method: 'POST' });
+      const saved = await response.json() as Script & { error?: string };
+      if (!response.ok) throw new Error(saved.error || 'Could not clear script data');
+      if (activeScope.current === scopeAtCall) {
+        setUserScripts(previous => previous.map(script => script.id === id ? saved : script));
+        setSaveError('');
+      }
+    } catch (error) {
+      if (activeScope.current === scopeAtCall) setSaveError(safeErrorMessage(error, 'Could not clear script data'));
+    }
   }
 
   async function handleUpdateScriptDuration(id: string, duration: number) {
@@ -679,14 +663,39 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
     await persistScript(id, patch);
   }
 
+  async function handleSaveSpokenScript(id: string, text: string) {
+    generationAbortRef.current?.abort();
+    const scopeAtCall = scopeKey;
+    await saveQueues.current.get(`${scopeKey}:${id}`);
+    const response = await fetch(`/api/scripts/${encodeURIComponent(id)}/spoken-script`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }),
+    });
+    const saved = await response.json() as Script & { error?: string };
+    if (!response.ok) throw new Error(saved.error || `Could not save script (HTTP ${response.status}).`);
+    if (activeScope.current === scopeAtCall) patchScriptState(id, { ...saved, timelineConfig: undefined, youtubeExport: undefined, generatedMusic: undefined });
+    return true;
+  }
+
+  async function handleSaveScriptPatch(id: string, patch: Partial<Script>) {
+    if ('scenePlan' in patch || 'aiResponse' in patch) generationAbortRef.current?.abort();
+    return persistScript(id, patch);
+  }
+
   async function handleDeleteScript(id: string) {
+    generationAbortRef.current?.abort();
+    const scopeAtCall = scopeKey;
+    await saveQueues.current.get(`${scopeKey}:${id}`);
     try {
-      await fetch(`/api/scripts/${id}`, { method: 'DELETE' });
-    } catch (err) {
-      console.error('Delete script API error:', err);
+      const response = await fetch(`/api/scripts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Could not delete script data');
+      if (activeScope.current === scopeAtCall) {
+        setUserScripts(previous => previous.filter(script => script.id !== id));
+        if (selectedScriptId === id) setSelectedScriptId(null);
+        setSaveError('');
+      }
+    } catch (error) {
+      if (activeScope.current === scopeAtCall) setSaveError(safeErrorMessage(error, 'Could not delete script data'));
     }
-    setUserScripts((prev) => prev.filter((s) => s.id !== id));
-    if (selectedScriptId === id) setSelectedScriptId(null);
   }
 
   const isMainSection = sidebar === 'shorts' || sidebar === 'long' || sidebar === 'mixed';
@@ -791,7 +800,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
             </span>
             <span className="flex-1 text-left">
               <span className="block text-[13px] font-semibold">Profile & Voices</span>
-              <span className="block text-[11px] text-faint">Accounts · TTS · Clones</span>
+              <span className="block text-[11px] text-faint">Accounts Â· TTS Â· Clones</span>
             </span>
           </button>
         </div>
@@ -885,6 +894,8 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
                       onClear={handleClearScript}
                       onUpdateDuration={handleUpdateScriptDuration}
                       onUpdateModel={handleUpdateScriptModel}
+                      onSaveScript={handleSaveScriptPatch}
+                      onSaveSpoken={handleSaveSpokenScript}
                     />
                   )}
                   {tab === 'preview' && (

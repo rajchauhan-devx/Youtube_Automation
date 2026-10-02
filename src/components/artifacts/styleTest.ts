@@ -1,7 +1,7 @@
 import type { ArtifactComposition, EditingProject, MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { cardBounds } from '@tubeflow/video-composition';
 
-type Kind = MotionGraphicSpec['kind'];
+type Kind = Exclude<MotionGraphicSpec['kind'], 'caption'>;
 export type StyleTestSample = { kind: Kind; frame: number };
 
 /** A local preview of all four renderers. Nothing from this project is saved or exported. */
@@ -39,5 +39,5 @@ export function makeStyleTestProject(project: EditingProject): { project: Editin
   }
 
   artifacts.sort((a, b) => a.startFrame - b.startFrame);
-  return { project: { ...project, artifacts }, samples: artifacts.map(a => ({ kind: a.graphic!.kind, frame: Math.min(a.endFrame - 1, a.startFrame + Math.round(project.inputs.fps * 0.9)) })) };
+  return { project: { ...project, artifacts }, samples: artifacts.map(a => ({ kind: a.graphic!.kind as Kind, frame: Math.min(a.endFrame - 1, a.startFrame + Math.round(project.inputs.fps * 0.9)) })) };
 }
