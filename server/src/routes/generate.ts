@@ -28,9 +28,10 @@ import {
 } from '../services/comfyui.js';
 
 export const generateRouter = Router();
-generateRouter.use(presenterGuard(['/start', '/image', '/colab-video', '/colab-image']));
+generateRouter.use(presenterGuard(['/start', '/image']));
 
 const colabControllers = new Map<string, AbortController>();
+const colabCompletions = new Map<string, Promise<void>>();
 
 generateRouter.get('/colab-status', async (req, res) => {
   try {
@@ -45,18 +46,19 @@ generateRouter.get('/colab-defaults', (_req, res) => {
   res.json(colabDefaults());
 });
 
-async function saveColabAsset(scriptId: string, index: number, scene: any, file: { filename: string }, mediaType: 'image' | 'video') {
-  const current = store.getById<any>('scripts', scriptId);
-  if (!current || JSON.stringify(mediaScenes({ ...current, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) {
-    throw Object.assign(new Error('Scene changed during generation. Generate again using the updated scene.'), { statusCode: 409 });
-  }
+async function saveColabAsset(scriptId: string, index: number, scene: any, file: { filename: string }, mediaType: 'image' | 'video', signal?: AbortSignal) {
   let duration: number | undefined;
   if (mediaType === 'video') {
     const full = path.join(generatedDir(), scriptId, file.filename);
-    const probe = JSON.parse(await runMedia('ffprobe', ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', full]));
+    const probe = JSON.parse(await runMedia('ffprobe', ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', full], signal));
     const visual = probe.streams?.find((stream: any) => stream.codec_type === 'video');
     duration = Number(visual?.duration || probe.format?.duration);
     if (!visual || !Number.isFinite(duration) || duration! <= 0) throw new Error('The Colab worker returned a video with no readable duration.');
+  }
+  signal?.throwIfAborted();
+  const current = store.getById<any>('scripts', scriptId);
+  if (!current || JSON.stringify(mediaScenes({ ...current, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) {
+    throw Object.assign(new Error('Scene changed during generation. Generate again using the updated scene.'), { statusCode: 409 });
   }
   const asset = {
     index,
@@ -82,7 +84,13 @@ generateRouter.post('/colab-video', async (req, res) => {
     res.status(400).json({ error: 'scriptId, index (number), and prompt (string) are required' });
     return;
   }
-  const scene = mediaScenes({ ...store.getById<any>('scripts', scriptId), section: profile })[index];
+  const script = store.getById<any>('scripts', scriptId);
+  if (!script) { res.status(404).json({ error: 'Script not found' }); return; }
+  if ((numFrames !== undefined && (!Number.isInteger(numFrames) || numFrames < 1 || numFrames > 240)) ||
+      (steps !== undefined && (!Number.isInteger(steps) || steps < 1 || steps > 150))) {
+    res.status(400).json({ error: 'Frames must be 1–240 and steps must be 1–150 (whole numbers).' }); return;
+  }
+  const scene = mediaScenes({ ...script, section: profile })[index];
   if (!scene || scene.mediaType !== 'video' || scene.imagePrompt !== prompt) {
     res.status(400).json({ error: 'Choose a video scene with its current extracted prompt.' });
     return;
@@ -91,7 +99,8 @@ generateRouter.post('/colab-video', async (req, res) => {
   if (colabControllers.has(key)) { res.status(409).json({ error: 'A Colab job is already running for this scene.' }); return; }
   const controller = new AbortController();
   colabControllers.set(key, controller);
-  presenterState.imageRequests++;
+  let finishJob!: () => void;
+  colabCompletions.set(key, new Promise<void>(resolve => { finishJob = resolve; }));
   try {
     const config = resolveColabConfig(req);
     const started = Date.now();
@@ -101,14 +110,16 @@ generateRouter.post('/colab-video', async (req, res) => {
       steps: Number.isInteger(steps) ? steps : undefined,
       signal: controller.signal,
     });
-    const saved = await saveColabAsset(scriptId, index, scene, file, 'video');
+    controller.signal.throwIfAborted();
+    const saved = await saveColabAsset(scriptId, index, scene, file, 'video', controller.signal);
     res.json({ ok: true, url: saved.asset.url, duration: (saved.asset as any).duration, elapsedMs: Date.now() - started, generatedImages: saved.generatedImages });
   } catch (err: any) {
     console.error(`Colab video failed for ${key}:`, err.message);
-    res.status(err.statusCode || 500).json({ error: err.message || 'Colab video generation failed' });
+    res.status(controller.signal.aborted ? 499 : err.statusCode || 500).json({ error: controller.signal.aborted ? 'Cancelled' : err.message || 'Colab video generation failed' });
   } finally {
     colabControllers.delete(key);
-    presenterState.imageRequests--;
+    colabCompletions.delete(key);
+    finishJob();
   }
 });
 
@@ -121,7 +132,12 @@ generateRouter.post('/colab-image', async (req, res) => {
     return;
   }
   const mixed = ['mixed', 'shorts'].includes(profile);
-  const scene = mixed ? mediaScenes({ ...store.getById<any>('scripts', scriptId), section: profile })[index] : undefined;
+  const script = store.getById<any>('scripts', scriptId);
+  if (!script) { res.status(404).json({ error: 'Script not found' }); return; }
+  if (steps !== undefined && (!Number.isInteger(steps) || steps < 1 || steps > 150)) {
+    res.status(400).json({ error: 'Steps must be a whole number from 1–150.' }); return;
+  }
+  const scene = mediaScenes({ ...script, section: profile })[index];
   if (mixed && (!scene || scene.mediaType !== 'image' || scene.imagePrompt !== prompt)) {
     res.status(400).json({ error: 'Choose an image scene with its current extracted prompt.' });
     return;
@@ -130,7 +146,8 @@ generateRouter.post('/colab-image', async (req, res) => {
   if (colabControllers.has(key)) { res.status(409).json({ error: 'A Colab job is already running for this scene.' }); return; }
   const controller = new AbortController();
   colabControllers.set(key, controller);
-  presenterState.imageRequests++;
+  let finishJob!: () => void;
+  colabCompletions.set(key, new Promise<void>(resolve => { finishJob = resolve; }));
   try {
     const config = resolveColabConfig(req);
     const started = Date.now();
@@ -139,10 +156,14 @@ generateRouter.post('/colab-image', async (req, res) => {
       steps: Number.isInteger(steps) ? steps : undefined,
       signal: controller.signal,
     });
+    controller.signal.throwIfAborted();
     // Long-profile images are free prompts with no scene plan; persist by index like local generation does.
     if (!mixed) {
       const current = store.getById<any>('scripts', scriptId);
       if (!current) { res.status(404).json({ error: 'Script not found' }); return; }
+      if (JSON.stringify(current.imagePrompts) !== JSON.stringify(script.imagePrompts)) {
+        res.status(409).json({ error: 'Image prompts changed during generation. Generate again using the updated prompt.' }); return;
+      }
       const asset = {
         index, prompt, mediaType: 'image', status: 'done',
         url: `/api/accounts/${currentWorkspace().accountId}/profiles/${currentWorkspace().profile}/generate/file/${scriptId}/${file.filename}`,
@@ -152,14 +173,15 @@ generateRouter.post('/colab-image', async (req, res) => {
       res.json({ ok: true, url: asset.url, elapsedMs: Date.now() - started, generatedImages });
       return;
     }
-    const saved = await saveColabAsset(scriptId, index, scene, file, 'image');
+    const saved = await saveColabAsset(scriptId, index, scene, file, 'image', controller.signal);
     res.json({ ok: true, url: saved.asset.url, elapsedMs: Date.now() - started, generatedImages: saved.generatedImages });
   } catch (err: any) {
     console.error(`Colab image failed for ${key}:`, err.message);
-    res.status(err.statusCode || 500).json({ error: err.message || 'Colab image generation failed' });
+    res.status(controller.signal.aborted ? 499 : err.statusCode || 500).json({ error: controller.signal.aborted ? 'Cancelled' : err.message || 'Colab image generation failed' });
   } finally {
     colabControllers.delete(key);
-    presenterState.imageRequests--;
+    colabCompletions.delete(key);
+    finishJob();
   }
 });
 
@@ -167,6 +189,7 @@ generateRouter.post('/colab-cancel', async (req, res) => {
   const { scriptId, index } = req.body || {};
   const controller = colabControllers.get(workspaceKey(`${scriptId}:${index}`));
   if (controller) controller.abort();
+  await colabCompletions.get(workspaceKey(`${scriptId}:${index}`));
   res.json({ ok: true, cancelled: !!controller });
 });
 
@@ -175,9 +198,12 @@ const imageCompletions = new Map<string, Promise<void>>();
 export async function cancelScriptImages(scriptId: string) {
   const prefix = workspaceKey(`${scriptId}:`);
   const keys = [...activeControllers.keys()].filter(key => key.startsWith(prefix));
+  const remoteKeys = [...colabControllers.keys()].filter(key => key.startsWith(prefix));
   for (const key of keys) activeControllers.get(key)?.abort();
+  for (const key of remoteKeys) colabControllers.get(key)?.abort();
   if (keys.length) await interruptComfyUI();
   await Promise.all(keys.map(key => imageCompletions.get(key)));
+  await Promise.all(remoteKeys.map(key => colabCompletions.get(key)));
 }
 const statusCode: Record<string, number> = {
   OFFLINE: 503,

@@ -75,7 +75,7 @@ export function SetupTab() {
 
   function saveColab() {
     localStorage.setItem('colab_url', colabUrl.trim().replace(/\/+$/, ''));
-    localStorage.setItem('colab_key', colabKey);
+    localStorage.setItem('colab_key', colabKey.trim());
     setColabSaved('Saved on THIS browser.');
     setTimeout(() => setColabSaved(''), 2500);
   }
@@ -86,7 +86,7 @@ export function SetupTab() {
     try {
       const headers: Record<string, string> = {};
       if (colabUrl.trim()) headers['x-colab-url'] = colabUrl.trim();
-      if (colabKey) headers['x-colab-key'] = colabKey;
+      if (colabKey.trim()) headers['x-colab-key'] = colabKey.trim();
       const res = await fetch('/api/generate/colab-status', { headers });
       const data = await res.json();
       if (!data.configured) setColabStatus('Not configured — enter the Colab URL + API key, or set COLAB_MEDIA_API_URL / COLAB_MEDIA_API_KEY in server/.env.');

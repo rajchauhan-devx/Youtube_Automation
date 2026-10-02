@@ -82,7 +82,7 @@ export function GenerationTab({
         </div>
 
         {generationSubTab === 'images' ? (
-          (profile === 'mixed' || profile === 'shorts') ? <MixedMediaContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} /> : <ImageGenerationContent script={script} onUpdate={onUpdate} />
+          (profile === 'mixed' || profile === 'shorts') ? <MixedMediaContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} /> : <ImageGenerationContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} />
         ) : (
           <AudioGenerationContent script={script} onUpdate={onUpdate} />
         )}
@@ -114,6 +114,8 @@ function ImageGenerationContent({
   const [seedMode, setSeedMode] = useState<'random' | 'fixed'>('random');
   const [fixedSeed, setFixedSeed] = useState<number>(42);
   const [provider, setProvider] = useState<'local' | 'colab'>('local');
+  const [colabDetail, setColabDetail] = useState('');
+  const [colabChecking, setColabChecking] = useState(false);
   const [longBatchSize, setLongBatchSize] = useState(5);
   const [longRestSeconds, setLongRestSeconds] = useState(60);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
@@ -148,6 +150,7 @@ function ImageGenerationContent({
       const prior = existing.find((e) => e.index === i && e.prompt === prompt);
       return prior ?? { index: i, prompt, status: 'pending' as const };
     });
+    imagesRef.current = merged;
     setImages(merged);
     return () => { runTokenRef.current++; pausedRef.current = false; };
   }, [script?.id, script?.imagePrompts]);
@@ -183,15 +186,25 @@ function ImageGenerationContent({
   }, []);
 
   function updateImage(index: number, patch: Partial<GeneratedImage>) {
-    setImages((prev) => {
-      const next = prev.map((im) => (im.index === index ? { ...im, ...patch } : im));
-      onUpdate({ generatedImages: next });
-      return next;
-    });
+    const next = imagesRef.current.map((im) => (im.index === index ? { ...im, ...patch } : im));
+    imagesRef.current = next;
+    setImages(next);
+    onUpdate({ generatedImages: next });
+  }
+
+  async function checkColab() {
+    setColabChecking(true);
+    try {
+      const res = await fetch('/api/generate/colab-status', { headers: colabHeaders() });
+      const data = await parseJsonResponse<{ detail?: string }>(res, {});
+      setColabDetail(data.detail || 'Could not check the Colab worker.');
+    } catch (error) { setColabDetail(getErrorMessage(error, 'Could not check the Colab worker.')); }
+    finally { setColabChecking(false); }
   }
 
   async function generateOne(item: GeneratedImage) {
     if (!script) return;
+    const token = runTokenRef.current;
     updateImage(item.index, { status: 'generating', error: undefined, errorCode: undefined });
     try {
       const isColab = provider === 'colab';
@@ -215,6 +228,7 @@ function ImageGenerationContent({
         }),
       });
       const data = await parseJsonResponse<{ url?: string; seed?: number; elapsedMs?: number; error?: string; code?: string }>(res, {});
+      if (token !== runTokenRef.current) return;
       if (!res.ok) throw Object.assign(new Error(data.error || 'Generation failed'), { code: data.code });
       updateImage(item.index, {
         status: 'done',
@@ -224,6 +238,7 @@ function ImageGenerationContent({
         attempts: (item.attempts || 0) + 1,
       });
     } catch (err: unknown) {
+      if (token !== runTokenRef.current) return;
       updateImage(item.index, {
         status: 'error',
         error: getErrorMessage(err, 'Unknown error'),
@@ -251,7 +266,7 @@ function ImageGenerationContent({
       // Long videos can have dozens of high-resolution images. Give the local
       // image model and GPU a configurable recovery period between batches.
       const remaining = items.slice(itemPosition + 1).some((candidate) => candidate.status !== 'done');
-      if (profile !== 'shorts' && remaining && completedInBatch >= Math.max(1, batchSizeRef.current)) {
+      if (provider === 'local' && profile !== 'shorts' && remaining && completedInBatch >= Math.max(1, batchSizeRef.current)) {
         completedInBatch = 0;
         const rest = Math.max(0, Math.round(restSecondsRef.current));
         if (rest > 0) {
@@ -294,7 +309,7 @@ function ImageGenerationContent({
   async function handleStopModel() {
     setServerStatus('stopping');
     if (isRunning) {
-      handleCancel();
+      await handleCancel();
     }
     try {
       const res = await fetch('/api/generate/stop', { method: 'POST' });
@@ -347,20 +362,20 @@ function ImageGenerationContent({
     setIsPaused(false);
   }
 
-  function handleCancel() {
+  async function handleCancel() {
     runTokenRef.current++;
-    setIsRunning(false);
     setIsPaused(false);
     setCooldownRemaining(0);
     const generating = imagesRef.current.find((im) => im.status === 'generating');
     if (generating && script) {
-      fetch('/api/generate/cancel', {
+      await fetch(provider === 'colab' ? '/api/generate/colab-cancel' : '/api/generate/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId: script.id, index: generating.index }),
       }).catch(() => {});
       updateImage(generating.index, { status: 'pending' });
     }
+    setIsRunning(false);
   }
 
   function handleRetryFailed() {
@@ -417,29 +432,29 @@ function ImageGenerationContent({
               )
             </span>
           )}
-          {serverStatus === 'online' && (
+          {provider === 'local' && serverStatus === 'online' && (
             <span className="flex items-center gap-1.5 text-[10px] text-green-400">
               <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> FLUX.2 Klein server online
             </span>
           )}
-          {serverStatus === 'offline' && (
+          {provider === 'local' && serverStatus === 'offline' && (
             <span className="flex items-center gap-1.5 text-[10px] text-red-400">
               <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> Server offline
             </span>
           )}
-          {serverStatus === 'starting' && (
+          {provider === 'local' && serverStatus === 'starting' && (
             <span className="flex items-center gap-1.5 text-[10px] text-accent">
               <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Starting model...
             </span>
           )}
-          {serverStatus === 'stopping' && (
+          {provider === 'local' && serverStatus === 'stopping' && (
             <span className="flex items-center gap-1.5 text-[10px] text-amber-400">
               <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" /> Stopping model...
             </span>
           )}
         </div>
         <div className="flex items-center gap-2">
-          {serverStatus === 'online' && (
+          {provider === 'local' && serverStatus === 'online' && (
             <button
               onClick={handleStopModel}
               className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
@@ -447,7 +462,7 @@ function ImageGenerationContent({
               <Square className="h-3.5 w-3.5" /> Stop Model
             </button>
           )}
-          {serverStatus === 'stopping' && (
+          {provider === 'local' && serverStatus === 'stopping' && (
             <button
               disabled
               className="flex items-center gap-1.5 rounded-md border border-red-500/20 px-3 py-1.5 text-xs text-red-400/50 opacity-60 cursor-not-allowed"
@@ -458,15 +473,15 @@ function ImageGenerationContent({
           {!isRunning ? (
             <button
               onClick={handleStart}
-              disabled={serverStatus === 'starting' || serverStatus === 'stopping' || doneCount === images.length}
+              disabled={(provider === 'local' && (serverStatus === 'starting' || serverStatus === 'stopping')) || doneCount === images.length}
               className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
             >
-              {serverStatus === 'starting' ? (
+              {provider === 'local' && serverStatus === 'starting' ? (
                 <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
               ) : (
                 <Play className="h-3.5 w-3.5" />
               )}
-              {serverStatus === 'starting' ? 'Starting model...' : doneCount === 0 ? 'Start Generation' : 'Resume Generation'}
+              {provider === 'local' && serverStatus === 'starting' ? 'Starting model...' : doneCount === 0 ? 'Start Generation' : 'Resume Generation'}
             </button>
           ) : isPaused ? (
             <button onClick={handleResume} className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80">
@@ -490,7 +505,7 @@ function ImageGenerationContent({
         </div>
       </div>
 
-      {profile !== 'shorts' && (
+      {provider === 'local' && profile !== 'shorts' && (
         <div className="flex flex-wrap items-center gap-4 border-b border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs">
           <div>
             <p className="font-semibold text-amber-200">Long Video batch generation</p>
@@ -516,13 +531,14 @@ function ImageGenerationContent({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-surface/50 px-4 py-2 text-xs">
         <div className="flex items-center gap-2">
           <span className="font-medium text-gray-400">Provider:</span>
-          <select value={provider} onChange={(e) => setProvider(e.target.value as typeof provider)} className="rounded border border-border bg-bg px-2.5 py-1 text-xs text-white outline-none focus:border-accent">
+          <select aria-label="Media provider" value={provider} disabled={isRunning} onChange={(e) => setProvider(e.target.value as typeof provider)} className="rounded border border-border bg-bg px-2.5 py-1 text-xs text-white outline-none focus:border-accent">
             <option value="local">Local model</option>
             <option value="colab">Colab API</option>
           </select>
           {provider === 'colab' && <span className="text-[11px] text-fuchsia-300">Remote worker · minutes per image · key in Setup tab</span>}
+          {provider === 'colab' && <button onClick={() => void checkColab()} disabled={colabChecking || isRunning} className="rounded border border-border px-2 py-1 text-gray-300 disabled:opacity-40">{colabChecking ? 'Checking…' : 'Test Colab'}</button>}
         </div>
-        <div className="flex items-center gap-2">
+        {provider === 'local' && <div className="flex items-center gap-2">
           <span className="font-medium text-gray-400">Quality:</span>
           <div className="flex items-center gap-1">
             <button
@@ -562,8 +578,9 @@ function ImageGenerationContent({
               High (28s)
             </button>
           </div>
+        </div>}
 
-        {models.length > 0 && (
+        {provider === 'local' && models.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="font-medium text-gray-400">Model:</span>
             <select
@@ -582,7 +599,7 @@ function ImageGenerationContent({
       </div>
 
       {/* Style Presets & Prompt Controls Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-surface/30 px-4 py-2 text-xs">
+      {provider === 'local' && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-surface/30 px-4 py-2 text-xs">
         <div className="flex flex-wrap items-center gap-4">
           {/* Style Preset */}
           <div className="flex items-center gap-2">
@@ -644,9 +661,11 @@ function ImageGenerationContent({
             />
           )}
         </div>
-      </div>
+      </div>}
 
-      {serverStatus === 'starting' && (
+      {provider === 'colab' && colabDetail && <p role="status" className="px-4 py-3 text-xs text-gray-300">{colabDetail}</p>}
+
+      {provider === 'local' && serverStatus === 'starting' && (
         <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-accent/30 bg-accent/10 p-3 text-xs text-accent">
           <span className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
           <div>
@@ -656,7 +675,7 @@ function ImageGenerationContent({
         </div>
       )}
 
-      {serverStatus === 'offline' && (
+      {provider === 'local' && serverStatus === 'offline' && (
         <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="flex-1">

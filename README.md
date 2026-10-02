@@ -8,6 +8,7 @@ API key is saved (`server/.env` vs browser `openrouter_key`), what git carries v
 and a new-PC checklist with one-click `.md` export. Secret values are never shown.
 
 Full runbook: [complete installation and migration guide](docs/NEW_PC_SETUP.md).
+Remote image and video generation: [Colab API setup and usage](docs/COLAB_MEDIA_API.md).
 It includes a prompt to give an AI installer, model download steps, external folder
 dependencies, `server/.env` configuration, and runtime verification. Git clone alone
 does not include ComfyUI, model weights, or the separate custom MuseTalk-Demo app.

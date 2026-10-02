@@ -62,8 +62,6 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     operation.current = true; stopRequested.current = false;
     setGenerating(true); setStopping(false); setError('');
     try {
-      const reachable = await refreshColabStatus();
-      if (!reachable) throw new Error(colabStatus === 'unconfigured' ? 'Set the Colab API URL + key in the Setup tab first.' : 'Colab worker is unreachable. Keep Colab running and retry.');
       let completed = 0;
       for (const index of queue) {
         if (stopRequested.current) break;
@@ -234,7 +232,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     {profile === 'shorts' && !script?.scenePlan && <p className="mb-3 text-sm text-gray-400">Image imports work with this script. For video scenes, run the Shorts - Images & Videos script and extract its scene prompts.</p>}
     {modelDetail && provider === 'local' && <p className={`mb-3 text-sm ${modelStatus === 'online' ? 'text-emerald-300' : 'text-amber-200'}`}>{modelDetail}</p>}
     {provider === 'colab' && colabDetail && <p className={`mb-3 text-sm ${colabStatus === 'reachable' ? 'text-emerald-300' : 'text-amber-200'}`}>{colabDetail}</p>}
-    <p className="mb-2 text-sm text-gray-300">Generate images fills missing image scenes only. Import videos and any images you already have. Completed images are skipped; use Regenerate image on a scene to replace one.</p>
+    <p className="mb-2 text-sm text-gray-300">{provider === 'colab' ? 'Colab generates missing image and video scenes using the API key in Setup. Completed media is skipped; use the scene generation button to replace it.' : 'Generate images fills missing image scenes only. Import videos and any images you already have. Completed images are skipped; use Regenerate image on a scene to replace one.'}</p>
     <p className="mb-4 text-xs text-gray-400">Bulk filenames: 001.png, 002.mp4, 003.png. Files are copied into this project. Maximum 250 MB per file.</p>
     <input ref={fileInput} type="file" className="hidden" onChange={event => void upload(event.target.files)} />
     {error && <p role="alert" className="mb-4 text-sm text-red-300">{error}</p>}
