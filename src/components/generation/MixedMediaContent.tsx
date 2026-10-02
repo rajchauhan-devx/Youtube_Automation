@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Copy, Plus, Loader2, Sparkles, Square } from 'lucide-react';
 import type { Script } from '../../data';
 import { useWorkspaceApi } from '../../services/workspaceApi';
+import { colabHeaders } from '../../services/api';
 
 export function MixedMediaContent({ script, onUpdate }: { script: Script | null; onUpdate: (patch: Partial<Script>) => unknown }) {
   const { fetch, profile } = useWorkspaceApi();
@@ -13,6 +14,9 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [stopping, setStopping] = useState(false);
   const [preset, setPreset] = useState<'fast' | 'standard' | 'high'>('standard');
+  const [provider, setProvider] = useState<'local' | 'colab'>('local');
+  const [colabStatus, setColabStatus] = useState<'unknown' | 'checking' | 'reachable' | 'unreachable' | 'unconfigured'>('unknown');
+  const [colabDetail, setColabDetail] = useState('');
   const [modelStatus, setModelStatus] = useState<'checking' | 'online' | 'offline' | 'starting' | 'stopping'>('checking');
   const [modelDetail, setModelDetail] = useState('');
   const operation = useRef(false);
@@ -29,6 +33,60 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   const missingImages = scenes.flatMap((scene, index) => scene.mediaType === 'image' && !script?.generatedImages?.some(asset =>
     asset.index === index && asset.prompt === scene.imagePrompt && (asset.mediaType || 'image') === 'image' && asset.status === 'done' && asset.url
   ) ? [index] : []);
+  const missingVideos = scenes.flatMap((scene, index) => scene.mediaType === 'video' && !script?.generatedImages?.some(asset =>
+    asset.index === index && asset.prompt === scene.imagePrompt && (asset.mediaType || 'image') === 'video' && asset.status === 'done' && asset.url
+  ) ? [index] : []);
+
+  async function refreshColabStatus() {
+    setColabStatus('checking');
+    try {
+      const response = await fetch('/api/generate/colab-status', { headers: colabHeaders() });
+      const result = await response.json();
+      if (!result.configured) { setColabStatus('unconfigured'); setColabDetail(result.detail || 'Set the Colab URL + key in the Setup tab.'); return false; }
+      setColabStatus(result.reachable ? 'reachable' : 'unreachable');
+      setColabDetail(result.detail || '');
+      return Boolean(result.reachable);
+    } catch (err) {
+      setColabStatus('unreachable');
+      setColabDetail(err instanceof Error ? err.message : 'Could not reach the server.');
+      return false;
+    }
+  }
+
+  // Remote Colab worker: one job at a time, each taking minutes. The server
+  // holds the request open and saves the asset, so closing this page is safe.
+  async function generateColabQueue(indices: number[], kind: 'image' | 'video') {
+    if (!script || operation.current || !indices.length) return;
+    const queue = indices.filter(index => scenes[index]?.mediaType === kind);
+    if (!queue.length) return;
+    operation.current = true; stopRequested.current = false;
+    setGenerating(true); setStopping(false); setError('');
+    try {
+      const reachable = await refreshColabStatus();
+      if (!reachable) throw new Error(colabStatus === 'unconfigured' ? 'Set the Colab API URL + key in the Setup tab first.' : 'Colab worker is unreachable. Keep Colab running and retry.');
+      let completed = 0;
+      for (const index of queue) {
+        if (stopRequested.current) break;
+        setActiveIndex(index);
+        setNotice(`Colab ${kind} ${completed + 1} of ${queue.length} · scene ${index + 1} (minutes per job)…`);
+        const response = await fetch(kind === 'video' ? '/api/generate/colab-video' : '/api/generate/colab-image', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...colabHeaders() },
+          body: JSON.stringify({ scriptId: script.id, index, prompt: scenes[index].imagePrompt }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(`Scene ${index + 1}: ${result.error || `Colab ${kind} failed.`}`);
+        if (!mounted.current) return;
+        await onUpdate({ generatedImages: result.generatedImages, timelineConfig: undefined, youtubeExport: undefined });
+        completed++;
+      }
+      if (mounted.current) setNotice(`${stopRequested.current ? 'Stopped. ' : ''}Saved ${completed} of ${queue.length} Colab ${kind}s. Existing media was kept.`);
+    } catch (err) {
+      if (mounted.current) { setNotice(''); setError(err instanceof Error ? err.message : `Colab ${kind} generation failed.`); }
+    } finally {
+      operation.current = false;
+      if (mounted.current) { setGenerating(false); setActiveIndex(null); setStopping(false); }
+    }
+  }
 
   async function refreshModelStatus() {
     setModelStatus('checking');
@@ -149,6 +207,17 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
       <div><h2 className="text-lg font-semibold text-white">{profile === 'shorts' ? 'Shorts media' : 'Mixed media'} · script order</h2><p className="mt-1 text-sm text-gray-400">Each visual follows its spoken narration. Videos are trimmed or gently slowed, with at most a two-second final-frame hold. Longer gaps require a longer clip. Clip audio is muted in the final edit.</p></div>
       <div className="flex flex-wrap items-center gap-2">
+        <label className="text-xs text-gray-400">Provider <select aria-label="Media provider" value={provider} disabled={locked} onChange={event => setProvider(event.target.value as typeof provider)} className="ml-2 rounded border border-border bg-surface px-2 py-2 text-white"><option value="local">Local model</option><option value="colab">Colab API</option></select></label>
+        {provider === 'colab' ? <>
+          <span role="status" className={`rounded border px-2.5 py-2 text-xs ${colabStatus === 'reachable' ? 'border-emerald-500/40 text-emerald-300' : colabStatus === 'checking' ? 'border-amber-500/40 text-amber-300' : 'border-red-500/40 text-red-300'}`}>
+            Colab: {colabStatus === 'checking' ? 'Checking…' : colabStatus === 'reachable' ? 'Reachable' : colabStatus === 'unconfigured' ? 'No key' : colabStatus === 'unknown' ? 'Not tested' : 'Unreachable'}
+          </span>
+          <button disabled={locked || colabStatus === 'checking'} onClick={() => void refreshColabStatus()} className="rounded border border-border px-3 py-2 text-sm text-gray-300 disabled:opacity-40">Test Colab</button>
+          {generating ? <button disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }} className="flex items-center gap-2 rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40"><Square className="h-4 w-4" />{stopping ? 'Stopping after current job…' : 'Stop after current job'}</button> : <>
+            <button disabled={locked || !missingImages.length} onClick={() => void generateColabQueue(missingImages, 'image')} className="flex items-center gap-2 rounded bg-accent px-3 py-2 text-sm text-white disabled:opacity-40"><Sparkles className="h-4 w-4" />Colab images{missingImages.length ? ` (${missingImages.length})` : ''}</button>
+            <button disabled={locked || !missingVideos.length} onClick={() => void generateColabQueue(missingVideos, 'video')} className="flex items-center gap-2 rounded bg-purple-700 px-3 py-2 text-sm text-white disabled:opacity-40"><Sparkles className="h-4 w-4" />Colab videos{missingVideos.length ? ` (${missingVideos.length})` : ''}</button>
+          </>}
+        </> : <>
         <span role="status" className={`rounded border px-2.5 py-2 text-xs ${modelStatus === 'online' ? 'border-emerald-500/40 text-emerald-300' : modelStatus === 'starting' || modelStatus === 'stopping' ? 'border-amber-500/40 text-amber-300' : 'border-red-500/40 text-red-300'}`}>
           Image model: {modelStatus === 'checking' ? 'Checking…' : modelStatus === 'online' ? 'Ready' : modelStatus === 'starting' ? 'Starting…' : modelStatus === 'stopping' ? 'Stopping…' : 'Offline'}
         </span>
@@ -157,12 +226,14 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         <label className="text-xs text-gray-400">Image quality <select aria-label="Image quality" value={preset} disabled={locked} onChange={event => setPreset(event.target.value as typeof preset)} className="ml-2 rounded border border-border bg-surface px-2 py-2 text-white"><option value="fast">Fast</option><option value="standard">Standard</option><option value="high">High</option></select></label>
         {generating ? <button disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }} className="flex items-center gap-2 rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40"><Square className="h-4 w-4" />{stopping ? 'Stopping after current image…' : 'Stop after current image'}</button> :
           <button disabled={locked || !missingImages.length} onClick={() => void generateImages(missingImages)} className="flex items-center gap-2 rounded bg-accent px-3 py-2 text-sm text-white disabled:opacity-40"><Sparkles className="h-4 w-4" />Generate images{missingImages.length ? ` (${missingImages.length})` : ''}</button>}
+        </>}
         <button disabled={locked || !scenes.length} className="rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40" onClick={() => { selectedIndex.current = null; if (fileInput.current) { fileInput.current.multiple = true; fileInput.current.accept = profile === 'shorts' && !script?.videoImportsEnabled ? '.png,.jpg,.jpeg,.webp' : '.png,.jpg,.jpeg,.webp,.mp4'; fileInput.current.click(); } }}>Bulk import</button>
       </div>
     </div>
     {profile === 'shorts' && script && <label className="mb-4 flex items-center gap-3 rounded-lg border border-border p-3 text-sm text-white"><input type="checkbox" checked={script.videoImportsEnabled === true} disabled={locked} onChange={async event => { setBusy(true); setError(''); try { const saved = await onUpdate({ videoImportsEnabled: event.target.checked, timelineConfig: undefined, youtubeExport: undefined }); if (saved === false) throw new Error('Could not save video import setting. Try again.'); } catch (error) { setError(error instanceof Error ? error.message : 'Could not save setting.'); } finally { setBusy(false); } }} />Use video imports<span className="text-xs text-gray-400">{script.videoImportsEnabled ? 'Image and video scenes' : 'Images only: every scene uses its still-image prompt. Imported clips are kept.'}</span></label>}
     {profile === 'shorts' && !script?.scenePlan && <p className="mb-3 text-sm text-gray-400">Image imports work with this script. For video scenes, run the Shorts - Images & Videos script and extract its scene prompts.</p>}
-    {modelDetail && <p className={`mb-3 text-sm ${modelStatus === 'online' ? 'text-emerald-300' : 'text-amber-200'}`}>{modelDetail}</p>}
+    {modelDetail && provider === 'local' && <p className={`mb-3 text-sm ${modelStatus === 'online' ? 'text-emerald-300' : 'text-amber-200'}`}>{modelDetail}</p>}
+    {provider === 'colab' && colabDetail && <p className={`mb-3 text-sm ${colabStatus === 'reachable' ? 'text-emerald-300' : 'text-amber-200'}`}>{colabDetail}</p>}
     <p className="mb-2 text-sm text-gray-300">Generate images fills missing image scenes only. Import videos and any images you already have. Completed images are skipped; use Regenerate image on a scene to replace one.</p>
     <p className="mb-4 text-xs text-gray-400">Bulk filenames: 001.png, 002.mp4, 003.png. Files are copied into this project. Maximum 250 MB per file.</p>
     <input ref={fileInput} type="file" className="hidden" onChange={event => void upload(event.target.files)} />
@@ -183,7 +254,9 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
             {asset?.url ? type === 'video' ? <video src={asset.url} controls muted playsInline preload="metadata" className="h-full w-full object-contain" /> : <img src={asset.url} alt={`Scene ${index + 1}`} className="h-full w-full object-contain" /> : <span className="text-sm text-gray-500">Add {type}</span>}
             <button disabled={locked} aria-label={`Add or replace ${type} for scene ${index + 1}`} title={`Add or replace ${type}`} className="absolute right-3 top-3 rounded-full bg-accent p-2 text-white shadow disabled:opacity-40" onClick={() => { selectedIndex.current = index; if (fileInput.current) { fileInput.current.multiple = false; fileInput.current.accept = type === 'video' ? '.mp4' : '.png,.jpg,.jpeg,.webp'; fileInput.current.click(); } }}><Plus className="h-5 w-5" /></button>
           </div>
-          {type === 'image' && <button disabled={locked} onClick={() => void generateImages([index])} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Generating image…' : asset ? 'Regenerate image' : 'Generate image'}</button>}
+          {type === 'image' && provider === 'local' && <button disabled={locked} onClick={() => void generateImages([index])} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Generating image…' : asset ? 'Regenerate image' : 'Generate image'}</button>}
+          {type === 'image' && provider === 'colab' && <button disabled={locked} onClick={() => void generateColabQueue([index], 'image')} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Colab working… (minutes)' : asset ? 'Regenerate image (Colab)' : 'Generate image (Colab)'}</button>}
+          {type === 'video' && provider === 'colab' && <button disabled={locked} onClick={() => void generateColabQueue([index], 'video')} className="mt-3 flex items-center gap-2 rounded bg-purple-700/25 px-3 py-2 text-sm text-purple-200 disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Colab working… (minutes)' : asset ? 'Regenerate video (Colab)' : 'Generate video (Colab)'}</button>}
           <p className="mt-3 whitespace-pre-wrap text-sm text-gray-200">{scene.imagePrompt}</p>
           <button className="mt-3 flex items-center gap-2 text-xs text-accent" onClick={() => { navigator.clipboard.writeText(scene.imagePrompt).then(() => setNotice(`Copied scene ${index + 1} prompt.`)).catch(() => setError('Could not copy. Select the prompt text and copy manually.')); }}><Copy className="h-3 w-3" />Copy prompt</button>
           <p className="mt-3 text-xs text-emerald-200">Narration: {scene.narration}</p>

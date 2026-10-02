@@ -60,7 +60,7 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
     list = await (await originalFetch(host + prefix + '/scripts')).json();
     assert.equal(list.length, 1, 'explicitly created template persists');
     ws.workspaceContext.run(scope, () => store.add('scripts', { ...list[0], narration: 'Keep existing work', prompts: [{ ...list[0].prompts[0], content: LEGACY_SHORTS_MEDIA_TEMPLATE }] }));
-    ws.workspaceContext.run(scope, () => store.remove('template_migrations', 'shorts-media-v2'));
+    ws.workspaceContext.run(scope, () => store.remove('template_migrations', 'shorts-media-v3'));
     const upgraded = (await (await originalFetch(host + prefix + '/scripts')).json())[0];
     assert.equal(upgraded.prompts[0].content, SHORTS_MEDIA_TEMPLATE);
     assert.equal(upgraded.narration, 'Keep existing work');

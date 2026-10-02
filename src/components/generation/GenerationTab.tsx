@@ -27,6 +27,7 @@ import type { Script, GeneratedImage, GeneratedAudio } from '../../data';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { MixedMediaContent } from './MixedMediaContent';
 import { saveVoiceReference, rememberVoice, preferredVoice, VOICES_CHANGED } from '../../services/voiceLibrary';
+import { colabHeaders } from '../../services/api';
 import { normalizeNarration, spokenText } from '../../../server/src/services/scene-plan';
 import { parseJsonResponse } from '../../lib/safe';
 
@@ -112,6 +113,7 @@ function ImageGenerationContent({
   const [enableNegativeGuardrails, setEnableNegativeGuardrails] = useState(true);
   const [seedMode, setSeedMode] = useState<'random' | 'fixed'>('random');
   const [fixedSeed, setFixedSeed] = useState<number>(42);
+  const [provider, setProvider] = useState<'local' | 'colab'>('local');
   const [longBatchSize, setLongBatchSize] = useState(5);
   const [longRestSeconds, setLongRestSeconds] = useState(60);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
@@ -192,10 +194,15 @@ function ImageGenerationContent({
     if (!script) return;
     updateImage(item.index, { status: 'generating', error: undefined, errorCode: undefined });
     try {
-      const res = await fetch('/api/generate/image', {
+      const isColab = provider === 'colab';
+      const res = await fetch(isColab ? '/api/generate/colab-image' : '/api/generate/image', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        headers: { 'Content-Type': 'application/json', ...(isColab ? colabHeaders() : {}) },
+        body: JSON.stringify(isColab ? {
+          scriptId: script.id,
+          index: item.index,
+          prompt: item.prompt,
+        } : {
           scriptId: script.id,
           index: item.index,
           prompt: item.prompt,
@@ -303,6 +310,11 @@ function ImageGenerationContent({
 
   async function handleStart() {
     if (!script || images.length === 0 || isRunning) return;
+    if (provider === 'colab') {
+      // Remote worker needs no local model; each job takes minutes.
+      runQueue(imagesRef.current);
+      return;
+    }
     let online = await checkServer();
     if (!online) {
       setServerStatus('starting');
@@ -503,6 +515,14 @@ function ImageGenerationContent({
       {/* Quality Presets & Model Selector Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-surface/50 px-4 py-2 text-xs">
         <div className="flex items-center gap-2">
+          <span className="font-medium text-gray-400">Provider:</span>
+          <select value={provider} onChange={(e) => setProvider(e.target.value as typeof provider)} className="rounded border border-border bg-bg px-2.5 py-1 text-xs text-white outline-none focus:border-accent">
+            <option value="local">Local model</option>
+            <option value="colab">Colab API</option>
+          </select>
+          {provider === 'colab' && <span className="text-[11px] text-fuchsia-300">Remote worker · minutes per image · key in Setup tab</span>}
+        </div>
+        <div className="flex items-center gap-2">
           <span className="font-medium text-gray-400">Quality:</span>
           <div className="flex items-center gap-1">
             <button
@@ -542,7 +562,6 @@ function ImageGenerationContent({
               High (28s)
             </button>
           </div>
-        </div>
 
         {models.length > 0 && (
           <div className="flex items-center gap-2">
