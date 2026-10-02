@@ -12,8 +12,9 @@ export const OPENROUTER_MODELS = [
   { id: 'openrouter/nvidia/nemotron-3-ultra-550b-a55b:free', name: 'Nemotron 3 Ultra Free' },
 ].map(model => ({ ...model, badge: 'Reasoning · Free', description: 'OpenRouter free reasoning model; rate limits apply.' }));
 
-export function reasoningProvider(model: unknown): 'groq' | 'openrouter' | undefined {
+export function reasoningProvider(model: unknown): 'groq' | 'openrouter' | 'xkiro' | undefined {
   if (typeof model !== 'string') return;
+  if (model.startsWith('xkiro/')) return 'xkiro';
   if (model.startsWith('groq/')) return 'groq';
   if (model.startsWith('openrouter/')) return 'openrouter';
 }

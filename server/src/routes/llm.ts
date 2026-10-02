@@ -1,3 +1,4 @@
+import { getXkiroModels } from '../services/xkiro-models.js';
 import { isTaggedShortsResponse } from '../services/shorts-package.js';
 import { currentWorkspace } from '../services/workspace.js';
 import { Router } from 'express';
@@ -14,6 +15,11 @@ import { streamLocal } from '../services/ollama.js';
 
 export const llmRouter = Router();
 
+llmRouter.get('/models/xkiro', async (_req, res) => {
+  try { res.json({ models: await getXkiroModels() }); }
+  catch { res.status(502).json({ error: 'Could not load Xkiro models. Try again shortly.' }); }
+});
+
 llmRouter.post('/editing-plan', async (req, res) => {
   if (currentWorkspace().profile === 'shorts') { res.status(400).json({ error: 'Use the scene editor in Mixed Media or Long Video.' }); return; }
   const script = store.getById<any>('scripts', req.body?.scriptId);
@@ -22,12 +28,17 @@ llmRouter.post('/editing-plan', async (req, res) => {
   try { settings = validateEditingSettings(req.body?.editing); }
   catch { res.status(400).json({ error: 'Invalid editing settings.' }); return; }
   const model = req.body?.model || script.model || process.env.GEMINI_EDIT_MODEL || 'gemini-3.6-flash';
-  if (typeof model !== 'string' || (!/^gemini-[a-z0-9.-]+$/.test(model) && ![...GROQ_MODELS, ...OPENROUTER_MODELS, ...LOCAL_MODELS].some(item => item.id === model))) {
+  let xkiroModels: Awaited<ReturnType<typeof getXkiroModels>> = [];
+  if (reasoningProvider(model) === 'xkiro') {
+    try { xkiroModels = await getXkiroModels(); }
+    catch { res.status(502).json({ error: 'Could not load Xkiro models.' }); return; }
+  }
+  if (typeof model !== 'string' || (!/^gemini-[a-z0-9.-]+$/.test(model) && ![...GROQ_MODELS, ...OPENROUTER_MODELS, ...LOCAL_MODELS, ...xkiroModels].some(item => item.id === model))) {
     res.status(400).json({ error: 'Select a supported editing model.' }); return;
   }
   const provider = reasoningProvider(model);
-  const label = isLocalModel(model) ? 'Ollama' : provider === 'groq' ? 'Groq' : provider === 'openrouter' ? 'OpenRouter' : 'Gemini';
-  const apiKey = provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'openrouter' ? process.env.OPENROUTER_API_KEY : getApiKey(req);
+  const label = isLocalModel(model) ? 'Ollama' : provider === 'groq' ? 'Groq' : provider === 'openrouter' ? 'OpenRouter' : provider === 'xkiro' ? 'Xkiro' : 'Gemini';
+  const apiKey = provider === 'xkiro' ? process.env.XKIRO_API_KEY : provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'openrouter' ? process.env.OPENROUTER_API_KEY : getApiKey(req);
   if (!apiKey && !isLocalModel(model)) { res.status(401).json({ error: `Add your ${label} API key in server settings.` }); return; }
   try {
     const result = await planReliableEdit(apiKey || '', script.scenePlan, settings, script.generatedAudio?.[0]?.sync, model);
@@ -280,7 +291,7 @@ llmRouter.post('/chat/stream', async (req, res) => {
   const local = isLocalModel(req.body?.model);
   const openCode = isOpenCodeModel(req.body?.model);
   const provider = reasoningProvider(req.body?.model);
-  const apiKey = provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'openrouter' ? process.env.OPENROUTER_API_KEY : openCode ? process.env.OPENCODE_API_KEY : getApiKey(req);
+  const apiKey = provider === 'xkiro' ? process.env.XKIRO_API_KEY : provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'openrouter' ? process.env.OPENROUTER_API_KEY : openCode ? process.env.OPENCODE_API_KEY : getApiKey(req);
   if (!apiKey && !local) {
     res.status(401).json({ error: provider ? `Missing ${provider} API key in server settings` : openCode ? 'Missing OpenCode API key in server settings' : 'Missing Gemini API key' });
     return;

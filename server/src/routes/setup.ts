@@ -76,6 +76,7 @@ function keyStatus() {
   return [
     { key: 'GEMINI_API_KEY', savedIn: 'server/.env (server-only)', present: has(process.env.GEMINI_API_KEY), usedBy: 'Script generation, extraction, narration polish (default gemini-3.6-flash)' },
     { key: 'OPENCODE_API_KEY', savedIn: 'server/.env (server-only)', present: has(process.env.OPENCODE_API_KEY), usedBy: `Free script models: ${OPENCODE_MODELS.map(m => m.id).join(', ')}` },
+    { key: 'XKIRO_API_KEY', savedIn: 'server/.env (server-only)', present: has(process.env.XKIRO_API_KEY), usedBy: 'Xkiro script generation and AI editing; live chat model catalog' },
     { key: 'GROQ_API_KEY', savedIn: 'server/.env (server-only)', present: has(process.env.GROQ_API_KEY), usedBy: `Reasoning models: ${GROQ_MODELS.map(m => m.id).join(', ')}` },
     { key: 'OPENROUTER_API_KEY (server)', savedIn: 'server/.env', present: has(process.env.OPENROUTER_API_KEY), usedBy: `Reasoning + editing: ${OPENROUTER_MODELS.map(m => m.id).join(', ')}` },
     { key: 'openrouter_key (browser)', savedIn: 'Browser localStorage key "openrouter_key", sent as x-api-key header', present: false, browserOnly: true, usedBy: 'Frontend Settings page OpenRouter key (NOT in git, per-PC browser storage)' },
@@ -137,10 +138,10 @@ setupRouter.get('/', async (_req, res) => {
   const envKeyDiff = exampleKeys.map(k => ({ key: k, set: has(process.env[k]) }));
 
   // Full env matrix: secrets report presence only; non-secrets show values.
-  const SECRET_KEYS = new Set(['GEMINI_API_KEY', 'OPENCODE_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'HF_TOKEN', 'YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET']);
+  const SECRET_KEYS = new Set(['GEMINI_API_KEY', 'OPENCODE_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'XKIRO_API_KEY', 'HF_TOKEN', 'YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET']);
   const ENV_GROUPS: { group: string; vars: string[] }[] = [
     { group: 'Server', vars: ['HOST', 'PORT', 'CORS_ORIGIN', 'APP_URL', 'TUBEFLOW_DATA_DIR'] },
-    { group: 'Script LLMs', vars: ['GEMINI_API_KEY', 'GEMINI_EDIT_MODEL', 'OPENCODE_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY'] },
+    { group: 'Script LLMs', vars: ['GEMINI_API_KEY', 'GEMINI_EDIT_MODEL', 'OPENCODE_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'XKIRO_API_KEY'] },
     { group: 'Voice (local + cloud TTS)', vars: ['TTS_PROVIDER', 'CHATTERBOX_URL', 'CHATTERBOX_HOST', 'CHATTERBOX_PORT', 'CHATTERBOX_DEVICE', 'CHATTERBOX_T3_MODEL', 'CHATTERBOX_TIMEOUT_MS', 'CHATTERBOX_MAX_CHUNK_CHARS', 'CHATTERBOX_PYTHON', 'CHATTERBOX_VOICE_DIR', 'PKUSEG_HOME', 'TTS_SERVER_URL', 'OMNIVOICE_URL', 'TTS_MODEL', 'TTS_CLOUD_CHUNK_MAX_CHARS', 'TTS_CLOUD_TIMEOUT_MS', 'EDGE_TTS_PYTHON'] },
     { group: 'Caches / model stores', vars: ['HF_HOME', 'HF_HUB_CACHE', 'HF_TOKEN', 'OLLAMA_MODELS'] },
     { group: 'Image + music (ComfyUI)', vars: ['COMFYUI_PATH', 'COMFYUI_PYTHON', 'COMFYUI_BASE_URL', 'COMFYUI_WORKFLOW_PATH', 'COMFYUI_PROMPT_NODE_ID', 'COMFYUI_SEED_NODE_ID', 'COMFYUI_SEED_INPUT_KEY', 'COMFYUI_TIMEOUT_MS', 'COMFYUI_LOW_VRAM'] },

@@ -32,12 +32,21 @@ interface ScriptData {
 }
 
 scriptsRouter.get('/', (_req, res) => {
-  if (currentWorkspace().profile === 'shorts' && !store.getById('template_migrations', 'shorts-media-v2')) {
+  if (currentWorkspace().profile === 'shorts' && !store.getById('template_migrations', 'shorts-media-v3')) {
     const builtIn = store.getById<ScriptData>('scripts', 'shorts_images_videos');
-    if (builtIn?.prompts.some(prompt => prompt.content.replace(/\r/g, '') === LEGACY_SHORTS_MEDIA_TEMPLATE.replace(/\r/g, ''))) {
-      store.add('scripts', { ...builtIn, ...((builtIn as any).model === 'ollama/qwen3.5:4b' ? { model: 'gemini-3.6-flash' } : {}), prompts: builtIn.prompts.map(prompt => prompt.content.replace(/\r/g, '') === LEGACY_SHORTS_MEDIA_TEMPLATE.replace(/\r/g, '') ? { ...prompt, content: SHORTS_MEDIA_TEMPLATE } : prompt) });
+    if (builtIn?.prompts.some(prompt => {
+      const content = prompt.content.replace(/\r/g, '');
+      return content === LEGACY_SHORTS_MEDIA_TEMPLATE.replace(/\r/g, '')
+        || content.includes('Complete tagged production package · Version 2');
+    })) {
+      store.add('scripts', { ...builtIn, ...((builtIn as any).model === 'ollama/qwen3.5:4b' ? { model: 'gemini-3.6-flash' } : {}), prompts: builtIn.prompts.map(prompt => {
+        const content = prompt.content.replace(/\r/g, '');
+        const isLegacy = content === LEGACY_SHORTS_MEDIA_TEMPLATE.replace(/\r/g, '')
+          || content.includes('Complete tagged production package · Version 2');
+        return isLegacy ? { ...prompt, name: 'Shorts image and video scene prompts (Production V3)', content: SHORTS_MEDIA_TEMPLATE } : prompt;
+      }) });
     }
-    store.add('template_migrations', { id: 'shorts-media-v2' });
+    store.add('template_migrations', { id: 'shorts-media-v3' });
   }
   const scripts = store.get<ScriptData>('scripts');
   res.json(scripts);

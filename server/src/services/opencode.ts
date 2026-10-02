@@ -1,3 +1,4 @@
+import { getXkiroModels } from './xkiro-models.js';
 import type { ChatRequest } from './gemini.js';
 import { OPENCODE_MODELS } from './opencode-models.js';
 import { GROQ_MODELS, OPENROUTER_MODELS, reasoningProvider } from './reasoning-models.js';
@@ -12,13 +13,15 @@ export async function* streamReasoning(apiKey: string, req: ChatRequest) {
   yield* streamCompatible(apiKey, req, provider);
 }
 
-async function* streamCompatible(apiKey: string, req: ChatRequest, provider: 'opencode' | 'groq' | 'openrouter') {
-  const label = { opencode: 'OpenCode', groq: 'Groq', openrouter: 'OpenRouter' }[provider];
-  const models = { opencode: OPENCODE_MODELS, groq: GROQ_MODELS, openrouter: OPENROUTER_MODELS }[provider];
-  if (!models.some(model => model.id === req.model)) throw new Error(`Select an available ${label} free model.`);
+async function* streamCompatible(apiKey: string, req: ChatRequest, provider: 'opencode' | 'groq' | 'openrouter' | 'xkiro') {
+  const label = { opencode: 'OpenCode', groq: 'Groq', openrouter: 'OpenRouter', xkiro: 'Xkiro' }[provider];
+  const models = provider === 'xkiro' ? await getXkiroModels() : { opencode: OPENCODE_MODELS, groq: GROQ_MODELS, openrouter: OPENROUTER_MODELS }[provider];
+  if (!models.some(model => model.id === req.model)) throw new Error(`Select an available ${label}${provider === 'xkiro' ? '' : ' free'} model.`);
   const model = req.model!.slice(provider.length + 1);
   const responses = provider === 'opencode' && model.startsWith('muse-spark-');
-  const base = { opencode: 'https://opencode.ai/zen/v1', groq: 'https://api.groq.com/openai/v1', openrouter: 'https://openrouter.ai/api/v1' }[provider];
+  const base = { opencode: 'https://opencode.ai/zen/v1', groq: 'https://api.groq.com/openai/v1', openrouter: 'https://openrouter.ai/api/v1', xkiro: 'https://api.xkiro.com/v1' }[provider];
+  const selected = provider === 'xkiro' ? (await getXkiroModels()).find(item => item.id === req.model) : undefined;
+  const maxTokens = Math.min(req.max_tokens ?? 8192, selected?.maxOutputTokens ?? Infinity);
   const messages = req.messages.map(message => ({ ...message, role: message.role === 'model' ? 'assistant' : message.role }));
   const response = await fetch(`${base}/${responses ? 'responses' : 'chat/completions'}`, {
     method: 'POST',
@@ -29,7 +32,7 @@ async function* streamCompatible(apiKey: string, req: ChatRequest, provider: 'op
       ...(provider === 'openrouter' ? { reasoning: { effort: 'medium', exclude: true }, provider: { max_price: { prompt: 0, completion: 0 } } } : {}),
       ...(responses
       ? { input: messages, max_output_tokens: req.max_tokens ?? 8192 }
-      : { messages, max_tokens: req.max_tokens ?? (provider === 'groq' ? 4096 : 8192), temperature: req.temperature ?? 0.7 }) }),
+      : { messages, max_tokens: provider === 'xkiro' ? maxTokens : req.max_tokens ?? (provider === 'groq' ? 4096 : 8192), temperature: req.temperature ?? 0.7 }) }),
   });
   if (!response.ok) {
     if (provider === 'opencode' && response.status === 403) {
@@ -37,7 +40,7 @@ async function* streamCompatible(apiKey: string, req: ChatRequest, provider: 'op
       if (body?.error?.type === 'FreeTierError') throw new Error('OpenCode restricts its free tier to use within OpenCode. Direct generation from this app is not permitted by the provider. Select Gemini to continue.');
     }
     // Do not relay upstream bodies, which may contain request credentials.
-    throw new Error(`${label} request failed (HTTP ${response.status}). ${response.status === 401 ? 'Check the server API key.' : response.status === 429 ? 'Rate or token limit reached. Wait briefly or select another provider.' : response.status === 403 ? 'Check model access and privacy settings in your provider account.' : 'The selected free model may be unavailable. Try another model.'}`);
+    throw new Error(`${label} request failed (HTTP ${response.status}). ${response.status === 401 ? 'Check the server API key.' : response.status === 429 ? 'Rate or token limit reached. Wait briefly or select another provider.' : response.status === 403 ? 'Check model access and privacy settings in your provider account.' : 'The selected model may be unavailable. Try another model.'}`);
   }
   const reader = response.body?.getReader();
   if (!reader) throw new Error(`${label} did not provide a response stream.`);
@@ -48,7 +51,7 @@ async function* streamCompatible(apiKey: string, req: ChatRequest, provider: 'op
     const data = block.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n').trim();
     if (!data || data === '[DONE]') return;
     const event = JSON.parse(data);
-    if (event.error || event.type === 'error' || event.type === 'response.failed') throw new Error(`${label} generation failed. Try again or select another free model.`);
+    if (event.error || event.type === 'error' || event.type === 'response.failed') throw new Error(`${label} generation failed. Try again or select another model.`);
     const choice = event.choices?.[0];
     const token = responses ? (event.type === 'response.output_text.delta' ? event.delta : '') : choice?.delta?.content;
     const reason = responses ? (event.type === 'response.completed' ? 'stop' : event.type === 'response.incomplete' ? 'length' : undefined) : choice?.finish_reason;

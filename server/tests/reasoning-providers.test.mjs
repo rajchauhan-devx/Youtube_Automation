@@ -6,6 +6,55 @@ import { streamReasoning } from '../dist/services/opencode.js';
 import { planAiEdit } from '../dist/services/ai-edit.js';
 import { editingPreset } from '../dist/services/auto-edit.js';
 
+test('Xkiro uses its live chat catalog, server key, vendor ID and output limit', async () => {
+  const originalFetch = globalThis.fetch;
+  const oldKey = process.env.XKIRO_API_KEY;
+  process.env.XKIRO_API_KEY = 'xkiro-fixture';
+  const app = express(); app.use(express.json()); app.use('/llm', llmRouter);
+  const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
+  let requests = 0;
+  globalThis.fetch = async (url, options) => {
+    if (String(url) === 'https://api.xkiro.com/v1/models') return Response.json({ data: [
+      { id: 'vendor/chat-model', display_name: 'Chat model', modality: 'chat', access_tier: 'paid', max_output_tokens: 2048 },
+      { id: 'vendor/image-model', modality: 'image' },
+      { id: 'vendor/speech-model', modality: 'tts' },
+    ] });
+    if (String(url) !== 'https://api.xkiro.com/v1/chat/completions') return originalFetch(url, options);
+    requests++;
+    assert.equal(options.headers.Authorization, 'Bearer xkiro-fixture');
+    const body = JSON.parse(options.body);
+    assert.equal(body.model, 'vendor/chat-model');
+    assert.equal(body.max_tokens, 2048);
+    assert.equal(body.messages[0].role, 'assistant');
+    assert.equal(body.reasoning_effort, undefined);
+    assert.equal(body.provider, undefined);
+    return new Response('data: {"choices":[{"delta":{"reasoning_content":"hidden"}}]}\n\ndata: {"choices":[{"delta":{"content":"Xkiro script"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n');
+  };
+  try {
+    const base = `http://127.0.0.1:${server.address().port}/llm`;
+    const catalog = await (await originalFetch(`${base}/models/xkiro`)).json();
+    assert.deepEqual(catalog.models.map(model => model.id), ['xkiro/vendor/chat-model']);
+    const response = await originalFetch(`${base}/chat/stream`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': 'wrong-key' },
+      body: JSON.stringify({ model: 'xkiro/vendor/chat-model', max_tokens: 8192, messages: [{ role: 'model', content: 'Previous script' }] }),
+    });
+    const result = await response.text();
+    assert.match(result, /Xkiro script/); assert.match(result, /"done":true/);
+    assert.doesNotMatch(result, /hidden|fixture|wrong-key/);
+    await assert.rejects(async () => {
+      for await (const event of streamReasoning('xkiro-fixture', { model: 'xkiro/vendor/removed-model', messages: [] })) void event;
+    }, /available Xkiro model/);
+    assert.equal(requests, 1);
+    delete process.env.XKIRO_API_KEY;
+    const missing = await originalFetch(`${base}/chat/stream`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': 'wrong-key' }, body: JSON.stringify({ model: 'xkiro/vendor/chat-model', messages: [{ role: 'user', content: 'Hello' }] }) });
+    assert.equal(missing.status, 401);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (oldKey === undefined) delete process.env.XKIRO_API_KEY; else process.env.XKIRO_API_KEY = oldKey;
+    server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+  }
+});
+
 test('script streaming selects provider credentials and enables reasoning without leaking it into scripts', async () => {
   const app = express(); app.use(express.json()); app.use('/llm', llmRouter);
   const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
