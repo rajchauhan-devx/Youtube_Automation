@@ -46,7 +46,7 @@ const json = (route, body, method = 'POST') => originalFetch(host + prefix + rou
 const read = () => ws.workspaceContext.run(scope, () => store.getById('scripts', 'episode'));
 const upload = (index, file, extension) => originalFetch(`${host}${prefix}/media-import/episode/${index}?extension=${extension}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: fs.readFileSync(file) });
 
-test('Shorts imports, mode persistence, image generation, speech timing and portrait rendering', { timeout: 180000 }, async () => {
+test('Shorts scene types, imports, image generation, speech timing and portrait rendering', { timeout: 180000 }, async () => {
   let browser;
   try {
     let list = await (await originalFetch(host + prefix + '/scripts')).json();
@@ -75,10 +75,19 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
     assert.equal((await json('/llm/extract', { rawText: serializeShortsPackage(plan).replace('</video_prompt>', '') })).status, 400);
     assert.equal((await json('/llm/extract', { rawText: '<long_video>{broken}</long_video>' })).status, 400);
     await json('/scripts', { id: 'episode', name: 'Shorts media test', section: 'shorts', status: 'active', duration: 2, prompts: [],
-      videoImportsEnabled: true, scenePlan: plan, narration: extracted.ttsText, imagePrompts: extracted.imagePrompts });
-    assert.equal((await upload(0, image, 'png')).status, 200);
+      videoImportsEnabled: false, scenePlan: plan, narration: extracted.ttsText, imagePrompts: extracted.imagePrompts });
+    // Retired remote generation endpoints must not accept jobs or credentials.
+    for (const route of ['colab-config', 'colab-status', 'colab-defaults', 'colab-progress']) {
+      assert.equal((await originalFetch(`${host}${prefix}/generate/${route}`)).status, 404);
+    }
+    for (const route of ['colab-image', 'colab-video', 'colab-cancel']) {
+      assert.equal((await json(`/generate/${route}`, { scriptId: 'episode', index: 0, prompt: plan.scenes[0].imagePrompt })).status, 404);
+    }
+    const imageUpload = await upload(0, image, 'png');
+    assert.equal(imageUpload.status, 200, await imageUpload.text());
     assert.equal((await upload(1, image, 'png')).status, 400);
-    assert.equal((await upload(1, video, 'mp4')).status, 200);
+    const videoUpload = await upload(1, video, 'mp4');
+    assert.equal(videoUpload.status, 200, await videoUpload.text());
     const importedVideo = read().generatedImages.find(a => a.mediaType === 'video');
     assert.equal(importedVideo.prompt, plan.scenes[1].videoPrompt);
     assert.equal((await originalFetch(host + importedVideo.url, { headers: { Range: 'bytes=0-99' } })).status, 206);
@@ -86,15 +95,16 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
     assert.equal((await json('/generate/image', { scriptId: 'episode', index: 1, prompt: plan.scenes[1].videoPrompt })).status, 400);
     assert.equal(modelRequests, 0);
     assert.equal((await json('/scripts/episode', { videoImportsEnabled: false }, 'PUT')).status, 200);
-    assert.equal((await upload(1, video, 'mp4')).status, 400, 'disabled videos rejected by server');
-    const generated = await json('/generate/image', { scriptId: 'episode', index: 1, prompt: plan.scenes[1].imagePrompt });
+    assert.equal((await json('/generate/image', { scriptId: 'episode', index: 1, prompt: plan.scenes[1].imagePrompt })).status, 400, 'image models must reject video slots even with the legacy flag off');
+    const generated = await json('/generate/image', { scriptId: 'episode', index: 0, prompt: plan.scenes[0].imagePrompt });
     assert.equal(generated.status, 200, await generated.text());
     assert.equal(modelRequests, 1);
-    assert.equal(read().generatedImages.length, 3, 'still and video alternatives both survive');
-    assert.deepEqual(mediaScenes(read()).map(s => s.mediaType), ['image', 'image']);
+    assert.equal(read().generatedImages.length, 2, 'image generation only updates the image slot');
+    assert.deepEqual(mediaScenes(read()).map(s => s.mediaType), ['image', 'video']);
     await json('/scripts/episode', { videoImportsEnabled: true }, 'PUT');
     assert.deepEqual(mediaScenes(read()).map(s => s.mediaType), ['image', 'video']);
     assert.deepEqual(read().generatedImages.find(a => a.mediaType === 'video'), importedVideo);
+    await json('/scripts/episode', { videoImportsEnabled: false }, 'PUT');
     const audio = await ws.workspaceContext.run(scope, () => assembleNarration(plan, { scriptId: 'episode', language: 'en', voice: 'fixture' }, new AbortController().signal, () => {}, async opts => {
       const filename = 'fixture.wav';
       ff(['-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000', '-t', '1', path.join(ws.generatedDir(), opts.scriptId, filename)]);
@@ -107,21 +117,35 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
       browser = await puppeteer.launch({ headless: true, executablePath: process.env.EDITING_BROWSER_EXECUTABLE });
       const page = await browser.newPage(); await page.setViewport({ width: 1440, height: 1050 });
       const errors = []; page.on('pageerror', error => errors.push(error.message));
-      await page.evaluateOnNewDocument(() => { if (!localStorage.getItem('tubeflow:v1')) localStorage.setItem('tubeflow:v1', JSON.stringify({ channelId: 'default', section: 'shorts', tab: 'generation', selectedScriptId: 'episode' })); });
+      const retiredRequests = [];
+      page.on('request', request => { if (new URL(request.url()).pathname.includes('/colab-')) retiredRequests.push(request.url()); });
+      await page.evaluateOnNewDocument(() => {
+        if (!localStorage.getItem('tubeflow:v1')) localStorage.setItem('tubeflow:v1', JSON.stringify({ channelId: 'default', section: 'shorts', tab: 'generation', selectedScriptId: 'episode' }));
+        for (const key of ['colab_url', 'colab_key', 'colab_video_url', 'colab_video_key', 'colab_image_url', 'colab_image_key']) localStorage.setItem(key, 'retired-fixture');
+        localStorage.setItem('openrouter_key', 'keep-fixture');
+      });
       await page.goto(host, { waitUntil: 'networkidle0' });
       await page.waitForSelector('article video');
+      assert.ok(!await page.evaluate(() => /colab/i.test(document.body.innerText)));
+      assert.deepEqual(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('colab_'))), []);
+      assert.equal(await page.evaluate(() => localStorage.getItem('openrouter_key')), 'keep-fixture');
+      await page.$$eval('article', els => els[0].querySelector('summary').click());
+      await page.evaluate(() => [...document.querySelectorAll('button')].find(el => el.textContent.trim() === 'Regenerate image').click());
+      await page.waitForFunction(() => document.body.innerText.includes('Saved 1 of 1 images.'));
+      assert.equal(modelRequests, 2, 'local image generation still works from the scene controls');
+      assert.equal(read().generatedImages.find(a => a.mediaType === 'video').url, importedVideo.url);
       fs.mkdirSync('artifacts', { recursive: true });
       await page.screenshot({ path: 'artifacts/shorts-media-generation.png', fullPage: true });
-      await page.click('input[type=checkbox]');
-      await page.waitForFunction(() => document.querySelectorAll('article img').length === 2 && !document.querySelector('article video'));
       await page.reload({ waitUntil: 'networkidle0' });
-      assert.equal(await page.$eval('input[type=checkbox]', el => el.checked), false);
-      await page.click('input[type=checkbox]'); await page.waitForSelector('article video');
+      await page.waitForSelector('article video');
+      assert.equal(await page.$$eval('article img', els => els.length), 1);
+      assert.equal(await page.$$eval('article video', els => els.length), 1);
+      assert.ok(!await page.evaluate(() => document.body.textContent.includes('Use video imports')));
       // Exercise both single and bulk imports through the file picker.
       await page.click('[aria-label="Add or replace image for scene 1"]');
       await (await page.$('input[type=file]')).uploadFile(image);
       await page.waitForFunction(() => document.body.innerText.includes('Saved 1 of 1 imports.'));
-      await page.evaluate(() => [...document.querySelectorAll('button')].find(el => el.textContent === 'Bulk import').click());
+      await page.evaluate(() => [...document.querySelectorAll('button')].find(el => el.textContent === 'Import media').click());
       await (await page.$('input[type=file]')).uploadFile(video);
       await page.waitForFunction(() => !document.querySelector('[aria-label="Add or replace video for scene 2"]').disabled);
       await page.evaluate(() => [...document.querySelectorAll('button')].find(el => el.textContent.trim() === 'Timeline & Render').click());
@@ -135,7 +159,7 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
 
       // Exercise the actual Preview -> Assets path, rather than only its API.
       await json('/scripts', { id: 'tagged-ui', name: 'Tagged Shorts extraction', section: 'shorts', status: 'draft', duration: 30,
-        prompts: [{ id: 'master', name: 'Production master', content: SHORTS_MEDIA_TEMPLATE }], videoImportsEnabled: true });
+        prompts: [{ id: 'master', name: 'Production master', content: SHORTS_MEDIA_TEMPLATE }], videoImportsEnabled: false });
       await page.evaluate(() => {
         const state = JSON.stringify({ channelId: 'default', section: 'shorts', tab: 'preview', selectedScriptId: 'tagged-ui' });
         localStorage.setItem('tubeflow:v1', state);
@@ -172,6 +196,7 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
       assert.equal(uiScript.narration, extracted.ttsText);
       await click('Generation');
       await page.waitForSelector('[aria-label="Add or replace video for scene 2"]');
+      await page.$$eval('article', els => els[1].querySelector('summary').click());
       assert.ok(await page.evaluate(prompt => document.body.innerText.includes(prompt), revisedPrompt));
 
       // Malformed tagged output must show an error, never fall back to guessing image prompts.
@@ -202,10 +227,20 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
       assert.deepEqual(errors, []);
       await page.reload({ waitUntil: 'networkidle0' });
       await page.waitForFunction(() => document.body.innerText.includes('THE STUMBLE'));
+      await click('Generation');
+      await page.waitForSelector('[aria-label="Add or replace video for scene 4"]');
+      assert.equal(await page.$$eval('[aria-label^="Add or replace image for scene"]', els => els.length), 3);
+      assert.equal(await page.$$eval('[aria-label^="Add or replace video for scene"]', els => els.length), 2);
+      assert.equal(await page.$$eval('article', els => els.filter(el => el.textContent.includes('Video scene')).length), 2);
+      await page.screenshot({ path: 'artifacts/against-the-odds-generation.png', fullPage: true });
+      await page.reload({ waitUntil: 'networkidle0' });
+      await page.waitForSelector('[aria-label="Add or replace video for scene 4"]');
+      assert.equal(await page.$$eval('[aria-label^="Add or replace video for scene"]', els => els.length), 2);
       assert.deepEqual(errors, []);
+      assert.deepEqual(retiredRequests, [], 'the app never calls the retired remote endpoints');
     }
 
-    for (const enabled of [true, false]) {
+    for (const enabled of [false]) {
       await json('/scripts/episode', { videoImportsEnabled: enabled }, 'PUT');
       assert.equal(read().generatedAudio[0].filename, audio.filename, 'mode changes preserve narration');
       const script = read();
@@ -226,7 +261,7 @@ test('Shorts imports, mode persistence, image generation, speech timing and port
       const visual = probe.streams.find(s => s.codec_type === 'video');
       assert.equal(visual.width, 1080); assert.equal(visual.height, 1920);
       assert.ok(Math.abs(Number(visual.duration) - 2) < 0.04);
-      if (enabled) {
+      {
         const frame = time => execFileSync('ffmpeg', ['-v', 'error', '-ss', String(time), '-i', output, '-frames:v', '1', '-vf', 'scale=18:32', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1'], { windowsHide: true });
         assert.notDeepEqual(frame(1.2), frame(1.8), 'video retains motion');
       }

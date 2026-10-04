@@ -4,6 +4,10 @@ import type { Channel } from '../../data';
 import { createWorkspaceFetch, useWorkspaceApi } from '../../services/workspaceApi';
 
 type Connection = { configured: boolean; authenticated: boolean; channel?: { title?: string } | null; message?: string };
+type CredentialInfo = {
+  configured: boolean; clientId: string | null; source: 'account' | 'shared' | 'env' | 'none';
+  hasOwnFile: boolean; hasToken: boolean; redirectUri: string;
+};
 export function YouTubeAccountsPanel({ accounts, onAccountsChange, onSelectAccount }: {
   accounts: Channel[]; onAccountsChange: (accounts: Channel[]) => void; onSelectAccount: (account: Channel) => void;
 }) {
@@ -12,17 +16,25 @@ export function YouTubeAccountsPanel({ accounts, onAccountsChange, onSelectAccou
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
   const [connections, setConnections] = useState<Record<string, Connection>>({});
+  const [credInfo, setCredInfo] = useState<Record<string, CredentialInfo>>({});
   const [configuring, setConfiguring] = useState<string | null>(null);
+  const [editingCreds, setEditingCreds] = useState(false);
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
+  const [credMessage, setCredMessage] = useState('');
   const pollers = useRef(new Set<ReturnType<typeof setInterval>>());
   const mounted = useRef(false);
   const refresh = useCallback(async (accountId: string) => {
     try {
-      const response = await createWorkspaceFetch(accountId, profile)('/api/youtube/status');
-      if (!response.ok) throw new Error('Could not read account connection');
-      const data: Connection = await response.json();
+      const doFetch = createWorkspaceFetch(accountId, profile);
+      const [statusRes, credRes] = await Promise.all([doFetch('/api/youtube/status'), doFetch('/api/youtube/credentials')]);
+      if (!statusRes.ok) throw new Error('Could not read account connection');
+      const data: Connection = await statusRes.json();
       if (mounted.current) setConnections(current => ({ ...current, [accountId]: data }));
+      if (credRes.ok && mounted.current) {
+        const credData: CredentialInfo = await credRes.json();
+        setCredInfo(current => ({ ...current, [accountId]: credData }));
+      }
     } catch (err) { if (mounted.current) setError(err instanceof Error ? err.message : 'Connection status unavailable'); }
   }, [profile]);
   useEffect(() => {
@@ -76,14 +88,48 @@ export function YouTubeAccountsPanel({ accounts, onAccountsChange, onSelectAccou
 
   async function saveCredentials(event: React.FormEvent) {
     event.preventDefault(); if (!configuring) return;
-    setBusy('credentials'); setError('');
+    setBusy('credentials'); setError(''); setCredMessage('');
     try {
       const response = await createWorkspaceFetch(configuring, profile)('/api/youtube/credentials', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientId, clientSecret }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Could not save configuration');
-      await refresh(configuring); setConfiguring(null); setClientSecret('');
+      await refresh(configuring); setConfiguring(null); setEditingCreds(false); setClientId(''); setClientSecret('');
+      setCredMessage('OAuth app saved. Now connect YouTube to link a channel.');
     } catch (err) { setError(err instanceof Error ? err.message : 'Configuration failed'); }
     finally { setBusy(''); }
+  }
+
+  function openConfigure(accountId: string, isEdit: boolean) {
+    const info = credInfo[accountId];
+    setConfiguring(accountId); setEditingCreds(isEdit); setError(''); setCredMessage('');
+    setClientId(isEdit && info?.clientId ? info.clientId : '');
+    setClientSecret('');
+  }
+
+  async function removeCredentials(accountId: string) {
+    const info = credInfo[accountId];
+    if (info?.hasToken || connections[accountId]?.authenticated) {
+      setError('Disconnect this account before removing its OAuth configuration.');
+      return;
+    }
+    if (!window.confirm('Remove the saved Google OAuth app (Client ID + Secret) for this account? You can add it again later.')) return;
+    setBusy(`remove-${accountId}`); setError(''); setCredMessage('');
+    try {
+      const response = await createWorkspaceFetch(accountId, profile)('/api/youtube/credentials', { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error((data as { error?: string }).error || 'Could not remove configuration');
+      await refresh(accountId);
+      setCredMessage('OAuth app removed for this account.');
+    } catch (err) { setError(err instanceof Error ? err.message : 'Remove failed'); }
+    finally { setBusy(''); }
+  }
+
+  function sourceLabel(info?: CredentialInfo) {
+    if (!info || !info.configured) return null;
+    if (info.source === 'account') return 'This account’s own app';
+    if (info.source === 'shared') return 'Shared app (default account)';
+    if (info.source === 'env') return 'From server/.env';
+    return null;
   }
 
   return <section aria-label="YouTube accounts" className="space-y-4 rounded-xl border border-border bg-surface p-5">
@@ -96,24 +142,43 @@ export function YouTubeAccountsPanel({ accounts, onAccountsChange, onSelectAccou
     {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
     <div className="space-y-3">{accounts.map(account => {
       const status = connections[account.id];
+      const info = credInfo[account.id];
+      const removing = busy === `remove-${account.id}`;
       return <div key={account.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 ${active.id === account.id ? 'border-accent bg-accent/5' : 'border-border bg-bg'}`}>
-        <div className="min-w-0"><p className="break-words font-medium">{account.name}{active.id === account.id && <span className="ml-2 text-xs text-accent">Active</span>}</p>
-          <p className="text-xs text-gray-400">{status?.authenticated ? `Connected: ${status.channel?.title || account.youtubeChannelTitle}` : status ? status.message || 'YouTube not connected' : 'Checking connection…'}</p></div>
+        <div className="min-w-0 flex-1"><p className="break-words font-medium">{account.name}{active.id === account.id && <span className="ml-2 text-xs text-accent">Active</span>}</p>
+          <p className="text-xs text-gray-400">{status?.authenticated ? `Connected: ${status.channel?.title || account.youtubeChannelTitle}` : status ? status.message || 'YouTube not connected' : 'Checking connection…'}</p>
+          {info?.configured && info.clientId && <p className="mt-1 break-all font-mono text-[11px] text-gray-500">OAuth app: {info.clientId}{sourceLabel(info) ? ` · ${sourceLabel(info)}` : ''}</p>}
+          {!info?.configured && status && !status.configured && <p className="mt-1 text-[11px] text-gray-500">No Google OAuth app saved — configure it below, no file editing needed.</p>}</div>
         <div className="flex flex-wrap gap-2 text-xs">
           <button aria-label={`Use ${account.name}`} onClick={() => onSelectAccount(account)} className="rounded border border-border px-3 py-2">Use account</button>
-          {status?.authenticated ? <button disabled={!!busy} onClick={() => void disconnect(account.id)} className="rounded border border-border px-3 py-2 text-red-300">Disconnect</button>
-            : status?.configured ? <button disabled={!!busy} onClick={() => void connect(account.id)} className="rounded bg-red-600 px-3 py-2">{busy === account.id ? <Loader2 size={14} className="animate-spin" /> : 'Connect YouTube'}</button>
-              : <button disabled={!status || !!busy} onClick={() => setConfiguring(account.id)} className="rounded border border-border px-3 py-2">Configure OAuth</button>}
+          {status?.authenticated
+            ? <button disabled={!!busy} onClick={() => void disconnect(account.id)} className="rounded border border-border px-3 py-2 text-red-300">Disconnect</button>
+            : status?.configured
+              ? <>
+                  <button disabled={!!busy} onClick={() => void connect(account.id)} className="rounded bg-red-600 px-3 py-2">{busy === account.id ? <Loader2 size={14} className="animate-spin" /> : 'Connect YouTube'}</button>
+                  <button disabled={!!busy} onClick={() => openConfigure(account.id, true)} className="rounded border border-border px-3 py-2">Replace keys</button>
+                  <button disabled={!!busy} onClick={() => void removeCredentials(account.id)} className="rounded border border-border px-3 py-2 text-red-300">{removing ? <Loader2 size={14} className="animate-spin" /> : 'Remove keys'}</button>
+                </>
+              : <button disabled={!status || !!busy} onClick={() => openConfigure(account.id, false)} className="rounded border border-border px-3 py-2">Configure OAuth</button>}
         </div>
       </div>;
     })}</div>
+    {credMessage && !error && <p role="status" className="text-sm text-green-300">{credMessage}</p>}
     {configuring && <form onSubmit={saveCredentials} className="space-y-3 rounded-lg border border-border bg-bg p-4">
-      <h3 className="text-sm font-semibold">Google OAuth application for {accounts.find(account => account.id === configuring)?.name}</h3>
-      <input aria-label="Google OAuth client ID" required placeholder="Client ID" value={clientId} onChange={e => setClientId(e.target.value)} className="w-full rounded border border-border bg-surface p-2 text-sm" />
-      <input aria-label="Google OAuth client secret" type="password" required placeholder="Client secret" value={clientSecret} onChange={e => setClientSecret(e.target.value)} className="w-full rounded border border-border bg-surface p-2 text-sm" />
-      <p className="text-xs text-gray-400">Use your configured OAuth redirect URI (default: http://localhost:3001/api/youtube/callback). Each channel must complete Google sign-in separately.</p>
-      <button disabled={!!busy} className="rounded bg-accent px-3 py-2 text-sm">Save OAuth settings</button>
-      <button type="button" onClick={() => { setConfiguring(null); setClientSecret(''); }} className="ml-3 text-sm text-gray-400">Cancel</button>
+      <h3 className="text-sm font-semibold">{editingCreds ? 'Replace' : 'Configure'} Google OAuth application for {accounts.find(account => account.id === configuring)?.name}</h3>
+      <p className="text-xs text-gray-400">
+        {credInfo[configuring]?.source === 'shared' && !credInfo[configuring]?.hasOwnFile
+          ? 'This account currently inherits the shared app. Saving here stores its own Client ID + Secret, private to this account.'
+          : 'Stored per-account via the app — no need to edit server/data/client_secret.json manually. The secret is never displayed again.'}
+      </p>
+      <input aria-label="Google OAuth client ID" required placeholder="Client ID (…apps.googleusercontent.com)" value={clientId} onChange={e => setClientId(e.target.value)} className="w-full rounded border border-border bg-surface p-2 text-sm" />
+      <input aria-label="Google OAuth client secret" type="password" required placeholder={editingCreds ? 'New client secret (required to replace)' : 'Client secret'} value={clientSecret} onChange={e => setClientSecret(e.target.value)} className="w-full rounded border border-border bg-surface p-2 text-sm" />
+      <p className="break-all text-xs text-gray-400">Redirect URI (add exactly this in Google Cloud → Credentials → Authorized redirect URIs): {credInfo[configuring]?.redirectUri || 'http://localhost:3001/api/youtube/callback'}</p>
+      {connections[configuring]?.authenticated && <p className="text-xs text-amber-300">This account is connected. Disconnect first — saving or removing keys is blocked while a channel token exists.</p>}
+      <div className="flex flex-wrap items-center gap-3">
+        <button disabled={!!busy} className="rounded bg-accent px-3 py-2 text-sm">Save OAuth settings</button>
+        <button type="button" onClick={() => { setConfiguring(null); setEditingCreds(false); setClientId(''); setClientSecret(''); }} className="text-sm text-gray-400">Cancel</button>
+      </div>
     </form>}
   </section>;
 }

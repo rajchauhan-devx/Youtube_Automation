@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Mic2, RefreshCw, Trash2, Upload } from 'lucide-react';
 import type { Channel } from '../../data';
 import { YouTubeAccountsPanel } from './YouTubeAccountsPanel';
+import { MetaAccountsPanel } from './MetaAccountsPanel';
 import { createWorkspaceUrl, useWorkspaceApi } from '../../services/workspaceApi';
 import { listVoices, rememberVoice, removeVoiceReference, saveVoiceReference, VOICE_FILE_ACCEPT, type SavedVoice, type VoiceLanguage } from '../../services/voiceLibrary';
 
@@ -115,6 +116,7 @@ export function ProfilePage({ accounts, onAccountsChange, onSelectAccount }: { a
   const { account } = useWorkspaceApi();
   return <div className="mx-auto max-w-5xl space-y-6">
     <YouTubeAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} />
+    <MetaAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} />
     <div>
       <p className="mb-2 text-xs font-medium uppercase tracking-wider text-accent">Profile · {account.name}</p>
       <h1 className="text-2xl font-semibold">Your Chatterbox voices</h1>

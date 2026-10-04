@@ -23,6 +23,29 @@ export function storedCredentials(accountId: string) {
   return null;
 }
 
+export type CredentialSource = 'account' | 'shared' | 'env' | 'none';
+export function credentialInfo(accountId: string): {
+  configured: boolean;
+  clientId: string | null;
+  source: CredentialSource;
+  hasOwnFile: boolean;
+  hasToken: boolean;
+  redirectUri: string;
+} {
+  const ownFile = credentialsPath(accountId);
+  const hasOwnFile = fs.existsSync(ownFile);
+  const hasGlobalFile = fs.existsSync(CLIENT_SECRET_PATH);
+  const creds = storedCredentials(accountId);
+  const hasToken = fs.existsSync(tokenPath(accountId));
+  let source: CredentialSource = 'none';
+  if (creds) {
+    if (hasOwnFile) source = 'account';
+    else if (hasGlobalFile) source = 'shared';
+    else source = 'env';
+  }
+  return { configured: !!creds, clientId: creds?.clientId ?? null, source, hasOwnFile, hasToken, redirectUri: REDIRECT_URI };
+}
+
 const revisions = new Map<string, number>();
 export function invalidateConnection(id: string) { revisions.set(id, (revisions.get(id) || 0) + 1); }
 export function connectionRevision(id: string) { return revisions.get(id) || 0; }

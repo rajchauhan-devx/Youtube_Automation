@@ -33,6 +33,8 @@ server/chatterbox/.venv/
 .backups/
 server/data/client_secret.json
 server/data/youtube-token.json
+server/data/meta_client.json
+server/data/meta-token.json
 server/data/music/
 server/data/sfx/
 __pycache__/

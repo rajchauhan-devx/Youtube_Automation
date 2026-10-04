@@ -4,6 +4,8 @@ import { currentWorkspace } from '../services/workspace.js';
 import { Router } from 'express';
 import { parseScenePlan, spokenText } from '../services/scene-plan.js';
 import { chat, formatGeminiModel } from '../services/gemini.js';
+import { generateLongScenePlan, longGenerationDuration } from '../services/long-script-generation.js';
+import { repairVisualPrompts } from '../services/visual-prompt-repair.js';
 import { store } from '../services/store.js';
 import { validateEditingSettings } from '../services/auto-edit.js';
 import { planReliableEdit } from '../services/ai-edit.js';
@@ -86,10 +88,27 @@ llmRouter.post('/extract', async (req, res) => {
     const plan = parseScenePlan(rawText, req.body?.useTimelineNarration === true);
     const profile = currentWorkspace().profile;
     if (profile === 'mixed' && plan.scenes.some(scene => !scene.mediaType)) throw new Error('Mixed Media requires an image or video mediaType on every scene. Use the shared scene-plan format.');
-    if (profile === 'long' && plan.scenes.some(scene => scene.mediaType === 'video')) throw new Error('Video scenes belong in the Mixed Media profile.');
     res.json({ script: spokenText(plan), ttsText: spokenText(plan), imagePrompts: plan.scenes.map(scene => scene.imagePrompt), scenePlan: plan,
       normalizedResponse: normalizeScenePlanResponse(rawText, plan) });
   } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid scene plan' }); }
+});
+
+llmRouter.post('/repair-visual-prompts', async (req, res) => {
+  const apiKey = getApiKey(req);
+  if (!apiKey) { res.status(401).json({ error: 'Missing Gemini API key' }); return; }
+  const { rawText, prompt, model } = req.body || {};
+  if (typeof rawText !== 'string' || typeof prompt !== 'string' || typeof model !== 'string' || !model.startsWith('gemini-')) {
+    res.status(400).json({ error: 'A response, original prompt and Gemini model are required.' }); return;
+  }
+  const controller = new AbortController();
+  const disconnect = () => controller.abort();
+  res.on('close', disconnect);
+  try {
+    const plan = await repairVisualPrompts(apiKey, parseScenePlan(rawText), prompt, model, controller.signal);
+    res.json({ rawText: JSON.stringify(plan) });
+  } catch (error) {
+    if (!controller.signal.aborted) res.status(502).json({ error: error instanceof Error ? error.message : 'Could not expand visual prompts' });
+  } finally { res.off('close', disconnect); }
 });
 
 llmRouter.post('/scene-analysis', async (req, res) => {
@@ -226,7 +245,7 @@ llmRouter.post('/chat/stream', async (req, res) => {
     return;
   }
 
-  const { messages, model, temperature, max_tokens } = req.body;
+  const { messages, model, temperature, max_tokens, jsonSchema } = req.body;
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     res.status(400).json({ error: 'Messages array is required' });
     return;
@@ -257,7 +276,17 @@ llmRouter.post('/chat/stream', async (req, res) => {
     return;
   }
 
+  const controller = new AbortController();
+  const disconnect = () => controller.abort();
+  res.on('close', disconnect);
   try {
+    const request = { messages, model, temperature, max_tokens, jsonSchema, signal: controller.signal };
+    const episodeDuration = longGenerationDuration(request);
+    if (episodeDuration) {
+      await generateLongScenePlan(apiKey!, request, episodeDuration, token => res.write(`data: ${JSON.stringify({ token })}\n\n`));
+      res.write(`data: ${JSON.stringify({ finishReason: 'STOP', done: true })}\n\n`);
+      res.end(); return;
+    }
     const formattedModel = formatGeminiModel(model);
     
     // Build Gemini payload
@@ -285,6 +314,7 @@ llmRouter.post('/chat/stream', async (req, res) => {
       generationConfig: {
         temperature: temperature ?? 0.7,
         maxOutputTokens: max_tokens ?? 8192,
+        ...(jsonSchema ? { responseMimeType: 'application/json', responseJsonSchema: jsonSchema } : {}),
       },
     };
 
@@ -296,13 +326,28 @@ llmRouter.post('/chat/stream', async (req, res) => {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${formattedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
+    let response!: Response;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      controller.signal.throwIfAborted();
+      response = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload), signal: controller.signal,
+      });
+      if (response.ok) break;
+      const detail = await response.text();
+      const dailyQuota = /PerDay|requests per day|daily quota/i.test(detail);
+      if (attempt === 3 || dailyQuota || ![429, 500, 502, 503].includes(response.status)) {
+        res.write(`data: ${JSON.stringify({ error: `Gemini API error ${response.status}: ${detail}` })}\n\n`);
+        res.end(); return;
+      }
+      const retrySeconds = Number(detail.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/)?.[1]);
+      const waitMs = Math.min(60000, retrySeconds ? (retrySeconds + 1) * 1000 : 3000 * 2 ** attempt);
+      await new Promise<void>((resolve, reject) => {
+        const abort = () => { clearTimeout(timer); reject(controller.signal.reason); };
+        const timer = setTimeout(() => { controller.signal.removeEventListener('abort', abort); resolve(); }, waitMs);
+        controller.signal.addEventListener('abort', abort, { once: true });
+      });
+    }
 
     if (!response.ok) {
       const text = await response.text();
@@ -370,8 +415,10 @@ llmRouter.post('/chat/stream', async (req, res) => {
     res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
     res.end();
   } catch (err: any) {
-    res.write(`data: ${JSON.stringify({ error: err.message || 'Stream failed' })}\n\n`);
+    if (!controller.signal.aborted) res.write(`data: ${JSON.stringify({ error: err.message || 'Stream failed' })}\n\n`);
     res.end();
+  } finally {
+    res.off('close', disconnect);
   }
 });
 

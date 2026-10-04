@@ -2,12 +2,14 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import { store } from './store.js';
 import { currentWorkspace } from './workspace.js';
+import { graphicsRenderRevision } from './render-graphics.js';
 
 export function renderRevision(scriptId: string): string | undefined {
   const script = store.getById<any>('scripts', scriptId);
-  if (!script || (script.enableSubtitles === undefined && !script.presenter && !script?.scenePlan)) return undefined;
+  if (!script || (script.enableSubtitles === undefined && !script.presenter && !script?.scenePlan && !script.editingProjectId)) return undefined;
   return createHash('sha256').update(JSON.stringify({ plan: script.scenePlan, videoImportsEnabled: script.videoImportsEnabled, narration: script.narration, editing: script.editing,
     presenter: script.presenter,
+    graphics: graphicsRenderRevision(script),
     enableSubtitles: script.enableSubtitles,
     presenterLayoutVersion: script.presenter?.enabled ? 2 : undefined,
     mix: { bgmTrack: script.timelineConfig?.bgmTrack, bgmVolume: script.timelineConfig?.bgmVolume, ttsVolume: script.timelineConfig?.ttsVolume ?? script.ttsVolume, music: script.timelineConfig?.bgmTrack === 'ai' ? script.generatedMusic?.filename : undefined },

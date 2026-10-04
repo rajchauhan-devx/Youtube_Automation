@@ -5,6 +5,7 @@ import ffmpeg from 'fluent-ffmpeg';
 import { containedFile, safeSegment } from './paths.js';
 import { FPS, planTimeline } from './timeline.js';
 import { randomUUID } from 'node:crypto';
+import { legacyMotion } from '@tubeflow/video-composition';
 import { runMedia } from './media-process.js';
 import { compositePresenter } from './presenter.js';
 import { reservePresenterCaptionSpace, type PresenterSettings } from './presenter-settings.js';
@@ -107,13 +108,8 @@ const COLOR_GRADE_FILTERS: Record<string, string> = {
 };
 
 function buildZoompanExpression(effect: string, frameCount: number, width: number, height: number, zoomFactor: number): string {
-  const aliases: Record<string, string> = {
-    'zoom-in': 'push-in', 'slow-zoom-in': 'push-in', 'crash-zoom': 'push-in',
-    'zoom-out': 'pull-out', 'slow-zoom-out': 'pull-out', 'drift-left': 'pan-left',
-    'drift-right': 'pan-right', 'pan-up': 'rise', 'ken-burns-in': 'drift-in', 'ken-burns-out': 'drift-out',
-  };
-  const motion = aliases[effect] || (['hold', 'pan-left', 'pan-right', 'pan-down'].includes(effect) ? effect : 'push-in');
-  return smoothMotionFilter(motion, frameCount, width, height, effect.startsWith('slow-') ? 0.04 : Math.min(0.08, Math.max(0, zoomFactor - 1)));
+  const { motion, travel } = legacyMotion(effect, zoomFactor);
+  return smoothMotionFilter(motion, frameCount, width, height, travel);
 }
 export function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]): string {
   const { resolution = { width: 1080, height: 1920 }, zoomFactor = 1.15, transitionDuration: defaultTransitionDuration = 0.5 } = opts;

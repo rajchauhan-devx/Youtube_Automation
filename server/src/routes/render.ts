@@ -18,6 +18,7 @@ import fs from 'fs';
 import path from 'path';
 import { generatePresenter, presenterHealth } from '../services/presenter.js';
 import { validatePresenter, reservePresenterCaptionSpace, type PresenterSettings } from '../services/presenter-settings.js';
+import { compositeSavedGraphics, savedGraphicsForRender, graphicsCameras } from '../services/render-graphics.js';
 
 export const renderRouter = Router();
 renderRouter.param('scriptId', (_req, res, next, value) => {
@@ -165,6 +166,9 @@ renderRouter.post('/start', async (req, res) => {
   let longSync: NarrationSync | undefined;
   let longPlan: ScenePlan | undefined;
   let resolvedBgm: string | null = null;
+  let savedGraphics: ReturnType<typeof savedGraphicsForRender>;
+  let savedCameras: ReturnType<typeof graphicsCameras> | undefined;
+  let savedMotionCaptions = false;
   try {
     resolvedBgm = bgmTrack === 'ai' ? resolveGeneratedMusic(scriptId) : bgmTrack ? resolveMusicTrack(bgmTrack) : null;
     const resolvedAudio = resolveInputPath(audioPath, scriptId);
@@ -196,11 +200,16 @@ renderRouter.post('/start', async (req, res) => {
       if (!Array.isArray(timelineConfig.clips) || timelineConfig.clips.length !== imagePaths.length) throw new Error('Timeline scene count must match images');
       planTimeline(timelineConfig.clips, finalDuration);
     }
+    savedGraphics = savedGraphicsForRender(scriptId, audioPath, imagePaths, resolution || { width: 1080, height: 1920 });
+    if (savedGraphics) {
+      savedCameras = graphicsCameras(savedGraphics, { scriptId, imagePaths, audioPath, timelineConfig, sceneAnalysis, zoomFactor, transitionDuration, editing }, finalDuration, longPlan, longSync);
+      savedMotionCaptions = savedGraphics.artifacts.some(a => a.enabled && a.graphic?.kind === 'caption');
+    }
     if (controller.signal.aborted) throw new Error('Render cancelled');
     if (currentWorkspace().profile === 'mixed') {
       removePreviousRenders(getOutputDir(scriptId));
       const script = store.getById<any>('scripts', scriptId);
-      if (script) store.add('scripts', { ...script, youtubeExport: undefined });
+      if (script) store.add('scripts', { ...script, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
     }
   } catch (error) {
     job.status = 'error'; job.error = error instanceof Error ? error.message : 'Invalid render input';
@@ -210,7 +219,7 @@ renderRouter.post('/start', async (req, res) => {
 
   // Generate subtitles if enabled and narration provided
   let subtitlePath: string | undefined = undefined;
-  if (enableSubtitles && narration && !longSync) {
+  if (enableSubtitles && !savedMotionCaptions && narration && !longSync) {
     try {
       subtitlePath = generateSubtitleFile({
         scriptId,
@@ -241,7 +250,7 @@ renderRouter.post('/start', async (req, res) => {
     transitionDuration,
     timelineConfig,
     sceneAnalysis,
-    enableSubtitles: Boolean(enableSubtitles && (longSync || subtitlePath)),
+    enableSubtitles: Boolean(enableSubtitles && !savedMotionCaptions && (longSync || subtitlePath)),
     subtitlePath,
     bgmPath: resolvedBgm || undefined,
     bgmVolume: typeof bgmVolume === 'number' ? bgmVolume : 0.15,
@@ -249,13 +258,13 @@ renderRouter.post('/start', async (req, res) => {
     colorGrade: typeof colorGrade === 'string' ? colorGrade : undefined,
     enableVignette: enableVignette !== false,
     enableSfx: enableSfx !== false,
-    editing,
+    editing: savedMotionCaptions && editing ? { ...editing, captions: false } : editing,
     presenter,
     presenterSourceSize,
     onProgress: (percent) => {
       const entry = activeRenders.get(workspaceKey(scriptId));
       if (entry === job) {
-        entry.progress = presenter?.enabled ? Math.min(99, 45 + Math.round(percent * 0.54)) : percent;
+        entry.progress = savedGraphics ? (presenter?.enabled ? Math.min(65, 45 + Math.round(percent * 0.20)) : Math.min(65, Math.round(percent * 0.65))) : presenter?.enabled ? Math.min(99, 45 + Math.round(percent * 0.54)) : percent;
         entry.stage = percent >= 95 && presenter?.enabled ? 'Compositing presenter' : 'Rendering story scenes';
       }
     },
@@ -272,18 +281,28 @@ renderRouter.post('/start', async (req, res) => {
     if (revision && renderRevision(scriptId) !== revision) throw new Error('The story or presenter settings changed. Render again with the current settings.');
     return longSync && longPlan ? renderLongVideo(renderOptions, longPlan, longSync) : renderVideo(renderOptions);
   })()
-    .then((result) => {
-      if (revision && renderRevision(scriptId) !== revision) {
+    .then(async (result) => {
+      try {
+        if (savedGraphics) await compositeSavedGraphics(result, savedGraphics, controller.signal, (stage, progress) => {
+          const entry = activeRenders.get(workspaceKey(scriptId));
+          if (entry === job) { entry.stage = stage; entry.progress = progress; }
+        }, savedCameras);
+        controller.signal.throwIfAborted();
+        if (revision && renderRevision(scriptId) !== revision) {
+          throw new Error('The story, scene assets or motion graphics changed during rendering. Render again with the current settings.');
+        }
+        atomicJson(`${result.outputPath}.json`, { revision, resolution: `${resolution?.width || 1080}x${resolution?.height || 1920}`, duration: result.duration });
+        const entry = activeRenders.get(workspaceKey(scriptId));
+        if (entry === job) {
+          entry.status = 'done';
+          entry.progress = 100;
+        }
+        console.log(`Render completed for ${scriptId}: ${result.filename}`);
+      } catch (error) {
         fs.rmSync(result.outputPath, { force: true });
-        throw new Error('Scene assets changed during rendering. Render the current scene map again.');
+        fs.rmSync(`${result.outputPath}.json`, { force: true });
+        throw error;
       }
-      atomicJson(`${result.outputPath}.json`, { revision, resolution: `${resolution?.width || 1080}x${resolution?.height || 1920}`, duration: result.duration });
-      const entry = activeRenders.get(workspaceKey(scriptId));
-      if (entry === job) {
-        entry.status = 'done';
-        entry.progress = 100;
-      }
-      console.log(`Render completed for ${scriptId}: ${result.filename}`);
     })
     .catch((err: any) => {
       const entry = activeRenders.get(workspaceKey(scriptId));

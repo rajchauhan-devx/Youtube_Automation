@@ -1,4 +1,6 @@
 import type { ScenePlan } from './scene-plan.js';
+import { smoothMotionFilter } from '@tubeflow/video-composition';
+export { smoothMotionFilter };
 
 export const EDIT_MOTIONS = ['auto', 'hold', 'push-in', 'pull-out', 'pan-left', 'pan-right', 'rise', 'drift-in', 'drift-out'] as const;
 export const EDIT_TRANSITIONS = ['auto', 'cut', 'dissolve', 'dip-black'] as const;
@@ -72,27 +74,6 @@ export function autoEditPlan(plan: ScenePlan, settings: EditingSettings) {
 /** A smooth, absolute-frame camera path; no accumulated zoom or duration-dependent speed. */
 export function autoMotionFilter(motion: string, frames: number, width: number, height: number, strength: EditingSettings['motion']) {
   return smoothMotionFilter(strength === 'off' ? 'hold' : motion, frames, width, height, strength === 'balanced' ? 0.08 : 0.04);
-}
-
-/** Supersample the still before moving the camera. Zoompan rounds crop coordinates
- * to integers; 4x RGB sampling limits that rounding to a quarter output pixel and
- * avoids chroma-subsampling jumps. Frame-zero and the final frame share one path. */
-export function smoothMotionFilter(motion: string, frames: number, width: number, height: number, travel = 0.06) {
-  const ease = `(0.5-0.5*cos(PI*on/${Math.max(1, frames - 1)}))`;
-  const amount = Math.min(0.12, Math.max(0, travel), frames / 30 * 0.012);
-  let z = '1', x = 'iw/2-iw/zoom/2', y = 'ih/2-ih/zoom/2';
-  if (motion === 'push-in' || motion === 'drift-in') z = `1+${amount}*${ease}`;
-  if (motion === 'pull-out' || motion === 'drift-out') z = `1+${amount}*(1-${ease})`;
-  if (motion === 'drift-in' || motion === 'drift-out') { x = '(iw-iw/zoom)*0.35'; y = '(ih-ih/zoom)*0.45'; }
-  if (['pan-left', 'pan-right', 'rise', 'pan-down'].includes(motion)) {
-    z = String(1 + amount);
-    if (motion === 'pan-left') x = `(1-${ease})*(iw-iw/zoom)`;
-    if (motion === 'pan-right') x = `${ease}*(iw-iw/zoom)`;
-    if (motion === 'rise') y = `(1-${ease})*(ih-ih/zoom)`;
-    if (motion === 'pan-down') y = `${ease}*(ih-ih/zoom)`;
-  }
-  const sampling = motion === 'hold' ? '' : `format=gbrp,scale=${width * 4}:${height * 4}:flags=lanczos,`;
-  return `${sampling}zoompan=z='${z}':x='${x}':y='${y}':d=${frames}:s=${width}x${height}:fps=30`;
 }
 
 const assTime = (seconds: number) => {

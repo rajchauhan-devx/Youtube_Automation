@@ -21,6 +21,48 @@ test.after(() => {
 
 const fixture = fs.readFileSync(new URL('./fixtures/against-the-odds.txt', import.meta.url), 'utf8');
 const voice = fixture.match(/<script>([\s\S]*?)<\/script>/i)[1].trim();
+const splitManifest = fs.readFileSync(new URL('./fixtures/against-the-odds-split-manifest.txt', import.meta.url), 'utf8');
+
+test('Against the Odds Markdown manifest maps split narration lines, reused crops and independent videos', () => {
+  for (const raw of [splitManifest, splitManifest.replace(/\n/g, '\r\n')]) {
+    const plan = parseScenePlan(raw);
+    assert.equal(plan.title, 'Lost at Sea: The 76-Day Shark Hunters of Kiribati');
+    assert.equal(plan.scenes.length, 12);
+    assert.deepEqual(plan.scenes.map(scene => scene.id), Array.from({ length: 12 }, (_, index) => `scene_${String(index + 1).padStart(3, '0')}`));
+    assert.deepEqual(plan.scenes.map(scene => scene.mediaType), ['image', 'image', 'video', 'image', 'video', 'image', 'image', 'image', 'image', 'video', 'image', 'image']);
+    assert.deepEqual(plan.scenes.map(scene => scene.duration), [12, 6, 6, 8, 6, 8, 8, 12, 7, 6, 5, 5]);
+    assert.equal(normalizeNarration(spokenText(plan)), normalizeNarration(raw.match(/<script>([\s\S]*?)<\/script>/i)[1]));
+    assert.equal(plan.scenes[5].imagePrompt, plan.scenes[6].imagePrompt, 'explicitly reused crop keeps the authored image prompt');
+    assert.notEqual(plan.scenes[5].narration, plan.scenes[6].narration);
+    assert.equal(plan.scenes[1].chapter, plan.scenes[2].chapter);
+    assert.match(plan.scenes[2].narration, /^With no oars, no sail, and no radio/);
+    assert.ok(!plan.scenes[2].narration.includes('Tone:'));
+    assert.match(plan.scenes[2].videoPrompt, /Continuity Lock:/);
+    assert.match(plan.scenes[2].imagePrompt, /Negative Prompt:/);
+    assert.equal(plan.scenes.at(-1).role, 'cta');
+    assert.equal(plan.scenes.at(-1).narration, 'Subscribe for more true survival stories.');
+    assert.match(plan.scenes.at(-1).imagePrompt, /minimalist, stylized burnt-orange horizon line/);
+    assert.ok(plan.scenes.every(scene => !/END CARD|native end-screen/i.test(scene.imagePrompt)));
+    assert.match(plan.thumbnailPrompt, /sixteen|16:9/);
+  }
+});
+
+test('split manifests still reject missing, duplicated, reordered or ambiguous narration and assets', () => {
+  const invalid = [
+    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 3 | #video 1'), /exactly once and in order/],
+    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 99 | #video 1'), /missing narration lines/],
+    [splitManifest.replace('Scene 2 / Line 3 | #image 2', 'Scene 2 / Line 4 | #image 2'), /exactly once and in order/],
+    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 | #video 1'), /exactly once and in order/],
+    [splitManifest.replace('0:18 – 0:27', '0:19 – 0:27'), /gap, overlap/],
+    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 4 | #video 99'), /missing or invalid playback/],
+    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 4 | #video 1, #image 2'), /exactly one playback/],
+    [splitManifest.replace('(Scene: 2 — Lines: 3–4)', '(Scene: 3 — Lines: 3–4)'), /scene links disagree/],
+    [splitManifest.replace('<script>', '<script>Extra spoken words. '), /differs/],
+    [splitManifest.replace('End Card | #image 9', 'End Card | #image 0'), /end-card image/],
+    [splitManifest.replace('Scene 4 / Line 8 | #image 4 (Crop B)', 'Scene 4 / Line 7 | #image 4 (Crop B)'), /exactly once and in order/],
+  ];
+  for (const [raw, message] of invalid) assert.throws(() => parseScenePlan(raw), message);
+});
 
 test('Against the Odds numbered production response preserves speech and maps five scenes exactly', () => {
   for (const raw of [fixture, fixture.replace(/\r\n/g, '\n')]) {
@@ -60,7 +102,7 @@ test('Formatting refuses ambiguous, incomplete or changed content without guessi
   assert.throws(() => parseScenePlan(invalid.at(-1), true), /differs/, 'Recovery must not rewrite legacy narration');
 });
 
-test('Every profile appends the same format contract without altering custom prompt content', () => {
+test('built-in templates can explicitly request the shared format for each profile', () => {
   const custom = 'Tell this survival story in Hindi. Preserve sources, story details and continuity. Return my old image tags.';
   for (const profile of ['shorts', 'long', 'mixed']) {
     const prompt = withScenePlanFormat(custom, profile);
@@ -102,6 +144,11 @@ test('All profiles extract the same JSON shape without an LLM key and the conver
     assert.equal(saved.prompts[0].content, 'Preserve the author\'s content.');
     const images = { ...converted.scenePlan, scenes: converted.scenePlan.scenes.map(({ videoPrompt, ...scene }) => ({ ...scene, mediaType: 'image' })) };
     const raw = serializeScenePlan(images);
+    const nativeResponse = await extract('long', JSON.stringify({ ...images, supportingNotes: 'Research notes remain in the original preview.' }));
+    assert.equal(nativeResponse.status, 200);
+    const native = await nativeResponse.json();
+    assert.equal(native.scenePlan.supportingNotes, 'Research notes remain in the original preview.');
+    assert.equal(native.normalizedResponse, JSON.stringify(native.scenePlan));
     let first;
     for (const profile of ['shorts', 'long', 'mixed']) {
       const response = await extract(profile, raw);
@@ -116,9 +163,9 @@ test('All profiles extract the same JSON shape without an LLM key and the conver
       assert.equal(invalid.status, 400);
       await invalid.json();
     }
-    const unsupported = await extract('long', converted.normalizedResponse);
-    assert.equal(unsupported.status, 400, 'Same schema retains the Long Video image-only rule');
-    assert.match((await unsupported.json()).error, /Mixed Media/);
+    const longVideos = await extract('long', converted.normalizedResponse);
+    assert.equal(longVideos.status, 200, 'Long profiles preserve template-authored video scenes');
+    assert.deepEqual((await longVideos.json()).scenePlan, converted.scenePlan);
   } finally {
     server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
   }

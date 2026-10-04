@@ -48,6 +48,8 @@ export function rendererBundle() {
 export async function renderSession(
   project: EditingProject,
   signal: AbortSignal,
+  compositionId = 'EnhancedVideo',
+  legacyCameras?: CompositionProps['legacyCameras'],
 ) {
   project = motionProject(project);
   validateProject(project);
@@ -115,6 +117,7 @@ export async function renderSession(
   const port = (server.address() as { port: number }).port,
     props: CompositionProps = {
       project,
+      legacyCameras,
       assets: Object.fromEntries(
         Object.entries(records).map(([id, record]) => [
           id,
@@ -132,7 +135,7 @@ export async function renderSession(
     const config = editingConfig(),
       composition = await selectComposition({
         serveUrl,
-        id: "EnhancedVideo",
+        id: compositionId,
         inputProps: props,
         browserExecutable: config.browser,
         timeoutInMilliseconds: 60000,
@@ -156,6 +159,29 @@ export async function renderSession(
     close();
     throw e;
   }
+}
+export async function exportGraphicsOverlay(
+  project: EditingProject,
+  output: string,
+  signal: AbortSignal,
+  progress: (completed: number, total: number) => void,
+  legacyCameras?: CompositionProps['legacyCameras'],
+) {
+  const config = editingConfig();
+  const bounded = AbortSignal.any([signal, AbortSignal.timeout(config.renderTimeout)]);
+  const session = await renderSession(project, bounded, 'ArtifactsOverlay', legacyCameras);
+  try {
+    await renderMedia({
+      ...session, codec: 'vp8', imageFormat: 'png', pixelFormat: 'yuva420p', muted: true,
+      outputLocation: output, concurrency: config.renderConcurrency, timeoutInMilliseconds: 60000,
+      onProgress: p => progress(p.renderedFrames, project.inputs.durationFrames),
+    });
+    bounded.throwIfAborted();
+    return output;
+  } catch (error) {
+    fs.rmSync(output, { force: true });
+    throw error;
+  } finally { session.close(); }
 }
 export async function previewFrames(
   project: EditingProject,

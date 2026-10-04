@@ -66,6 +66,7 @@ function buildGeminiPayload(req: ChatRequest) {
       temperature: req.temperature ?? 0.7,
       maxOutputTokens: req.max_tokens ?? 8192,
       ...(req.json ? { responseMimeType: 'application/json' } : {}),
+      ...(req.jsonSchema ? { responseMimeType: 'application/json', responseJsonSchema: req.jsonSchema } : {}),
     },
   };
 
@@ -84,11 +85,16 @@ export async function chat(apiKey: string, req: ChatRequest): Promise<ChatRespon
   const url = `${GEMINI_BASE}/${model}:generateContent?key=${apiKey}`;
 
   let res: Response | undefined;
+  let retryDelayMs = 0;
   for (let attempt = 0; attempt < 4; attempt++) {
     req.signal?.throwIfAborted();
     if (attempt > 0) {
-      const delay = res?.status === 429 ? Math.min(30000, 3000 * Math.pow(2, attempt - 1)) : 1500 * Math.pow(2, attempt - 1);
-      await new Promise(r => setTimeout(r, delay));
+      const delay = retryDelayMs || (res?.status === 429 ? Math.min(30000, 3000 * Math.pow(2, attempt - 1)) : 1500 * Math.pow(2, attempt - 1));
+      await new Promise<void>((resolve, reject) => {
+        const abort = () => { clearTimeout(timer); reject(req.signal?.reason); };
+        const timer = setTimeout(() => { req.signal?.removeEventListener('abort', abort); resolve(); }, delay);
+        req.signal?.addEventListener('abort', abort, { once: true });
+      });
       req.signal?.throwIfAborted();
     }
     try {
@@ -100,6 +106,12 @@ export async function chat(apiKey: string, req: ChatRequest): Promise<ChatRespon
       });
       if (res.ok) break;
       if (![429, 500, 502, 503].includes(res.status)) break;
+      if (res.status === 429) {
+        const detail = await res.clone().text();
+        if (/PerDay|requests per day|daily quota/i.test(detail)) break;
+        const seconds = Number(detail.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/)?.[1]);
+        retryDelayMs = seconds ? Math.min(60000, (seconds + 1) * 1000) : 0;
+      } else retryDelayMs = 0;
     } catch (err) {
       if (attempt === 3) throw err;
     }
@@ -112,7 +124,7 @@ export async function chat(apiKey: string, req: ChatRequest): Promise<ChatRespon
 
   const data: any = await res.json();
   const candidate = data.candidates?.[0];
-  const textContent = candidate?.content?.parts?.map((p: any) => p.text || '').join('') || '';
+  const textContent = candidate?.content?.parts?.filter((p: any) => !p.thought).map((p: any) => p.text || '').join('') || '';
   const finishReason = candidate?.finishReason || 'STOP';
 
   return {

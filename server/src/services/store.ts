@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { workspaceDir } from './workspace.js';
+import { atomicJson } from './accounts.js';
+import { retryFileOperation } from './file-retry.js';
 
 function ensureDir() {
   if (!fs.existsSync(workspaceDir())) {
@@ -22,9 +24,12 @@ function read<T>(name: string): T[] {
   const fp = filePath(name);
   if (!fs.existsSync(fp)) return [];
   try {
-    const parsed: unknown = JSON.parse(fs.readFileSync(fp, 'utf-8'));
+    const parsed: unknown = JSON.parse(retryFileOperation(() => fs.readFileSync(fp, 'utf-8')));
     return Array.isArray(parsed) ? (parsed as T[]) : [];
-  } catch {
+  } catch (error) {
+    // An inaccessible file is not an empty or corrupt store. Never overwrite
+    // saved work after a persistent access failure.
+    if (!(error instanceof SyntaxError)) throw error;
     // Preserve the corrupt file for recovery instead of crashing every route.
     try {
       const backup = `${fp}.corrupt-${Date.now()}`;
@@ -37,14 +42,7 @@ function read<T>(name: string): T[] {
 function write<T>(name: string, data: T[]): void {
   ensureDir();
   const destination = filePath(name);
-  const temporary = `${destination}.tmp`;
-  try {
-    fs.writeFileSync(temporary, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(temporary, destination);
-  } catch (error) {
-    try { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); } catch { /* cleanup best-effort */ }
-    throw error;
-  }
+  atomicJson(destination, data);
 }
 
 export const store = {

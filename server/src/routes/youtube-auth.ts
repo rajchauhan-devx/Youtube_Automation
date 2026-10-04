@@ -2,7 +2,7 @@ import { Router } from 'express';
 import fs from 'node:fs';
 import { atomicJson, getAccount, tokenPath } from '../services/accounts.js';
 import { currentWorkspace } from '../services/workspace.js';
-import { APP_ORIGIN, OAUTH_ORIGIN, bindChannel, connectionRevision, consumeOAuthState, createOAuth2Client, credentialsPath, invalidateConnection, issueOAuthState, REDIRECT_URI, storedCredentials, verifyChannel } from '../services/youtube-auth.js';
+import { APP_ORIGIN, OAUTH_ORIGIN, bindChannel, connectionRevision, consumeOAuthState, createOAuth2Client, credentialInfo, credentialsPath, invalidateConnection, issueOAuthState, REDIRECT_URI, storedCredentials, verifyChannel } from '../services/youtube-auth.js';
 
 export const youtubeAuthRouter = Router();
 youtubeAuthRouter.get('/status', async (_req, res) => {
@@ -39,11 +39,33 @@ youtubeAuthRouter.post('/credentials', (req, res) => {
   if (typeof clientId !== 'string' || !clientId.trim() || typeof clientSecret !== 'string' || !clientSecret.trim()) {
     res.status(400).json({ error: 'Client ID and Secret are required' }); return;
   }
+  if (clientId.trim().length > 200 || clientSecret.trim().length > 200) {
+    res.status(400).json({ error: 'Client ID or Secret looks too long. Paste the values from Google Cloud Console.' }); return;
+  }
   const { accountId } = currentWorkspace();
   if (fs.existsSync(tokenPath(accountId))) { res.status(409).json({ error: 'Disconnect this account before changing its OAuth configuration.' }); return; }
   invalidateConnection(accountId);
   atomicJson(credentialsPath(accountId), { installed: { client_id: clientId.trim(), client_secret: clientSecret.trim(), redirect_uris: [REDIRECT_URI] } });
   res.json({ success: true });
+});
+
+youtubeAuthRouter.get('/credentials', (_req, res) => {
+  const { accountId } = currentWorkspace();
+  res.json({ accountId, ...credentialInfo(accountId) });
+});
+
+youtubeAuthRouter.delete('/credentials', (_req, res) => {
+  const { accountId } = currentWorkspace();
+  if (fs.existsSync(tokenPath(accountId))) { res.status(409).json({ error: 'Disconnect this account before removing its OAuth configuration.' }); return; }
+  const info = credentialInfo(accountId);
+  if (info.hasOwnFile) {
+    invalidateConnection(accountId);
+    fs.rmSync(credentialsPath(accountId), { force: true });
+    res.json({ success: true }); return;
+  }
+  if (info.source === 'env') { res.status(400).json({ error: 'This account uses YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET from server/.env. Clear the env vars and restart the backend to remove it.' }); return; }
+  if (info.source === 'shared') { res.status(400).json({ error: accountId === 'default' ? 'No OAuth app file found.' : 'This account inherits the shared OAuth app. Configure its own app to override, or clear the default account’s app.' }); return; }
+  res.status(404).json({ error: 'No OAuth configuration saved for this account.' });
 });
 
 youtubeAuthRouter.get('/callback', async (req, res) => {

@@ -87,7 +87,7 @@ try {
   await page.waitForFunction(()=>document.querySelector('[aria-label="AI music description"]').value.includes('sparse and clean'));
   await click('Generate music locally');
   await page.waitForFunction(()=>document.body.innerText.includes('Cancel music generation'));
-  assert.match(musicRequest.prompt,/sparse and clean/); assert.equal(musicRequest.duration,60);
+  assert.match(musicRequest.prompt,/sparse and clean/); assert.equal(musicRequest.duration,30);
   await click('Cancel music generation');
   await page.waitForFunction(()=>!document.body.innerText.includes('Cancel music generation'));
   await click('Generate music locally');
@@ -111,7 +111,7 @@ try {
   assert.equal(renderRequest.bgmTrack,'ai');
   assert.equal(renderRequest.editing.overrides.S1.transition,'dissolve');
   assert.deepEqual(renderRequest.timelineConfig.clips.map(clip=>clip.transition),['none','none','none']);
-  await click('Generation'); await click('Audio Generation');
+  await click('Generation'); await click('Audio');
   console.log('Audio tab opened');
   await page.waitForSelector('textarea[readonly]');
   assert.equal(await page.$eval('textarea[readonly]',el=>el.readOnly),true);
@@ -119,7 +119,7 @@ try {
   await page.waitForFunction(()=>document.body.innerText.includes('1 of 3 scenes complete'));
   await click('Assets');
   assert.ok(await page.evaluate(()=>document.body.innerText.includes('Separate thumbnail prompt')));
-  await click('Generation'); await click('Audio Generation');
+  await click('Generation'); await click('Audio');
   await page.waitForFunction(()=>document.body.innerText.includes('1 of 3 scenes complete'));
   await click('Cancel after current voice request');
   await page.waitForFunction(()=>!document.body.innerText.includes('Cancel after current voice request'));

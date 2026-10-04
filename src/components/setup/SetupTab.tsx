@@ -60,42 +60,11 @@ export function SetupTab() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState('');
   const [browserKeyPresent, setBrowserKeyPresent] = useState(false);
-  const [colabUrl, setColabUrl] = useState(() => localStorage.getItem('colab_url') || '');
-  const [colabKey, setColabKey] = useState(() => localStorage.getItem('colab_key') || '');
-  const [colabSaved, setColabSaved] = useState('');
-  const [colabTesting, setColabTesting] = useState(false);
-  const [colabStatus, setColabStatus] = useState('');
-
   function copy(id: string, text: string) {
     navigator.clipboard.writeText(text).then(() => {
       setCopied(id);
       setTimeout(() => setCopied(''), 1500);
     }).catch(() => {});
-  }
-
-  function saveColab() {
-    localStorage.setItem('colab_url', colabUrl.trim().replace(/\/+$/, ''));
-    localStorage.setItem('colab_key', colabKey.trim());
-    setColabSaved('Saved on THIS browser.');
-    setTimeout(() => setColabSaved(''), 2500);
-  }
-
-  async function testColab() {
-    setColabTesting(true);
-    setColabStatus('');
-    try {
-      const headers: Record<string, string> = {};
-      if (colabUrl.trim()) headers['x-colab-url'] = colabUrl.trim();
-      if (colabKey.trim()) headers['x-colab-key'] = colabKey.trim();
-      const res = await fetch('/api/generate/colab-status', { headers });
-      const data = await res.json();
-      if (!data.configured) setColabStatus('Not configured — enter the Colab URL + API key, or set COLAB_MEDIA_API_URL / COLAB_MEDIA_API_KEY in server/.env.');
-      else setColabStatus(data.reachable ? `Reachable: ${data.detail}` : `Unreachable: ${data.detail}`);
-    } catch (e) {
-      setColabStatus(`Test failed: ${e instanceof Error ? e.message : 'could not reach server'}`);
-    } finally {
-      setColabTesting(false);
-    }
   }
 
   async function load() {
@@ -252,23 +221,6 @@ export function SetupTab() {
           <p className="text-gray-400">Browser key lives in localStorage <span className="font-mono text-gray-200">openrouter_key</span> (per-PC, never in git). Server keys live only in <span className="font-mono text-gray-200">server/.env</span> (git-ignored).</p>
         </Card>
 
-        <Card icon={<ImageIcon className="h-4 w-4 text-fuchsia-300" />} title="Colab media API — remote image + video key (media only)">
-          <p className="text-gray-400">Run your model on Google Colab, expose it (e.g. Cloudflare tunnel), and paste the public URL + API key here. Used ONLY for image &amp; video generation — never for scripts or audio. Server <span className="font-mono text-gray-200">server/.env</span> keys are the shared fallback.</p>
-          <label className="block">
-            <span className="mb-1 block text-gray-400">Colab API URL</span>
-            <input value={colabUrl} onChange={(e) => setColabUrl(e.target.value)} placeholder="https://xxx.trycloudflare.com" className="w-full rounded border border-border bg-bg px-2 py-1.5 font-mono text-[11px] text-white outline-none focus:border-accent" />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-gray-400">Colab API key (X-API-Key)</span>
-            <input value={colabKey} onChange={(e) => setColabKey(e.target.value)} type="password" placeholder="paste key from Colab" className="w-full rounded border border-border bg-bg px-2 py-1.5 font-mono text-[11px] text-white outline-none focus:border-accent" />
-          </label>
-          <div className="flex items-center gap-2">
-            <button onClick={saveColab} className="rounded bg-accent px-3 py-1.5 text-[11px] font-medium text-white hover:bg-accent/80">Save on this browser</button>
-            <button onClick={testColab} disabled={colabTesting} className="rounded border border-border px-3 py-1.5 text-[11px] text-gray-200 hover:bg-surface2 disabled:opacity-40">{colabTesting ? 'Testing…' : 'Test connection'}</button>
-            {colabSaved && <span className="text-[11px] text-green-300">{colabSaved}</span>}
-          </div>
-          {colabStatus && <p className="text-[11px] text-gray-200">{colabStatus}</p>}
-        </Card>
 
         <Card icon={<FileCog className="h-4 w-4 text-sky-300" />} title="All env vars by group (secrets show presence only)">
           {data.envMatrix.map(g => (

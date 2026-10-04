@@ -46,10 +46,11 @@ test('imports accept variable durations, reject wrong media types and serve MP4 
   ff(['-f', 'lavfi', '-i', 'testsrc2=s=160x90:r=30', '-t', '10', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', video]);
   ff(['-i', video, '-t', '2', '-c', 'copy', short]);
   const upload = (index, file, extension) => fetch(host + prefix + `/media-import/episode/${index}?extension=${extension}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: fs.readFileSync(file) });
-  assert.equal((await upload(1, short, 'mp4')).status, 200);
+  const shortUpload = await upload(1, short, 'mp4');
+  assert.equal(shortUpload.status, 200, await shortUpload.text());
   assert.equal((await upload(0, video, 'mp4')).status, 400);
-  const a = await upload(0, image, 'png'); assert.equal(a.status, 200); imageAsset = (await a.json()).asset;
-  const b = await upload(1, video, 'mp4'); assert.equal(b.status, 200); videoAsset = (await b.json()).asset;
+  const a = await upload(0, image, 'png'); const imageBody = await a.json(); assert.equal(a.status, 200, JSON.stringify(imageBody)); imageAsset = imageBody.asset;
+  const b = await upload(1, video, 'mp4'); const videoBody = await b.json(); assert.equal(b.status, 200, JSON.stringify(videoBody)); videoAsset = videoBody.asset;
   fs.unlinkSync(video); fs.unlinkSync(image);
   const range = await fetch(host + videoAsset.url, { headers: { Range: 'bytes=0-99' } });
   assert.equal(range.status, 206); assert.equal(range.headers.get('content-type'), 'video/mp4');

@@ -2,8 +2,9 @@ import React, { useLayoutEffect, useRef, useState } from 'react';
 import { AbsoluteFill, continueRender, delayRender, interpolate, spring } from 'remotion';
 import type { ArtifactComposition, EditingProject } from '@tubeflow/editing-contracts';
 import { cardBounds, targetMostlyVisible, targetOnScreen } from './graphics.js';
+import type { Matrix } from './math.js';
 
-type Props = { project: EditingProject; artifact: ArtifactComposition; frame: number; source: { width: number; height: number } };
+type Props = { project: EditingProject; artifact: ArtifactComposition; frame: number; source: { width: number; height: number }; sourceTransform?: Matrix };
 function Text({ text, size, height, family, color = '#ffffff', weight = 700 }: { text: string; size: number; height: number; family: string; color?: string; weight?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [handle] = useState(() => delayRender('Fit motion graphic typography'));
@@ -97,7 +98,7 @@ function SpotlightLabel(props: Props) {
 
 export function ObjectSpotlight(props: Props) {
   const { project, artifact, frame, source } = props;
-  const b = targetOnScreen(project, artifact, frame, source);
+  const b = targetOnScreen(project, artifact, frame, source, props.sourceTransform);
   if (!b || !targetMostlyVisible(b, project.inputs.width, project.inputs.height)) return null;
   const { enter, opacity, local, fps } = animation(props), card = artifact.graphic!.bounds;
   const cx = b.x + b.width / 2, cy = b.y + b.height / 2, rx = b.width / 2 + 4, ry = b.height / 2 + 4;

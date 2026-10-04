@@ -1,17 +1,18 @@
 import type { ArtifactComposition, EditingProject, MotionGraphicSpec } from '@tubeflow/editing-contracts';
-import { sourceToScreen } from './math.js';
+import { sourceToScreen, apply, type Matrix } from './math.js';
 
 export const graphicNames = { title: 'Cinematic title', 'lower-third': 'Character lower third', badge: 'Location / era', spotlight: 'Object spotlight', caption: 'Motion caption' };
 export function graphicSafeArea(width: number, height: number) {
   const portrait = height > width;
   return { x: width * 0.06, y: height * (portrait ? 0.15 : 0.06), width: width * (portrait ? 0.78 : 0.88), height: height * (portrait ? 0.60 : 0.88) };
 }
-export function targetOnScreen(project: EditingProject, artifact: ArtifactComposition, frame: number, source: { width: number; height: number }) {
+export function targetOnScreen(project: EditingProject, artifact: ArtifactComposition, frame: number, source: { width: number; height: number }, sourceTransform?: Matrix) {
   const region = artifact.graphic?.target?.region;
   const scene = project.scenes.find(s => s.id === artifact.sceneId);
   if (!region || !scene) return;
-  const a = sourceToScreen(region, scene, frame, project.inputs, source);
-  const b = sourceToScreen({ x: region.x + region.width, y: region.y + region.height }, scene, frame, project.inputs, source);
+  const point = (x: number, y: number) => sourceTransform ? apply(sourceTransform, { x: x * source.width, y: y * source.height }) : sourceToScreen({ x, y }, scene, frame, project.inputs, source);
+  const a = point(region.x, region.y);
+  const b = point(region.x + region.width, region.y + region.height);
   return { x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y };
 }
 export function intersects(a: MotionGraphicSpec['bounds'], b: MotionGraphicSpec['bounds'], pad = 0) {

@@ -2,21 +2,24 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { ROOT_DATA, accountDir } from './workspace.js';
+import { retryFileOperation } from './file-retry.js';
 
 export interface Account {
   id: string; name: string; color: string; avatar: string;
   youtubeChannelId?: string; youtubeChannelTitle?: string;
+  facebookPageId?: string; facebookPageName?: string;
+  instagramUserId?: string; instagramUsername?: string;
 }
 export function atomicJson(file: string, value: unknown) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const temporary = `${file}.${crypto.randomUUID()}.tmp`;
-  try { fs.writeFileSync(temporary, JSON.stringify(value, null, 2), { mode: 0o600 }); fs.renameSync(temporary, file); }
+  try { retryFileOperation(() => fs.writeFileSync(temporary, JSON.stringify(value, null, 2), { mode: 0o600 })); retryFileOperation(() => fs.renameSync(temporary, file)); }
   finally { if (fs.existsSync(temporary)) fs.unlinkSync(temporary); }
 }
 export function listAccounts(): Account[] {
   const file = path.join(ROOT_DATA, 'accounts.json');
   if (!fs.existsSync(file)) return [{ id: 'default', name: 'My Channel', color: '#3b82f6', avatar: 'MC' }];
-  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const data = JSON.parse(retryFileOperation(() => fs.readFileSync(file, 'utf8')));
   if (!Array.isArray(data)) throw new Error('Invalid accounts storage');
   return data;
 }
@@ -28,7 +31,7 @@ export function createAccount(name: string): Account {
   atomicJson(path.join(ROOT_DATA, 'accounts.json'), [...accounts, account]);
   return account;
 }
-export function updateAccount(id: string, patch: Partial<Pick<Account, 'name' | 'youtubeChannelId' | 'youtubeChannelTitle'>>) {
+export function updateAccount(id: string, patch: Partial<Pick<Account, 'name' | 'youtubeChannelId' | 'youtubeChannelTitle' | 'facebookPageId' | 'facebookPageName' | 'instagramUserId' | 'instagramUsername'>>) {
   const accounts = listAccounts();
   const index = accounts.findIndex(account => account.id === id);
   if (index < 0) throw new Error('Account not found');

@@ -1,6 +1,7 @@
 import { Worker } from "node:worker_threads";
 import fs from "node:fs";
 import type { EditingProject } from "@tubeflow/editing-contracts";
+import type { CompositionProps } from '@tubeflow/video-composition';
 import { currentWorkspace } from "../workspace.js";
 /** The scheduler owns job files; the worker only reports progress and immutable output. */
 export function renderInWorker(
@@ -8,6 +9,8 @@ export function renderInWorker(
   jobId: string,
   signal: AbortSignal,
   progress: (done: number, total: number) => void,
+  overlayOutput?: string,
+  legacyCameras?: CompositionProps['legacyCameras'],
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     signal.throwIfAborted();
@@ -16,7 +19,7 @@ export function renderInWorker(
       fs.existsSync(compiled)
         ? compiled
         : new URL("../../../dist/workers/editingWorker.js", import.meta.url),
-      { workerData: { project, jobId, workspace: currentWorkspace() } },
+      { workerData: { project, jobId, workspace: currentWorkspace(), overlayOutput, legacyCameras } },
     );
     let timer: ReturnType<typeof setTimeout> | undefined,
       finished = false;

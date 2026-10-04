@@ -80,10 +80,11 @@ function keyStatus() {
     { key: 'GROQ_API_KEY', savedIn: 'server/.env (server-only)', present: has(process.env.GROQ_API_KEY), usedBy: `Reasoning models: ${GROQ_MODELS.map(m => m.id).join(', ')}` },
     { key: 'OPENROUTER_API_KEY (server)', savedIn: 'server/.env', present: has(process.env.OPENROUTER_API_KEY), usedBy: `Reasoning + editing: ${OPENROUTER_MODELS.map(m => m.id).join(', ')}` },
     { key: 'openrouter_key (browser)', savedIn: 'Browser localStorage key "openrouter_key", sent as x-api-key header', present: false, browserOnly: true, usedBy: 'Frontend Settings page OpenRouter key (NOT in git, per-PC browser storage)' },
-    { key: 'COLAB_MEDIA_API_KEY', savedIn: 'server/.env (server-only) or Setup tab (this browser, localStorage "colab_key")', present: has(process.env.COLAB_MEDIA_API_KEY), usedBy: 'Colab/Cloudflare worker: remote IMAGE + VIDEO generation only (never scripts/audio)' },
     { key: 'HF_TOKEN', savedIn: 'server/.env (optional)', present: has(process.env.HF_TOKEN), usedBy: 'Only if Hugging Face downloads require auth (Chatterbox / ComfyUI weights are public by default)' },
     { key: 'YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET', savedIn: 'server/.env or server/data/client_secret.json', present: has(process.env.YOUTUBE_CLIENT_ID) || exists(path.join(SERVER_ROOT, 'data', 'client_secret.json')), usedBy: 'YouTube OAuth upload (callback http://localhost:3001/api/youtube/callback)' },
     { key: 'youtube-token.json', savedIn: 'server/data/youtube-token.json (git-ignored)', present: exists(path.join(SERVER_ROOT, 'data', 'youtube-token.json')), usedBy: 'Saved YouTube OAuth token — reconnect on new PC, do not expect git to carry it' },
+    { key: 'FACEBOOK_APP_ID / FACEBOOK_APP_SECRET', savedIn: 'server/.env or Export → Facebook/Instagram → Setup Meta App (meta_client.json)', present: has(process.env.FACEBOOK_APP_ID) || exists(path.join(SERVER_ROOT, 'data', 'meta_client.json')), usedBy: 'Facebook + Instagram publishing (callbacks http://localhost:3001/api/facebook/callback and /api/instagram/callback)' },
+    { key: 'meta-token.json', savedIn: 'server/data/meta-token.json (git-ignored)', present: exists(path.join(SERVER_ROOT, 'data', 'meta-token.json')), usedBy: 'Saved Meta (Facebook Login) token shared by Facebook + Instagram — reconnect on new PC' },
   ];
 }
 
@@ -139,17 +140,17 @@ setupRouter.get('/', async (_req, res) => {
   const envKeyDiff = exampleKeys.map(k => ({ key: k, set: has(process.env[k]) }));
 
   // Full env matrix: secrets report presence only; non-secrets show values.
-  const SECRET_KEYS = new Set(['GEMINI_API_KEY', 'OPENCODE_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'XKIRO_API_KEY', 'COLAB_MEDIA_API_KEY', 'HF_TOKEN', 'YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET']);
+  const SECRET_KEYS = new Set(['GEMINI_API_KEY', 'OPENCODE_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'XKIRO_API_KEY', 'HF_TOKEN', 'YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET']);
   const ENV_GROUPS: { group: string; vars: string[] }[] = [
     { group: 'Server', vars: ['HOST', 'PORT', 'CORS_ORIGIN', 'APP_URL', 'TUBEFLOW_DATA_DIR'] },
     { group: 'Script LLMs', vars: ['GEMINI_API_KEY', 'GEMINI_EDIT_MODEL', 'OPENCODE_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'XKIRO_API_KEY'] },
     { group: 'Voice (local + cloud TTS)', vars: ['TTS_PROVIDER', 'CHATTERBOX_URL', 'CHATTERBOX_HOST', 'CHATTERBOX_PORT', 'CHATTERBOX_DEVICE', 'CHATTERBOX_T3_MODEL', 'CHATTERBOX_TIMEOUT_MS', 'CHATTERBOX_MAX_CHUNK_CHARS', 'CHATTERBOX_PYTHON', 'CHATTERBOX_VOICE_DIR', 'PKUSEG_HOME', 'TTS_SERVER_URL', 'OMNIVOICE_URL', 'TTS_MODEL', 'TTS_CLOUD_CHUNK_MAX_CHARS', 'TTS_CLOUD_TIMEOUT_MS', 'EDGE_TTS_PYTHON'] },
     { group: 'Caches / model stores', vars: ['HF_HOME', 'HF_HUB_CACHE', 'HF_TOKEN', 'OLLAMA_MODELS'] },
     { group: 'Image + music (ComfyUI)', vars: ['COMFYUI_PATH', 'COMFYUI_PYTHON', 'COMFYUI_BASE_URL', 'COMFYUI_WORKFLOW_PATH', 'COMFYUI_PROMPT_NODE_ID', 'COMFYUI_SEED_NODE_ID', 'COMFYUI_SEED_INPUT_KEY', 'COMFYUI_TIMEOUT_MS', 'COMFYUI_LOW_VRAM'] },
-    { group: 'Image + video (Colab API)', vars: ['COLAB_MEDIA_API_URL', 'COLAB_MEDIA_API_KEY', 'COLAB_VIDEO_FRAMES', 'COLAB_IMAGE_FRAMES', 'COLAB_STEPS'] },
     { group: 'Presenter', vars: ['MUSETALK_ROOT', 'MUSETALK_PYTHON'] },
     { group: 'Motion graphics', vars: ['EDITING_PLANNER_MODEL', 'EDITING_MAX_PROVIDER_CALLS', 'EDITING_RENDER_CONCURRENCY', 'EDITING_PROVIDER_TIMEOUT_MS', 'EDITING_RENDER_TIMEOUT_MS', 'EDITING_BROWSER_EXECUTABLE'] },
     { group: 'YouTube', vars: ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REDIRECT_URI'] },
+    { group: 'Facebook + Instagram', vars: ['FACEBOOK_APP_ID', 'FACEBOOK_APP_SECRET', 'META_GRAPH_VERSION', 'FACEBOOK_REDIRECT_URI', 'INSTAGRAM_REDIRECT_URI'] },
   ];
   const envMatrix = ENV_GROUPS.map(g => ({
     group: g.group,
@@ -234,6 +235,8 @@ setupRouter.get('/', async (_req, res) => {
       pkuseg: { path: pkusegDir, installed: exists(pkusegDir) },
       clientSecret: exists(path.join(dataDir, 'client_secret.json')),
       youtubeToken: exists(path.join(dataDir, 'youtube-token.json')),
+      metaClient: exists(path.join(dataDir, 'meta_client.json')),
+      metaToken: exists(path.join(dataDir, 'meta-token.json')),
       accountsDir: exists(path.join(dataDir, 'accounts')),
     },
     tools: {

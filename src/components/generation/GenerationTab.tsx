@@ -16,7 +16,6 @@ import {
   Loader2,
   Volume2,
   RefreshCw,
-  Sliders,
   Clock,
   Mic2,
   Trash2,
@@ -26,8 +25,8 @@ import {
 import type { Script, GeneratedImage, GeneratedAudio } from '../../data';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { MixedMediaContent } from './MixedMediaContent';
+import { GenerationDisclosure } from './GenerationDisclosure';
 import { saveVoiceReference, rememberVoice, preferredVoice, VOICES_CHANGED } from '../../services/voiceLibrary';
-import { colabHeaders } from '../../services/api';
 import { normalizeNarration, spokenText } from '../../../server/src/services/scene-plan';
 import { parseJsonResponse } from '../../lib/safe';
 
@@ -51,41 +50,37 @@ export function GenerationTab({
 }) {
   const [generationSubTab, setGenerationSubTab] = useState<'images' | 'audio'>('images');
   const { profile, account } = useWorkspaceApi();
+  const mixedScenes = profile === 'mixed' || profile === 'shorts' || script?.scenePlan?.scenes.some(scene => scene.mediaType === 'video');
 
   return (
     <ErrorBoundary fallbackLabel="Generation Tab Error">
-      <div className="flex h-full flex-col">
-        <div className="flex items-center gap-4 border-b border-border px-4">
-          {onVisualEdit && <button className="ml-auto rounded bg-violet-700 px-3 py-2 text-sm text-white" onClick={onVisualEdit}>Create visual edit</button>}
-          <button
-            onClick={() => setGenerationSubTab('images')}
-            className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-              generationSubTab === 'images'
-                ? 'border-accent text-white'
-                : 'border-transparent text-gray-400 hover:text-white'
-            }`}
-          >
-            <ImageIcon className="h-4 w-4" />
-            {(profile === 'mixed' || profile === 'shorts') ? 'Images & Videos' : 'Image Generation'}
-          </button>
-          <button
-            onClick={() => setGenerationSubTab('audio')}
-            className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-              generationSubTab === 'audio'
-                ? 'border-accent text-white'
-                : 'border-transparent text-gray-400 hover:text-white'
-            }`}
-          >
-            <Music className="h-4 w-4" />
-            Audio Generation
-          </button>
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
+          <div role="tablist" aria-label="Generation type" className="flex items-center gap-1 rounded-xl bg-surface2/60 p-1" onKeyDown={event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const next = event.key === 'Home' ? 'images' : event.key === 'End' ? 'audio' : generationSubTab === 'images' ? 'audio' : 'images';
+            setGenerationSubTab(next);
+            event.currentTarget.querySelector<HTMLButtonElement>(`#generation-${next}-tab`)?.focus();
+          }}>
+            <button type="button" role="tab" tabIndex={generationSubTab === 'images' ? 0 : -1} id="generation-images-tab" aria-selected={generationSubTab === 'images'} aria-controls="generation-panel" onClick={() => setGenerationSubTab('images')}
+              className={`studio-tab-btn ${generationSubTab === 'images' ? 'bg-surface text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}>
+              <ImageIcon className="h-4 w-4" />{mixedScenes ? 'Images & videos' : 'Images'}
+            </button>
+            <button type="button" role="tab" tabIndex={generationSubTab === 'audio' ? 0 : -1} id="generation-audio-tab" aria-selected={generationSubTab === 'audio'} aria-controls="generation-panel" onClick={() => setGenerationSubTab('audio')}
+              className={`studio-tab-btn ${generationSubTab === 'audio' ? 'bg-surface text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}>
+              <Music className="h-4 w-4" />Audio
+            </button>
+          </div>
+          {onVisualEdit && <button className="flex items-center gap-2 text-xs font-medium text-gray-400 transition-colors hover:text-white" onClick={onVisualEdit}>Create visual edit <Play className="h-3 w-3" /></button>}
         </div>
-
+        <div id="generation-panel" role="tabpanel" aria-labelledby={`generation-${generationSubTab}-tab`} className="flex min-h-0 flex-1 flex-col">
         {generationSubTab === 'images' ? (
-          (profile === 'mixed' || profile === 'shorts') ? <MixedMediaContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} /> : <ImageGenerationContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} />
+          mixedScenes ? <MixedMediaContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} /> : <ImageGenerationContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} />
         ) : (
           <AudioGenerationContent script={script} onUpdate={onUpdate} />
         )}
+        </div>
       </div>
     </ErrorBoundary>
   );
@@ -98,7 +93,7 @@ function ImageGenerationContent({
   script: Script | null;
   onUpdate: (patch: Partial<Script>) => void;
 }) {
-  const { fetch, profile, account } = useWorkspaceApi();
+  const { fetch, profile } = useWorkspaceApi();
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -108,14 +103,8 @@ function ImageGenerationContent({
   const [preset, setPreset] = useState<'fast' | 'standard' | 'high'>('standard');
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [stylePreset, setStylePreset] = useState<'cinematic' | 'anime' | 'cartoon' | 'digital_art' | 'raw'>('cinematic');
-  const [enableQualityBooster, setEnableQualityBooster] = useState(true);
-  const [enableNegativeGuardrails, setEnableNegativeGuardrails] = useState(true);
   const [seedMode, setSeedMode] = useState<'random' | 'fixed'>('random');
   const [fixedSeed, setFixedSeed] = useState<number>(42);
-  const [provider, setProvider] = useState<'local' | 'colab'>('local');
-  const [colabDetail, setColabDetail] = useState('');
-  const [colabChecking, setColabChecking] = useState(false);
   const [longBatchSize, setLongBatchSize] = useState(5);
   const [longRestSeconds, setLongRestSeconds] = useState(60);
   const [cooldownRemaining, setCooldownRemaining] = useState(0);
@@ -192,38 +181,20 @@ function ImageGenerationContent({
     onUpdate({ generatedImages: next });
   }
 
-  async function checkColab() {
-    setColabChecking(true);
-    try {
-      const res = await fetch('/api/generate/colab-status', { headers: colabHeaders() });
-      const data = await parseJsonResponse<{ detail?: string }>(res, {});
-      setColabDetail(data.detail || 'Could not check the Colab worker.');
-    } catch (error) { setColabDetail(getErrorMessage(error, 'Could not check the Colab worker.')); }
-    finally { setColabChecking(false); }
-  }
-
   async function generateOne(item: GeneratedImage) {
     if (!script) return;
     const token = runTokenRef.current;
     updateImage(item.index, { status: 'generating', error: undefined, errorCode: undefined });
     try {
-      const isColab = provider === 'colab';
-      const res = await fetch(isColab ? '/api/generate/colab-image' : '/api/generate/image', {
+      const res = await fetch('/api/generate/image', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(isColab ? colabHeaders() : {}) },
-        body: JSON.stringify(isColab ? {
-          scriptId: script.id,
-          index: item.index,
-          prompt: item.prompt,
-        } : {
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           scriptId: script.id,
           index: item.index,
           prompt: item.prompt,
           preset,
           modelName: selectedModel || undefined,
-          stylePreset,
-          enableQualityBooster,
-          enableNegativeGuardrails,
           seed: seedMode === 'fixed' ? fixedSeed : undefined,
         }),
       });
@@ -266,7 +237,7 @@ function ImageGenerationContent({
       // Long videos can have dozens of high-resolution images. Give the local
       // image model and GPU a configurable recovery period between batches.
       const remaining = items.slice(itemPosition + 1).some((candidate) => candidate.status !== 'done');
-      if (provider === 'local' && profile !== 'shorts' && remaining && completedInBatch >= Math.max(1, batchSizeRef.current)) {
+      if (profile !== 'shorts' && remaining && completedInBatch >= Math.max(1, batchSizeRef.current)) {
         completedInBatch = 0;
         const rest = Math.max(0, Math.round(restSecondsRef.current));
         if (rest > 0) {
@@ -325,11 +296,6 @@ function ImageGenerationContent({
 
   async function handleStart() {
     if (!script || images.length === 0 || isRunning) return;
-    if (provider === 'colab') {
-      // Remote worker needs no local model; each job takes minutes.
-      runQueue(imagesRef.current);
-      return;
-    }
     let online = await checkServer();
     if (!online) {
       setServerStatus('starting');
@@ -368,7 +334,7 @@ function ImageGenerationContent({
     setCooldownRemaining(0);
     const generating = imagesRef.current.find((im) => im.status === 'generating');
     if (generating && script) {
-      await fetch(provider === 'colab' ? '/api/generate/colab-cancel' : '/api/generate/cancel', {
+      await fetch('/api/generate/cancel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId: script.id, index: generating.index }),
@@ -410,9 +376,9 @@ function ImageGenerationContent({
   const errorCount = images.filter((i) => i.status === 'error').length;
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-border p-4">
-        <div className="flex items-center gap-4">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+        <div className="flex flex-wrap items-center gap-3">
           <h3 className="text-sm font-semibold">Image Generation</h3>
           <span className="text-xs text-gray-500">
             {doneCount}/{images.length} done{errorCount > 0 ? `, ${errorCount} failed` : ''}
@@ -432,56 +398,20 @@ function ImageGenerationContent({
               )
             </span>
           )}
-          {provider === 'local' && serverStatus === 'online' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-green-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> FLUX.2 Klein server online
-            </span>
-          )}
-          {provider === 'local' && serverStatus === 'offline' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-red-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-red-400" /> Server offline
-            </span>
-          )}
-          {provider === 'local' && serverStatus === 'starting' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-accent">
-              <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-accent border-t-transparent" /> Starting model...
-            </span>
-          )}
-          {provider === 'local' && serverStatus === 'stopping' && (
-            <span className="flex items-center gap-1.5 text-[10px] text-amber-400">
-              <span className="h-1.5 w-1.5 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" /> Stopping model...
-            </span>
-          )}
         </div>
-        <div className="flex items-center gap-2">
-          {provider === 'local' && serverStatus === 'online' && (
-            <button
-              onClick={handleStopModel}
-              className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
-            >
-              <Square className="h-3.5 w-3.5" /> Stop Model
-            </button>
-          )}
-          {provider === 'local' && serverStatus === 'stopping' && (
-            <button
-              disabled
-              className="flex items-center gap-1.5 rounded-md border border-red-500/20 px-3 py-1.5 text-xs text-red-400/50 opacity-60 cursor-not-allowed"
-            >
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-red-400 border-t-transparent" /> Stopping...
-            </button>
-          )}
+        <div className="flex flex-wrap items-center gap-2">
           {!isRunning ? (
             <button
               onClick={handleStart}
-              disabled={(provider === 'local' && (serverStatus === 'starting' || serverStatus === 'stopping')) || doneCount === images.length}
-              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
+              disabled={((serverStatus === 'starting' || serverStatus === 'stopping')) || doneCount === images.length}
+              className="studio-btn-primary"
             >
-              {provider === 'local' && serverStatus === 'starting' ? (
+              {serverStatus === 'starting' ? (
                 <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
               ) : (
                 <Play className="h-3.5 w-3.5" />
               )}
-              {provider === 'local' && serverStatus === 'starting' ? 'Starting model...' : doneCount === 0 ? 'Start Generation' : 'Resume Generation'}
+              {serverStatus === 'starting' ? 'Starting model...' : doneCount === 0 ? 'Start Generation' : 'Resume Generation'}
             </button>
           ) : isPaused ? (
             <button onClick={handleResume} className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80">
@@ -505,8 +435,11 @@ function ImageGenerationContent({
         </div>
       </div>
 
-      {provider === 'local' && profile !== 'shorts' && (
-        <div className="flex flex-wrap items-center gap-4 border-b border-amber-500/20 bg-amber-500/5 px-4 py-3 text-xs">
+      {cooldownRemaining > 0 && <p role="status" className="px-4 py-3 text-xs text-amber-200">Computer rest: {cooldownRemaining}s remaining</p>}
+      <div className="px-4 pt-4">
+        <GenerationDisclosure title="Image settings" hint={`Local model / ${preset} quality`}>
+      {profile !== 'shorts' && (
+        <div className="flex flex-wrap items-center gap-4 border-b border-border bg-surface px-4 py-3 text-xs">
           <div>
             <p className="font-semibold text-amber-200">Long Video batch generation</p>
             <p className="mt-0.5 text-gray-400">Images are generated in groups so the computer can cool down between batches.</p>
@@ -523,64 +456,19 @@ function ImageGenerationContent({
               <option value={0}>No rest</option><option value={30}>30 seconds</option><option value={60}>1 minute</option><option value={120}>2 minutes</option><option value={300}>5 minutes</option>
             </select>
           </label>
-          {cooldownRemaining > 0 && <span role="status" className="ml-auto font-medium text-amber-200">Computer rest: {cooldownRemaining}s remaining</span>}
+
         </div>
       )}
 
       {/* Quality Presets & Model Selector Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-surface/50 px-4 py-2 text-xs">
         <div className="flex items-center gap-2">
-          <span className="font-medium text-gray-400">Provider:</span>
-          <select aria-label="Media provider" value={provider} disabled={isRunning} onChange={(e) => setProvider(e.target.value as typeof provider)} className="rounded border border-border bg-bg px-2.5 py-1 text-xs text-white outline-none focus:border-accent">
-            <option value="local">Local model</option>
-            <option value="colab">Colab API</option>
-          </select>
-          {provider === 'colab' && <span className="text-[11px] text-fuchsia-300">Remote worker · minutes per image · key in Setup tab</span>}
-          {provider === 'colab' && <button onClick={() => void checkColab()} disabled={colabChecking || isRunning} className="rounded border border-border px-2 py-1 text-gray-300 disabled:opacity-40">{colabChecking ? 'Checking…' : 'Test Colab'}</button>}
-        </div>
-        {provider === 'local' && <div className="flex items-center gap-2">
           <span className="font-medium text-gray-400">Quality:</span>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setPreset('fast')}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                preset === 'fast'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
-              }`}
-              title="SDXL: 12 steps; Juggernaut Lightning: 5 steps. Speed depends on hardware."
-            >
-              Fast (12s)
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreset('standard')}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                preset === 'standard'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
-              }`}
-              title="SDXL: 20 steps; Juggernaut Lightning: 6 steps."
-            >
-              Standard (20s)
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreset('high')}
-              className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-                preset === 'high'
-                  ? 'bg-accent text-white shadow-sm'
-                  : 'border border-border bg-bg text-gray-300 hover:bg-surface2 hover:text-white'
-              }`}
-              title="SDXL: 28 steps; Juggernaut Lightning: 7 steps."
-            >
-              High (28s)
-            </button>
-          </div>
-        </div>}
-
-        {provider === 'local' && models.length > 0 && (
+          <select aria-label="Image quality" value={preset} disabled={isRunning} onChange={e => setPreset(e.target.value as typeof preset)} className="rounded border border-border bg-bg px-3 py-2 text-xs text-white">
+            <option value="fast">Fast</option><option value="standard">Standard</option><option value="high">High</option>
+          </select>
+        </div>
+        {models.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="font-medium text-gray-400">Model:</span>
             <select
@@ -598,50 +486,9 @@ function ImageGenerationContent({
         )}
       </div>
 
-      {/* Style Presets & Prompt Controls Bar */}
-      {provider === 'local' && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-surface/30 px-4 py-2 text-xs">
-        <div className="flex flex-wrap items-center gap-4">
-          {/* Style Preset */}
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-400">Art Style:</span>
-            <select
-              value={stylePreset}
-              onChange={(e) => setStylePreset(e.target.value as typeof stylePreset)}
-              className="rounded border border-border bg-bg px-2 py-1 text-xs text-white outline-none focus:border-accent"
-            >
-              <option value="cinematic">Cinematic Photo (Photorealistic)</option>
-              <option value="anime">Anime / Manga Style</option>
-              <option value="cartoon">3D Cartoon / Animation (Pixar/Disney)</option>
-              <option value="digital_art">Digital Art / Concept Art</option>
-              <option value="raw">Raw (Exact Prompt, No Booster)</option>
-            </select>
-          </div>
-
-          {/* Quality Booster Checkbox */}
-          <label className="flex items-center gap-1.5 cursor-pointer text-gray-300 hover:text-white">
-            <input
-              type="checkbox"
-              checked={enableQualityBooster && stylePreset !== 'raw'}
-              disabled={stylePreset === 'raw'}
-              onChange={(e) => setEnableQualityBooster(e.target.checked)}
-              className="rounded border-border bg-bg text-accent focus:ring-accent"
-            />
-            <span>Quality Booster ({stylePreset === 'anime' ? 'Anime Art' : stylePreset === 'cartoon' ? '3D Render' : stylePreset === 'digital_art' ? 'Digital Art' : '8K UHD'})</span>
-          </label>
-
-          {/* Negative Guardrails Checkbox */}
-          <label className="flex items-center gap-1.5 cursor-pointer text-gray-300 hover:text-white" title="Block distorted faces, bad hands, and visual artifacts">
-            <input
-              type="checkbox"
-              checked={enableNegativeGuardrails}
-              onChange={(e) => setEnableNegativeGuardrails(e.target.checked)}
-              className="rounded border-border bg-bg text-accent focus:ring-accent"
-            />
-            <span>Negative Filter (Anti-Artifacts)</span>
-          </label>
-        </div>
-
-        {/* Seed Controls */}
+      {/* Seed Controls */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 bg-surface/30 px-4 py-2 text-xs">
+        <p className="text-gray-400">Images use the generated prompt exactly as written.</p>
         <div className="flex items-center gap-2">
           <span className="font-medium text-gray-400">Seed:</span>
           <select
@@ -661,11 +508,17 @@ function ImageGenerationContent({
             />
           )}
         </div>
-      </div>}
+      </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span role="status" className="mr-auto text-xs text-gray-400">Model: {serverStatus}</span>
+            {serverStatus === 'online' && <button onClick={handleStopModel} className="studio-btn-ghost"><Square className="h-3.5 w-3.5" />Stop Model</button>}
+            {serverStatus === 'offline' && <button onClick={handleStartModel} className="studio-btn-ghost"><Zap className="h-3.5 w-3.5" />Run Image Model</button>}
+            <button onClick={checkServer} disabled={serverStatus === 'starting' || serverStatus === 'stopping' || isRunning} className="studio-btn-ghost">Retry connection</button>
+          </div>
+        </GenerationDisclosure>
+      </div>
 
-      {provider === 'colab' && colabDetail && <p role="status" className="px-4 py-3 text-xs text-gray-300">{colabDetail}</p>}
-
-      {provider === 'local' && serverStatus === 'starting' && (
+      {serverStatus === 'starting' && (
         <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-accent/30 bg-accent/10 p-3 text-xs text-accent">
           <span className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
           <div>
@@ -675,29 +528,18 @@ function ImageGenerationContent({
         </div>
       )}
 
-      {provider === 'local' && serverStatus === 'offline' && (
+      {serverStatus === 'offline' && (
         <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="flex-1">
             <p className="font-medium">Image Model is offline</p>
             <p className="mt-1 text-red-300/80">{serverError}</p>
-            <div className="mt-2 flex gap-2">
-              <button
-                onClick={handleStartModel}
-                className="flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-[11px] font-medium text-white hover:bg-accent/80"
-              >
-                <Zap className="h-3.5 w-3.5" />
-                Run Image Model
-              </button>
-              <button onClick={checkServer} className="rounded border border-red-500/40 px-2 py-1 text-[11px] hover:bg-red-500/10">
-                Retry connection
-              </button>
-            </div>
+            <p className="mt-1 text-gray-400">Generation starts the local model automatically. Connection controls are in Image settings.</p>
           </div>
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="p-4 sm:p-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {images.map((img) => (
             <div key={img.index} className="rounded-lg border border-border bg-surface p-3">
@@ -742,6 +584,7 @@ function ImageGenerationContent({
               <p className="mb-2 line-clamp-3 text-[11px] leading-relaxed text-gray-400">{img.prompt}</p>
               {img.status === 'error' && <p className="mb-2 text-[11px] text-red-400">{img.error}</p>}
 
+              {(img.status === 'done' || img.status === 'error') && <GenerationDisclosure title="Image actions">
               <div className="flex gap-2">
                 <button
                   onClick={() => handleRegenerateOne(img.index)}
@@ -756,6 +599,7 @@ function ImageGenerationContent({
                   </a>
                 )}
               </div>
+              </GenerationDisclosure>}
             </div>
           ))}
         </div>
@@ -868,7 +712,7 @@ function AudioGenerationContent({
         if (state.status === 'error') setError(state.error);
         if (state.status === 'done' && state.result?.filename !== longResultRef.current) {
           longResultRef.current = state.result.filename;
-          onLongUpdateRef.current({ generatedAudio: [state.result], timelineConfig: undefined, youtubeExport: undefined });
+          onLongUpdateRef.current({ generatedAudio: [state.result], timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
           setProgressPercent(100);
           setError('');
         }
@@ -1419,7 +1263,7 @@ function AudioGenerationContent({
       try {
         const { ok, data } = await fetchJson('/api/tts/long/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: script.id, language: selectedLanguage, voice: selectedVoice, rate: formattedRate, pitch: formattedPitch, exaggeration, cfgWeight, temperature }) });
         if (!ok) throw new Error(data?.error || 'Could not start narration');
-        onUpdate({ generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined });
+        onUpdate({ generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
       } catch (error) { setGenerating(false); setError(getErrorMessage(error, 'Could not start narration')); }
       return;
     }
@@ -1515,9 +1359,9 @@ function AudioGenerationContent({
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-border p-4">
-        <div className="flex items-center gap-2">
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+        <div className="flex flex-wrap items-center gap-2">
           <Music className="h-4 w-4 text-gray-400" />
           <h3 className="text-sm font-semibold">Audio Generation ({providerName})</h3>
           {serverOnline === true && (
@@ -1536,17 +1380,32 @@ function AudioGenerationContent({
             </span>
           )}
         </div>
-        {serverOnline === true && isLocalProvider && (
-          <button
-            onClick={handleStopServer}
-            className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
-          >
-            <Square className="h-3.5 w-3.5" /> Stop Server
-          </button>
-        )}
+
+        <button
+          onClick={currentAudio ? handleRegenerate : handleGenerate}
+          disabled={generating || voicesLoading || !selectedVoice || !narrationText.trim()}
+          className="studio-btn-primary"
+        >
+          {generating ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating Audio ({progressPercent}%)...
+            </>
+          ) : currentAudio ? (
+            <>
+              <Undo2 className="h-4 w-4" />
+              Regenerate audio
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4 fill-current" />
+              Generate audio
+            </>
+          )}
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {serverStarting && (
           <div className="mb-4 flex items-start gap-2 rounded-md border border-accent/30 bg-accent/10 p-3 text-xs text-accent">
             <span className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
@@ -1589,40 +1448,31 @@ function AudioGenerationContent({
           </div>
         )}
 
-        {/* Step 1: Language Selection */}
-        <div className="mb-6 rounded-lg border border-border bg-surface p-4">
-          <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-gray-400">
-            1. Select Dedicated Model Language
-          </label>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => handleLanguageSwitch('en')}
-              className={`flex items-center gap-2 rounded-md px-4 py-2.5 text-xs font-semibold transition-all ${
-                selectedLanguage === 'en'
-                  ? 'bg-accent text-white shadow-md ring-1 ring-accent'
-                  : 'border border-border bg-surface2 text-gray-300 hover:text-white'
-              }`}
-            >
-              🇺🇸 English (US & Multilingual HD)
-            </button>
-            <button
-              onClick={() => handleLanguageSwitch('hi')}
-              className={`flex items-center gap-2 rounded-md px-4 py-2.5 text-xs font-semibold transition-all ${
-                selectedLanguage === 'hi'
-                  ? 'bg-accent text-white shadow-md ring-1 ring-accent'
-                  : 'border border-border bg-surface2 text-gray-300 hover:text-white'
-              }`}
-            >
-              🇮🇳 Hindi & Hinglish (Native Indian Neural)
-            </button>
-          </div>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <label htmlFor="narration-language" className="text-xs font-medium text-gray-400">Narration language</label>
+          <select id="narration-language" value={selectedLanguage} disabled={generating} onChange={e => handleLanguageSwitch(e.target.value as 'en' | 'hi')} className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-white">
+            <option value="en">English</option><option value="hi">Hindi & Hinglish</option>
+          </select>
         </div>
 
+        <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4">
+          <label className="min-w-0 flex-1 text-xs font-medium text-gray-400">Voice
+            <select aria-label="Narration voice" value={selectedVoice} disabled={voicesLoading || generating} onChange={e => { stopPreview(); selectVoice(e.target.value); }} className="mt-2 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-white">
+              {!selectedVoice && <option value="">{voicesLoading ? 'Loading voices...' : 'Select a voice'}</option>}
+              {voices.map((voice, index) => <option key={voice.id || index} value={voice.id || `voice_${index}`}>{voice.name || voice.id || `Voice ${index + 1}`}</option>)}
+            </select>
+          </label>
+          <button type="button" disabled={!activeVoiceObj || Boolean(previewLoadingId)} onClick={event => activeVoiceObj && handlePreviewVoice(activeVoiceObj, event)} className="studio-btn-ghost">
+            {previewLoadingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {previewLoadingId ? 'Loading preview...' : previewVoiceId ? 'Stop preview' : 'Preview voice'}
+          </button>
+          {previewError && <p role="alert" className="w-full text-xs text-red-400">{previewError}</p>}
+        </div>
         {/* Step 2: Voice Character Selection */}
-        <div className="mb-6 rounded-lg border border-border bg-surface p-4">
+        <GenerationDisclosure title="Voice library & reference upload" hint={`${voices.length} voices available`} className="mb-4">
           <div className="mb-3 flex items-center justify-between">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              2. Select Voice Persona ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
+              Voice library ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
             </label>
             <div className="flex items-center gap-2">
               <span className="text-[11px] text-gray-500">
@@ -1807,56 +1657,15 @@ function AudioGenerationContent({
               </p>
             </div>
           )}
-        </div>
+        </GenerationDisclosure>
 
         {/* Step 3: Voice Customization & Style Controls */}
-        <div className="mb-6 rounded-lg border border-border bg-surface p-4">
-          <div className="mb-3 flex items-center justify-between">
-            <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              <Sliders className="h-3.5 w-3.5 text-accent" />
-              3. Voice Customization & Human Inflection
-            </label>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-gray-500">Presets:</span>
-              <button onClick={() => applyStylePreset('natural')}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${stylePreset === 'natural' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'}`}>
-                Natural Conversation
-              </button>
-              <button
-                onClick={() => applyStylePreset('cinematic')}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                  stylePreset === 'cinematic' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'
-                }`}
-              >
-                🎬 Storyteller
-              </button>
-              <button
-                onClick={() => applyStylePreset('shorts')}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                  stylePreset === 'shorts' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'
-                }`}
-              >
-                ⚡ Viral Shorts
-              </button>
-              <button
-                onClick={() => applyStylePreset('tech')}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                  stylePreset === 'tech' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'
-                }`}
-              >
-                🎙️ Tech News
-              </button>
-              <button
-                onClick={() => applyStylePreset('vlog')}
-                className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                  stylePreset === 'vlog' ? 'bg-accent text-white' : 'bg-surface2 text-gray-400 hover:text-white'
-                }`}
-              >
-                ☕ Vlog
-              </button>
-            </div>
-          </div>
-
+        <GenerationDisclosure title="Voice settings" hint={`${stylePreset === 'custom' ? 'Custom' : stylePreset.charAt(0).toUpperCase() + stylePreset.slice(1)} delivery`} className="mb-4">
+          <label className="mb-4 flex flex-wrap items-center gap-3 text-xs text-gray-400">Delivery style
+            <select aria-label="Voice delivery style" value={stylePreset} disabled={generating} onChange={e => { const value = e.target.value as typeof stylePreset; if (value === 'custom') setStylePreset(value); else applyStylePreset(value); }} className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-white">
+              <option value="natural">Natural conversation</option><option value="cinematic">Storyteller</option><option value="shorts">Viral Shorts</option><option value="tech">Tech news</option><option value="vlog">Vlog</option><option value="custom">Custom</option>
+            </select>
+          </label>
           {isChatterbox && <div className="mb-3 space-y-2 rounded-md border border-border bg-bg/50 p-3">
             <p className="text-xs text-gray-400">Start with Natural Conversation for a relaxed delivery. Higher expressiveness can speed up speech. Paragraph breaks add a short pause; breaths within a sentence are preserved.</p>
             <label className="block text-xs text-gray-300" htmlFor="voice-preview-text">Try your own sentence</label>
@@ -1983,14 +1792,29 @@ function AudioGenerationContent({
               </div>
             </div>
           )}
-        </div>
+
+        <GenerationDisclosure title="Engine controls" hint={providerName} className="mt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={checkStatus} disabled={generating || serverStarting} className="studio-btn-ghost">Check status</button>
+        {serverOnline === true && isLocalProvider && (
+          <button
+            onClick={handleStopServer}
+            disabled={generating}
+            className="flex items-center gap-1.5 rounded-md border border-red-500/40 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/10"
+          >
+            <Square className="h-3.5 w-3.5" /> Stop Server
+          </button>
+        )}
+          </div>
+        </GenerationDisclosure>
+        </GenerationDisclosure>
 
         {/* Step 4: Narration Script Editor with Natural Pause Insertion Toolbar */}
         <div className="mb-6 rounded-lg border border-border bg-surface p-4">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
               <Copy className="h-3.5 w-3.5 text-gray-400" />
-              4. Narration Script & Natural Pauses
+              Narration script
             </span>
             <div className="flex items-center gap-2">
               {previousNarrationText !== null && (
@@ -2004,16 +1828,7 @@ function AudioGenerationContent({
                   Undo AI
                 </button>
               )}
-              <button
-                onClick={() => {
-                  if (script?.id) {
-                    onUpdate({ narration: narrationText });
-                  }
-                }}
-                className="flex items-center gap-1.5 rounded-md bg-accent/20 px-3 py-1 text-xs font-medium text-accent hover:bg-accent/30"
-              >
-                Save Script
-              </button>
+
               <button
                 onClick={handleCopy}
                 className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1 text-xs text-gray-300 hover:bg-surface2"
@@ -2023,6 +1838,7 @@ function AudioGenerationContent({
             </div>
           </div>
 
+          {!sceneBacked && <GenerationDisclosure title="Narration tools" hint="AI polish & pause insertion" className="mb-3">
           {/* AI Narration Polish Toolbar */}
           <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2.5 rounded-lg border border-purple-500/30 bg-gradient-to-r from-purple-950/30 to-surface2/60 p-2.5">
             <div className="flex items-center gap-2 flex-wrap">
@@ -2030,28 +1846,9 @@ function AudioGenerationContent({
                 <Sparkles className="h-3.5 w-3.5 text-purple-400" />
                 AI Narration Polish:
               </span>
-              <div className="flex items-center gap-1">
-                {(['storyteller', 'viral', 'conversational', 'dramatic'] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setEnhanceTone(t)}
-                    className={`rounded px-2 py-0.5 text-[11px] font-medium transition-all ${
-                      enhanceTone === t
-                        ? 'bg-purple-600 text-white shadow'
-                        : 'bg-surface2/80 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {t === 'storyteller'
-                      ? '🎬 Storyteller'
-                      : t === 'viral'
-                      ? '⚡ Viral Shorts'
-                      : t === 'conversational'
-                      ? '🎙️ Conversational'
-                      : '🎭 Dramatic'}
-                  </button>
-                ))}
-              </div>
+              <select aria-label="Narration polish tone" value={enhanceTone} onChange={e => setEnhanceTone(e.target.value as typeof enhanceTone)} className="rounded-lg border border-border bg-bg px-3 py-2 text-xs text-white">
+                <option value="storyteller">Storyteller</option><option value="viral">Viral Shorts</option><option value="conversational">Conversational</option><option value="dramatic">Dramatic</option>
+              </select>
             </div>
 
             <button
@@ -2117,6 +1914,8 @@ function AudioGenerationContent({
             </span>
           </div>
 
+          </GenerationDisclosure>}
+
           <textarea
             readOnly={sceneBacked}
             ref={textareaRef}
@@ -2135,10 +1934,6 @@ function AudioGenerationContent({
 
         {/* Step 5: Start Generation Action & Progress Bar */}
         <div className="mb-6 flex flex-col items-start gap-4 rounded-lg border border-border bg-surface p-4">
-          <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-            5. Start Voice Generation
-          </label>
-
           <div className="flex w-full flex-wrap items-center justify-between gap-3">
             <div className="text-xs text-gray-300">
               Selected Model:{' '}
@@ -2153,28 +1948,7 @@ function AudioGenerationContent({
               )}
             </div>
 
-            <button
-              onClick={currentAudio ? handleRegenerate : handleGenerate}
-              disabled={generating || voicesLoading || !selectedVoice}
-              className="flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 text-xs font-semibold text-white transition-all hover:bg-accent/80 shadow-md disabled:opacity-40"
-            >
-              {generating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating Audio ({progressPercent}%)...
-                </>
-              ) : currentAudio ? (
-                <>
-                  <Undo2 className="h-4 w-4" />
-                  Start Re-generation ({selectedLanguage.toUpperCase()})
-                </>
-              ) : (
-                <>
-                  <Play className="h-4 w-4 fill-current" />
-                  Start Audio Generation
-                </>
-              )}
-            </button>
+
           </div>
 
           {/* Real-time Generation Progress Bar */}
@@ -2242,14 +2016,7 @@ function AudioGenerationContent({
                 >
                   <Download className="h-3 w-3" /> Download {currentAudio.filename.toLowerCase().endsWith('.wav') ? 'WAV' : 'MP3'}
                 </a>
-                <a
-                  href={currentAudio.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-[11px] text-gray-300 hover:bg-surface2"
-                >
-                  <Play className="h-3 w-3" /> Open in Browser
-                </a>
+
               </div>
             </div>
             <audio

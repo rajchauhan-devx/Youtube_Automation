@@ -14,7 +14,7 @@ Return exactly ONE <long_video> block containing valid JSON with this shape (the
 
 Write actual finished content, not the example placeholders. Use 1–160 ordered scenes with unique scene_001, scene_002 IDs; positive planning durations at most 60 seconds; role story or cta; and at most 700 characters of exact spoken narration per scene. Every scene has mediaType and imagePrompt. Video scenes also have videoPrompt. Join scene narrations in order to obtain the complete voice script, with no extra or omitted spoken words. Merge each asset's negative instructions, style and continuity into its own prompt string. The thumbnail is separate. Include CTA/end-card scenes only when they are actually requested for playback. Keep supporting research, evidence and publishing sections as ordinary prose outside the JSON if the user requested them, but do not emit other extraction tags or a second extraction package. Escape quotes and newlines inside JSON strings. No Markdown fences around the JSON.
 
-Profile: ${profile}. ${profile === 'long' ? 'All scenes use mediaType image and landscape 16:9 composition; omit the video example.' : profile === 'mixed' ? 'Use landscape 16:9 and choose image/video scenes according to the requested story.' : 'Use portrait 9:16. Follow the template\'s image-only or image-and-video choice; the schema is the same for both.'}`;
+Profile: ${profile}. ${profile === 'shorts' ? 'Use portrait 9:16.' : 'Use landscape 16:9.'} Follow the template's image-only or image-and-video choice; the schema is the same for both.`;
   // Reusing an already formatted prompt must not append another contract.
   return prompt.includes(SCENE_PLAN_FORMAT_MARKER) ? prompt : `${prompt.trimEnd()}\n\n${contract}`;
 }
@@ -26,6 +26,9 @@ export function serializeScenePlan(plan: ScenePlan): string {
 
 /** Keep old prose and all spoken words; change only extraction markup. */
 export function normalizeScenePlanResponse(raw: string, plan: ScenePlan): string {
+  if (raw.trimStart().startsWith('{')) {
+    try { if (JSON.stringify(JSON.parse(raw)) === JSON.stringify(plan)) return raw; } catch { /* Preserve strict validation at the caller. */ }
+  }
   const blocks = [...raw.matchAll(/<long_video>\s*([\s\S]*?)\s*<\/long_video>/gi)];
   if (blocks.length === 1) {
     try { if (JSON.stringify(JSON.parse(blocks[0][1])) === JSON.stringify(plan)) return raw; }

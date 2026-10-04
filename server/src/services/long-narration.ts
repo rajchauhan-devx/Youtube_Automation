@@ -111,7 +111,7 @@ export function startNarration(options: VoiceOptions, synthesize = generateTTS) 
   if (normalizeNarration(script.narration || '') !== normalizeNarration(spokenText(plan))) throw new Error('Narration differs from the scene map. Extract the updated Long Video response first.');
   if (options.language === 'en' && /[\u0900-\u097F]/.test(spokenText(plan))) throw new Error('This scene map contains Hindi narration. Select a Hindi voice; changing voice language does not translate the script.');
   const fingerprint = planHash(plan);
-  store.add('scripts', { ...script, generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined });
+  store.add('scripts', { ...script, generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
   const controller = new AbortController();
   let finish!: () => void;
   const job: Job = { status: 'running', completed: 0, total: plan.scenes.length, controller, finished: new Promise(resolve => { finish = resolve; }) };
@@ -121,7 +121,7 @@ export function startNarration(options: VoiceOptions, synthesize = generateTTS) 
       controller.signal.throwIfAborted();
       const current = store.getById<any>('scripts', options.scriptId);
       if (!current || planHash(current.scenePlan) !== fingerprint || normalizeNarration(current.narration || '') !== normalizeNarration(spokenText(plan))) throw new Error('Script changed during narration generation. Extract it and try again.');
-      const updated = { ...current, generatedAudio: [result], timelineConfig: undefined, youtubeExport: undefined };
+      const updated = { ...current, generatedAudio: [result], timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined };
       store.add('scripts', updated);
       job.result = result;
       job.status = 'done';

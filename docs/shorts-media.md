@@ -12,13 +12,13 @@ The production template defaults to the app's configured Gemini Flash option. It
 
 In **Generation → Images & Videos**:
 
-- Enable **Use video imports** to generate/import still scenes and import MP4 video scenes.
-- Disable it to use images for every scene. Existing video imports remain saved, and turning it on again restores those clips. Generate or import missing still-image alternatives after changing modes.
-- Use the **+** on a scene to import one file, or **Bulk import** with filenames such as `001.png`, `002.mp4`, and `003.webp`. Images support PNG, JPG and WebP; videos support MP4. The limit is 250 MB per file.
-- **Generate images** fills missing image scenes. Video prompts are never sent to the image model while video imports are enabled.
+- Scene types match Assets: image scenes stay images and video scenes stay videos. To change a scene's type, edit it in Assets. The legacy video-import setting no longer overrides the scene plan.
+- Use the **+** on a scene to import one file, or **Import media** with filenames such as `001.png`, `002.mp4`, and `003.webp`. Images support PNG, JPG and WebP; videos support MP4. The limit is 250 MB per file.
+- **Generate images** fills only missing image scenes. Video scenes are never sent to the image model.
+- Create video clips externally and import their MP4 files. Copy each scene?s video prompt from its actions panel to use with your preferred video generator.
 
 Generate narration in Audio Generation, then open Timeline & Render. Scene boundaries follow measured speech, source clip audio is muted, and output is portrait 1080 × 1920. Video clips may be trimmed, slowed slightly, or held briefly on their final frame; a clip that cannot cover its narration requires longer footage.
 
-Existing image-only Shorts scripts also support image import. Use the new template to produce narration-linked video scenes. Video generation itself remains external: copy each video prompt, create the clip in your video tool, and import its MP4.
+Existing image-only Shorts scripts also support image import. Use the new template to produce narration-linked video scenes. Create clips externally and import their MP4 files.
 
 Validation: `npm test`, `npm run typecheck`, `npm run build`. After building, run the browser regression in PowerShell with `$env:SHORTS_MEDIA_BROWSER='1'; node --test server/tests/shorts-media.test.mjs`.

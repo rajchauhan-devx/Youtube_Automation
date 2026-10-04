@@ -38,7 +38,7 @@ export function EditScriptModal({ script, onClose, onSavePatch, onSaveSpoken }: 
         if (response.trim() === script.aiResponse?.trim()) { onClose(); return; }
         saved = await onSavePatch({ aiResponse: response.trim(), extractedScript: '', narration: '', imagePrompts: [],
           generatedImages: [], generatedAudio: [], generatedMusic: undefined, scenePlan: undefined,
-          timelineConfig: undefined, sceneAnalysis: undefined, youtubeExport: undefined,
+          timelineConfig: undefined, sceneAnalysis: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined,
           pipeline: [{ id: 'response', label: 'Response', status: 'done', summary: 'Response edited — ready to extract', inputLog: '', outputPreview: response.trim().slice(0, 120) }] });
       } else if (script.scenePlan) {
         if (script.scenePlan.scenes.every((scene, index) => scene.narration === scenes[index]?.trim())) { onClose(); return; }
@@ -46,7 +46,7 @@ export function EditScriptModal({ script, onClose, onSavePatch, onSaveSpoken }: 
         const narration = spokenText(scenePlan);
         saved = await onSavePatch({ scenePlan, narration, extractedScript: narration,
           aiResponse: serializeScenePlan(scenePlan),
-          generatedAudio: [], generatedMusic: undefined, timelineConfig: undefined, youtubeExport: undefined });
+          generatedAudio: [], generatedMusic: undefined, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
       } else {
         if (!spoken.trim()) throw new Error('Enter the spoken script.');
         saved = await onSaveSpoken(spoken.trim());

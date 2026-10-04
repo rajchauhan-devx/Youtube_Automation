@@ -52,7 +52,7 @@ app.use(express.static(path.resolve('dist')));
 const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
 const base = `http://127.0.0.1:${server.address().port}`;
 const read = () => workspaceContext.run(scope, () => store.getById('scripts', 'image-test'));
-const generate = (index, prompt = scenes[index]?.imagePrompt) => originalFetch(base + prefix + '/generate/image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: 'image-test', index, prompt }) });
+const generate = (index, prompt = scenes[index]?.imagePrompt, options = {}) => originalFetch(base + prefix + '/generate/image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: 'image-test', index, prompt, ...options }) });
 const upload = (index, file, extension) => originalFetch(`${base}${prefix}/media-import/image-test/${index}?extension=${extension}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: fs.readFileSync(file) });
 async function cleanup() {
   globalThis.fetch = originalFetch;
@@ -72,13 +72,17 @@ if (process.env.MIXED_IMAGE_BROWSER_TEST === '1') {
 } else {
   test('mixed image generation preserves imports, scene indices, and failures; rejects videos and stale scenes', async () => {
     try {
-      assert.equal((await upload(0, png, 'png')).status, 200);
-      assert.equal((await upload(1, video, 'mp4')).status, 200);
+      const uploadedImage = await upload(0, png, 'png');
+      assert.equal(uploadedImage.status, 200, JSON.stringify(await uploadedImage.json()));
+      const uploadedVideo = await upload(1, video, 'mp4');
+      assert.equal(uploadedVideo.status, 200, JSON.stringify(await uploadedVideo.json()));
       const imported = read().generatedImages;
       for (const [index, prompt] of [[1, scenes[1].imagePrompt], [9, 'missing'], [2, 'outdated prompt']]) assert.equal((await generate(index, prompt)).status, 400);
       assert.equal(requests.length, 0, 'invalid scenes never reach the image model');
-      let response = await generate(2);
+      let response = await generate(2, scenes[2].imagePrompt, { stylePreset: 'cinematic', enableQualityBooster: true, enableNegativeGuardrails: true });
       assert.equal(response.status, 200);
+      assert.equal(requests.at(-1).prompt['6'].inputs.text, scenes[2].imagePrompt, 'legacy options cannot add style instructions to the queued prompt');
+      assert.equal(requests.at(-1).prompt['15'].inputs.text, '', 'the queued workflow has no automatic negative prompt');
       let result = await response.json();
       assert.deepEqual(result.generatedImages.map(a => a.index), [0, 1, 2]);
       assert.deepEqual(read().generatedImages.slice(0, 2), imported);
@@ -97,6 +101,8 @@ if (process.env.MIXED_IMAGE_BROWSER_TEST === '1') {
       assert.deepEqual(read().generatedImages, before, 'stale results do not overwrite assets');
       response = await generate(4, 'changed during generation');
       assert.equal(response.status, 200);
+      assert.equal(requests.at(-1).prompt['6'].inputs.text, 'changed during generation', 'requests without override options also use the raw prompt');
+      assert.equal(requests.at(-1).prompt['15'].inputs.text, '');
       assert.deepEqual(read().generatedImages.map(a => a.index), [0, 1, 2, 4]);
       assert.equal((await upload(4, png, 'png')).status, 200, 'image import remains usable after generation');
       assert.equal((await upload(3, video, 'mp4')).status, 200, 'video import remains usable after generation');

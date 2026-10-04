@@ -7,14 +7,15 @@ interface MediaScript {
   imagePrompts?: string[];
 }
 
-// Keep the authored plan intact so switching media mode never changes narration.
+// The extracted scene plan is the source of truth for media types. Older
+// scripts may carry videoImportsEnabled=false; it must not turn videos into stills.
 export function mediaScenes(script?: MediaScript | null): NarrationScene[] {
   const scenes: NarrationScene[] = script?.scenePlan?.scenes || (script?.imagePrompts || []).map((imagePrompt, index) => ({
     id: `scene_${index + 1}`, chapter: `Scene ${index + 1}`, role: 'story' as const,
     narration: '', imagePrompt, mediaType: 'image' as const,
   }));
   return scenes.map(scene => {
-    const mediaType = script?.section === 'shorts' && script.videoImportsEnabled !== true ? 'image' : scene.mediaType || 'image';
+    const mediaType = scene.mediaType || 'image';
     return { ...scene, mediaType, imagePrompt: mediaType === 'video' ? scene.videoPrompt || scene.imagePrompt : scene.imagePrompt };
   });
 }

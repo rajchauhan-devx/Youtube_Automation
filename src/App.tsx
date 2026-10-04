@@ -29,11 +29,11 @@ import { GenerationTab } from './components/generation/GenerationTab';
 import { EditingWorkspace } from './components/editor/EditingWorkspace';
 import { ArtifactsTab } from './components/artifacts/ArtifactsTab';
 import { SetupTab } from './components/setup/SetupTab';
-import { YouTubeExportTab } from './components/export/YouTubeExportTab';
+import { ExportHubTab } from './components/export/ExportHubTab';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
-import { withScenePlanFormat } from '../server/src/services/scene-plan-format';
 import { incompleteResponse } from '../server/src/services/generation-status';
+import { buildFreePrompt, FREE_CHAT_SYSTEM } from '../server/src/services/script-generation';
 import { apiPost, getApiKey } from './services/api.js';
 import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -45,7 +45,7 @@ const TABS: { id: Tab; label: string; icon: typeof ScrollText; step: string }[] 
   { id: 'generation', label: 'Generation', icon: Wand2, step: '04' },
   { id: 'artifacts', label: 'Artifacts', icon: Film, step: '05' },
   { id: 'review', label: 'Timeline & Render', icon: Clapperboard, step: '06' },
-  { id: 'export', label: 'YouTube Export', icon: Rocket, step: '07' },
+  { id: 'export', label: 'Export', icon: Rocket, step: '07' },
 ];
 
 type SidebarGroup = { title: string; items: { id: string; label: string; icon: typeof Zap; badge?: string }[] };
@@ -230,22 +230,11 @@ export default function App() {
   }
 
   function buildPrompt(template: string, topic: string, instructions: string, duration?: number): string {
-    if (section !== 'shorts') {
-      return [template, topic.trim() ? `Topic: ${topic}` : '', instructions.trim()].filter(Boolean).join('\n\n');
-    }
-    const targetDurationStr = duration
-      ? `Target Duration: ~${duration} seconds. Pace the script naturally for this length â€” you may go slightly shorter or longer if the content demands it, but aim for this ballpark.`
-      : '';
-    const optionalInstructions = instructions.trim()
-      ? `Additional Instructions: ${instructions.trim()}`
-      : '';
+    // Template-sovereign free chat: the template goes through untouched plus
+    // only topic, target duration and extra instructions. No format contract,
+    // media quotas or budgets are injected; extraction validates the tags.
+    return buildFreePrompt(template, topic, instructions, duration || 30);
 
-    return `${template}
-
-Topic: ${topic}
-${targetDurationStr}
-${optionalInstructions}
-${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening, clear chapters, smooth transitions and a conclusion. Plan images for landscape 16:9 composition. Use the requested duration to develop the topic in depth.' : ''}`.trim();
   }
 
   async function generateScript(script: Script, topic: string, instructions: string) {
@@ -262,12 +251,12 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
       .filter((p) => p.content.trim())
       .map((p) => p.content)
       .join('\n\n');
-    const promptText = withScenePlanFormat(buildPrompt(
+    const promptText = buildPrompt(
       template || script.howItWorks || '',
       topic,
       instructions,
       script.duration || 30
-    ), section);
+    );
 
     const initialPatch: Partial<Script> = {
       id: scriptId,
@@ -282,6 +271,8 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
       timelineConfig: undefined,
       sceneAnalysis: undefined,
       youtubeExport: undefined,
+      facebookExport: undefined,
+      instagramExport: undefined,
       scenePlan: undefined,
       lastUsed: new Date().toISOString(),
       status: 'active',
@@ -307,12 +298,11 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
     let fullResponse = '';
 
     try {
-      const baseMessages = section !== 'shorts' ? [{ role: 'user', content: promptText }] : [
-        {
-          role: 'system',
-          content:
-            'You are an expert YouTube automation assistant. Generate a highly engaging YouTube script and follow the exact instructions in the user\'s template.',
-        },
+      // Same plain-chat shape for every profile: neutral system line plus the
+      // template-driven user prompt. No per-profile system contracts and no
+      // provider JSON-schema enforcement — the template owns the format.
+      const baseMessages = [
+        { role: 'system', content: FREE_CHAT_SYSTEM },
         { role: 'user', content: promptText },
       ];
       let messages = baseMessages;
@@ -329,6 +319,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
           body: JSON.stringify({
             model: script.model || 'gemini-3.6-flash',
             messages,
+            max_tokens: (script.model || 'gemini-3.6-flash').startsWith('gemini-') ? 65536 : 16384,
           }),
         });
 
@@ -426,7 +417,15 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
           throw new Error('Received a damaged response stream. Partial text could not be recovered; retry generation.');
         }
 
-        incomplete = incompleteResponse(promptText, fullResponse);
+        // Free-chat completion: the stream ending is the signal. The generic
+        // structural check below only catches genuinely unclosed tags — the
+        // template's own instructional headings are never treated as required
+        // output sections (freeChat flag), so a finished response stops here
+        // instead of ballooning through repeated continuations.
+        // (No visual-prompt repair here: it rewrites responses into bare JSON
+        // and would destroy the template's own tag system. Extraction is the
+        // quality gate and reports exactly which tags are missing.)
+        incomplete = incompleteResponse(promptText, fullResponse, true);
         const needsContinuation = !finishReason || finishReason === 'STREAM_INTERRUPTED' || finishReason === 'MAX_TOKENS' || (finishReason === 'STOP' && Boolean(incomplete));
         if (!needsContinuation || attempt === maxContinuations) break;
 
@@ -538,7 +537,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
     const patch: Partial<Script> = {
       aiResponse: response.trim(), extractedScript: '', imagePrompts: [], narration: '',
       generatedImages: [], generatedAudio: [], scenePlan: undefined, timelineConfig: undefined,
-      sceneAnalysis: undefined, youtubeExport: undefined, status: 'active', lastUsed: new Date().toISOString(),
+      sceneAnalysis: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined, status: 'active', lastUsed: new Date().toISOString(),
       pipeline: [{ id: 'response', label: 'Response', status: 'done', summary: 'Response imported â€” ready to extract', inputLog: '', outputPreview: response.slice(0, 120) }],
     };
     if (!await persistScript(selectedScript.id, patch)) throw new Error('Could not save the imported response. Your pasted text is still here; please retry.');
@@ -565,7 +564,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
     });
     setTab('assets');
 
-    let extracted: { script: string; ttsText: string; imagePrompts: string[]; scenePlan?: Script['scenePlan']; normalizedResponse?: string };
+    let extracted: { script: string; ttsText: string; imagePrompts: string[]; scenePlan?: Script['scenePlan'] };
 
     try {
       const result = await apiPost(
@@ -578,7 +577,6 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
         ttsText: result.ttsText,
         imagePrompts: result.imagePrompts || [],
         scenePlan: result.scenePlan,
-        normalizedResponse: result.normalizedResponse,
       };
     } catch (err) {
       await persistScript(scriptId, { pipeline: [{ id: 'response', label: 'Response', status: 'error', summary: 'Asset extraction needs attention', inputLog: '', outputPreview: err instanceof Error ? err.message : 'Check the scene plan and narration links in the response.' }] });
@@ -589,7 +587,6 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
     const sceneAnalysis = { transitions: extracted.imagePrompts.map(() => 'none'), effects: extracted.imagePrompts.map(() => 'zoom-in'), timings: [], mood: 'epic', colorGrade: 'warm-vintage' };
 
     const patch: Partial<Script> = {
-      ...(extracted.normalizedResponse && extracted.normalizedResponse !== selectedScript.aiResponse ? { aiResponse: extracted.normalizedResponse } : {}),
       extractedScript: extracted.script,
       imagePrompts: extracted.imagePrompts,
       narration: extracted.ttsText,
@@ -651,7 +648,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
     });
     const saved = await response.json() as Script & { error?: string };
     if (!response.ok) throw new Error(saved.error || `Could not save script (HTTP ${response.status}).`);
-    if (activeScope.current === scopeAtCall) patchScriptState(id, { ...saved, timelineConfig: undefined, youtubeExport: undefined, generatedMusic: undefined });
+    if (activeScope.current === scopeAtCall) patchScriptState(id, { ...saved, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined, generatedMusic: undefined });
     return true;
   }
 
@@ -717,7 +714,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
             </div>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[13px] font-semibold">{activeChannel.name}</span>
-              <span className="block text-[11px] text-faint">YouTube channel</span>
+              <span className="block text-[11px] text-faint">Publishing channel</span>
             </span>
             <ChevronDown className={`h-4 w-4 shrink-0 text-faint transition-transform ${channelSwitcherOpen ? 'rotate-180' : ''}`} />
           </button>
@@ -906,7 +903,7 @@ ${section !== 'shorts' ? 'Create a long-form YouTube video with a strong opening
                   )}
                   {tab === 'artifacts' && <ArtifactsTab key={selectedScriptId} script={selectedScript} onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)} />}
                   {tab === 'export' && (
-                    <YouTubeExportTab key={selectedScriptId}
+                    <ExportHubTab key={selectedScriptId}
                       script={selectedScript}
                       onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
                       onNavigateToTimeline={() => setTab('review')}

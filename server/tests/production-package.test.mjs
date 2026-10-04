@@ -102,9 +102,9 @@ test('Long Video still-image prose preserves the complete narration and excludes
     const long = await extract('long', raw), mixed = await extract('mixed', raw);
     assert.equal(long.status, 200);
     assert.deepEqual(await long.json(), await mixed.json(), 'both profiles extract the same readable image package');
-    const invalid = await extract('long', fixture);
-    assert.equal(invalid.status, 400, 'Long Video rejects actual video assets');
-    assert.match((await invalid.json()).error, /Video scenes belong in the Mixed Media profile/);
+    const longVideo = await extract('long', fixture);
+    assert.equal(longVideo.status, 200, 'Long Video supports explicitly linked video assets');
+    assert.deepEqual((await longVideo.json()).scenePlan, parseScenePlan(fixture));
   } finally {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));

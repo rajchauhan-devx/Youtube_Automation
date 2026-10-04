@@ -15,8 +15,13 @@ const tagged = serializeShortsPackage(plan);
 test('tagged Shorts preserve Hindi speech, separate video/image prompts and exclude the thumbnail', () => {
   const parsed = parseScenePlan(tagged);
   assert.deepEqual(parsed, plan);
-  assert.deepEqual(mediaScenes({ section: 'shorts', videoImportsEnabled: false, scenePlan: parsed }).map(s => s.imagePrompt), plan.scenes.map(s => s.imagePrompt));
-  assert.equal(mediaScenes({ section: 'shorts', videoImportsEnabled: true, scenePlan: parsed })[0].imagePrompt, plan.scenes[0].videoPrompt);
+  for (const legacySetting of [undefined, false, true]) {
+    const scenes = mediaScenes({ section: 'shorts', videoImportsEnabled: legacySetting, scenePlan: parsed });
+    assert.deepEqual(scenes.map(scene => scene.mediaType), ['video', 'image']);
+    assert.equal(scenes[0].imagePrompt, plan.scenes[0].videoPrompt);
+    assert.equal(scenes[1].imagePrompt, plan.scenes[1].imagePrompt);
+  }
+  assert.deepEqual(parsed, plan, 'Resolving generation scenes preserves the authored plan');
   assert.match(incompleteResponse(SHORTS_MEDIA_TEMPLATE, tagged), /Missing shared/);
   assert.equal(incompleteResponse(SHORTS_MEDIA_TEMPLATE, serializeScenePlan(plan)), undefined);
 });

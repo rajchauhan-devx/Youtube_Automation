@@ -1,9 +1,9 @@
 import { mediaScenes } from '../../../server/src/services/shorts-media';
 import { useEffect, useRef, useState } from 'react';
-import { Copy, Plus, Loader2, Sparkles, Square } from 'lucide-react';
+import { Copy, Plus, Loader2, Sparkles, Square, Film, Image as ImageIcon } from 'lucide-react';
 import type { Script } from '../../data';
 import { useWorkspaceApi } from '../../services/workspaceApi';
-import { colabHeaders } from '../../services/api';
+import { GenerationDisclosure } from './GenerationDisclosure';
 
 export function MixedMediaContent({ script, onUpdate }: { script: Script | null; onUpdate: (patch: Partial<Script>) => unknown }) {
   const { fetch, profile } = useWorkspaceApi();
@@ -14,9 +14,6 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [stopping, setStopping] = useState(false);
   const [preset, setPreset] = useState<'fast' | 'standard' | 'high'>('standard');
-  const [provider, setProvider] = useState<'local' | 'colab'>('local');
-  const [colabStatus, setColabStatus] = useState<'unknown' | 'checking' | 'reachable' | 'unreachable' | 'unconfigured'>('unknown');
-  const [colabDetail, setColabDetail] = useState('');
   const [modelStatus, setModelStatus] = useState<'checking' | 'online' | 'offline' | 'starting' | 'stopping'>('checking');
   const [modelDetail, setModelDetail] = useState('');
   const operation = useRef(false);
@@ -29,6 +26,8 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   const fileInput = useRef<HTMLInputElement>(null);
   const selectedIndex = useRef<number | null>(null);
   const scenes = mediaScenes(script);
+  const imageCount = scenes.filter(scene => scene.mediaType === 'image').length;
+  const videoCount = scenes.filter(scene => scene.mediaType === 'video').length;
   const locked = busy || generating;
   const missingImages = scenes.flatMap((scene, index) => scene.mediaType === 'image' && !script?.generatedImages?.some(asset =>
     asset.index === index && asset.prompt === scene.imagePrompt && (asset.mediaType || 'image') === 'image' && asset.status === 'done' && asset.url
@@ -36,55 +35,6 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   const missingVideos = scenes.flatMap((scene, index) => scene.mediaType === 'video' && !script?.generatedImages?.some(asset =>
     asset.index === index && asset.prompt === scene.imagePrompt && (asset.mediaType || 'image') === 'video' && asset.status === 'done' && asset.url
   ) ? [index] : []);
-
-  async function refreshColabStatus() {
-    setColabStatus('checking');
-    try {
-      const response = await fetch('/api/generate/colab-status', { headers: colabHeaders() });
-      const result = await response.json();
-      if (!result.configured) { setColabStatus('unconfigured'); setColabDetail(result.detail || 'Set the Colab URL + key in the Setup tab.'); return false; }
-      setColabStatus(result.reachable ? 'reachable' : 'unreachable');
-      setColabDetail(result.detail || '');
-      return Boolean(result.reachable);
-    } catch (err) {
-      setColabStatus('unreachable');
-      setColabDetail(err instanceof Error ? err.message : 'Could not reach the server.');
-      return false;
-    }
-  }
-
-  // Remote Colab worker: one job at a time, each taking minutes. The server
-  // holds the request open and saves the asset, so closing this page is safe.
-  async function generateColabQueue(indices: number[], kind: 'image' | 'video') {
-    if (!script || operation.current || !indices.length) return;
-    const queue = indices.filter(index => scenes[index]?.mediaType === kind);
-    if (!queue.length) return;
-    operation.current = true; stopRequested.current = false;
-    setGenerating(true); setStopping(false); setError('');
-    try {
-      let completed = 0;
-      for (const index of queue) {
-        if (stopRequested.current) break;
-        setActiveIndex(index);
-        setNotice(`Colab ${kind} ${completed + 1} of ${queue.length} · scene ${index + 1} (minutes per job)…`);
-        const response = await fetch(kind === 'video' ? '/api/generate/colab-video' : '/api/generate/colab-image', {
-          method: 'POST', headers: { 'Content-Type': 'application/json', ...colabHeaders() },
-          body: JSON.stringify({ scriptId: script.id, index, prompt: scenes[index].imagePrompt }),
-        });
-        const result = await response.json();
-        if (!response.ok) throw new Error(`Scene ${index + 1}: ${result.error || `Colab ${kind} failed.`}`);
-        if (!mounted.current) return;
-        await onUpdate({ generatedImages: result.generatedImages, timelineConfig: undefined, youtubeExport: undefined });
-        completed++;
-      }
-      if (mounted.current) setNotice(`${stopRequested.current ? 'Stopped. ' : ''}Saved ${completed} of ${queue.length} Colab ${kind}s. Existing media was kept.`);
-    } catch (err) {
-      if (mounted.current) { setNotice(''); setError(err instanceof Error ? err.message : `Colab ${kind} generation failed.`); }
-    } finally {
-      operation.current = false;
-      if (mounted.current) { setGenerating(false); setActiveIndex(null); setStopping(false); }
-    }
-  }
 
   async function refreshModelStatus() {
     setModelStatus('checking');
@@ -160,7 +110,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         if (!response.ok) throw new Error(`Scene ${index + 1}: ${result.error || 'Image generation failed.'}`);
         // Each result is saved by the server, even when this page is closed.
         if (!mounted.current) return;
-        await onUpdate({ generatedImages: result.generatedImages, timelineConfig: undefined, youtubeExport: undefined });
+        await onUpdate({ generatedImages: result.generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
         completed++;
       }
       if (mounted.current) setNotice(`${stopRequested.current ? 'Stopped. ' : ''}Saved ${completed} of ${queue.length} images. Existing media was kept.`);
@@ -193,7 +143,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         const data = await response.json();
         if (!response.ok) throw new Error(`${file.name}: ${data.error || 'Import failed'}`);
         // Server has already saved the imported asset; sync the visible script.
-        await onUpdate({ generatedImages: data.generatedImages, timelineConfig: undefined, youtubeExport: undefined });
+        await onUpdate({ generatedImages: data.generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
         completed++;
         setNotice(`Saved ${completed} of ${entries.length} imports.`);
       }
@@ -201,39 +151,33 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     finally { operation.current = false; setBusy(false); if (fileInput.current) fileInput.current.value = ''; }
   }
 
-  return <div className="flex-1 overflow-auto p-6">
-    <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-      <div><h2 className="text-lg font-semibold text-white">{profile === 'shorts' ? 'Shorts media' : 'Mixed media'} · script order</h2><p className="mt-1 text-sm text-gray-400">Each visual follows its spoken narration. Videos are trimmed or gently slowed, with at most a two-second final-frame hold. Longer gaps require a longer clip. Clip audio is muted in the final edit.</p></div>
+  return <div className="min-h-0 flex-1 overflow-auto p-4 sm:p-6">
+    <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h2 className="text-lg font-semibold text-white">Scene media</h2>
+        <p className="mt-1 text-xs text-gray-400">{imageCount} images / {videoCount} videos · {scenes.length - missingImages.length - missingVideos.length} of {scenes.length} ready{scenes.length ? ` (${Math.round((scenes.length - missingImages.length - missingVideos.length) / scenes.length * 100)}%)` : ''}</p>
+      </div>
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-xs text-gray-400">Provider <select aria-label="Media provider" value={provider} disabled={locked} onChange={event => setProvider(event.target.value as typeof provider)} className="ml-2 rounded border border-border bg-surface px-2 py-2 text-white"><option value="local">Local model</option><option value="colab">Colab API</option></select></label>
-        {provider === 'colab' ? <>
-          <span role="status" className={`rounded border px-2.5 py-2 text-xs ${colabStatus === 'reachable' ? 'border-emerald-500/40 text-emerald-300' : colabStatus === 'checking' ? 'border-amber-500/40 text-amber-300' : 'border-red-500/40 text-red-300'}`}>
-            Colab: {colabStatus === 'checking' ? 'Checking…' : colabStatus === 'reachable' ? 'Reachable' : colabStatus === 'unconfigured' ? 'No key' : colabStatus === 'unknown' ? 'Not tested' : 'Unreachable'}
-          </span>
-          <button disabled={locked || colabStatus === 'checking'} onClick={() => void refreshColabStatus()} className="rounded border border-border px-3 py-2 text-sm text-gray-300 disabled:opacity-40">Test Colab</button>
-          {generating ? <button disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }} className="flex items-center gap-2 rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40"><Square className="h-4 w-4" />{stopping ? 'Stopping after current job…' : 'Stop after current job'}</button> : <>
-            <button disabled={locked || !missingImages.length} onClick={() => void generateColabQueue(missingImages, 'image')} className="flex items-center gap-2 rounded bg-accent px-3 py-2 text-sm text-white disabled:opacity-40"><Sparkles className="h-4 w-4" />Colab images{missingImages.length ? ` (${missingImages.length})` : ''}</button>
-            <button disabled={locked || !missingVideos.length} onClick={() => void generateColabQueue(missingVideos, 'video')} className="flex items-center gap-2 rounded bg-purple-700 px-3 py-2 text-sm text-white disabled:opacity-40"><Sparkles className="h-4 w-4" />Colab videos{missingVideos.length ? ` (${missingVideos.length})` : ''}</button>
-          </>}
-        </> : <>
-        <span role="status" className={`rounded border px-2.5 py-2 text-xs ${modelStatus === 'online' ? 'border-emerald-500/40 text-emerald-300' : modelStatus === 'starting' || modelStatus === 'stopping' ? 'border-amber-500/40 text-amber-300' : 'border-red-500/40 text-red-300'}`}>
-          Image model: {modelStatus === 'checking' ? 'Checking…' : modelStatus === 'online' ? 'Ready' : modelStatus === 'starting' ? 'Starting…' : modelStatus === 'stopping' ? 'Stopping…' : 'Offline'}
-        </span>
-        {modelStatus === 'online' ? <button disabled={locked} onClick={() => void stopModel()} className="rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40">Stop model</button> : <button disabled={locked || modelStatus === 'starting'} onClick={() => void startModel()} className="rounded border border-accent px-3 py-2 text-sm text-accent disabled:opacity-40">{modelStatus === 'starting' ? 'Starting model…' : 'Start model'}</button>}
-        <button disabled={locked || modelStatus === 'checking'} onClick={() => void refreshModelStatus()} className="rounded border border-border px-3 py-2 text-sm text-gray-300 disabled:opacity-40">Refresh</button>
-        <label className="text-xs text-gray-400">Image quality <select aria-label="Image quality" value={preset} disabled={locked} onChange={event => setPreset(event.target.value as typeof preset)} className="ml-2 rounded border border-border bg-surface px-2 py-2 text-white"><option value="fast">Fast</option><option value="standard">Standard</option><option value="high">High</option></select></label>
-        {generating ? <button disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }} className="flex items-center gap-2 rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40"><Square className="h-4 w-4" />{stopping ? 'Stopping after current image…' : 'Stop after current image'}</button> :
-          <button disabled={locked || !missingImages.length} onClick={() => void generateImages(missingImages)} className="flex items-center gap-2 rounded bg-accent px-3 py-2 text-sm text-white disabled:opacity-40"><Sparkles className="h-4 w-4" />Generate images{missingImages.length ? ` (${missingImages.length})` : ''}</button>}
+        {generating ? <button disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }} className="studio-btn-ghost"><Square className="h-4 w-4" />{stopping ? 'Stopping after current job...' : 'Stop after current job'}</button> : <>
+          <button disabled={locked || !missingImages.length || (modelStatus === 'starting' || modelStatus === 'stopping')} onClick={() => void generateImages(missingImages)} className="studio-btn-primary"><Sparkles className="h-4 w-4" />Generate images{missingImages.length ? ` (${missingImages.length})` : ''}</button>
         </>}
-        <button disabled={locked || !scenes.length} className="rounded border border-border px-3 py-2 text-sm text-white disabled:opacity-40" onClick={() => { selectedIndex.current = null; if (fileInput.current) { fileInput.current.multiple = true; fileInput.current.accept = profile === 'shorts' && !script?.videoImportsEnabled ? '.png,.jpg,.jpeg,.webp' : '.png,.jpg,.jpeg,.webp,.mp4'; fileInput.current.click(); } }}>Bulk import</button>
+        <button disabled={locked || !scenes.length} className="studio-btn-ghost" onClick={() => { selectedIndex.current = null; if (fileInput.current) { fileInput.current.multiple = true; fileInput.current.accept = videoCount > 0 ? '.png,.jpg,.jpeg,.webp,.mp4' : '.png,.jpg,.jpeg,.webp'; fileInput.current.click(); } }}>Import media</button>
       </div>
     </div>
-    {profile === 'shorts' && script && <label className="mb-4 flex items-center gap-3 rounded-lg border border-border p-3 text-sm text-white"><input type="checkbox" checked={script.videoImportsEnabled === true} disabled={locked} onChange={async event => { setBusy(true); setError(''); try { const saved = await onUpdate({ videoImportsEnabled: event.target.checked, timelineConfig: undefined, youtubeExport: undefined }); if (saved === false) throw new Error('Could not save video import setting. Try again.'); } catch (error) { setError(error instanceof Error ? error.message : 'Could not save setting.'); } finally { setBusy(false); } }} />Use video imports<span className="text-xs text-gray-400">{script.videoImportsEnabled ? 'Image and video scenes' : 'Images only: every scene uses its still-image prompt. Imported clips are kept.'}</span></label>}
-    {profile === 'shorts' && !script?.scenePlan && <p className="mb-3 text-sm text-gray-400">Image imports work with this script. For video scenes, run the Shorts - Images & Videos script and extract its scene prompts.</p>}
-    {modelDetail && provider === 'local' && <p className={`mb-3 text-sm ${modelStatus === 'online' ? 'text-emerald-300' : 'text-amber-200'}`}>{modelDetail}</p>}
-    {provider === 'colab' && colabDetail && <p className={`mb-3 text-sm ${colabStatus === 'reachable' ? 'text-emerald-300' : 'text-amber-200'}`}>{colabDetail}</p>}
-    <p className="mb-2 text-sm text-gray-300">{provider === 'colab' ? 'Colab generates missing image and video scenes using the API key in Setup. Completed media is skipped; use the scene generation button to replace it.' : 'Generate images fills missing image scenes only. Import videos and any images you already have. Completed images are skipped; use Regenerate image on a scene to replace one.'}</p>
-    <p className="mb-4 text-xs text-gray-400">Bulk filenames: 001.png, 002.mp4, 003.png. Files are copied into this project. Maximum 250 MB per file.</p>
+    <GenerationDisclosure title="Media settings" hint="Images: local model / Videos: import MP4" className="mb-5">
+      <div className="flex flex-wrap items-center gap-4">
+        <label className="text-xs text-gray-400">Quality <select aria-label="Image quality" value={preset} disabled={locked} onChange={event => setPreset(event.target.value as typeof preset)} className="ml-2 rounded-lg border border-border bg-bg px-3 py-2 text-white"><option value="fast">Fast</option><option value="standard">Standard</option><option value="high">High</option></select></label>
+        <span role="status" className="text-xs text-gray-400">Image model: {modelStatus}</span>
+        {modelStatus === 'online' ? <button disabled={locked} onClick={() => void stopModel()} className="studio-btn-ghost">Stop model</button> : <button disabled={locked || modelStatus !== 'offline'} onClick={() => void startModel()} className="studio-btn-ghost">{modelStatus === 'starting' ? 'Starting model...' : 'Start model'}</button>}
+        <button disabled={locked || modelStatus === 'checking' || modelStatus === 'starting' || modelStatus === 'stopping'} onClick={() => void refreshModelStatus()} className="studio-btn-ghost">Refresh</button>
+      </div>
+      <div className="mt-4 space-y-3">
+        {profile === 'shorts' && !script?.scenePlan && <p className="text-xs text-gray-400">For video scenes, run the Shorts - Images & Videos script and extract its scene prompts.</p>}
+        <p className="text-xs leading-relaxed text-gray-400">Image generation fills missing image scenes and keeps completed media. Create video clips externally using their scene prompts, then import the MP4 files. Videos follow narration timing and their audio is muted in the final edit.</p>
+        <p className="text-xs text-gray-400">Import filenames: 001.png, 002.mp4, 003.png. Files are copied into this project. Maximum 250 MB per file.</p>
+      </div>
+    </GenerationDisclosure>
+    {modelDetail && modelStatus !== 'online' && <p role="status" className="mb-3 text-xs text-amber-200">{modelDetail}</p>}
     <input ref={fileInput} type="file" className="hidden" onChange={event => void upload(event.target.files)} />
     {error && <p role="alert" className="mb-4 text-sm text-red-300">{error}</p>}
     {notice && <p role="status" className="mb-4 text-sm text-emerald-300">{notice}</p>}
@@ -246,18 +190,24 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         const timing = audio?.sync?.scenes.find(item => item.sceneId === scene.id);
         const spokenSeconds = timing && audio?.sync ? (timing.endSample - timing.startSample) / audio.sync.sampleRate : undefined;
         const asset = script?.generatedImages?.find(item => item.index === index && item.prompt === scene.imagePrompt && (item.mediaType || 'image') === type && item.status === 'done');
+        const sceneRunning = activeIndex === index;
         return <article key={scene.id} className="rounded-xl border border-border bg-surface p-4">
           <div className="mb-3 flex justify-between text-sm font-semibold text-white"><span>{String(index + 1).padStart(3, '0')} · {scene.chapter}</span><span className={type === 'video' ? 'text-purple-300' : 'text-blue-300'}>{type === 'video' ? 'Video' : 'Image'} · {spokenSeconds !== undefined ? `${spokenSeconds.toFixed(2)}s spoken` : 'Timing after narration'}</span></div>
           <div className={`relative flex ${profile === 'shorts' ? 'aspect-[9/16] max-h-[420px]' : 'aspect-video'} items-center justify-center overflow-hidden rounded-lg bg-black/40`}>
-            {asset?.url ? type === 'video' ? <video src={asset.url} controls muted playsInline preload="metadata" className="h-full w-full object-contain" /> : <img src={asset.url} alt={`Scene ${index + 1}`} className="h-full w-full object-contain" /> : <span className="text-sm text-gray-500">Add {type}</span>}
-            <button disabled={locked} aria-label={`Add or replace ${type} for scene ${index + 1}`} title={`Add or replace ${type}`} className="absolute right-3 top-3 rounded-full bg-accent p-2 text-white shadow disabled:opacity-40" onClick={() => { selectedIndex.current = index; if (fileInput.current) { fileInput.current.multiple = false; fileInput.current.accept = type === 'video' ? '.mp4' : '.png,.jpg,.jpeg,.webp'; fileInput.current.click(); } }}><Plus className="h-5 w-5" /></button>
+            {asset?.url ? type === 'video' ? <video src={asset.url} controls muted playsInline preload="metadata" className="h-full w-full object-contain" /> : <img src={asset.url} alt={`Scene ${index + 1}`} className="h-full w-full object-contain" /> : <div className="flex flex-col items-center gap-2 text-gray-500">
+              {type === 'video' ? <Film className="h-8 w-8 text-purple-300/50" /> : <ImageIcon className="h-8 w-8 text-gray-600" />}
+              <span className="text-sm">{type === 'video' ? 'Video scene' : 'Image scene'}</span>
+              <span className="px-3 text-center text-xs">{type === 'video' ? 'Import an MP4' : 'Generate an image or import a still'}</span>
+            </div>}
+            {sceneRunning && <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 p-4 text-center text-purple-200"><Loader2 className="h-9 w-9 animate-spin" /><span className="text-sm font-medium">Generating image...</span></div>}
+            <button disabled={locked} aria-label={`Add or replace ${type} for scene ${index + 1}`} title={`Add or replace ${type}`} className="absolute right-3 top-3 rounded-lg border border-white/10 bg-black/60 p-2 text-gray-200 hover:bg-black/80 disabled:opacity-40" onClick={() => { selectedIndex.current = index; if (fileInput.current) { fileInput.current.multiple = false; fileInput.current.accept = type === 'video' ? '.mp4' : '.png,.jpg,.jpeg,.webp'; fileInput.current.click(); } }}><Plus className="h-5 w-5" /></button>
           </div>
-          {type === 'image' && provider === 'local' && <button disabled={locked} onClick={() => void generateImages([index])} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Generating image…' : asset ? 'Regenerate image' : 'Generate image'}</button>}
-          {type === 'image' && provider === 'colab' && <button disabled={locked} onClick={() => void generateColabQueue([index], 'image')} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Colab working… (minutes)' : asset ? 'Regenerate image (Colab)' : 'Generate image (Colab)'}</button>}
-          {type === 'video' && provider === 'colab' && <button disabled={locked} onClick={() => void generateColabQueue([index], 'video')} className="mt-3 flex items-center gap-2 rounded bg-purple-700/25 px-3 py-2 text-sm text-purple-200 disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Colab working… (minutes)' : asset ? 'Regenerate video (Colab)' : 'Generate video (Colab)'}</button>}
-          <p className="mt-3 whitespace-pre-wrap text-sm text-gray-200">{scene.imagePrompt}</p>
+          <GenerationDisclosure title="Scene actions & prompt" className="mt-3">
+          {type === 'image' && <button disabled={locked} onClick={() => void generateImages([index])} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Generating image…' : asset ? 'Regenerate image' : 'Generate image'}</button>}
+          <p className="mb-3 whitespace-pre-wrap text-xs leading-relaxed text-gray-400">{scene.imagePrompt}</p>
           <button className="mt-3 flex items-center gap-2 text-xs text-accent" onClick={() => { navigator.clipboard.writeText(scene.imagePrompt).then(() => setNotice(`Copied scene ${index + 1} prompt.`)).catch(() => setError('Could not copy. Select the prompt text and copy manually.')); }}><Copy className="h-3 w-3" />Copy prompt</button>
-          <p className="mt-3 text-xs text-emerald-200">Narration: {scene.narration}</p>
+          </GenerationDisclosure>
+          <p className="mt-3 line-clamp-3 text-xs leading-relaxed text-gray-400">Narration: {scene.narration}</p>
         </article>;
       })}
     </div>

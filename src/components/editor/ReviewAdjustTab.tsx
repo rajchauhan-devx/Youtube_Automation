@@ -689,6 +689,8 @@ export function ReviewAdjustTab({
   }
 
   const previewImage = timeline?.clips[currentImageIndex]?.imageUrl || doneImages[0]?.url || '';
+  const measuredSeconds = timeline?.totalDuration;
+  const runtimeDifference = measuredSeconds && script.duration ? (measuredSeconds - script.duration) / script.duration : 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -696,6 +698,10 @@ export function ReviewAdjustTab({
       {sceneBacked && <div role="status" className={`rounded-lg border p-4 text-sm ${syncError ? 'border-amber-600 text-amber-200' : 'border-emerald-700 text-emerald-200'}`}>
         {syncError || `Audio sync ready: ${script.scenePlan?.scenes.length} scenes timed to the generated narration. Scene order and durations follow the audio. Select a scene to review its spoken text.`}
       </div>}
+      {sceneBacked && measuredSeconds && !syncError && <p role="status" className={`text-sm ${Math.abs(runtimeDifference) > 0.15 ? 'text-amber-200' : 'text-gray-400'}`}>
+        Measured narration: {formatTime(measuredSeconds)}. Selected target: {formatTime(script.duration || measuredSeconds)}. Clips cover the complete narration.
+        {Math.abs(runtimeDifference) > 0.15 && ' The spoken runtime differs by more than 15%; adjust the narration and generate audio again to approach the target.'}
+      </p>}
       {/* Audio element for timeline preview */}
       {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" onLoadedMetadata={handleAudioLoaded} onEnded={() => setPlaying(false)} />}
       {bgmTrack === 'ai' && script.generatedMusic?.url && <audio ref={musicRef} src={script.generatedMusic.url} preload="auto" loop />}
@@ -1096,6 +1102,7 @@ export function ReviewAdjustTab({
 
           }
           {/* Action Buttons: START VIDEO GENERATION */}
+          {script.editingProjectId && <p className="text-xs text-amber-200">Saved, enabled Artifacts graphics are included in the final video. Video effects apply to the footage; graphics keep their saved timing, style and animations.</p>}
           <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               onClick={handleStartVideoGeneration}

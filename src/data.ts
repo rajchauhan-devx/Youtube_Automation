@@ -40,6 +40,10 @@ export interface Channel {
   avatar: string;
   youtubeChannelId?: string;
   youtubeChannelTitle?: string;
+  facebookPageId?: string;
+  facebookPageName?: string;
+  instagramUserId?: string;
+  instagramUsername?: string;
 }
 
 export const DURATION_PRESETS = [30, 45, 60, 90, 120] as const;
@@ -115,7 +119,30 @@ export interface YouTubeExportData {
   uploadedAt?: string;
 }
 
+export interface FacebookExportData {
+  title?: string;
+  description?: string;
+  tags?: string[];
+  pageId?: string;
+  pageName?: string;
+  uploadedVideoId?: string;
+  uploadedVideoUrl?: string;
+  uploadedAt?: string;
+}
+
+export interface InstagramExportData {
+  caption?: string;
+  tags?: string[];
+  titles?: string[];
+  igUserId?: string;
+  username?: string;
+  uploadedMediaId?: string;
+  uploadedVideoUrl?: string;
+  uploadedAt?: string;
+}
+
 export interface Script {
+  /** Legacy template setting. Media types now come from the extracted scene plan. */
   videoImportsEnabled?: boolean;
   editingProjectId?: string;
   enableSubtitles?: boolean;
@@ -149,6 +176,8 @@ export interface Script {
   timelineConfig?: TimelineConfig;
   sceneAnalysis?: SceneAnalysis;
   youtubeExport?: YouTubeExportData;
+  facebookExport?: FacebookExportData;
+  instagramExport?: InstagramExportData;
   ttsVolume?: number;
 }
 

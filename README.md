@@ -8,14 +8,13 @@ API key is saved (`server/.env` vs browser `openrouter_key`), what git carries v
 and a new-PC checklist with one-click `.md` export. Secret values are never shown.
 
 Full runbook: [complete installation and migration guide](docs/NEW_PC_SETUP.md).
-Remote image and video generation: [Colab API setup and usage](docs/COLAB_MEDIA_API.md).
 All profiles share [one script extraction format](docs/SHARED_SCRIPT_FORMAT.md), with content-preserving conversion for supported older responses.
 It includes a prompt to give an AI installer, model download steps, external folder
 dependencies, `server/.env` configuration, and runtime verification. Git clone alone
 does not include ComfyUI, model weights, or the separate custom MuseTalk-Demo app.
 
 AI-directed visual editing is available under **Artifacts** with a shared preview/MP4
-renderer and an explicit enhanced mode in **Timeline & Render**. See
+renderer and an explicit enhanced mode in **Timeline & Render**. Legacy **Start Video Generation** also includes saved, enabled Artifacts graphics over the edited footage. See
 [setup, configuration and qualification status](docs/AI_VIDEO_EDITING_SETUP.md).
 
 AI presenter: enable **Timeline & Render → AI Presenter** to add a chest-up,

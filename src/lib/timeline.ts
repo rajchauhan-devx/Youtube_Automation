@@ -11,7 +11,7 @@ export function longVideoTimeline(script: Script): TimelineConfig {
   const sync = audio.sync;
   const clips = mediaScenes(script).map((scene, i) => {
     const image = script.generatedImages?.find(image => image.index === i && (image.mediaType || 'image') === (scene.mediaType || 'image'));
-    if (!image?.url || image.status !== 'done' || image.prompt !== scene.imagePrompt) throw new Error(`Generate the current image for scene ${scene.id} before rendering.`);
+    if (!image?.url || image.status !== 'done' || image.prompt !== scene.imagePrompt) throw new Error(`${scene.mediaType === 'video' ? 'Import the current video' : 'Generate or import the current image'} for scene ${scene.id} before rendering.`);
     if ((image.mediaType || 'image') !== (scene.mediaType || 'image')) throw new Error(`Import the correct media type for scene ${scene.id}.`);
     return { id: scene.id, imageUrl: image.url, mediaType: scene.mediaType || 'image', prompt: scene.imagePrompt, duration: (sync.scenes[i].endSample - sync.scenes[i].startSample) / sync.sampleRate,
       transition: 'none' as const, transitionDuration: 0, caption: scene.narration };

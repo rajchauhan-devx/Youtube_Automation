@@ -79,11 +79,17 @@ export function YouTubeExportTab({
     authenticated: false,
     channel: null,
   });
+  const [credInfo, setCredInfo] = useState<{
+    clientId: string | null; source: 'account' | 'shared' | 'env' | 'none';
+    hasOwnFile: boolean; hasToken: boolean; redirectUri: string;
+  } | null>(null);
   const [checkingYtStatus, setCheckingYtStatus] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [clientIdInput, setClientIdInput] = useState('');
   const [clientSecretInput, setClientSecretInput] = useState('');
   const [savingCreds, setSavingCreds] = useState(false);
+  const [removingCreds, setRemovingCreds] = useState(false);
+  const [credError, setCredError] = useState('');
 
   // Metadata Form State
   const initialData = script?.youtubeExport;
@@ -152,14 +158,30 @@ export function YouTubeExportTab({
   async function refreshYouTubeStatus() {
     setCheckingYtStatus(true);
     try {
-      const res = await fetch('/api/youtube/status');
-      const data: YouTubeStatusResponse = await res.json();
+      const [statusRes, credRes] = await Promise.all([fetch('/api/youtube/status'), fetch('/api/youtube/credentials')]);
+      const data: YouTubeStatusResponse = await statusRes.json();
       setYtStatus(data);
+      if (credRes.ok) setCredInfo(await credRes.json());
     } catch {
       setYtStatus({ configured: false, authenticated: false, channel: null });
     } finally {
       setCheckingYtStatus(false);
     }
+  }
+
+  function openConfigModal() {
+    setCredError('');
+    setClientSecretInput('');
+    setClientIdInput(credInfo?.clientId || '');
+    setShowConfigModal(true);
+  }
+
+  function credSourceLabel() {
+    if (!credInfo?.clientId) return null;
+    if (credInfo.source === 'account') return 'This account’s own app';
+    if (credInfo.source === 'shared') return 'Shared app (default account)';
+    if (credInfo.source === 'env') return 'From server/.env';
+    return null;
   }
 
   useEffect(() => {
@@ -225,6 +247,7 @@ export function YouTubeExportTab({
     e.preventDefault();
     if (!clientIdInput.trim() || !clientSecretInput.trim()) return;
     setSavingCreds(true);
+    setCredError('');
     try {
       const res = await fetch('/api/youtube/credentials', {
         method: 'POST',
@@ -234,11 +257,35 @@ export function YouTubeExportTab({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to save credentials');
       setShowConfigModal(false);
+      setClientSecretInput('');
       refreshYouTubeStatus();
     } catch (err: any) {
-      alert(err.message || 'Failed to save credentials');
+      setCredError(err.message || 'Failed to save credentials');
     } finally {
       setSavingCreds(false);
+    }
+  }
+
+  async function handleRemoveCredentials() {
+    if (ytStatus.authenticated) {
+      setCredError('Disconnect this account before removing its OAuth configuration.');
+      return;
+    }
+    if (!confirm('Remove the saved Google OAuth app (Client ID + Secret) for this account?')) return;
+    setRemovingCreds(true);
+    setCredError('');
+    try {
+      const res = await fetch('/api/youtube/credentials', { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || 'Failed to remove credentials');
+      setClientIdInput('');
+      setClientSecretInput('');
+      setShowConfigModal(false);
+      refreshYouTubeStatus();
+    } catch (err: any) {
+      setCredError(err.message || 'Failed to remove credentials');
+    } finally {
+      setRemovingCreds(false);
     }
   }
 
@@ -439,11 +486,11 @@ export function YouTubeExportTab({
                 </button>
               ) : (
                 <button
-                  onClick={() => setShowConfigModal(true)}
+                  onClick={openConfigModal}
                   className="flex items-center gap-1.5 rounded-lg border border-border bg-surface2 px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white"
                 >
                   <Key className="h-3.5 w-3.5 text-amber-400" />
-                  Setup Google OAuth
+                  {ytStatus.configured ? 'Replace Google OAuth keys' : 'Setup Google OAuth'}
                 </button>
               )}
               <button
@@ -859,7 +906,7 @@ export function YouTubeExportTab({
                     </p>
                   </div>
                   <button
-                    onClick={ytStatus.configured ? handleConnectYouTube : () => setShowConfigModal(true)}
+                    onClick={ytStatus.configured ? handleConnectYouTube : openConfigModal}
                     className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700 shadow"
                   >
                     <Youtube className="h-4 w-4" />
@@ -904,7 +951,7 @@ export function YouTubeExportTab({
             <div className="flex items-center justify-between border-b border-border/60 pb-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Key className="h-4 w-4 text-amber-400" />
-                Configure YouTube OAuth Credentials
+                {ytStatus.configured ? 'Replace YouTube OAuth keys' : 'Configure YouTube OAuth Credentials'}
               </h3>
               <button
                 onClick={() => setShowConfigModal(false)}
@@ -914,8 +961,11 @@ export function YouTubeExportTab({
               </button>
             </div>
 
+            {credInfo?.clientId && <p className="break-all rounded-lg border border-border bg-bg p-2 font-mono text-[11px] text-gray-300">Current app: {credInfo.clientId}{credSourceLabel() ? ` · ${credSourceLabel()}` : ''}</p>}
+
             <p className="text-xs text-gray-400 leading-relaxed">
-              To upload directly from TubeFlow, create an OAuth 2.0 Client in your{' '}
+              Stored per-account inside the app — no need to edit <span className="font-mono text-gray-200">server/data/client_secret.json</span> manually.
+              Create an OAuth 2.0 Client in your{' '}
               <a
                 href="https://console.cloud.google.com/apis/credentials"
                 target="_blank"
@@ -926,9 +976,12 @@ export function YouTubeExportTab({
               </a>{' '}
               with the <strong>YouTube Data API v3</strong> enabled, and set the Redirect URI to:{' '}
               <code className="text-gray-200 bg-surface2 px-1 rounded">
-                http://localhost:3001/api/youtube/callback
+                {credInfo?.redirectUri || 'http://localhost:3001/api/youtube/callback'}
               </code>
             </p>
+
+            {ytStatus.authenticated && <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-200">Connected — disconnect first. Saving or removing keys is blocked while a channel token exists.</p>}
+            {credError && <p role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 p-2 text-xs text-red-300">{credError}</p>}
 
             <form onSubmit={handleSaveCredentials} className="space-y-3">
               <div>
@@ -955,21 +1008,35 @@ export function YouTubeExportTab({
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowConfigModal(false)}
-                  className="rounded-lg border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingCreds}
-                  className="rounded-lg bg-accent px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent/80 disabled:opacity-40"
-                >
-                  {savingCreds ? 'Saving...' : 'Save Credentials'}
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
+                <div>
+                  {ytStatus.configured && !ytStatus.authenticated && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCredentials}
+                      disabled={savingCreds || removingCreds}
+                      className="rounded-lg border border-red-500/40 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-40"
+                    >
+                      {removingCreds ? 'Removing…' : 'Remove keys'}
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowConfigModal(false)}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingCreds || removingCreds}
+                    className="rounded-lg bg-accent px-4 py-1.5 text-xs font-semibold text-white hover:bg-accent/80 disabled:opacity-40"
+                  >
+                    {savingCreds ? 'Saving...' : 'Save Credentials'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

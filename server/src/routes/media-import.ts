@@ -13,7 +13,7 @@ mediaImportRouter.post('/:scriptId/:index', express.raw({ type: 'application/oct
   try {
     const { scriptId } = req.params;
     const index = Number(req.params.index);
-    if (!['mixed', 'shorts'].includes(currentWorkspace().profile) || !safeSegment(scriptId) || !Number.isInteger(index) || index < 0) throw new Error('Invalid mixed-media scene.');
+    if (!['mixed', 'shorts', 'long'].includes(currentWorkspace().profile) || !safeSegment(scriptId) || !Number.isInteger(index) || index < 0) throw new Error('Invalid media scene.');
     const script = store.getById<any>('scripts', scriptId);
     const scene = mediaScenes({ ...script, section: currentWorkspace().profile })[index];
     if (!scene) throw new Error('Scene not found. Extract your script first.');
@@ -36,7 +36,7 @@ mediaImportRouter.post('/:scriptId/:index', express.raw({ type: 'application/oct
     if (!current || JSON.stringify(mediaScenes({ ...current, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) throw new Error('Scene changed during upload. Import again into the updated scene.');
     const asset = { index, prompt: scene.imagePrompt, mediaType: type, ...(type === 'video' ? { duration } : {}), status: 'done', url: mediaUrl(`generate/file/${scriptId}/${filename}`) };
     const generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index || (currentWorkspace().profile === 'shorts' && (item.mediaType || 'image') !== type)), asset].sort((a, b) => a.index - b.index);
-    store.add('scripts', { ...current, generatedImages, timelineConfig: undefined, youtubeExport: undefined });
+    store.add('scripts', { ...current, generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
     target = undefined;
     res.json({ asset, generatedImages });
   } catch (error) {

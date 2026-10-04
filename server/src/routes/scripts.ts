@@ -98,7 +98,7 @@ scriptsRouter.put('/:id/spoken-script', async (req, res) => {
   catch (error) { res.status(500).json({ error: error instanceof Error ? error.message : 'Could not clear the previous output.' }); return; }
   const scope = currentWorkspace();
   const updated = { ...existing, narration, extractedScript: narration, generatedAudio: [],
-    timelineConfig: undefined, youtubeExport: undefined, generatedMusic: undefined,
+    timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined, generatedMusic: undefined,
     accountId: scope.accountId, section: scope.profile };
   store.add('scripts', updated);
   res.json(updated);
@@ -155,7 +155,7 @@ scriptsRouter.put('/:id', async (req, res) => {
   const updated = { ...existing, ...req.body, id: req.params.id, accountId: scope.accountId, section: scope.profile };
   if (reset) {
     delete updated.generatedMusic;
-    for (const key of ['timelineConfig', 'sceneAnalysis', 'youtubeExport', 'scenePlan']) delete updated[key];
+    for (const key of ['timelineConfig', 'sceneAnalysis', 'youtubeExport', 'facebookExport', 'instagramExport', 'scenePlan']) delete updated[key];
     updated.generatedImages = [];
     updated.generatedAudio = [];
     if (responseReplaced) {
@@ -166,8 +166,8 @@ scriptsRouter.put('/:id', async (req, res) => {
     if (updated.status === 'draft') { delete updated.topicName; delete updated.aiInstructions; }
     store.set(`pipeline_${req.params.id}`, []);
   }
-  if (sceneChanged) { updated.generatedAudio = []; delete updated.timelineConfig; delete updated.youtubeExport; delete updated.generatedMusic; }
-  if (mediaModeChanged) { delete updated.timelineConfig; delete updated.youtubeExport; }
+  if (sceneChanged) { updated.generatedAudio = []; delete updated.timelineConfig; delete updated.youtubeExport; delete updated.facebookExport; delete updated.instagramExport; delete updated.generatedMusic; }
+  if (mediaModeChanged) { delete updated.timelineConfig; delete updated.youtubeExport; delete updated.facebookExport; delete updated.instagramExport; }
   store.add('scripts', updated);
   res.json(updated);
 });

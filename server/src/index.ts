@@ -8,6 +8,8 @@ import { generateRouter } from './routes/generate.js';
 import { ttsRouter } from './routes/tts.js';
 import { renderRouter } from './routes/render.js';
 import { youtubeRouter } from './routes/youtube.js';
+import { facebookRouter } from './routes/facebook.js';
+import { instagramRouter } from './routes/instagram.js';
 import { accountsRouter } from './routes/accounts.js';
 import { workspacesRouter } from './routes/workspaces.js';
 import { presenterRouter } from './routes/presenter.js';
@@ -50,6 +52,8 @@ app.use('/api/presenter', presenterRouter);
 app.use('/api/setup', setupRouter);
 app.use('/api/editing', editingRouter);
 app.use('/api/youtube', youtubeRouter);
+app.use('/api/facebook', facebookRouter);
+app.use('/api/instagram', instagramRouter);
 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });

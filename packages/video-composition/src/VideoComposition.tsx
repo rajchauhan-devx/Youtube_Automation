@@ -3,9 +3,11 @@ import { AbsoluteFill, Audio, Img, OffthreadVideo, Sequence, Freeze, useCurrentF
 import type { EditingProject, AssetRecord } from "@tubeflow/editing-contracts";
 import { sourceMatrix } from "./math.js";
 import { MotionGraphicRenderer } from "./MotionGraphics.js";
+import { legacySourceMatrix, type LegacyCamera } from './legacy-camera.js';
 export type CompositionProps = {
   project: EditingProject;
   assets: Record<string, { url: string; record: AssetRecord }>;
+  legacyCameras?: Record<string, LegacyCamera>;
 };
 const fontFamily = (id: string) => `editing-${id}`;
 export function FontRegistry({ project, assets, onReady }: CompositionProps & { onReady: () => void }) {
@@ -64,6 +66,24 @@ export function FontRegistry({ project, assets, onReady }: CompositionProps & { 
   return null;
 }
 const videoRate = (duration: number, target: number) => Math.max(0.5, Math.min(1, duration / target));
+/** Transparent saved graphics only. Legacy video effects are applied before this layer. */
+export function ArtifactsOverlay({ project, assets, legacyCameras }: CompositionProps) {
+  const [fontsReady, setFontsReady] = useState(false);
+  const markFontsReady = useCallback(() => setFontsReady(true), []);
+  const frame = useCurrentFrame();
+  return <AbsoluteFill>
+    <FontRegistry project={project} assets={assets} onReady={markFontsReady} />
+    {fontsReady && project.scenes.map(scene => {
+      if (frame < scene.startFrame || frame >= scene.endFrame) return null;
+      const source = assets[scene.assetId].record;
+      const sourceTransform = legacyCameras?.[scene.id] ? legacySourceMatrix(legacyCameras[scene.id], frame / project.inputs.fps, project.inputs, { width: source.width!, height: source.height! }) : undefined;
+      return <AbsoluteFill key={scene.id}>
+        {project.artifacts.filter(a => a.graphic && a.enabled && a.sceneId === scene.id && frame >= a.startFrame && frame < a.endFrame)
+          .map(a => <MotionGraphicRenderer key={a.id} artifact={a} project={project} frame={frame} source={{ width: source.width!, height: source.height! }} sourceTransform={sourceTransform} />)}
+      </AbsoluteFill>;
+    })}
+  </AbsoluteFill>;
+}
 export function VideoComposition({ project, assets }: CompositionProps) {
   const [fontsReady, setFontsReady] = useState(false);
   const markFontsReady = useCallback(() => setFontsReady(true), []);

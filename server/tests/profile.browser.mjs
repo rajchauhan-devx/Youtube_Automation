@@ -73,28 +73,28 @@ try {
   await page.screenshot({ path: 'artifacts/profile-voices-mobile.png', fullPage: true });
   await page.setViewport({ width: 1440, height: 1100 });
   await page.reload({ waitUntil: 'networkidle0' });
-  await clickText('Audio Generation');
+  await clickText('Audio');
   await page.waitForFunction(() => document.body.textContent.includes('My English Voice'));
   assert.ok(!(await page.$eval('body', el => el.textContent)).includes('My Hindi Voice'));
   assert.equal(await page.$$eval('div.relative.cursor-pointer', cards => cards.filter(card => card.textContent.includes('My English Voice') && card.className.includes('ring-1')).length), 1, 'the Profile voice is selected automatically in Audio Generation');
-  // Voice cards currently use selectable divs; click the exact visible name.
   async function selectVoice(name) {
-    const handle = await page.evaluateHandle(name => [...document.querySelectorAll('h4, h3, span, p')].find(el => el.textContent.trim() === name), name);
-    await handle.asElement().click();
+    const id = await page.$eval('[aria-label="Narration voice"]', (select, name) => [...select.options].find(option => option.textContent === name)?.value, name);
+    assert.ok(id, `Missing voice: ${name}`);
+    await page.select('[aria-label="Narration voice"]', id);
   }
   await selectVoice('My English Voice');
-  await clickText('Start Audio Generation');
-  await page.waitForFunction(() => document.body.textContent.includes('Start Re-generation'));
+  await clickText('Generate audio');
+  await page.waitForFunction(() => document.body.textContent.includes('Regenerate audio'));
   assert.equal(requests[0].voice, 'clone_en'); assert.equal(requests[0].language, 'en');
-  await clickText('Hindi & Hinglish');
+  await page.select('#narration-language', 'hi');
   await page.waitForFunction(() => document.body.textContent.includes('My Hindi Voice'));
   await selectVoice('My Hindi Voice');
-  await clickText('Start Audio Generation');
-  await page.waitForFunction(() => document.body.textContent.includes('Start Re-generation'));
+  await clickText('Generate audio');
+  await page.waitForFunction(() => document.body.textContent.includes('Regenerate audio'));
   assert.equal(requests[1].voice, 'clone_hi'); assert.equal(requests[1].language, 'hi');
-  await clickText('English (US');
+  await page.select('#narration-language', 'en');
   await page.waitForFunction(() => document.body.textContent.includes('My English Voice'));
-  await clickText('Start Re-generation');
+  await clickText('Regenerate audio');
   await page.waitForFunction(() => !document.body.textContent.includes('Generating Audio ('));
   assert.equal(requests[2].voice, 'clone_en', 'language-specific selection is remembered');
   await page.click('[aria-label="Profile and voices"]');

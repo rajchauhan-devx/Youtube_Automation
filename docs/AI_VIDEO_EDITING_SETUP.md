@@ -18,6 +18,10 @@ Run `npm run dev` from the repository root. The server build removes obsolete co
 4. Select a graphic to preview it. Edit its title, detail, timing and position; save or regenerate it individually. Hide/show controls apply immediately to a new revision.
 5. Export MP4 and download the completed render. Preview and export use the same composition.
 
+To combine graphics with footage edits, switch **Timeline & Render** to **Legacy** and click **Start Video Generation** after editing. This automatically includes the script's current enabled Artifacts graphics and motion captions. The footage, transitions, presenter and audio mix render first; the saved graphics render as a transparent layer and are added afterward. Footage color grading, vignette, grain, sharpening and transitions do not change graphic colors, style, screen positions or entrance/exit animations. Saved motion captions replace legacy subtitles to avoid duplicate text. No saved Artifacts revision is modified.
+
+Graphics retain their saved timestamps. Object spotlight anchors follow the footage's actual zoom, pan and framing, using the same camera calculation. If a framing or scene timing edit would hide a spotlight or move it away from its source scene, rendering asks you to adjust that graphic instead of producing a misplaced highlight. Changed narration, replaced/reordered media or a different output format requires a matching Artifacts revision. The completed combined MP4 is available through the normal preview, download and YouTube Export flow. The interactive legacy timeline preview continues to show the footage; use the completed video to review the combined result.
+
 The pipeline samples one frame from each scene video or uses its still image, then sends scene samples to Gemini in batches of up to 16 for visual inspection. The planner receives the visible objects and suggested open area along with narration. It selects at most 2/3/4 graphics per minute for subtle/balanced/expressive density, up to 16 per video, with no quota to fill. Spotlights count toward the same ceiling and have their own duration-based limit. It must cite actual narration. Scenes stay clear when another visual cue adds no value. Graphics use a story-matched color palette selected from the narration and imagery; the planner can refine the theme.
 
 Object spotlights on still images use a normalized box from Gemini and a separate image-crop verification. Geometry is checked throughout camera movement, and the visible object becomes the spotlight's short label. Model verification is not a guarantee of correct identification; review the target in the preview. If a target cannot be verified or placed safely, the scene stays clean and a diagnostic explains why. Moving clips use scene graphics because object tracking is not implemented.
@@ -38,6 +42,7 @@ Original scene media and narration are immutable. Saved old revisions remain on 
 - `npm run test:editing`
 - `npm run test:editing:render`
 - `npm run test:editing:browser`
+- `node --test server/tests/render-graphics.test.mjs` (after building the server)
 - Optional live provider check: `EDITING_SMOKE_MODEL=<available-gemini-model> npm run test:editing:live`
 
 Renderer/schema types retain legacy node definitions solely to read saved projects and validate storage compatibility. New graphics use the restricted `graphic` contract and cannot include executable code or legacy nodes.

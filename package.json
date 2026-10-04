@@ -21,7 +21,6 @@
     "test:editing:browser": "npm run build && npm run build --prefix server && node tests/editing/browser-smoke.mjs",
     "test:editing:live": "npm run build --prefix server && node tests/editing/live-smoke.mjs",
     "test": "npm run build --prefix server && node --test server/tests/*.test.mjs",
-    "test:colab:browser": "npm run build && node tests/colab/browser-smoke.mjs",
     "build:all": "npm run typecheck && npm run build && npm run build --prefix server"
   },
   "dependencies": {
