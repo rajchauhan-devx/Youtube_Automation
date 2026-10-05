@@ -8,7 +8,7 @@ import { store } from './store.js';
 import { generateTTS, TTS_PROVIDER_NAME } from './omnivoice.js';
 import { runMedia } from './media-process.js';
 import { writeNarrationMetadata } from './editing/media.js';
-import { normalizeNarration, spokenText, validateScenePlan, validateSync, type ScenePlan, type NarrationSync } from './scene-plan.js';
+import { normalizeNarration, spokenText, syncScenePlanNarration, validateScenePlan, validateSync, type ScenePlan, type NarrationSync } from './scene-plan.js';
 
 export const planHash = (plan: ScenePlan) => createHash('sha256').update(JSON.stringify(validateScenePlan(plan))).digest('hex');
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -107,11 +107,14 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
 export function startNarration(options: VoiceOptions, synthesize = generateTTS) {
   if ([...jobs.values()].some(job => job.status === 'running')) throw new Error('A synchronized narration job is already running. Wait or cancel it first.');
   const script = store.getById<any>('scripts', options.scriptId);
-  const plan = validateScenePlan(script?.scenePlan);
-  if (normalizeNarration(script.narration || '') !== normalizeNarration(spokenText(plan))) throw new Error('Narration differs from the scene map. Extract the updated Long Video response first.');
+  let plan = validateScenePlan(script?.scenePlan);
+  if (script?.narration && normalizeNarration(script.narration) !== normalizeNarration(spokenText(plan))) {
+    plan = validateScenePlan(syncScenePlanNarration(plan, script.narration));
+  }
   if (options.language === 'en' && /[\u0900-\u097F]/.test(spokenText(plan))) throw new Error('This scene map contains Hindi narration. Select a Hindi voice; changing voice language does not translate the script.');
   const fingerprint = planHash(plan);
-  store.add('scripts', { ...script, generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
+  const syncedNarration = spokenText(plan);
+  store.add('scripts', { ...script, scenePlan: plan, narration: syncedNarration, extractedScript: syncedNarration, generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
   const controller = new AbortController();
   let finish!: () => void;
   const job: Job = { status: 'running', completed: 0, total: plan.scenes.length, controller, finished: new Promise(resolve => { finish = resolve; }) };

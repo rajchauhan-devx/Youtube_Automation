@@ -50,7 +50,14 @@ scriptsRouter.get('/', (_req, res) => {
     }
     store.add('template_migrations', { id: 'shorts-media-v4' });
   }
-  const scripts = store.get<ScriptData>('scripts');
+  const scripts = store.get<ScriptData>('scripts').map((s) => {
+    if ((s as any).model === 'ollama/qwen3.5:4b') {
+      const migrated = { ...s, model: 'gemini-3.6-flash' };
+      store.add('scripts', migrated);
+      return migrated;
+    }
+    return s;
+  });
   res.json(scripts);
 });
 

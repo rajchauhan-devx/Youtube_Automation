@@ -133,7 +133,7 @@
     "aiInstructions": "",
     "scenePlan": {
       "version": 1,
-      "title": "Untitled episode",
+      "title": "Generated Episode",
       "thumbnailPrompt": "Extreme close-up of a young man's inner left wrist, skin texture realistic but clean 2D cel-shaded style. A glowing soft red digital display is embedded into the skin, showing the numbers 00:00:30. The background is a blurred, muted blue subway station wall. Soft, natural lighting. No photorealism, no 3D, no text outside the clock. Clean lines, charcoal and off-white palette. High contrast, mobile-friendly 9:16 aspect ratio. Negative: photorealistic, 3D render, extra limbs, distorted face, watermark, motion blur, glossy textures.\n\nStyle Tags:\nclean grounded 2D animated series, realistic proportions, simple linework, subtle cel shading, muted charcoal/off-white/blue/beige palette, soft red accent.",
       "scenes": [
         {
@@ -182,7 +182,7 @@
           "imagePrompt": "A wide, locked-off shot of the subway platform. Elias is gone. In the center of the frame, his beige trench coat and shoes sit in a heap on the concrete floor. The subway station around the clothes remains normal, people walking past. 2D cel-shaded style, muted blue and beige tones. 9:16 aspect ratio. Negative: photorealistic, 3D render, shadows of a person, watermark, distorted perspective.\n\nStyle Tags:\nclean grounded 2D animated series, realistic proportions, simple linework, subtle cel shading, muted charcoal/off-white/blue/beige palette, soft red accent."
         }
       ],
-      "supportingNotes": "*   **Opening Rule Display (Image 1):** 00:00:30 (Bottom center, red font)."
+      "supportingNotes": "---\n\n## 🎬 SECTION 3B — VIDEO STATUS\nVIDEO STATUS: NOT APPLICABLE — IMAGE-ONLY RULE ZERO EPISODE\nVideo clips: 0\nVideo prompts: 0\nGenerated image-to-video: 0\nPlayback: still 2D images, captions, cuts/dissolves only.\n\n---\n\n## 🇬🇧 SECTION 4 — ENGLISH TEXT OVERLAYS\n*   **Opening Rule Display (Image 1):** 00:00:30 (Bottom center, red font).\n*   **Clue/Reveal (Image 3):** 00:00:10 (Bottom center, red font).\n*   **Ending:** No text, visual storytelling only.\n\n---\n\n## 🙏 SECTION 5 — THE REFLECTION / THEORY ENGINE\n*   **Pinned Question:** \"If the timer isn't for death, why does the system keep track of everyone's 'inventory'?\"\n*   **Canon Update:** The \"Clock\" is an administrative tool for mass erasure, not a biological countdown. \n*   **Unresolved Thread:** Who or what is performing the \"recall,\" and where do the clothes go?"
     },
     "sceneAnalysis": {
       "transitions": [

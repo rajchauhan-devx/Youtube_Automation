@@ -29,7 +29,6 @@ export function PreviewTab({
   onGenerate,
   onStop,
   onExtractAssets,
-  onExtractTimelineAssets,
   onImportResponse,
 }: PreviewTabProps) {
   const responseEndRef = useRef<HTMLDivElement>(null);
@@ -89,7 +88,6 @@ export function PreviewTab({
   const isDone = responseStage.status === 'done';
   const isGenerating = responseStage.status === 'running';
   const extractionFailed = responseStage.status === 'error' && responseStage.summary === 'Asset extraction needs attention';
-  const narrationMismatch = extractionFailed && responseStage.outputPreview?.includes('final clean voice script differs');
   const hasResponse = Boolean(script.aiResponse?.trim());
   const hasPrompt = Boolean(script.topicName?.trim());
 
@@ -111,10 +109,11 @@ export function PreviewTab({
             className="rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2 disabled:opacity-40">
             Paste AI Response
           </button>}
-          {(isDone || extractionFailed) && onExtractAssets && (
+          {(isDone || extractionFailed || hasResponse) && onExtractAssets && (
             <button
               onClick={onExtractAssets}
-              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80"
+              disabled={isGenerating}
+              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
             >
               <Sparkles className="h-3.5 w-3.5" />
               Extract Assets
@@ -191,14 +190,6 @@ export function PreviewTab({
                       <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-accent align-middle" />
                     )}
                   </div>
-                  {narrationMismatch && onExtractTimelineAssets && (
-                    <div className="mt-4 rounded-lg border border-amber-500/40 bg-amber-950/20 p-4 text-sm text-amber-100">
-                      <p>The clean voice script and timeline contain different narration. Use the timeline's spoken text for all scenes to preserve the image and video links. Your original response will be kept.</p>
-                      <button onClick={onExtractTimelineAssets} className="mt-3 rounded-md bg-accent px-3 py-2 font-medium text-white hover:bg-accent/80">
-                        Use timeline narration &amp; extract
-                      </button>
-                    </div>
-                  )}
 
                   <div className="mt-3 flex items-center gap-2 text-xs">
                     {isGenerating && <span className="text-accent">{responseStage.summary || 'Generating…'}</span>}

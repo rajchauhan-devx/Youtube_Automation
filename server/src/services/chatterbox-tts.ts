@@ -14,7 +14,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER_ROOT = path.resolve(__dirname, '..', '..');
 const SERVICE_DIR = path.join(SERVER_ROOT, 'chatterbox');
 const SERVICE_SCRIPT = path.join(SERVICE_DIR, 'server.py');
-const VENV_PYTHON = path.join(SERVICE_DIR, '.venv', 'Scripts', 'python.exe');
+const VENV_PYTHON_CANDIDATES = process.platform === 'win32'
+  ? [path.join(SERVICE_DIR, '.venv', 'Scripts', 'python.exe'), path.join(SERVICE_DIR, '.venv', 'bin', 'python')]
+  : [path.join(SERVICE_DIR, '.venv', 'bin', 'python'), path.join(SERVICE_DIR, '.venv', 'Scripts', 'python.exe')];
+function findVenvPython(): string | undefined {
+  if (process.env.CHATTERBOX_PYTHON && fs.existsSync(process.env.CHATTERBOX_PYTHON)) {
+    return process.env.CHATTERBOX_PYTHON;
+  }
+  return VENV_PYTHON_CANDIDATES.find((candidate) => fs.existsSync(candidate));
+}
 // Shared library: curated preset voices plus the default account's own references.
 // Every other account keeps a private library under accounts/<id>/voices so one
 // profile's uploaded voices are never visible to (or deletable from) another.
@@ -91,8 +99,9 @@ function latestLogMessage(): string {
 }
 
 function resolvePython(): string {
+  const venvPython = findVenvPython();
+  if (venvPython) return venvPython;
   if (process.env.CHATTERBOX_PYTHON) return process.env.CHATTERBOX_PYTHON;
-  if (fs.existsSync(VENV_PYTHON)) return VENV_PYTHON;
 
   if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
     const candidates = [
@@ -206,7 +215,7 @@ export async function getChatterboxStatus(): Promise<ChatterboxStatus> {
       gpu: data.gpu || null,
     };
   } catch {
-    const setupHint = fs.existsSync(VENV_PYTHON)
+    const setupHint = Boolean(findVenvPython() || process.env.CHATTERBOX_PYTHON)
       ? 'Start Chatterbox to load the local model.'
       : 'Chatterbox is not installed. Run npm run setup:tts once, then start it again.';
     return {
@@ -267,7 +276,7 @@ export async function startChatterbox(): Promise<{ success: boolean; ready: bool
     return { success: false, ready: false, state: 'error', message: `Missing Chatterbox service: ${SERVICE_SCRIPT}` };
   }
 
-  if (!fs.existsSync(VENV_PYTHON) && !process.env.CHATTERBOX_PYTHON) {
+  if (!findVenvPython() && !process.env.CHATTERBOX_PYTHON) {
     return {
       success: false,
       ready: false,
@@ -309,13 +318,13 @@ export async function startChatterbox(): Promise<{ success: boolean; ready: bool
       if (code && code !== 0) lastProcessError = `Chatterbox exited with code ${code}${signal ? ` (${signal})` : ''}. ${latestLogMessage()}`;
     });
 
-    const status = await waitForHttpServer(30_000);
+    const status = await waitForHttpServer(60_000);
     if (!status.online) {
       return {
         success: false,
         ready: false,
         state: status.state,
-        message: status.error || latestLogMessage() || 'Chatterbox did not open its health endpoint within 30 seconds.',
+        message: status.error || latestLogMessage() || 'Chatterbox did not open its health endpoint within 60 seconds.',
       };
     }
     return {

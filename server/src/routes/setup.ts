@@ -20,6 +20,8 @@ const GEMINI_MODELS = [
 import { TTS_PROVIDER, TTS_PROVIDER_NAME, TTS_PROVIDER_KIND } from '../services/omnivoice.js';
 import { MUSIC_MODELS } from '../services/local-music.js';
 import { editingConfig } from '../services/editing/config.js';
+import { resolveComfyPath, resolveComfyPython, resolveWorkflowPath } from '../services/comfyui.js';
+import { museTalkRoot } from '../services/presenter.js';
 
 export const setupRouter = Router();
 
@@ -95,12 +97,12 @@ setupRouter.get('/', async (_req, res) => {
     return;
   }
 
-  const comfyPath = process.env.COMFYUI_PATH || path.join(SERVER_ROOT, '..', 'ComfyUI');
+  const comfyPath = resolveComfyPath() || path.resolve(SERVER_ROOT, process.env.COMFYUI_PATH || path.join('..', 'ComfyUI'));
   const comfyCkptDir = path.join(comfyPath, 'models', 'checkpoints');
   let comfyCheckpoints: string[] = [];
   try {
     if (fs.existsSync(comfyCkptDir)) {
-      comfyCheckpoints = fs.readdirSync(comfyCkptDir).filter(f => f.endsWith('.safetensors') || f.endsWith('.ckpt'));
+      comfyCheckpoints = fs.readdirSync(comfyCkptDir).filter(f => (f.endsWith('.safetensors') || f.endsWith('.ckpt')) && f !== 'put_checkpoints_here');
     }
   } catch { /* ignore */ }
 
@@ -112,9 +114,14 @@ setupRouter.get('/', async (_req, res) => {
     return { folder, name, path: full, installed: size > 1_000_000, bytes: size };
   });
 
-  const chatterboxVenv = path.join(SERVER_ROOT, 'chatterbox', '.venv', 'Scripts', 'python.exe');
-  const comfyVenv = process.env.COMFYUI_PYTHON || path.join(SERVER_ROOT, '..', 'artifacts', 'comfy-venv', 'Scripts', 'python.exe');
-  const museTalkRoot = process.env.MUSETALK_ROOT || path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo');
+  const chatterboxVenvCandidates = process.platform === 'win32'
+    ? [path.join(SERVER_ROOT, 'chatterbox', '.venv', 'Scripts', 'python.exe'), path.join(SERVER_ROOT, 'chatterbox', '.venv', 'bin', 'python')]
+    : [path.join(SERVER_ROOT, 'chatterbox', '.venv', 'bin', 'python'), path.join(SERVER_ROOT, 'chatterbox', '.venv', 'Scripts', 'python.exe')];
+  const chatterboxVenv = (process.env.CHATTERBOX_PYTHON && exists(process.env.CHATTERBOX_PYTHON) ? process.env.CHATTERBOX_PYTHON : undefined)
+    || chatterboxVenvCandidates.find(p => exists(p))
+    || chatterboxVenvCandidates[0];
+  const comfyVenv = resolveComfyPython();
+  const museTalkDir = museTalkRoot();
   const dataDir = path.resolve(process.env.TUBEFLOW_DATA_DIR || path.join(SERVER_ROOT, 'data'));
   const hfCache = process.env.HF_HOME || process.env.HF_HUB_CACHE || path.join(os.homedir(), '.cache', 'huggingface', 'hub');
   const ollamaStore = process.env.OLLAMA_MODELS || path.join(os.homedir(), '.ollama', 'models');
@@ -194,7 +201,7 @@ setupRouter.get('/', async (_req, res) => {
     },
     image: {
       engine: 'ComfyUI (separate git clone, git-ignored)',
-      workflow: process.env.COMFYUI_WORKFLOW_PATH || path.join(SERVER_ROOT, 'workflows', 'flux_klein_t2i.json'),
+      workflow: resolveWorkflowPath(),
       note: 'Bundled workflow is SDXL (CheckpointLoaderSimple → juggernautXL_ragnarok.safetensors) despite flux_klein_t2i.json filename',
       comfyPath: { path: comfyPath, hasMainPy: exists(path.join(comfyPath, 'main.py')) },
       comfyPython: { path: comfyVenv, installed: exists(comfyVenv) },
@@ -212,8 +219,8 @@ setupRouter.get('/', async (_req, res) => {
     },
     presenter: {
       note: 'Requires SEPARATE custom MuseTalk-Demo app (app/ wrapper). Upstream MuseTalk clone alone is NOT enough.',
-      root: { path: museTalkRoot, installed: exists(path.join(museTalkRoot, 'app', 'musetalk_service.py')) },
-      python: { path: process.env.MUSETALK_PYTHON || '(miniconda3/envs/musetalk-demo/python.exe lookup)', installed: exists(process.env.MUSETALK_PYTHON || '') },
+      root: { path: museTalkDir, installed: exists(path.join(museTalkDir, 'app', 'musetalk_service.py')) },
+      python: { path: process.env.MUSETALK_PYTHON || '(miniconda3/envs/musetalk-demo lookup)', installed: exists(process.env.MUSETALK_PYTHON || '') },
       env: { MUSETALK_ROOT: process.env.MUSETALK_ROOT || '(unset)', MUSETALK_PYTHON: process.env.MUSETALK_PYTHON || '(unset)' },
     },
     editing: {
@@ -243,8 +250,8 @@ setupRouter.get('/', async (_req, res) => {
       node: process.version,
       ffmpeg: toolVersion('ffmpeg', ['-version']),
       ffprobe: toolVersion('ffprobe', ['-version']),
-      python310: toolVersion('py', ['-3.10', '--version']),
-      python312: toolVersion('py', ['-3.12', '--version']),
+      python310: toolVersion('py', ['-3.10', '--version']) || toolVersion('python3.10', ['--version']) || toolVersion('/opt/homebrew/opt/python@3.10/bin/python3.10', ['--version']),
+      python312: toolVersion('py', ['-3.12', '--version']) || toolVersion('python3.12', ['--version']) || toolVersion('/opt/homebrew/opt/python@3.12/bin/python3.12', ['--version']),
     },
     envMatrix,
     envKeyDiff,

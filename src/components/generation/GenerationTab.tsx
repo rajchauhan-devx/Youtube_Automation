@@ -27,7 +27,7 @@ import { ErrorBoundary } from '../ErrorBoundary';
 import { MixedMediaContent } from './MixedMediaContent';
 import { GenerationDisclosure } from './GenerationDisclosure';
 import { saveVoiceReference, rememberVoice, preferredVoice, VOICES_CHANGED } from '../../services/voiceLibrary';
-import { normalizeNarration, spokenText } from '../../../server/src/services/scene-plan';
+import { normalizeNarration, spokenText, syncScenePlanNarration } from '../../../server/src/services/scene-plan';
 import { parseJsonResponse } from '../../lib/safe';
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -1256,8 +1256,13 @@ function AudioGenerationContent({
     }
 
     if (sceneBacked) {
-      if (!script.scenePlan || normalizeNarration(textToGenerate) !== normalizeNarration(spokenText(script.scenePlan))) {
-        setError('Extract the scene map first. Change narration in the script response and extract again so visuals keep their matching words.'); return;
+      if (!script.scenePlan) {
+        setError('Extract the assets from the script response first.'); return;
+      }
+      if (normalizeNarration(textToGenerate) !== normalizeNarration(spokenText(script.scenePlan))) {
+        const syncedPlan = syncScenePlanNarration(script.scenePlan, textToGenerate);
+        const syncedNarration = spokenText(syncedPlan);
+        onUpdate({ narration: syncedNarration, extractedScript: syncedNarration, scenePlan: syncedPlan });
       }
       setGenerating(true); setError(''); setProgressPercent(0);
       try {

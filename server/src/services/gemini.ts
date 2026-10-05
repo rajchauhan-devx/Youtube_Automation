@@ -33,7 +33,13 @@ export interface ChatResponse {
 
 export function formatGeminiModel(modelName?: string): string {
   if (!modelName) return 'gemini-3.6-flash';
-  if (modelName.includes('deepseek') || modelName.includes('gpt') || modelName.includes('claude')) {
+  if (
+    modelName.includes('deepseek') ||
+    modelName.includes('gpt') ||
+    modelName.includes('claude') ||
+    modelName.startsWith('ollama/') ||
+    modelName.includes('qwen')
+  ) {
     return 'gemini-3.6-flash';
   }
   return modelName;

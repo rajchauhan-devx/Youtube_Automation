@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { store } from './store.js';
 import { generatedDir, mediaUrl, workspaceKey } from './workspace.js';
 import { safeSegment, containedFile } from './paths.js';
-import { startComfyUI } from './comfyui.js';
+import { startComfyUI, resolveComfyPath } from './comfyui.js';
 import { streamLocal } from './ollama.js';
 import { runMedia } from './media-process.js';
 import { spawn } from 'node:child_process';
@@ -42,7 +42,8 @@ export function musicJobStatus(scriptId: string) {
   return { status: job?.status ?? 'idle', stage: job?.stage ?? '', error: job?.error, music: currentMusic(store.getById<any>('scripts', scriptId)) };
 }
 export function musicInstalled() {
-  const directory = path.join(process.env.COMFYUI_PATH || path.join(ROOT, 'ComfyUI'), 'models');
+  const comfyRoot = resolveComfyPath() || process.env.COMFYUI_PATH || path.join(ROOT, 'ComfyUI');
+  const directory = path.join(comfyRoot, 'models');
   return [...Object.entries(MUSIC_MODELS), ['text_encoders', 'qwen_1.7b_ace15.safetensors']].every(([folder, name]) => {
     try { return fs.statSync(path.join(directory, folder, name)).size > 1_000_000; } catch { return false; }
   });
@@ -78,8 +79,14 @@ async function storyMusicPrompt(script: any, signal: AbortSignal) {
   // The installed local planner may be closed after a reboot; start it on demand.
   try { await fetch('http://127.0.0.1:11434/api/tags', { signal: AbortSignal.timeout(2000) }); }
   catch {
-    const executable = path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe');
-    if (!fs.existsSync(executable)) throw new Error('Start Ollama to read the story context, or enter your own music description.');
+    const candidates = [
+      path.join(process.env.LOCALAPPDATA || '', 'Programs', 'Ollama', 'ollama.exe'),
+      '/Applications/Ollama.app/Contents/Resources/ollama',
+      '/opt/homebrew/bin/ollama',
+      '/usr/local/bin/ollama',
+    ];
+    const executable = candidates.find(p => p && fs.existsSync(p));
+    if (!executable) throw new Error('Start Ollama to read the story context, or enter your own music description.');
     const child = spawn(executable, ['serve'], { windowsHide: true, detached: true, stdio: 'ignore' });
     let launchError = false;
     child.on('error', () => { launchError = true; }); child.unref();

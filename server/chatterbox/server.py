@@ -66,15 +66,27 @@ class SpeechRequest(BaseModel):
     repetition_penalty: float = Field(default=1.2, ge=1.0, le=2.0)
 
 
+def _mps_available() -> bool:
+    return bool(hasattr(torch.backends, "mps") and torch.backends.mps.is_available())
+
+
 def _select_device() -> str:
-    if REQUESTED_DEVICE in {"cpu", "cuda"}:
+    if REQUESTED_DEVICE in {"cpu", "cuda", "mps"}:
         if REQUESTED_DEVICE == "cuda" and not torch.cuda.is_available():
             raise RuntimeError(
                 "CHATTERBOX_DEVICE=cuda but CUDA is unavailable. Install the CUDA PyTorch build "
                 "or set CHATTERBOX_DEVICE=cpu."
             )
+        if REQUESTED_DEVICE == "mps" and not _mps_available():
+            raise RuntimeError(
+                "CHATTERBOX_DEVICE=mps but Apple MPS is unavailable. Set CHATTERBOX_DEVICE=cpu."
+            )
         return REQUESTED_DEVICE
-    return "cuda" if torch.cuda.is_available() else "cpu"
+    if torch.cuda.is_available():
+        return "cuda"
+    if _mps_available():
+        return "mps"
+    return "cpu"
 
 
 def _load_model() -> None:
@@ -95,8 +107,10 @@ def _load_model() -> None:
                     free_bytes / (1024**3),
                     total_bytes / (1024**3),
                 )
+            elif ACTIVE_DEVICE == "mps":
+                LOGGER.info("Loading Chatterbox Multilingual %s on Apple Silicon MPS", MODEL_VERSION)
             else:
-                LOGGER.warning("CUDA is unavailable; Chatterbox will run on CPU and may be slow")
+                LOGGER.warning("GPU acceleration is unavailable; Chatterbox will run on CPU and may be slow")
 
             loaded = ChatterboxMultilingualTTS.from_pretrained(
                 device=ACTIVE_DEVICE,
@@ -183,6 +197,8 @@ def _seed_everything(seed: int) -> None:
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
+    elif _mps_available() and hasattr(torch, "mps") and hasattr(torch.mps, "manual_seed"):
+        torch.mps.manual_seed(seed)
 
 
 
@@ -252,7 +268,21 @@ def _generate(request: SpeechRequest) -> tuple[bytes, int]:
         return output.getvalue(), text_count
 
 
-app = FastAPI(title="TubeFlow Local Chatterbox TTS", version="1.0.0")
+from contextlib import asynccontextmanager
+
+
+def _start_loader() -> None:
+    thread = threading.Thread(target=_load_model, name="chatterbox-model-loader", daemon=True)
+    thread.start()
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    _start_loader()
+    yield
+
+
+app = FastAPI(title="TubeFlow Local Chatterbox TTS", version="1.0.0", lifespan=_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3001", "http://127.0.0.1:3001"],
@@ -270,6 +300,10 @@ def health() -> dict:
             "name": torch.cuda.get_device_name(0),
             "free_vram_mb": round(free_bytes / (1024**2)),
             "total_vram_mb": round(total_bytes / (1024**2)),
+        }
+    elif _mps_available():
+        gpu = {
+            "name": "Apple Silicon (MPS)",
         }
     return {
         "online": True,
@@ -335,14 +369,6 @@ def speech(request: SpeechRequest) -> Response:
             "X-Generation-Milliseconds": str(round((time.perf_counter() - started) * 1000)),
         },
     )
-
-
-def _start_loader() -> None:
-    thread = threading.Thread(target=_load_model, name="chatterbox-model-loader", daemon=True)
-    thread.start()
-
-
-_start_loader()
 
 
 if __name__ == "__main__":

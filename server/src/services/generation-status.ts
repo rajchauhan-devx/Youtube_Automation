@@ -20,7 +20,7 @@ export function incompleteResponse(prompt: string, response: string, freeChat = 
     const closes = (response.match(new RegExp(`</${tag}\\s*>`, 'gi')) || []).length;
     if (opens > closes) return `Unfinished <${tag}> block`;
   }
-  if (prompt.includes(SCENE_PLAN_FORMAT_MARKER) && !/<long_video>/i.test(response) && !response.trimStart().startsWith('{')) return 'Missing shared <long_video> scene-plan block';
+  if (prompt.includes(SCENE_PLAN_FORMAT_MARKER) && !/<(?:script|narration|long_video)\b/i.test(response) && !response.trimStart().startsWith('{')) return 'Missing <script> narration block';
   return undefined;
 }
 

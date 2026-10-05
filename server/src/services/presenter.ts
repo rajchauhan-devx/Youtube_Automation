@@ -15,14 +15,29 @@ import { stopChatterbox } from './chatterbox-tts.js';
 import { avatarAlphaSource, avatarAlphaCycle } from './presenter-alpha.js';
 
 const SERVER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const REPO_ROOT = path.resolve(SERVER, '..');
 export function museTalkRoot() {
-  return path.resolve(process.env.MUSETALK_ROOT || path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo'));
+  const candidates = [
+    process.env.MUSETALK_ROOT,
+    process.env.MUSETALK_ROOT ? path.resolve(REPO_ROOT, process.env.MUSETALK_ROOT) : null,
+    path.join(REPO_ROOT, 'MuseTalk-Demo'),
+    path.join(os.homedir(), 'MuseTalk-Demo'),
+    path.join(os.homedir(), 'Documents', 'MuseTalk-Demo'),
+    path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo'),
+  ].filter(Boolean) as string[];
+  return path.resolve(candidates.find(p => fs.existsSync(p)) || process.env.MUSETALK_ROOT || path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo'));
 }
 function pythonPath() {
-  const candidates = [process.env.MUSETALK_PYTHON,
+  const candidates = [
+    process.env.MUSETALK_PYTHON,
     path.join(os.homedir(), 'miniconda3', 'envs', 'musetalk-demo', 'python.exe'),
     path.join(os.homedir(), 'anaconda3', 'envs', 'musetalk-demo', 'python.exe'),
-    'C:/ProgramData/miniconda3/envs/musetalk-demo/python.exe'].filter(Boolean) as string[];
+    'C:/ProgramData/miniconda3/envs/musetalk-demo/python.exe',
+    path.join(os.homedir(), 'miniconda3', 'envs', 'musetalk-demo', 'bin', 'python'),
+    path.join(os.homedir(), 'anaconda3', 'envs', 'musetalk-demo', 'bin', 'python'),
+    '/opt/homebrew/Caskroom/miniconda/base/envs/musetalk-demo/bin/python',
+    '/opt/miniconda3/envs/musetalk-demo/bin/python',
+  ].filter(Boolean) as string[];
   return candidates.find(p => fs.existsSync(p));
 }
 function avatarDirectory(id: string) {

@@ -177,7 +177,23 @@ export default function App() {
       const data = await parseJsonResponse<Script[]>(response, []);
       if (!Array.isArray(data)) throw new Error('Invalid script list');
       if (!controller.signal.aborted) {
-        const normalized = data.map(script => ({ ...script, accountId: activeChannel.id, section }));
+        const normalized = data.map(script => {
+          const hasStaleRunning = !generationAbortRef.current && Array.isArray(script.pipeline) && script.pipeline.some(step => step.status === 'running');
+          const pipeline = hasStaleRunning
+            ? script.pipeline!.map(step =>
+                step.status === 'running'
+                  ? {
+                      ...step,
+                      status: (script.aiResponse?.trim() ? 'done' : 'warning') as 'done' | 'warning',
+                      summary: script.aiResponse?.trim()
+                        ? 'Response complete — click Extract Assets to process'
+                        : 'Generation interrupted — enter a prompt below or click Run to start again',
+                    }
+                  : step,
+              )
+            : script.pipeline;
+          return { ...script, pipeline, accountId: activeChannel.id, section };
+        });
         setUserScripts(normalized);
         setSelectedScriptId(current => normalized.some(script => script.id === current) ? current : normalized[0]?.id || null);
       }
@@ -292,6 +308,18 @@ export default function App() {
     patchScriptState(scriptId, initialPatch);
     if (!await persistScript(scriptId, initialPatch)) {
       if (generationAbortRef.current === controller) generationAbortRef.current = null;
+      patchScriptState(scriptId, {
+        pipeline: [
+          {
+            id: 'response',
+            label: 'Response',
+            status: 'error' as const,
+            summary: 'Failed to start generation',
+            inputLog: topic,
+            outputPreview: 'Could not reach the backend server. Please try again.',
+          },
+        ],
+      });
       return;
     }
     if (controller.signal.aborted || generationAbortRef.current !== controller) return;
@@ -350,16 +378,31 @@ export default function App() {
 
           if (!dataStr || dataStr === '[DONE]') return;
 
-          let parsed: { token?: string; finishReason?: string; error?: string };
+          let parsed: { token?: string; finishReason?: string; error?: string; status?: string };
           try {
             parsed = JSON.parse(dataStr);
           } catch {
-            // Don't kill the whole stream on one damaged chunk â€” keep partial text.
+            // Don't kill the whole stream on one damaged chunk — keep partial text.
             streamDamaged = true;
             return;
           }
 
           if (parsed.error) throw new Error(parsed.error);
+
+          if (parsed.status && !parsed.token) {
+            patchScriptState(scriptId, {
+              pipeline: [
+                {
+                  id: 'response',
+                  label: 'Response',
+                  status: 'running' as const,
+                  summary: parsed.status,
+                  inputLog: topic,
+                  outputPreview: fullResponse.slice(-200),
+                },
+              ],
+            });
+          }
 
           if (parsed.token) {
             fullResponse += parsed.token;
@@ -496,11 +539,25 @@ export default function App() {
     await generateScript(script, topic, instructions);
   }
 
-  function handleStopGeneration() {
-    generationAbortRef.current?.abort();
-  }
-
   const selectedScript = scopeScripts.find(script => script.id === selectedScriptId) || null;
+
+  function handleStopGeneration() {
+    if (generationAbortRef.current) {
+      generationAbortRef.current.abort();
+      generationAbortRef.current = null;
+    }
+    if (selectedScript && selectedScript.pipeline?.some(step => step.status === 'running')) {
+      const stoppedPatch: Partial<Script> = {
+        pipeline: selectedScript.pipeline.map(step =>
+          step.status === 'running'
+            ? { ...step, status: 'warning' as const, summary: 'Generation stopped' }
+            : step,
+        ),
+      };
+      patchScriptState(selectedScript.id, stoppedPatch);
+      void persistScript(selectedScript.id, stoppedPatch);
+    }
+  }
 
   const pipeline = selectedScript?.pipeline || [];
 

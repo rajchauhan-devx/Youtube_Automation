@@ -9,7 +9,7 @@
     "status": "draft",
     "locked": false,
     "duration": 300,
-    "model": "ollama/qwen3.5:4b",
+    "model": "gemini-3.6-flash",
     "prompts": [
       {
         "id": "nb1790943790989_310",

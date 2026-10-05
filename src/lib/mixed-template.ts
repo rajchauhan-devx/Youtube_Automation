@@ -45,11 +45,35 @@ For every video scene the imagePrompt field stores the visual prompt AND you mus
 
 ## 5. Exact output contract
 
-Return exactly one <long_video> JSON block with this schema:
-{"version":1,"title":"Title","thumbnailPrompt":"Separate DETAILED landscape thumbnail prompt (60-100 words: focal subject, emotion, rule-of-thirds composition, cinematic light, no lettering)","scenes":[{"id":"scene_001","chapter":"Opening","role":"story","narration":"Spoken words only","mediaType":"video","duration":10,"imagePrompt":"DETAILED 70-120 word still-image prompt describing subject, action, camera movement, lighting and continuity across exactly 10 seconds"},{"id":"scene_002","chapter":"Opening","role":"story","narration":"Spoken words only","mediaType":"image","imagePrompt":"DETAILED 70-120 word still-image prompt"}]}
-Use mediaType image or video on EVERY scene. Plan roughly 10-second source clips. Durations are planning estimates; final visual timing follows measured narration. The selected Target duration in the user message overrides any example duration here: planned scene durations MUST sum to that target (within 10%), with a MINIMUM scene count of ceiling(targetSeconds / 10) (e.g. 18 for 180s, 30 for 300s, 60 for 600s, 90 for 900s, 120 for 1200s, capped at 160). NEVER return the same fixed handful of scenes for every duration — scale the count with the runtime. Assign each visual only the exact sentence or phrase it depicts. Image scenes can carry longer explanations. Mix both types as the story requires. Use 1–160 scenes, unique IDs, narration at most 700 characters per scene, no stage directions or markup in spoken text. The thumbnail is separate, never a timeline scene. Keep narration and visual subjects aligned. Do not output a second full narration or duplicate prompt blocks. No markdown fences around the JSON. No placeholders, no "repeat for remaining scenes," no one-line visual prompts.`;
+Output your finished production assets using ONLY these three tags:
 
-export const LONG_TEMPLATE = `# LONG VIDEO — IMAGE PRODUCTION MASTER (16:9 landscape, stills only)
+1. Complete spoken voiceover inside one <script> block (clean spoken words and punctuation only — no timestamps, labels, or stage directions):
+<script>
+Exact spoken narration for the entire video...
+</script>
+
+2. Every image prompt inside its own <image_prompt> tag (#image 0 — THUMBNAIL for the 16:9 thumbnail, followed by #image 1 through #image N for each scene in story order):
+<image_prompt>
+#image 0 — THUMBNAIL
+Detailed 60-100 word 16:9 landscape thumbnail prompt...
+</image_prompt>
+
+<image_prompt>
+#image 1
+Detailed 70-120 word 16:9 landscape still-image prompt for scene 1...
+</image_prompt>
+
+3. Every video prompt inside its own <video_prompt> tag (include Related image tag: #image N for the scene it pairs with):
+<video_prompt>
+#video 1
+Related image tag: #image 1
+Duration: 10 seconds
+Detailed 90-150 word 16:9 continuous-shot video prompt...
+</video_prompt>
+
+The selected Target duration in the user message overrides any example duration: scale the scene count to at least ceiling(targetSeconds / 10) scenes (capped at 160). Mix both image and video scenes as the story requires. Write every <image_prompt> and <video_prompt> in full with no placeholders or "[...Repeat...]" shortcuts.`;
+
+export const LONG_TEMPLATE = `# LONG VIDEO — IMAGE + VIDEO PRODUCTION MASTER (16:9 landscape)
 ## Complete production package · Version 3 (Production Level)
 
 ## 0. DEEP RESEARCH FIRST — MANDATORY, DO THIS BEFORE ANYTHING ELSE
@@ -65,7 +89,7 @@ Research silently (do not output your notes) and establish:
 
 Only after this research is solid, proceed below. Source fidelity takes priority over dramatic invention — but emotion and clarity take priority over dry recitation.
 
-You are the scriptwriter, visual director and production planner. Turn the user's topic and supplied source material into one complete, publishable landscape 16:9 long-form video told through cinematic still images in story order. Deliver the finished narration and every production prompt in this response. Do not return an outline, sample, partial package or instructions asking the user to perform a second writing pass.
+You are the scriptwriter, visual director and production planner. Turn the user's topic and supplied source material into one complete, publishable landscape 16:9 long-form video mixing cinematic still images and motion scenes in story order. Deliver the finished narration and every production prompt in this response. Do not return an outline, sample, partial package or instructions asking the user to perform a second writing pass.
 
 ## 1. Story and retention architecture
 
@@ -73,19 +97,43 @@ HOOK (first 10-15 seconds, non-negotiable): open IN the moment with a specific, 
 
 CHAPTERS: structure into clear chapters (Opening, Development, Turn, Climax, Payoff/Takeaway). Every 60-90 seconds insert a mini re-hook — a reversal, escalation, or new question. End every non-final scene on a micro open-loop. Image scenes can carry longer explanatory passages, but every paragraph must still add a cause, obstacle, discovery or consequence. Resolve the opening promise fully before any CTA; keep any CTA to one brief line at the very end.
 
-Narration: short, conversational, speakable sentences, at most 700 characters per scene, no stage directions, tags, timestamps, or markup.
+Narration: short, conversational, speakable sentences, no stage directions, tags, timestamps, or markup.
 
 ## 2. Image prompt specification — PRODUCTION LEVEL (detailed, never one-liners)
 
-Every imagePrompt must be a DETAILED, self-contained, production-grade English generation prompt of 70–120 words. ONE-LINE or vague prompts are FORBIDDEN. Each must explicitly cover: (1) exact subject + story moment with full continuity descriptors (age, complexion, costume, props — repeated verbatim in every prompt, never "same as before"), (2) readable pose, expression and interaction matching the narration, (3) setting with era, architecture/materials, foreground/background depth and scale, (4) deliberate shot size + camera angle, varied with purpose across scenes (extreme close-up, close-up, medium, wide establishing, low heroic angle, overhead, detail insert), (5) lighting direction + time of day + palette + photographic treatment, (6) landscape 16:9 composition with safe margins, subject legible at preview size, (7) negative instruction inside the SAME prompt: no text, captions, logos, watermarks, extra limbs, duplicated subjects, distorted faces, cartoon look, or period-inappropriate objects.
+Every <image_prompt> must be a DETAILED, self-contained, production-grade English generation prompt of 70–120 words. ONE-LINE or vague prompts are FORBIDDEN. Each must explicitly cover: (1) exact subject + story moment with full continuity descriptors (age, complexion, costume, props — repeated verbatim in every prompt, never "same as before"), (2) readable pose, expression and interaction matching the narration, (3) setting with era, architecture/materials, foreground/background depth and scale, (4) deliberate shot size + camera angle, varied with purpose across scenes (extreme close-up, close-up, medium, wide establishing, low heroic angle, overhead, detail insert), (5) lighting direction + time of day + palette + photographic treatment, (6) landscape 16:9 composition with safe margins, subject legible at preview size, (7) negative instruction inside the SAME prompt: no text, captions, logos, watermarks, extra limbs, duplicated subjects, distorted faces, cartoon look, or period-inappropriate objects.
 
 BANNED: "Ancient temple at sunset, cinematic."
 REQUIRED DEPTH: full shootable specifics — who, wearing what, doing what, where exactly, which era materials, which light from which direction, which lens framing, which foreground/background layers, which mood.
 
-Self-check: count every imagePrompt. Any under 60 words must be expanded with concrete visual detail until it passes.
+Self-check: count every <image_prompt>. Any under 60 words must be expanded with concrete visual detail until it passes.
 
-## 3. Exact output contract (images only)
+## 3. Exact output contract (same 3 tags for every script)
 
-Return exactly one <long_video> JSON block with this schema:
-{"version":1,"title":"Title","thumbnailPrompt":"Separate DETAILED landscape thumbnail prompt (60-100 words: focal subject, emotion, rule-of-thirds composition, cinematic light, no lettering)","scenes":[{"id":"scene_001","chapter":"Opening","role":"story","narration":"Spoken words only","mediaType":"image","imagePrompt":"DETAILED 70-120 word still-image prompt"},{"id":"scene_002","chapter":"Development","role":"story","narration":"Spoken words only","mediaType":"image","imagePrompt":"DETAILED 70-120 word still-image prompt"}]}
-Use mediaType "image" on EVERY scene (video scenes belong in Mixed Media, not here). Use 1–160 scenes, unique ordered IDs, narration at most 700 characters per scene, no stage directions or markup in spoken text. The selected Target duration in the user message overrides any example duration here: planned scene durations MUST sum to that target (within 10%), with a MINIMUM scene count of ceiling(targetSeconds / 10) (e.g. 18 for 180s, 30 for 300s, 60 for 600s, 90 for 900s, 120 for 1200s, capped at 160). NEVER return the same fixed handful of scenes for every duration — scale the count with the runtime. The thumbnail is separate, never a timeline scene. Keep narration and visual subjects aligned. Do not output a second full narration or duplicate prompt blocks. No markdown fences around the JSON. No placeholders, no "repeat for remaining scenes," no one-line visual prompts.`;
+Output your finished production assets using ONLY these three tags — <script>, <image_prompt> and <video_prompt>:
+
+1. Complete spoken voiceover inside one <script> block (clean spoken words and punctuation only — no timestamps, labels, or stage directions):
+<script>
+Exact spoken narration for the entire video...
+</script>
+
+2. Every image prompt inside its own <image_prompt> tag (#image 0 — THUMBNAIL for the 16:9 thumbnail, followed by #image 1 through #image N for each scene in story order):
+<image_prompt>
+#image 0 — THUMBNAIL
+Detailed 60-100 word 16:9 landscape thumbnail prompt...
+</image_prompt>
+
+<image_prompt>
+#image 1
+Detailed 70-120 word 16:9 landscape still-image prompt for scene 1...
+</image_prompt>
+
+3. Every video prompt inside its own <video_prompt> tag (include Related image tag: #image N for the scene it pairs with):
+<video_prompt>
+#video 1
+Related image tag: #image 1
+Duration: 10 seconds
+Detailed 90-150 word 16:9 continuous-shot video prompt...
+</video_prompt>
+
+Scale the scene count to at least ceiling(targetSeconds / 10) scenes (capped at 160). Write every <image_prompt> and <video_prompt> in full with no placeholders or "[...Repeat...]" shortcuts.`;

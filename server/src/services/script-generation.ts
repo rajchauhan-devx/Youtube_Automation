@@ -5,7 +5,7 @@ import { incompleteResponse } from './generation-status.js';
 export const NARRATION_WORDS_PER_MINUTE = 210;
 export function generationSystemInstruction(profile: 'shorts' | 'long' | 'mixed', duration: number, structured = false) {
   const budget = narrationWordBudget(duration);
-  return `You are an expert YouTube production writer. Follow the user's story, language, research, factual constraints and visual style. The app's serialization and selected episode settings take precedence over conflicting legacy output tags or example durations in the template. Return the complete scene-plan block first. Write ${budget.minimum}–${budget.maximum} spoken words for the selected ${duration}-second target. Every video prompt needs at least 80 words.\n\n${withScenePlanFormat('', profile)}${structured ? '\n\nProvider structured-output transport: return the schema object directly as bare JSON, without XML tags or Markdown fences. This transport replaces the <long_video> wrapper described above. Put all supporting research, canon, audit and publishing information in the supportingNotes string, including every requested original supporting section heading. The scene narrations remain the exact complete voice script.' : ''}`;
+  return `You are an expert YouTube production writer. Follow the user's story, language, research, factual constraints and visual style. The app's serialization and selected episode settings take precedence over conflicting legacy output tags or example durations in the template. Return the complete scene assets using <script>, <image_prompt> and <video_prompt>. Write ${budget.minimum}–${budget.maximum} spoken words for the selected ${duration}-second target. Every video prompt needs at least 80 words.\n\n${withScenePlanFormat('', profile)}${structured ? '\n\nProvider structured-output transport: return the schema object directly as bare JSON, without XML tags or Markdown fences. This transport replaces the tag wrappers described above. Put all supporting research, canon, audit and publishing information in the supportingNotes string, including every requested original supporting section heading. The scene narrations remain the exact complete voice script.' : ''}`;
 }
 
 export const GENERATION_RESPONSE_SCHEMA = {
@@ -111,39 +111,30 @@ export function buildGenerationPrompt(template: string, topic: string, instructi
 Topic: ${topic.trim()}
 Target Duration: ~${duration} seconds.
 The selected runtime overrides default or example runtime ranges in the template. Write ${budget.minimum}–${budget.maximum} spoken words across the complete scene narration, aiming for ${Math.round(duration * NARRATION_WORDS_PER_MINUTE / 60)} words. This budget uses the local narrator's approximate 210 words/minute; punctuation and the selected voice affect the measured result. Develop the story to this length without repeated filler. Do not return a short synopsis of a long episode.
-Planning durations must sum to ${duration} seconds (within 10%). Use enough narration-linked scenes to cover the entire story; never include the thumbnail in playback. Every profile requires narration of at most 700 characters per scene. A narrative chapter or framework beat may span several visual scenes; it is not a limit on the playback scene count. Put the complete shared JSON scene-plan block FIRST, then supporting research, canon, audit and publishing information. Do not duplicate spoken narration or asset prompts in additional extraction wrappers. Every videoPrompt must contain at least 80 words of specific action, framing, lighting and continuity direction; preserve a longer minimum if the template requests one. For multiple characters, give each a distinct identity and position in the frame; do not merge their clothes, faces or props.
-${duration < 180 ? `Short-episode allocation: prefer ${sceneCount} ordered playback scenes with approximately ${Math.round(duration * NARRATION_WORDS_PER_MINUTE / 60 / sceneCount)} spoken words each, unless an explicit authored asset count requires a different allocation. Split long chapter narration over additional visual scenes instead of exceeding 700 characters or shortening the complete voice script. The video quota below applies only to video scenes, not to all playback scenes.` : ''}
+Planning durations must sum to ${duration} seconds (within 10%). Use enough narration-linked scenes to cover the entire story; never include the thumbnail in playback. Every videoPrompt must contain at least 80 words of specific action, framing, lighting and continuity direction; preserve a longer minimum if the template requests one. For multiple characters, give each a distinct identity and position in the frame; do not merge their clothes, faces or props.
+${duration < 180 ? `Short-episode allocation: prefer ${sceneCount} ordered playback scenes with approximately ${Math.round(duration * NARRATION_WORDS_PER_MINUTE / 60 / sceneCount)} spoken words each, unless an explicit authored asset count requires a different allocation. The video quota below applies only to video scenes, not to all playback scenes.` : ''}
 ${duration >= 180 ? `Long-episode allocation: create ${sceneCount} ordered playback scenes. Write approximately ${Math.round(duration * NARRATION_WORDS_PER_MINUTE / 60 / sceneCount)} spoken words in EACH scene, so the full episode reaches the selected budget. Develop chapters progressively across these scenes; do not spend the entire episode repeating the hook. Each scene's planning duration is approximately ${(duration / sceneCount).toFixed(2)} seconds.` : ''}
 ${videos !== undefined ? `The template requires exactly ${videos} video scenes. ${videos === 0 ? 'Every playback scene must use mediaType image.' : 'Choose the strongest beats for those videos; remaining scenes use images.'}` : ''}
 ${requiresThumbnailMotion(template) ? `The template also requests thumbnail animation. Put its complete ${minimum.video}+ word motion prompt in thumbnailMotionPrompt, separately from the ${videos} playback video scenes. Never insert the thumbnail into the narration or playback timeline.` : ''}
 ${requiresBothMedia(template) ? 'This template requires both image and video playback scenes. Include at least one of each.' : ''}
 Each imagePrompt must contain at least ${minimum.image} words and each videoPrompt at least ${minimum.video} words when present. Expand with concrete renderable detail, not repeated adjectives.
-${supporting.length ? `After </long_video>, include these original supporting section headings with their complete requested editorial content (without repeating extraction wrappers):\n${supporting.map(section => section.heading).join('\n')}` : ''}
+${supporting.length ? `After the extraction tags, include these original supporting section headings with their complete requested editorial content (without repeating extraction wrappers):\n${supporting.map(section => section.heading).join('\n')}` : ''}
 ${instructions.trim() ? `Additional Instructions: ${instructions.trim()}` : ''}`.trim();
 }
 
-/** System line for template-driven free chat. The template owns the tag
- * system and visual style, but the user's selected runtime and minimum scene
- * count override any default/example/maximum runtime inside the template. */
+/** System line for template-driven free chat. Every script uses the same
+ * 3-tag system: narration + image + video. No per-profile contracts. */
 export const FREE_CHAT_SYSTEM =
-  'You are a helpful video production assistant. Follow the user template instructions, story requirements and output format exactly, including every tag, heading and serialization rule it defines. Do not impose any other format. EXCEPTION: the selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template — you must scale the episode to that runtime.';
+  'You are an expert video production assistant. Follow the user template instructions, story requirements and visual style. Always wrap the complete voiceover narration inside <script>...</script>, wrap every image generation prompt inside its own <image_prompt>...</image_prompt> tag, and wrap every video generation prompt inside its own <video_prompt>...</video_prompt> tag. The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.';
 
-/** Free-chat prompt used by the Preview tab: the template goes through
- * untouched, plus the episode topic, an authoritative target duration and any
- * extra instructions. The template owns the tag system and visual style, but
- * the selected runtime overrides any default/example runtime inside it; asset
- * extraction validates the template's own tag system. */
 export function buildFreePrompt(template: string, topic: string, instructions: string, duration: number): string {
   const head = (template || '').trimEnd();
   const target = Number.isFinite(duration) && duration > 0 ? Math.round(duration) : 30;
-  // Floor so longer durations cannot collapse to the same handful of beats:
-  // ~1 scene per 6s matches the built-in Shorts ranges (4-7 for 30s, 7-12
-  // for 60s, 12-20 for 90-120s) and stays within the denser custom
-  // image-only ranges. The template may add MORE scenes for meaningful
-  // beats; it must not return fewer.
-  const minScenes = Math.min(160, Math.max(3, Math.ceil(target / 6)));
-  const tail = [`Topic: ${(topic || '').trim()}`,
-    `Target duration: ~${target} seconds. MANDATORY: this selected runtime overrides any default, example or maximum runtime in the template (e.g. 45-75s default / 105s cap). Scene planned durations must sum to ~${target} seconds (within 10%). You MUST return at least ${minScenes} narration-linked scenes with exactly one still image per scene (so at least ${minScenes} playback <image_prompt> blocks numbered #image 1..N plus a separate thumbnail #image 0, or at least ${minScenes} entries in the <long_video> scenes array when using JSON). If a story beat is longer than ~6 seconds, split it into A/B images with new numeric IDs to reach the count. NEVER return only 5 playback images for a 60s+ episode — scale the count with duration. Write every <image_prompt> block in full (complete Prompt, Negative Prompt and Style Tags); placeholders such as [...Repeat for images...], "following the same standard" or "repeat for the remaining" are a failed deliverable.`];
+  const minScenes = Math.min(160, Math.max(3, Math.ceil(target / (target > 120 ? 10 : 6))));
+  const tail = [
+    `Topic: ${(topic || '').trim()}`,
+    `Target duration: ~${target} seconds. MANDATORY: this selected runtime overrides any default, example or maximum runtime in the template. Scale the episode to ~${target} seconds with at least ${minScenes} story scenes. REQUIRED EXTRACTION TAGS (every script uses all three): (1) Wrap the complete spoken voiceover inside <script>...</script>, (2) Wrap every still-image prompt inside its own <image_prompt>...</image_prompt> tag (numbered #image 1..N plus #image 0 — THUMBNAIL if a thumbnail is included), and (3) Wrap every video prompt inside its own <video_prompt>...</video_prompt> tag (with Related image tag: #image N). Write every prompt block in full; never use placeholders such as [...Repeat...] or "following the same standard".`,
+  ];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
   return `${head}${head ? '\n\n' : ''}${tail.join('\n')}`.trim();
 }

@@ -5,14 +5,59 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SERVER_ROOT = path.resolve(__dirname, '..', '..');
+const REPO_ROOT = path.resolve(SERVER_ROOT, '..');
 
 const COMFY_URL = (process.env.COMFYUI_BASE_URL || 'http://127.0.0.1:8188').replace(/\/+$/, '');
-const WORKFLOW_PATH = process.env.COMFYUI_WORKFLOW_PATH || path.join(__dirname, '..', '..', 'workflows', 'flux_klein_t2i.json');
 const PROMPT_NODE_ID = process.env.COMFYUI_PROMPT_NODE_ID || '6';
 const SEED_NODE_ID = process.env.COMFYUI_SEED_NODE_ID || '';
 const SEED_INPUT_KEY = process.env.COMFYUI_SEED_INPUT_KEY || 'noise_seed';
 const GEN_TIMEOUT_MS = parseInt(process.env.COMFYUI_TIMEOUT_MS || '600000', 10);
 const POLL_INTERVAL_MS = 1000;
+
+export function resolveWorkflowPath(): string {
+  const envPath = process.env.COMFYUI_WORKFLOW_PATH;
+  if (envPath) {
+    if (path.isAbsolute(envPath) && fs.existsSync(envPath)) return path.resolve(envPath);
+    const fromServer = path.resolve(SERVER_ROOT, envPath);
+    if (fs.existsSync(fromServer)) return fromServer;
+    const fromRepo = path.resolve(REPO_ROOT, envPath);
+    if (fs.existsSync(fromRepo)) return fromRepo;
+  }
+  return path.join(SERVER_ROOT, 'workflows', 'flux_klein_t2i.json');
+}
+
+export function resolveComfyPath(): string | undefined {
+  const envPath = process.env.COMFYUI_PATH;
+  const candidates = [
+    envPath && path.isAbsolute(envPath) ? path.resolve(envPath) : null,
+    envPath ? path.resolve(SERVER_ROOT, envPath) : null,
+    envPath ? path.resolve(REPO_ROOT, envPath) : null,
+    path.join(REPO_ROOT, 'ComfyUI'),
+    path.join(SERVER_ROOT, 'ComfyUI'),
+    path.resolve(process.cwd(), 'ComfyUI'),
+    path.join('C:', 'Users', 'zrajc', 'Youtube_Automation', 'ComfyUI'),
+    path.join('C:', 'Users', 'zrajc', 'OneDrive', 'Desktop', 'Youtube_Automation', 'Youtube_Automation', 'ComfyUI'),
+  ].filter(Boolean) as string[];
+  return candidates.find((dir) => fs.existsSync(path.join(dir, 'main.py'))) || candidates.find((dir) => fs.existsSync(dir));
+}
+
+export function resolveComfyPython(): string {
+  const envPy = process.env.COMFYUI_PYTHON;
+  const candidates = [
+    envPy && path.isAbsolute(envPy) ? path.resolve(envPy) : null,
+    envPy ? path.resolve(SERVER_ROOT, envPy) : null,
+    envPy ? path.resolve(REPO_ROOT, envPy) : null,
+    process.platform === 'win32'
+      ? path.join(REPO_ROOT, 'artifacts', 'comfy-venv', 'Scripts', 'python.exe')
+      : path.join(REPO_ROOT, 'artifacts', 'comfy-venv', 'bin', 'python'),
+    path.join(REPO_ROOT, 'artifacts', 'comfy-venv', 'Scripts', 'python.exe'),
+    path.join(REPO_ROOT, 'artifacts', 'comfy-venv', 'bin', 'python'),
+  ].filter(Boolean) as string[];
+  const found = candidates.find((p) => fs.existsSync(p));
+  if (found) return found;
+  return process.platform === 'win32' ? 'python' : 'python3';
+}
 
 import { generatedDir, mediaUrl, currentWorkspace } from './workspace.js';
 
@@ -35,13 +80,14 @@ let comfyProcess: any = null;
 
 function loadTemplate(): any {
   if (!cachedTemplate) {
-    if (!fs.existsSync(WORKFLOW_PATH)) {
+    const workflowPath = resolveWorkflowPath();
+    if (!fs.existsSync(workflowPath)) {
       throw new ComfyError(
         'CONFIG',
-        `Workflow template not found at ${WORKFLOW_PATH}. In ComfyUI, load your working FLUX.2 Klein text-to-image workflow, then use "Workflow > Export (API)" and save it there, or point COMFYUI_WORKFLOW_PATH at it.`
+        `Workflow template not found at ${workflowPath}. In ComfyUI, load your working FLUX.2 Klein text-to-image workflow, then use "Workflow > Export (API)" and save it there, or point COMFYUI_WORKFLOW_PATH at it.`
       );
     }
-    cachedTemplate = JSON.parse(fs.readFileSync(WORKFLOW_PATH, 'utf-8'));
+    cachedTemplate = JSON.parse(fs.readFileSync(workflowPath, 'utf-8'));
   }
   return JSON.parse(JSON.stringify(cachedTemplate));
 }
@@ -84,9 +130,12 @@ export async function listAvailableModels(): Promise<string[]> {
   } catch {}
 
   // 2. Scan filesystem checkpoint directories
+  const resolvedComfy = resolveComfyPath();
   const candidateDirs = [
+    resolvedComfy ? path.join(resolvedComfy, 'models', 'checkpoints') : null,
     process.env.COMFYUI_PATH ? path.join(process.env.COMFYUI_PATH, 'models', 'checkpoints') : null,
-    path.join(__dirname, '..', '..', 'ComfyUI', 'models', 'checkpoints'),
+    path.join(REPO_ROOT, 'ComfyUI', 'models', 'checkpoints'),
+    path.join(SERVER_ROOT, 'ComfyUI', 'models', 'checkpoints'),
     path.join(process.cwd(), 'ComfyUI', 'models', 'checkpoints'),
     path.join('C:', 'Users', 'zrajc', 'Youtube_Automation', 'ComfyUI', 'models', 'checkpoints'),
     path.join('C:', 'Users', 'zrajc', 'OneDrive', 'Desktop', 'Youtube_Automation', 'Youtube_Automation', 'ComfyUI', 'models', 'checkpoints'),
@@ -127,7 +176,7 @@ export function buildWorkflow(opts: WorkflowOptions): any {
       wf['4'].inputs.ckpt_name = modelName.trim();
     } else {
       // Auto-detect downloaded checkpoint in ComfyUI/models/checkpoints
-      const comfyPath = process.env.COMFYUI_PATH || 'C:\\Users\\zrajc\\Youtube_Automation\\ComfyUI';
+      const comfyPath = resolveComfyPath() || process.env.COMFYUI_PATH || path.join(REPO_ROOT, 'ComfyUI');
       const ckptDir = path.join(comfyPath, 'models', 'checkpoints');
       if (fs.existsSync(ckptDir)) {
         const ckpts = fs.readdirSync(ckptDir).filter(
@@ -247,7 +296,7 @@ export async function startComfyUI(): Promise<{ success: boolean; message: strin
   const already = await checkComfyStatus();
   if (already.online) return { success: true, message: 'ComfyUI is already running' };
 
-  const comfyPath = process.env.COMFYUI_PATH;
+  const comfyPath = resolveComfyPath();
   if (!comfyPath) {
     return { success: false, message: 'COMFYUI_PATH not set in server/.env. Set it to the directory containing ComfyUI\'s main.py (e.g. C:\\ComfyUI\\ComfyUI).' };
   }
@@ -262,7 +311,8 @@ export async function startComfyUI(): Promise<{ success: boolean; message: strin
     comfyProcess = null;
   }
 
-  comfyProcess = spawn(process.env.COMFYUI_PYTHON || 'python', [mainPy, '--listen', '127.0.0.1', '--port', '8188', ...(process.env.COMFYUI_LOW_VRAM === 'false' ? [] : ['--lowvram'])], {
+  const comfyPython = resolveComfyPython();
+  comfyProcess = spawn(comfyPython, [mainPy, '--listen', '127.0.0.1', '--port', '8188', ...(process.env.COMFYUI_LOW_VRAM === 'false' ? [] : ['--lowvram'])], {
     cwd: comfyPath,
     env: { ...process.env, TQDM_DISABLE: '1' },
     stdio: 'ignore',
