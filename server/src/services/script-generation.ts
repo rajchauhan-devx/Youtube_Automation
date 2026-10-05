@@ -122,18 +122,28 @@ ${supporting.length ? `After </long_video>, include these original supporting se
 ${instructions.trim() ? `Additional Instructions: ${instructions.trim()}` : ''}`.trim();
 }
 
-/** Neutral system line for template-sovereign free chat. It carries no output
- * format, serialization contract, quota or budget — the template owns those. */
+/** System line for template-driven free chat. The template owns the tag
+ * system and visual style, but the user's selected runtime and minimum scene
+ * count override any default/example/maximum runtime inside the template. */
 export const FREE_CHAT_SYSTEM =
-  'You are a helpful video production assistant. Follow the user template instructions, story requirements and output format exactly, including every tag, heading and serialization rule it defines. Do not impose any other format.';
+  'You are a helpful video production assistant. Follow the user template instructions, story requirements and output format exactly, including every tag, heading and serialization rule it defines. Do not impose any other format. EXCEPTION: the selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template — you must scale the episode to that runtime.';
 
 /** Free-chat prompt used by the Preview tab: the template goes through
- * untouched, plus only the episode topic, target duration and any extra
- * instructions. No scene-plan contract, media quotas or word budgets are
- * injected; asset extraction validates the template's own tag system. */
+ * untouched, plus the episode topic, an authoritative target duration and any
+ * extra instructions. The template owns the tag system and visual style, but
+ * the selected runtime overrides any default/example runtime inside it; asset
+ * extraction validates the template's own tag system. */
 export function buildFreePrompt(template: string, topic: string, instructions: string, duration: number): string {
   const head = (template || '').trimEnd();
-  const tail = [`Topic: ${(topic || '').trim()}`, `Target duration: ~${duration} seconds.`];
+  const target = Number.isFinite(duration) && duration > 0 ? Math.round(duration) : 30;
+  // Floor so longer durations cannot collapse to the same handful of beats:
+  // ~1 scene per 6s matches the built-in Shorts ranges (4-7 for 30s, 7-12
+  // for 60s, 12-20 for 90-120s) and stays within the denser custom
+  // image-only ranges. The template may add MORE scenes for meaningful
+  // beats; it must not return fewer.
+  const minScenes = Math.min(160, Math.max(3, Math.ceil(target / 6)));
+  const tail = [`Topic: ${(topic || '').trim()}`,
+    `Target duration: ~${target} seconds. MANDATORY: this selected runtime overrides any default, example or maximum runtime in the template (e.g. 45-75s default / 105s cap). Scene planned durations must sum to ~${target} seconds (within 10%). You MUST return at least ${minScenes} narration-linked scenes with exactly one still image per scene (so at least ${minScenes} playback <image_prompt> blocks numbered #image 1..N plus a separate thumbnail #image 0, or at least ${minScenes} entries in the <long_video> scenes array when using JSON). If a story beat is longer than ~6 seconds, split it into A/B images with new numeric IDs to reach the count. NEVER return only 5 playback images for a 60s+ episode — scale the count with duration. Write every <image_prompt> block in full (complete Prompt, Negative Prompt and Style Tags); placeholders such as [...Repeat for images...], "following the same standard" or "repeat for the remaining" are a failed deliverable.`];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
   return `${head}${head ? '\n\n' : ''}${tail.join('\n')}`.trim();
 }

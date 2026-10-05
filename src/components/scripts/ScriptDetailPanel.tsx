@@ -168,6 +168,7 @@ export function ScriptDetailPanel({
                     key={dur}
                     type="button"
                     onClick={() => handleSaveDuration(dur)}
+                    title={`Targets ~${Math.min(160, Math.max(3, Math.ceil(dur / 6)))}+ scenes/images`}
                     className={
                       script.duration === dur
                         ? 'rounded-lg bg-accent px-2.5 py-1.5 text-xs font-bold text-white shadow-glow'
@@ -178,10 +179,13 @@ export function ScriptDetailPanel({
                   </button>
                 ))}
               </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-faint">
+                Targets ~{Math.min(160, Math.max(3, Math.ceil((selectedDuration || script.duration || 30) / 6)))}+ scenes/images for {selectedDuration || script.duration}s. Changing duration only applies to the next Run — re-run the script to regenerate.
+              </p>
             </div>
           ) : (
             <div className="flex items-center justify-between rounded-xl border border-borderSoft bg-bg/60 px-3 py-2.5 text-[13px] text-gray-300">
-              <span className="font-semibold text-white">{script.duration}s target</span>
+              <span className="font-semibold text-white">{script.duration}s target · ~{Math.min(160, Math.max(3, Math.ceil((script.duration || 30) / 6)))}+ images</span>
               <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[11px] text-muted">
                 {script.duration <= 60 ? 'Short' : 'Long-form'}
               </span>

@@ -23,3 +23,28 @@ export function incompleteResponse(prompt: string, response: string, freeChat = 
   if (prompt.includes(SCENE_PLAN_FORMAT_MARKER) && !/<long_video>/i.test(response) && !response.trimStart().startsWith('{')) return 'Missing shared <long_video> scene-plan block';
   return undefined;
 }
+
+/** Detect shortcut placeholders where the model skips writing the actual
+ * asset blocks (e.g. "[...Repeat for images 1-15...]"). Response-only check:
+ * never run this on the template prompt itself. */
+export function placeholderResponse(response: string): string | undefined {
+  const patterns = [
+    /\[\s*\.\.\.\s*[^\]]*(repeat|continue|same|rest\b)[^\]]*\]/i,
+    /\brepeat for (the remaining|images?)\b/i,
+    /\bfollowing the same \w+ standard\b/i,
+    /\b(no need to repeat|omitted for brevity|truncated for brevity)\b/i,
+  ];
+  if (patterns.some(pattern => pattern.test(response))) {
+    return 'The response uses placeholder text instead of complete asset blocks. Every <image_prompt> block must be written in full.';
+  }
+  // Declared image count with far fewer actual blocks is the same shortcut.
+  const declared = response.match(/SECTION\s+3\s+[^\n]*?\(\s*(\d+)\s+total\s*\)/i)?.[1]
+    || response.match(/(\d+)\s+image_prompts?\s+(?:in total|total)/i)?.[1];
+  if (declared) {
+    const blocks = (response.match(/<image_prompt\b/gi) || []).length;
+    if (blocks > 0 && blocks < Number(declared)) {
+      return `Section 3 declares ${declared} images but only ${blocks} <image_prompt> block${blocks === 1 ? ' is' : 's are'} written. The remaining blocks must be written in full.`;
+    }
+  }
+  return undefined;
+}

@@ -115,6 +115,16 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
         </div>
       </div>
       <div className="flex-1 overflow-y-auto p-6">
+        {(() => {
+          const expected = Math.min(160, Math.max(3, Math.ceil((script.duration || 30) / 6)));
+          const actual = script.imagePrompts?.length ?? 0;
+          if (!hasAssets || actual >= expected) return null;
+          return (
+            <p role="alert" className="mb-4 rounded-lg border border-amber-500/40 bg-amber-950/20 p-3 text-xs leading-relaxed text-amber-100">
+              Only {actual} image{actual === 1 ? '' : 's'} for a {script.duration}s target (expected ~{expected}+). The duration applies at generation time — re-run the script with the current prompt fix to regenerate at full count. Small models (e.g. flash-lite / local) sometimes still under-generate; retry with {script.model || 'gemini-3.6-flash'} or a stronger model if it persists.
+            </p>
+          );
+        })()}
         {script.scenePlan && Array.isArray(script.scenePlan.scenes) && <details className="mb-4 rounded-lg border border-border p-4 text-sm text-gray-300">
           <summary className="cursor-pointer">{scenes.length} narration-linked scenes · Separate thumbnail prompt</summary>
           <p className="mt-3 whitespace-pre-wrap">{script.scenePlan.thumbnailPrompt}</p>

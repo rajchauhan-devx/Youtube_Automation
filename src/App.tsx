@@ -32,7 +32,7 @@ import { SetupTab } from './components/setup/SetupTab';
 import { ExportHubTab } from './components/export/ExportHubTab';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
-import { incompleteResponse } from '../server/src/services/generation-status';
+import { incompleteResponse, placeholderResponse } from '../server/src/services/generation-status';
 import { buildFreePrompt, FREE_CHAT_SYSTEM } from '../server/src/services/script-generation';
 import { apiPost, getApiKey } from './services/api.js';
 import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
@@ -231,8 +231,9 @@ export default function App() {
 
   function buildPrompt(template: string, topic: string, instructions: string, duration?: number): string {
     // Template-sovereign free chat: the template goes through untouched plus
-    // only topic, target duration and extra instructions. No format contract,
-    // media quotas or budgets are injected; extraction validates the tags.
+    // topic, authoritative target duration (with minimum scene scaling) and
+    // extra instructions. The template keeps its tag system; extraction
+    // validates the tags.
     return buildFreePrompt(template, topic, instructions, duration || 30);
 
   }
@@ -425,7 +426,8 @@ export default function App() {
         // (No visual-prompt repair here: it rewrites responses into bare JSON
         // and would destroy the template's own tag system. Extraction is the
         // quality gate and reports exactly which tags are missing.)
-        incomplete = incompleteResponse(promptText, fullResponse, true);
+        incomplete = incompleteResponse(promptText, fullResponse, true) || placeholderResponse(fullResponse);
+        const placeholdersOnly = !incompleteResponse(promptText, fullResponse, true) && Boolean(placeholderResponse(fullResponse));
         const needsContinuation = !finishReason || finishReason === 'STREAM_INTERRUPTED' || finishReason === 'MAX_TOKENS' || (finishReason === 'STOP' && Boolean(incomplete));
         if (!needsContinuation || attempt === maxContinuations) break;
 
@@ -434,8 +436,9 @@ export default function App() {
           { role: 'assistant', content: fullResponse },
           {
             role: 'user',
-            content:
-              'Continue exactly where you stopped. Do not repeat any existing text, do not add an introduction, and finish every remaining part of the requested output.',
+            content: placeholdersOnly
+              ? 'Write ONLY the missing <image_prompt> blocks in full (complete Prompt, Negative Prompt and Style Tags in each). Do not repeat any existing text, do not add an introduction, and do not use placeholders such as [...Repeat...] or "following the same standard".'
+              : 'Continue exactly where you stopped. Do not repeat any existing text, do not add an introduction, and finish every remaining part of the requested output.',
           },
         ];
       }

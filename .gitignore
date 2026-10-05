@@ -40,6 +40,10 @@ server/data/sfx/
 __pycache__/
 *.partial.mp4
 /artifacts/
+# Never commit backups or secret files by accident.
+*.bak
+*.bak-*
+/artifacts/
 
 server/data/accounts/
 server/data/accounts.json
