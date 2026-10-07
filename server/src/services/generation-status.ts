@@ -8,19 +8,27 @@ export function incompleteResponse(prompt: string, response: string, freeChat = 
   // Raw structured JSON is validated as a whole by generationIssue. Literal
   // markup in editorial notes must not be counted as response containers.
   if (prompt.includes(SCENE_PLAN_FORMAT_MARKER) && response.trimStart().startsWith('{')) return undefined;
+
+  // Strip inline code and markdown fences so conversational mentions of tags
+  // (e.g. `<script>`, `<image_prompt0>`, `<image_prompt[N]>`) inside prose
+  // do not trigger false unclosed-tag errors.
+  const clean = response
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/`[^`\n]*`/g, '');
+
   const sections = (text: string) => [...text.matchAll(/^\s*#{1,6}\s+[^\n]*?\bSECTION\s+(\d+[A-Z]?)\b/gim)].map(match => match[1].toUpperCase());
   const requested = [...new Set(sections(prompt))];
-  const received = new Set(sections(response));
+  const received = new Set(sections(clean));
   if (!freeChat && !prompt.includes(SCENE_PLAN_FORMAT_MARKER) && requested.length > 1) {
     const missing = requested.filter(id => !received.has(id));
     if (missing.length) return `Missing requested sections: ${missing.join(', ')}`;
   }
   for (const tag of ['long_video', 'shorts', 'audio_prompt', 'scene', 'narration', 'image_prompt', 'video_prompt', 'thumbnail_prompt', 'script']) {
-    const opens = (response.match(new RegExp(`<${tag}\\b[^>]*>`, 'gi')) || []).length;
-    const closes = (response.match(new RegExp(`</${tag}\\s*>`, 'gi')) || []).length;
+    const opens = (clean.match(new RegExp(`<${tag}(?:\\d+)?(?:\\s+[^>]*)?>`, 'gi')) || []).length;
+    const closes = (clean.match(new RegExp(`</${tag}(?:\\d+)?\\s*>`, 'gi')) || []).length;
     if (opens > closes) return `Unfinished <${tag}> block`;
   }
-  if (prompt.includes(SCENE_PLAN_FORMAT_MARKER) && !/<(?:script|narration|long_video)\b/i.test(response) && !response.trimStart().startsWith('{')) return 'Missing <script> narration block';
+  if (prompt.includes(SCENE_PLAN_FORMAT_MARKER) && !/<(?:script|narration|long_video)\b/i.test(clean) && !clean.trimStart().startsWith('{')) return 'Missing <script> narration block';
   return undefined;
 }
 

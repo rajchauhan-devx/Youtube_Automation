@@ -2,7 +2,7 @@ import { getXkiroModels } from '../services/xkiro-models.js';
 import { normalizeScenePlanResponse } from '../services/scene-plan-format.js';
 import { currentWorkspace } from '../services/workspace.js';
 import { Router } from 'express';
-import { parseScenePlan, spokenText } from '../services/scene-plan.js';
+import { isImageOnlyTemplate, parseScenePlan, spokenText } from '../services/scene-plan.js';
 import { chat, formatGeminiModel } from '../services/gemini.js';
 import { generateLongScenePlan, longGenerationDuration } from '../services/long-script-generation.js';
 import { repairVisualPrompts } from '../services/visual-prompt-repair.js';
@@ -85,7 +85,11 @@ llmRouter.post('/extract', async (req, res) => {
   const rawText = req.body?.rawText;
   if (typeof rawText !== 'string' || !rawText.trim()) { res.status(400).json({ error: 'rawText is required' }); return; }
   try {
-    const plan = parseScenePlan(rawText, req.body?.useTimelineNarration === true);
+    const template = typeof req.body?.template === 'string' ? req.body.template : undefined;
+    const isImageOnly = typeof req.body?.isImageOnly === 'boolean'
+      ? req.body.isImageOnly
+      : (template ? isImageOnlyTemplate(template) : isImageOnlyTemplate(rawText));
+    const plan = parseScenePlan(rawText, req.body?.useTimelineNarration === true, { isImageOnly });
     const profile = currentWorkspace().profile;
     if (profile === 'mixed' && plan.scenes.some(scene => !scene.mediaType)) throw new Error('Mixed Media requires an image or video mediaType on every scene. Use the shared scene-plan format.');
     res.json({ script: spokenText(plan), ttsText: spokenText(plan), imagePrompts: plan.scenes.map(scene => scene.imagePrompt), scenePlan: plan,

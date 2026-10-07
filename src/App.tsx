@@ -33,7 +33,7 @@ import { ExportHubTab } from './components/export/ExportHubTab';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { incompleteResponse, placeholderResponse } from '../server/src/services/generation-status';
-import { buildFreePrompt, FREE_CHAT_SYSTEM } from '../server/src/services/script-generation';
+import { buildFreePrompt, FREE_CHAT_SYSTEM, freeChatSystem } from '../server/src/services/script-generation';
 import { apiPost, getApiKey } from './services/api.js';
 import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -331,7 +331,7 @@ export default function App() {
       // template-driven user prompt. No per-profile system contracts and no
       // provider JSON-schema enforcement — the template owns the format.
       const baseMessages = [
-        { role: 'system', content: FREE_CHAT_SYSTEM },
+        { role: 'system', content: freeChatSystem(template) },
         { role: 'user', content: promptText },
       ];
       let messages = baseMessages;
@@ -627,9 +627,13 @@ export default function App() {
     let extracted: { script: string; ttsText: string; imagePrompts: string[]; scenePlan?: Script['scenePlan'] };
 
     try {
+      const template = selectedScript.prompts
+        .filter((p) => p.content.trim())
+        .map((p) => p.content)
+        .join('\n\n') || selectedScript.howItWorks || '';
       const result = await apiPost(
         '/api/llm/extract',
-        { rawText: selectedScript.aiResponse, useTimelineNarration },
+        { rawText: selectedScript.aiResponse, useTimelineNarration, template },
         getApiKey(), fetch
       );
       extracted = {

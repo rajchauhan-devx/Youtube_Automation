@@ -69,3 +69,36 @@ test('schema conversion retains requested editorial sections and image-only cons
   assert.equal(generationIssue(prompt,JSON.stringify(native),60),undefined);
   assert.match(generationIssue(prompt,JSON.stringify(native)+' trailing prose',60),/invalid JSON/);
 });
+
+test('incompleteResponse ignores tags in inline backticks, markdown code blocks, and bracketed placeholders', () => {
+  const conversational = `
+I will immediately generate the remaining \`<script>\`, \`<image_prompt0>\`, and sequential \`<image_prompt[N]>\` / \`<video_prompt[N]>\` tags without any introduction.
+
+\`\`\`xml
+<image_prompt>Example block in code fence</image_prompt>
+<image_prompt>Unclosed example in code fence
+\`\`\`
+
+<image_prompt0>
+#image 0
+Thumbnail image
+</image_prompt0>
+
+<image_prompt1>
+#image 1
+First scene image
+</image_prompt1>
+
+<video_prompt2>
+#video 2
+Second scene video
+</video_prompt2>
+`;
+
+  assert.equal(incompleteResponse('', conversational, true), undefined);
+
+  // Genuinely unclosed tags must still be detected
+  const broken = conversational + '\n<image_prompt3>\n#image 3\nUnclosed scene without closing tag\n';
+  assert.equal(incompleteResponse('', broken, true), 'Unfinished <image_prompt> block');
+});
+

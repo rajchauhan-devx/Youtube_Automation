@@ -1,5 +1,5 @@
 import { withScenePlanFormat } from './scene-plan-format.js';
-import { parseScenePlan, spokenText } from './scene-plan.js';
+import { isImageOnlyTemplate, parseScenePlan, spokenText } from './scene-plan.js';
 import { incompleteResponse } from './generation-status.js';
 
 export const NARRATION_WORDS_PER_MINUTE = 210;
@@ -122,18 +122,29 @@ ${supporting.length ? `After the extraction tags, include these original support
 ${instructions.trim() ? `Additional Instructions: ${instructions.trim()}` : ''}`.trim();
 }
 
-/** System line for template-driven free chat. Every script uses the same
- * 3-tag system: narration + image + video. No per-profile contracts. */
-export const FREE_CHAT_SYSTEM =
-  'You are an expert video production assistant. Follow the user template instructions, story requirements and visual style. Always wrap the complete voiceover narration inside <script>...</script>, wrap every image generation prompt inside its own <image_prompt>...</image_prompt> tag, and wrap every video generation prompt inside its own <video_prompt>...</video_prompt> tag. The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.';
+export function freeChatSystem(template?: string): string {
+  const isImageOnly = template ? isImageOnlyTemplate(template) : false;
+  if (isImageOnly) {
+    return 'You are an expert video production assistant. Follow the user template instructions, story requirements and visual style. Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and wrap each scene still-image prompt inside its own sequentially numbered tag: <image_prompt1>...</image_prompt1>, <image_prompt2>...</image_prompt2>, up to <image_prompt[N]>. Do NOT generate any <video_prompt> tags; this is a static image-only production. The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.';
+  }
+  return 'You are an expert video production assistant. Follow the user template instructions, story requirements and visual style. Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and wrap scene prompts inside sequentially numbered tags incrementing chronologically across the video timeline (<image_prompt[N]> for static images and <video_prompt[N]> for video shots, e.g. <image_prompt1>, <video_prompt2>, <image_prompt3>). The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.';
+}
+
+export const FREE_CHAT_SYSTEM = freeChatSystem();
 
 export function buildFreePrompt(template: string, topic: string, instructions: string, duration: number): string {
   const head = (template || '').trimEnd();
   const target = Number.isFinite(duration) && duration > 0 ? Math.round(duration) : 30;
   const minScenes = Math.min(160, Math.max(3, Math.ceil(target / (target > 120 ? 10 : 6))));
+  const isImageOnly = isImageOnlyTemplate(template);
+
+  const tagRules = isImageOnly
+    ? `REQUIRED EXTRACTION TAGS (image-only production): (1) Wrap the complete spoken voiceover inside <script>...</script>, (2) Wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and (3) Wrap each scene still-image prompt inside its own sequentially numbered tag: <image_prompt1>...</image_prompt1>, <image_prompt2>...</image_prompt2>, up to <image_prompt${minScenes}>. Do NOT generate any <video_prompt> tags.`
+    : `REQUIRED EXTRACTION TAGS (numbered timeline): (1) Wrap the complete spoken voiceover inside <script>...</script>, (2) Wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and (3) Wrap scene prompts inside sequentially numbered tags incrementing chronologically across the timeline (<image_prompt[N]> for static images and <video_prompt[N]> for video shots, e.g. <image_prompt1>, <video_prompt2>, <image_prompt3>).`;
+
   const tail = [
     `Topic: ${(topic || '').trim()}`,
-    `Target duration: ~${target} seconds. MANDATORY: this selected runtime overrides any default, example or maximum runtime in the template. Scale the episode to ~${target} seconds with at least ${minScenes} story scenes. REQUIRED EXTRACTION TAGS (every script uses all three): (1) Wrap the complete spoken voiceover inside <script>...</script>, (2) Wrap every still-image prompt inside its own <image_prompt>...</image_prompt> tag (numbered #image 1..N plus #image 0 — THUMBNAIL if a thumbnail is included), and (3) Wrap every video prompt inside its own <video_prompt>...</video_prompt> tag (with Related image tag: #image N). Write every prompt block in full; never use placeholders such as [...Repeat...] or "following the same standard".`,
+    `Target duration: ~${target} seconds. MANDATORY: this selected runtime overrides any default, example or maximum runtime in the template. Scale the episode to ~${target} seconds with at least ${minScenes} story scenes. ${tagRules} Write every prompt block in full; never use placeholders such as [...Repeat...] or "following the same standard".`,
   ];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
   return `${head}${head ? '\n\n' : ''}${tail.join('\n')}`.trim();

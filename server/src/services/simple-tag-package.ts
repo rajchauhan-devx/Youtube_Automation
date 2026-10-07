@@ -132,6 +132,7 @@ interface ParsedVisualAsset {
   linkedSceneNum?: number;
   duration?: number;
   prompt: string;
+  sceneTitle?: string;
   isThumbnail: boolean;
   isFollowFrame: boolean;
   isEndCard: boolean;
@@ -139,27 +140,41 @@ interface ParsedVisualAsset {
 
 const METADATA_LINE = /^(?:ASSET|TIMELINE|DURATION|PURPOSE|Scene|Mode|Characters|Location|Evidence\s*\/\s*Disclosure|Reference Image|Related image tag|Target Usable Duration|Audio|Shot Type|Camera Movement)\s*:/i;
 
-function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number): ParsedVisualAsset | null {
-  const cleaned = rawBlock.replace(/\r/g, '').replace(/\*\*/g, '').trim();
+function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number, tagNum?: number): ParsedVisualAsset | null {
+  // Strip any nested or stray XML tags that an LLM might have hallucinated inside
+  const tagStripped = rawBlock.replace(/<\/?(?:image_prompt|video_prompt)\d*\b[^>]*>/gi, '');
+  const cleaned = tagStripped.replace(/\r/g, '').replace(/\*\*/g, '').trim();
   if (!cleaned) return null;
 
   const assetMatch = cleaned.match(new RegExp(`#${kind}\\s+(\\d+)\\b`, 'i'))
-    || cleaned.match(new RegExp(`\\bASSET\\s*:\\s*${kind}\\s+(\\d+)`, 'i'));
-  const assetNum = assetMatch ? Number(assetMatch[1]) : undefined;
+    || cleaned.match(new RegExp(`\\bASSET\\s*:\\s*${kind}\\s+(\\d+)`, 'i'))
+    || cleaned.match(/#(?:image|video)\s+(\d+)\b/i);
+  const assetNum = tagNum !== undefined ? tagNum : (assetMatch ? Number(assetMatch[1]) : undefined);
 
-  const linkedImageMatch = cleaned.match(/(?:Related image tag|Reference Image)\s*:\s*#image\s+(\d+)\b/i);
+  const linkedImageMatch = cleaned.match(/(?:Related image tag|Reference Image)\s*:\s*#image\s+(\d+)\b/i)
+    || (kind === 'video' ? cleaned.match(/#image\s+(\d+)\b/i) : null);
   const linkedImageNum = linkedImageMatch ? Number(linkedImageMatch[1]) : undefined;
 
   const linkedSceneMatch = cleaned.match(/(?:^|\n|\()\s*Scene\s*:\s*(\d+)\b/i)
     || cleaned.match(/#(?:image|video)\s+\d+\s*[—–-]+\s*SCENE\s+(\d+)\b/i);
   const linkedSceneNum = linkedSceneMatch ? Number(linkedSceneMatch[1]) : undefined;
 
-  const durationMatch = cleaned.match(/(?:Target Usable Duration|DURATION|Duration)\s*:\s*(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?\b/i);
+  const durationMatch = cleaned.match(/(?:Target Usable Duration|DURATION|Duration)\s*:\s*(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?\b/i)
+    || cleaned.match(/\b(?:VIDEO CLIP|DURATION)\s*\(\s*(\d+(?:\.\d+)?)\s*s(?:ec(?:ond)?s?)?\s*\)/i);
   const rawDuration = durationMatch ? Number(durationMatch[1]) : undefined;
   const duration = rawDuration && Number.isFinite(rawDuration) && rawDuration > 0 && rawDuration <= 60 ? rawDuration : undefined;
 
-  // Check if block uses labeled fields (Prompt:, Negative Prompt:, Style Tags:, Continuity Lock:)
-  const fieldMatches = [...cleaned.matchAll(/^(Prompt|Negative(?:\s+Prompt)?|Style(?:\s+Tags)?|Continuity(?:\s+Lock)?|Character\s+Consistency)\s*:[ \t]*(.*)$/gim)];
+  const sceneTitleMatch = cleaned.match(/(?:^|\n)\s*SCENE\s*:\s*([^\n]+)/i)
+    || cleaned.match(/#(?:image|video)\s+\d+\s*[—–-]+\s*SCENE\s+(?:(?:\d+\s*[—–-]\s*)?([^\n]+))/i);
+  const rawSceneTitle = sceneTitleMatch ? sceneTitleMatch[1].replace(/^[0-9]+\s*[—–-]\s*/, '').trim() : undefined;
+  const sceneTitle = rawSceneTitle && rawSceneTitle.length <= 100 && !/^(?:THUMBNAIL|STATIC IMAGE|VIDEO CLIP)/i.test(rawSceneTitle)
+    ? rawSceneTitle
+    : undefined;
+
+  // Check if block uses labeled fields (Prompt:, Shot Behavior:, Negative Prompt:, Style Tags:, Continuity Lock:, etc.)
+  const fieldMatches = [...cleaned.matchAll(
+    /^(Prompt|Shot\s+Behavior|Negative(?:\s+Prompt)?|Style(?:\s+Tags)?|Visual\s+Style|Style|Continuity(?:\s+Lock)?|Character\s+Consistency|Characters|Temporal\s+Constraints|Location|Action\s*\/\s*Moment|Atmosphere|Lighting|Camera)\s*:[ \t]*(.*)$/gim
+  )];
 
   let prompt = '';
   let headerText = '';
@@ -173,14 +188,25 @@ function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number
       const end = fieldMatches[idx + 1]?.index ?? cleaned.length;
       return cleaned.slice(start, end).trim();
     };
-    const mainPrompt = getField(/^Prompt$/i);
-    const continuity = getField(/^(?:Continuity|Character)/i);
+    let mainPrompt = getField(/^(?:Prompt|Shot\s+Behavior)$/i);
+    if (!mainPrompt && headerText.trim()) {
+      const headerLines = headerText.split('\n').map(l => l.trim()).filter(Boolean);
+      const bodyLines = headerLines.filter(line => !METADATA_LINE.test(line) && !/^#(?:image|video)\s+\d+\b/i.test(line) && !/^(?:IMAGE|VIDEO)\s+\d+[A-Z]?\b/i.test(line));
+      mainPrompt = bodyLines.join('\n').trim();
+    }
+    const continuity = getField(/^(?:Continuity|Character|Characters)/i);
+    const location = getField(/^Location$/i);
+    const action = getField(/^Action/i);
     const negative = getField(/^Negative/i);
-    const style = getField(/^Style/i);
+    const style = getField(/^(?:Style|Visual\s+Style)/i);
+    const temporal = getField(/^Temporal/i);
 
     prompt = [
       mainPrompt,
+      action ? `Action:\n${action}` : '',
+      location ? `Location:\n${location}` : '',
       continuity ? `Continuity Lock:\n${continuity}` : '',
+      temporal ? `Temporal Constraints:\n${temporal}` : '',
       negative ? `Negative Prompt:\n${negative}` : '',
       style ? `Style Tags:\n${style}` : '',
     ].filter(Boolean).join('\n\n').trim();
@@ -196,7 +222,6 @@ function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number
       const m = lines[0].match(prefixRegex);
       if (m) {
         const rest = (m[1] || '').trim();
-        // If `rest` is just a short label like "THUMBNAIL", "SCENE 1", "FOLLOW FRAME", "END CARD", drop the line
         if (!rest || (rest.length < 45 && /^(?:THUMBNAIL|SCENE\s+\d+|FOLLOW\s*FRAME|END\s*CARD|IMAGE\s+\d+|VIDEO\s+\d+)/i.test(rest))) {
           headerText += ' ' + rest;
           lines.shift();
@@ -206,7 +231,6 @@ function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number
       }
     }
 
-    // Handle same-line caption like "🖼️ IMAGE 1 — THE ARCHITECT A wide cinematic shot..."
     if (lines.length > 0) {
       const deprefixed = lines[0].replace(/^[^\p{L}\p{N}#]+/u, '');
       const sameLine = deprefixed.match(/^(?:IMAGE|VIDEO)\s+\d+[A-Z]?\s*[—–-]\s*([A-Z][A-Z0-9 '&-]{1,40}?[A-Z0-9])\s+(?=[A-Z][a-z"“])/);
@@ -228,7 +252,10 @@ function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number
 
   if (!prompt) return null;
 
-  const isThumbnail = /\bTHUMBNAIL\b/i.test(headerText);
+  // Clean any remaining XML tag artifacts or trailing thumbnail text
+  prompt = prompt.replace(/<\/?(?:image_prompt|video_prompt)\d*\b[^>]*>/gi, '').trim();
+
+  const isThumbnail = (assetNum === 0) || /\bTHUMBNAIL\b/i.test(headerText) || /\bTHUMBNAIL\b/i.test(cleaned.slice(0, 100));
   const isFollowFrame = /\bFOLLOW(?:\s+FRAME)?\b/i.test(headerText);
   const isEndCard = /\bEND\s+CARD\b/i.test(headerText);
 
@@ -240,21 +267,34 @@ function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number
     linkedSceneNum,
     duration,
     prompt,
+    sceneTitle,
     isThumbnail,
     isFollowFrame,
     isEndCard,
   };
 }
 
+export function isImageOnlyTemplate(template: string): boolean {
+  if (!template) return false;
+  if (/IMAGE[- ]ONLY/i.test(template)) return true;
+  if (/ALL STILL[- ]IMAGE/i.test(template)) return true;
+  if (/NO video(?:[,\s]+motion)?\s+prompts?/i.test(template)) return true;
+  if (/Zero video generation/i.test(template)) return true;
+  if (/Only TWO tag types are used/i.test(template)) return true;
+  if (!/<video_prompt/i.test(template) && /<image_prompt/i.test(template)) return true;
+  return false;
+}
+
 /**
- * Universal 3-tag extractor:
- * Looks ONLY for:
+ * Universal tag extractor for all profiles:
+ * Looks for:
  *  1. <script>...</script> (or <narration>...</narration>)
- *  2. <image_prompt>...</image_prompt> (with fallback to bare #image N blocks)
- *  3. <video_prompt>...</video_prompt> (with fallback to bare #video N blocks)
+ *  2. <image_prompt[N]>...</image_prompt[N]> (with N=0 for thumbnail, N>=1 for scenes)
+ *  3. <video_prompt[N]>...</video_prompt[N]> (chronological index N for video scenes)
  */
-export function parseSimpleTagPackage(raw: string): ScenePlan {
+export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boolean }): ScenePlan {
   const text = raw.replace(/\r/g, '');
+  const imageOnly = options?.isImageOnly === true;
 
   // 1. Extract Narration from <script> or <narration> (or FINAL CLEAN VOICE SCRIPT fallback)
   const scriptTags = [...text.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script\s*>/gi)]
@@ -268,7 +308,6 @@ export function parseSimpleTagPackage(raw: string): ScenePlan {
 
   let rawNarration = narrationTags.join('\n\n').trim();
   if (!rawNarration) {
-    // Fallback for responses with a FINAL CLEAN VOICE SCRIPT heading but no <script> tag
     const voiceSection = text.match(/^#{1,6}\s+[^\n]*FINAL CLEAN VOICE SCRIPT[^\n]*\n([\s\S]*?)(?=^#{1,6}\s+|\n---\s*\n|(?![\s\S]))/im)?.[1]?.trim();
     if (voiceSection) rawNarration = voiceSection;
   }
@@ -277,156 +316,158 @@ export function parseSimpleTagPackage(raw: string): ScenePlan {
     throw new Error('Missing narration tag: wrap the spoken voiceover in <script>...</script> (or <narration>...</narration>).');
   }
 
-  // 2. Extract Image Prompts from <image_prompt> tags (or bare #image N fallback)
-  const imageAssets: ParsedVisualAsset[] = [];
-  const imageTagMatches = [...text.matchAll(/<image_prompt\b[^>]*>([\s\S]*?)<\/image_prompt\s*>/gi)];
-  for (const m of imageTagMatches) {
-    const parsed = parseVisualBlock(m[1], 'image', m.index ?? 0);
-    if (parsed) imageAssets.push(parsed);
+  // 2. Extract Visual Assets (<image_prompt[N]> and <video_prompt[N]>)
+  const visualAssets: ParsedVisualAsset[] = [];
+  const tagRegex = /<(image_prompt|video_prompt)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:image_prompt|video_prompt)(?:\d+)?\s*>/gi;
+  for (const m of text.matchAll(tagRegex)) {
+    const kind = m[1].toLowerCase().startsWith('video') ? 'video' : 'image';
+    const tagNum = m[2] !== undefined ? Number(m[2]) : undefined;
+    const parsed = parseVisualBlock(m[3], kind, m.index ?? 0, tagNum);
+    if (parsed) visualAssets.push(parsed);
   }
 
-  // Fallback if the AI wrote bare "#image 1: ..." blocks without <image_prompt> wrapper tags
-  if (imageAssets.length === 0) {
+  // Fallback if the AI wrote bare "#image 1: ..." blocks without wrapper tags
+  if (visualAssets.length === 0) {
     const bareImageMatches = [
       ...text.matchAll(/(?:^|\n)[ \t]*(?:\*{1,2})?(#image[ \t]+\d+[A-Z]?\b[\s\S]*?)(?=(?:\n[ \t]*(?:\*{1,2})?#(?:image|video)[ \t]+\d+\b|\n[ \t]*#{1,6}[ \t]+\S|\n[ \t]*---+[ \t]*(?:\n|$)|(?![\s\S])))/gi),
     ];
     for (const m of bareImageMatches) {
       const parsed = parseVisualBlock(m[1], 'image', m.index ?? 0);
-      if (parsed && parsed.prompt.length >= 15) imageAssets.push(parsed);
+      if (parsed && parsed.prompt.length >= 15) visualAssets.push(parsed);
     }
-  }
 
-  // Fallback for legacy <long_video>ASSET: IMAGE ...</long_video> blocks
-  if (imageAssets.length === 0) {
-    const legacyBlocks = [...text.matchAll(/<long_video\b[^>]*>([\s\S]*?)<\/long_video\s*>/gi)];
-    for (const m of legacyBlocks) {
-      if (/^\s*(?:\*\*)?ASSET\s*:\s*(?:IMAGE|THUMBNAIL)/im.test(m[1])) {
-        const parsed = parseVisualBlock(m[1], 'image', m.index ?? 0);
-        if (parsed) imageAssets.push(parsed);
-      }
-    }
-  }
-
-  // 3. Extract Video Prompts from <video_prompt> tags (or bare #video N / legacy ASSET: VIDEO fallback)
-  const videoAssets: ParsedVisualAsset[] = [];
-  const videoTagMatches = [...text.matchAll(/<video_prompt\b[^>]*>([\s\S]*?)<\/video_prompt\s*>/gi)];
-  for (const m of videoTagMatches) {
-    const parsed = parseVisualBlock(m[1], 'video', m.index ?? 0);
-    if (parsed) videoAssets.push(parsed);
-  }
-
-  if (videoAssets.length === 0) {
     const bareVideoMatches = [
       ...text.matchAll(/(?:^|\n)[ \t]*(?:\*{1,2})?(#video[ \t]+\d+[A-Z]?\b[\s\S]*?)(?=(?:\n[ \t]*(?:\*{1,2})?#(?:image|video)[ \t]+\d+\b|\n[ \t]*#{1,6}[ \t]+\S|\n[ \t]*---+[ \t]*(?:\n|$)|(?![\s\S])))/gi),
     ];
     for (const m of bareVideoMatches) {
       const parsed = parseVisualBlock(m[1], 'video', m.index ?? 0);
-      if (parsed && parsed.prompt.length >= 15) videoAssets.push(parsed);
+      if (parsed && parsed.prompt.length >= 15) visualAssets.push(parsed);
     }
   }
 
-  if (videoAssets.length === 0) {
+  // Fallback for legacy <long_video>ASSET: IMAGE/VIDEO ...</long_video> blocks
+  if (visualAssets.length === 0) {
     const legacyBlocks = [...text.matchAll(/<long_video\b[^>]*>([\s\S]*?)<\/long_video\s*>/gi)];
     for (const m of legacyBlocks) {
-      if (/^\s*(?:\*\*)?ASSET\s*:\s*VIDEO/im.test(m[1])) {
+      if (/^\s*(?:\*\*)?ASSET\s*:\s*(?:IMAGE|THUMBNAIL)/im.test(m[1])) {
+        const parsed = parseVisualBlock(m[1], 'image', m.index ?? 0);
+        if (parsed) visualAssets.push(parsed);
+      } else if (/^\s*(?:\*\*)?ASSET\s*:\s*VIDEO/im.test(m[1])) {
         const parsed = parseVisualBlock(m[1], 'video', m.index ?? 0);
-        if (parsed) videoAssets.push(parsed);
+        if (parsed) visualAssets.push(parsed);
       }
     }
   }
 
-  if (imageAssets.length === 0 && videoAssets.length === 0) {
-    throw new Error('Missing visual prompt tags: include <image_prompt>...</image_prompt> (and <video_prompt>...</video_prompt> for mixed scripts).');
+  if (visualAssets.length === 0) {
+    throw new Error(
+      imageOnly
+        ? 'Missing visual prompt tags: include sequentially numbered <image_prompt0> (thumbnail) and <image_prompt1> to <image_prompt[N]> tags.'
+        : 'Missing visual prompt tags: include sequentially numbered <image_prompt[N]> tags (and <video_prompt[N]> for video shots).'
+    );
   }
 
-  // 4. Separate Thumbnail, Follow Frame, and End Card from story images
+  // 3. Separate Thumbnail from story assets
   const explicitThumbTag = text.match(/<thumbnail_prompt\b[^>]*>([\s\S]*?)<\/thumbnail_prompt\s*>/i)?.[1]?.trim();
-  const nonCardImages = imageAssets.filter(a => !a.isFollowFrame && !a.isEndCard);
-  const thumbAsset = imageAssets.find(a => a.isThumbnail)
-    || (nonCardImages.length > 1 ? nonCardImages.find(a => a.assetNum === 0) : undefined);
-
-  let storyImages = nonCardImages.filter(a => a !== thumbAsset);
-  if (storyImages.length === 0 && imageAssets.length > 0 && videoAssets.length === 0) {
-    // If the user only supplied 1 image and it happened to be #image 0, keep it as the story image
-    storyImages = [imageAssets[0]];
+  const thumbAsset = visualAssets.find(a => a.isThumbnail || a.assetNum === 0);
+  let storyAssets = visualAssets.filter(a => a !== thumbAsset && !a.isThumbnail && a.assetNum !== 0 && !a.isEndCard && !a.isFollowFrame);
+  if (storyAssets.length === 0) {
+    storyAssets = visualAssets.filter(a => a !== thumbAsset && !a.isThumbnail && a.assetNum !== 0 && !a.isEndCard);
+  }
+  // If only 1 asset was supplied and it was marked as thumb, treat it as story asset
+  if (storyAssets.length === 0 && visualAssets.length > 0) {
+    storyAssets.push(visualAssets[0]);
   }
 
-  // 5. Build ordered visual slots (Image-only, Video-only, or Mixed)
+  const rawThumbPrompt = explicitThumbTag
+    || (thumbAsset ? thumbAsset.prompt.replace(/THUMBNAIL TEXT:[^\n]*/i, '').trim() : undefined)
+    || (storyAssets.length > 0 ? storyAssets[0].prompt : 'Episode Thumbnail');
+  const thumbnailPrompt = rawThumbPrompt.replace(/<\/?(?:image_prompt|video_prompt)\d*\b[^>]*>/gi, '').trim();
+
+  // 4. Build ordered visual slots
   interface VisualSlot {
+    index: number;
     mediaType: 'image' | 'video';
     imagePrompt: string;
     videoPrompt?: string;
     duration?: number;
+    sceneTitle?: string;
+    isFollowFrame?: boolean;
   }
 
-  const slots: VisualSlot[] = [];
+  const slotMap = new Map<number, VisualSlot>();
 
-  if (videoAssets.length === 0) {
-    for (const img of storyImages) {
-      slots.push({
-        mediaType: 'image',
-        imagePrompt: img.prompt,
-        duration: img.duration,
-      });
+  // Pass 1: Assign image assets by assetNum
+  storyAssets.forEach((asset, idx) => {
+    const num = asset.assetNum && asset.assetNum > 0 ? asset.assetNum : (idx + 1);
+
+    if (asset.kind === 'image') {
+      const existing = slotMap.get(num);
+      if (existing) {
+        existing.imagePrompt = asset.prompt;
+        if (asset.duration) existing.duration = asset.duration;
+        if (asset.sceneTitle) existing.sceneTitle = asset.sceneTitle;
+      } else {
+        slotMap.set(num, {
+          index: num,
+          mediaType: 'image',
+          imagePrompt: asset.prompt,
+          duration: asset.duration,
+          sceneTitle: asset.sceneTitle,
+          isFollowFrame: asset.isFollowFrame,
+        });
+      }
     }
-  } else if (storyImages.length === 0) {
-    for (const vid of videoAssets) {
-      slots.push({
+  });
+
+  // Pass 2: Assign video assets (link to existing slot or create new video slot)
+  storyAssets.filter(a => a.kind === 'video').forEach((vid, idx) => {
+    let targetNum: number | undefined = vid.linkedImageNum ?? vid.linkedSceneNum;
+    if (targetNum === undefined && vid.assetNum && vid.assetNum > 0) {
+      targetNum = vid.assetNum;
+    }
+
+    if (imageOnly) {
+      // Image-only mode: NEVER upgrade or override scenes to video.
+      if (targetNum !== undefined && slotMap.has(targetNum)) {
+        const existing = slotMap.get(targetNum)!;
+        if (vid.duration && !existing.duration) existing.duration = vid.duration;
+        if (vid.sceneTitle && !existing.sceneTitle) existing.sceneTitle = vid.sceneTitle;
+      } else {
+        const num = targetNum ?? (vid.assetNum && vid.assetNum > 0 ? vid.assetNum : (slotMap.size + idx + 1));
+        slotMap.set(num, {
+          index: num,
+          mediaType: 'image',
+          imagePrompt: vid.prompt,
+          duration: vid.duration,
+          sceneTitle: vid.sceneTitle,
+          isFollowFrame: vid.isFollowFrame,
+        });
+      }
+      return;
+    }
+
+    if (targetNum !== undefined && slotMap.has(targetNum)) {
+      const existing = slotMap.get(targetNum)!;
+      existing.mediaType = 'video';
+      existing.videoPrompt = vid.prompt;
+      if (vid.duration) existing.duration = vid.duration;
+      if (vid.sceneTitle && !existing.sceneTitle) existing.sceneTitle = vid.sceneTitle;
+    } else {
+      const num = targetNum ?? (vid.assetNum && vid.assetNum > 0 ? vid.assetNum : (slotMap.size + idx + 1));
+      slotMap.set(num, {
+        index: num,
         mediaType: 'video',
         imagePrompt: vid.prompt,
         videoPrompt: vid.prompt,
         duration: vid.duration,
+        sceneTitle: vid.sceneTitle,
+        isFollowFrame: vid.isFollowFrame,
       });
     }
-  } else {
-    // Mixed script (both storyImages and videoAssets exist)
-    const anyLinked = videoAssets.some(v => v.linkedImageNum !== undefined || v.linkedSceneNum !== undefined);
+  });
 
-    if (!anyLinked) {
-      const combined = [
-        ...storyImages.map(img => ({ pos: img.pos, slot: { mediaType: 'image' as const, imagePrompt: img.prompt, duration: img.duration } })),
-        ...videoAssets.map(vid => ({ pos: vid.pos, slot: { mediaType: 'video' as const, imagePrompt: vid.prompt, videoPrompt: vid.prompt, duration: vid.duration } })),
-      ].sort((a, b) => a.pos - b.pos);
-      for (const item of combined) slots.push(item.slot);
-    } else {
-      // Section 3 (all <image_prompt>) + Section 3B (linked <video_prompt>)
-      for (const img of storyImages) {
-        slots.push({
-          mediaType: 'image',
-          imagePrompt: img.prompt,
-          duration: img.duration,
-        });
-      }
-
-      for (const vid of videoAssets) {
-        let targetIdx = -1;
-        if (vid.linkedImageNum !== undefined) {
-          targetIdx = storyImages.findIndex(img => img.assetNum === vid.linkedImageNum);
-          if (targetIdx < 0 && vid.linkedImageNum >= 1 && vid.linkedImageNum <= slots.length) {
-            targetIdx = vid.linkedImageNum - 1;
-          }
-        } else if (vid.linkedSceneNum !== undefined && vid.linkedSceneNum >= 1 && vid.linkedSceneNum <= slots.length) {
-          targetIdx = vid.linkedSceneNum - 1;
-        }
-
-        if (targetIdx >= 0 && targetIdx < slots.length && slots[targetIdx].mediaType !== 'video') {
-          slots[targetIdx] = {
-            mediaType: 'video',
-            imagePrompt: slots[targetIdx].imagePrompt,
-            videoPrompt: vid.prompt,
-            duration: vid.duration || slots[targetIdx].duration,
-          };
-        } else {
-          slots.push({
-            mediaType: 'video',
-            imagePrompt: vid.prompt,
-            videoPrompt: vid.prompt,
-            duration: vid.duration,
-          });
-        }
-      }
-    }
-  }
+  const slots = [...slotMap.values()].sort((a, b) => a.index - b.index);
 
   // Optional: pick up authored SCENE N duration and chapter title hints if present in prose
   const sceneHints = new Map<number, { title?: string; duration?: number }>();
@@ -445,18 +486,18 @@ export function parseSimpleTagPackage(raw: string): ScenePlan {
     });
   }
 
-  // 6. Distribute narration across all slots
+  // 5. Distribute narration across all slots
   const narrations = distributeNarrationToScenes(rawNarration, slots.length);
   const scenes: NarrationScene[] = slots.map((slot, index) => {
     const num = index + 1;
     const hint = sceneHints.get(num);
     return {
       id: `scene_${String(num).padStart(3, '0')}`,
-      chapter: hint?.title || `Scene ${num}`,
-      role: 'story' as const,
+      chapter: slot.sceneTitle || hint?.title || `Scene ${num}`,
+      role: slot.isFollowFrame ? ('cta' as const) : ('story' as const),
       narration: narrations[index],
       mediaType: slot.mediaType,
-      duration: slot.duration || hint?.duration || 5,
+      duration: slot.duration || hint?.duration || (slot.mediaType === 'video' ? 8 : 5),
       imagePrompt: slot.imagePrompt,
       ...(slot.mediaType === 'video' ? { videoPrompt: slot.videoPrompt || slot.imagePrompt } : {}),
     };
@@ -468,11 +509,9 @@ export function parseSimpleTagPackage(raw: string): ScenePlan {
     text.match(/^(?:[-*+]\s+)?Title\s*:[ \t]*([^\n]+)/im)?.[1]?.replace(/\*\*/g, '').trim() ||
     'Generated Episode';
 
-  const thumbnailPrompt = explicitThumbTag || thumbAsset?.prompt || scenes[0].imagePrompt;
-
   // Preserve trailing editorial/overlay/reflection sections after the last visual prompt tag
   let lastTagEnd = 0;
-  for (const m of [...text.matchAll(/<\/(?:image_prompt|video_prompt|script|narration)\s*>/gi)]) {
+  for (const m of [...text.matchAll(/<\/(?:image_prompt\d*|video_prompt\d*|script|narration)\s*>/gi)]) {
     const end = (m.index ?? 0) + m[0].length;
     if (end > lastTagEnd) lastTagEnd = end;
   }

@@ -79,8 +79,8 @@ test('Against the Odds numbered production response preserves speech and maps fi
     assert.ok(plan.scenes.every(scene => !/Subscribe for more true survival stories|minimalist vertical graphic/.test(scene.imagePrompt)));
     const normalized = normalizeScenePlanResponse(raw, plan);
     assert.deepEqual(parseScenePlan(normalized), plan);
-    assert.equal((normalized.match(/<long_video>/g) || []).length, 1);
-    assert.ok(!/<(?:shorts|image_prompt|video_prompt|script)>/i.test(normalized));
+    assert.ok(/<script>/i.test(normalized));
+    assert.ok(/<image_prompt\d*>/i.test(normalized));
     assert.ok(normalized.replace(/\r/g, '').includes(voice.replace(/\r/g, '')));
     assert.ok(normalized.includes('The miraculous survival of Beck Weathers'));
     assert.equal(normalizeScenePlanResponse(normalized, plan), normalized, 'Already formatted responses remain unchanged');
@@ -107,10 +107,10 @@ test('built-in templates can explicitly request the shared format for each profi
   for (const profile of ['shorts', 'long', 'mixed']) {
     const prompt = withScenePlanFormat(custom, profile);
     assert.equal(prompt.slice(0, custom.length), custom);
-    assert.match(prompt, /Return exactly ONE <long_video> block/);
+    assert.match(prompt, /Output your finished assets using ONLY these extraction tags/);
     assert.equal((prompt.match(new RegExp(SCENE_PLAN_FORMAT_MARKER, 'g')) || []).length, 1);
     assert.equal(withScenePlanFormat(prompt, profile), prompt);
-    assert.match(incompleteResponse(prompt, 'Finished prose without a package.'), /Missing shared/);
+    assert.match(incompleteResponse(prompt, 'Finished prose without a package.'), /Missing <script> narration block/);
   }
 });
 

@@ -11,11 +11,11 @@ function stripMarkdownFences(text: string): string {
 function findImagePrompts(text: string): string[] {
   const prompts: string[] = [];
 
-  // Strategy 1: Look for <image_prompt> tags
-  const imageTagRegex = /<image_prompt>(?:\s*#image\s*\d+)?\s*([\s\S]*?)<\/image_prompt>/gi;
+  // Strategy 1: Look for <image_prompt[N]> or <video_prompt[N]> tags
+  const imageTagRegex = /<(?:image_prompt|video_prompt)(?:\d+)?\b[^>]*>(?:[\s\S]*?#(?:image|video)\s*\d+)?\s*([\s\S]*?)<\/(?:image_prompt|video_prompt)(?:\d+)?\s*>/gi;
   let tagMatch;
   while ((tagMatch = imageTagRegex.exec(text)) !== null) {
-    const content = tagMatch[1].trim();
+    const content = tagMatch[1].replace(/<\/?(?:image_prompt|video_prompt)\d*\b[^>]*>/gi, '').trim();
     if (content.length > 0) prompts.push(content);
   }
   if (prompts.length > 0) return prompts;

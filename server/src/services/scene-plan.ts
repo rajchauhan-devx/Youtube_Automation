@@ -1,11 +1,13 @@
 import { isTaggedShortsResponse, parseShortsPackage } from './shorts-package.js';
+import { parseLegacyScenePackage } from './legacy-scene-package.js';
 import {
   cleanSpokenNarration,
   distributeNarrationToScenes,
+  isImageOnlyTemplate,
   parseSimpleTagPackage,
 } from './simple-tag-package.js';
 
-export { cleanSpokenNarration, distributeNarrationToScenes, parseSimpleTagPackage };
+export { cleanSpokenNarration, distributeNarrationToScenes, isImageOnlyTemplate, parseSimpleTagPackage };
 
 export interface NarrationScene {
   id: string;
@@ -56,12 +58,12 @@ export function validateScenePlan(value: unknown): ScenePlan {
     if (typeof scene.narration === 'string') {
       scene.narration = cleanSpokenNarration(scene.narration) || scene.narration.trim();
     }
-    if (typeof scene.narration === 'string' && scene.narration.length > 8000) throw new Error(`Scene ${scene.id}: narration has ${scene.narration.length} characters; use at most 8000.`);
+    if (typeof scene.narration === 'string' && scene.narration.length > 700) throw new Error(`Scene ${scene.id}: narration has ${scene.narration.length} characters; use at most 700. Split this chapter across multiple scenes while keeping the required video quota.`);
     if (!scene || typeof scene.id !== 'string' || !/^[A-Za-z0-9_-]{1,60}$/.test(scene.id) || ids.has(scene.id) ||
         !['story', 'cta'].includes(scene.role) || typeof scene.chapter !== 'string' || !scene.chapter.trim() ||
-        typeof scene.narration !== 'string' || !scene.narration.trim() || scene.narration.length > 8000 ||
+        typeof scene.narration !== 'string' || !scene.narration.trim() || scene.narration.length > 700 ||
         typeof scene.imagePrompt !== 'string' || !scene.imagePrompt.trim() || scene.imagePrompt.length > 8000) {
-      throw new Error('Each scene needs a unique ID, chapter, role, image prompt and spoken narration.');
+      throw new Error('Each scene needs a unique ID, chapter, role, image prompt and spoken narration of at most 700 characters.');
     }
     ids.add(scene.id);
   }
@@ -69,7 +71,7 @@ export function validateScenePlan(value: unknown): ScenePlan {
   return p;
 }
 
-export function parseScenePlan(raw: string, _useTimelineNarration = false): ScenePlan {
+export function parseScenePlan(raw: string, _useTimelineNarration = false, options?: { isImageOnly?: boolean }): ScenePlan {
   if (raw.trimStart().startsWith('{')) {
     let value: unknown;
     try { value = JSON.parse(raw); }
@@ -85,13 +87,16 @@ export function parseScenePlan(raw: string, _useTimelineNarration = false): Scen
     return validateScenePlan(value);
   }
 
-  if (/^\s*<shorts\b/i.test(raw) && isTaggedShortsResponse(raw)) {
-    try { return validateScenePlan(parseShortsPackage(raw)); }
-    catch { /* Fall through to universal 3-tag parser */ }
+  if (isTaggedShortsResponse(raw)) {
+    return validateScenePlan(parseShortsPackage(raw));
+  }
+
+  if (/COVERAGE AND ASSET MANIFEST/i.test(raw)) {
+    return validateScenePlan(parseLegacyScenePackage(raw));
   }
 
   // Primary universal 3-tag extraction (<script>/<narration>, <image_prompt>, <video_prompt>)
-  return validateScenePlan(parseSimpleTagPackage(raw));
+  return validateScenePlan(parseSimpleTagPackage(raw, options));
 }
 
 export function validateSync(plan: ScenePlan, sync: NarrationSync) {

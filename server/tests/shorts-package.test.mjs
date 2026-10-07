@@ -22,7 +22,7 @@ test('tagged Shorts preserve Hindi speech, separate video/image prompts and excl
     assert.equal(scenes[1].imagePrompt, plan.scenes[1].imagePrompt);
   }
   assert.deepEqual(parsed, plan, 'Resolving generation scenes preserves the authored plan');
-  assert.match(incompleteResponse(SHORTS_MEDIA_TEMPLATE, tagged), /Missing shared/);
+  assert.match(incompleteResponse(SHORTS_MEDIA_TEMPLATE, 'No tags returned here'), /Missing <script> narration block/);
   assert.equal(incompleteResponse(SHORTS_MEDIA_TEMPLATE, serializeScenePlan(plan)), undefined);
 });
 
@@ -51,9 +51,9 @@ test('stream completeness detects interrupted video and audio blocks', () => {
 
 test('the full production template requests the shared format and substantial production direction', () => {
   assert.ok(SHORTS_MEDIA_TEMPLATE.length > 10000);
-  assert.ok(SHORTS_MEDIA_TEMPLATE.includes('<long_video>'));
+  assert.ok(SHORTS_MEDIA_TEMPLATE.includes('<image_prompt0>'));
   assert.ok(SHORTS_MEDIA_TEMPLATE.includes('Shared extraction format V1'));
   assert.ok(!SHORTS_MEDIA_TEMPLATE.includes('<shorts>'));
-  for (const field of ['narration', 'imagePrompt', 'videoPrompt', 'thumbnailPrompt']) assert.ok(SHORTS_MEDIA_TEMPLATE.includes(`"${field}"`));
-  for (const instruction of ['Character, location', 'Duration and scene budgeting', 'still-image alternative', 'Final silent production check']) assert.ok(SHORTS_MEDIA_TEMPLATE.includes(instruction));
+  for (const tag of ['<script>', '<image_prompt', '<video_prompt']) assert.ok(SHORTS_MEDIA_TEMPLATE.includes(tag));
+  for (const instruction of ['Character, location', 'Duration and scene budgeting', 'still-image alternative']) assert.ok(SHORTS_MEDIA_TEMPLATE.includes(instruction));
 });
