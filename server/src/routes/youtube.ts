@@ -119,6 +119,7 @@ youtubeRouter.post('/upload', async (req, res) => {
     description = '',
     tags = [],
     privacyStatus = 'private',
+    publishAt,
     categoryId = '22', // Default to 22 (People & Blogs)
     thumbnailFilename,
   } = req.body || {};
@@ -127,6 +128,17 @@ youtubeRouter.post('/upload', async (req, res) => {
       !safeSegment(videoFilename) || !videoFilename.endsWith('.mp4') || videoFilename.endsWith('.partial.mp4') ||
       (thumbnailFilename && (!safeSegment(thumbnailFilename) || !/\.(png|jpg|jpeg)$/i.test(thumbnailFilename)))) {
     res.status(400).json({ error: 'A script, title and completed MP4 filename are required.' }); return;
+  }
+  let validatedPublishAt: string | undefined;
+  if (publishAt !== undefined && publishAt !== null && publishAt !== '') {
+    if (typeof publishAt !== 'string') {
+      res.status(400).json({ error: 'Invalid scheduled publish time.' }); return;
+    }
+    const parsedTime = Date.parse(publishAt);
+    if (Number.isNaN(parsedTime) || parsedTime <= Date.now() + 2 * 60_000) {
+      res.status(400).json({ error: 'Scheduled publish time must be at least 5 minutes in the future.' }); return;
+    }
+    validatedPublishAt = new Date(parsedTime).toISOString();
   }
   if (!store.getById('scripts', scriptId)) { res.status(404).json({ error: 'Script not found in this account and video profile' }); return; }
   const outputScriptDir = containedFile(outputDir(), scriptId);
@@ -157,8 +169,9 @@ youtubeRouter.post('/upload', async (req, res) => {
       requestBody: {
         snippet: snippetPayload,
         status: {
-          privacyStatus: ['public', 'unlisted', 'private'].includes(privacyStatus) ? privacyStatus : 'private',
+          privacyStatus: validatedPublishAt ? 'private' : (['public', 'unlisted', 'private'].includes(privacyStatus) ? privacyStatus : 'private'),
           selfDeclaredMadeForKids: false,
+          ...(validatedPublishAt ? { publishAt: validatedPublishAt } : {}),
         },
       },
       media: {
@@ -197,9 +210,10 @@ youtubeRouter.post('/upload', async (req, res) => {
       }
     }
 
+    const effectivePrivacy = validatedPublishAt ? 'private' : privacyStatus;
     atomicJson(path.join(outputScriptDir, `upload_${videoId}.json`), {
       accountId, channelId: destination.id, profile: currentWorkspace().profile,
-      videoId, videoFilename, uploadedAt: new Date().toISOString(),
+      videoId, videoFilename, publishAt: validatedPublishAt, uploadedAt: new Date().toISOString(),
     });
     res.json({
       accountId,
@@ -208,7 +222,9 @@ youtubeRouter.post('/upload', async (req, res) => {
       videoId,
       videoUrl,
       title,
-      privacyStatus,
+      privacyStatus: effectivePrivacy,
+      scheduled: Boolean(validatedPublishAt),
+      publishAt: validatedPublishAt,
       uploadedAt: new Date().toISOString(),
     });
   } catch (err: any) {

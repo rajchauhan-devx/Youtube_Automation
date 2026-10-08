@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { atomicJson, getAccount, tokenPath } from '../services/accounts.js';
 import { currentWorkspace } from '../services/workspace.js';
 import { APP_ORIGIN, OAUTH_ORIGIN, bindChannel, connectionRevision, consumeOAuthState, createOAuth2Client, credentialInfo, credentialsPath, invalidateConnection, issueOAuthState, REDIRECT_URI, storedCredentials, verifyChannel } from '../services/youtube-auth.js';
+import { fetchAccountStudioOverview, fetchAllAccountsStudioDashboard } from '../services/youtube-studio.js';
 
 export const youtubeAuthRouter = Router();
 youtubeAuthRouter.get('/status', async (_req, res) => {
@@ -15,9 +16,43 @@ youtubeAuthRouter.get('/status', async (_req, res) => {
     }
     const channel = await verifyChannel(client, accountId);
     bindChannel(accountId, channel.id!, channel.snippet?.title || 'YouTube Channel');
-    res.json({ accountId, configured, authenticated: true, channel: { id: channel.id, title: channel.snippet?.title, avatar: channel.snippet?.thumbnails?.default?.url, subscriberCount: channel.statistics?.subscriberCount, videoCount: channel.statistics?.videoCount } });
+    res.json({
+      accountId,
+      configured,
+      authenticated: true,
+      channel: {
+        id: channel.id,
+        title: channel.snippet?.title,
+        customUrl: channel.snippet?.customUrl,
+        avatar: channel.snippet?.thumbnails?.default?.url,
+        subscriberCount: channel.statistics?.subscriberCount,
+        videoCount: channel.statistics?.videoCount,
+        viewCount: channel.statistics?.viewCount,
+      },
+    });
   } catch (error) {
     res.json({ accountId, configured: true, authenticated: false, channel: null, message: error instanceof Error ? error.message : 'Reconnect this YouTube account.' });
+  }
+});
+
+youtubeAuthRouter.get('/studio', async (req, res) => {
+  const { accountId } = currentWorkspace();
+  const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
+  try {
+    const overview = await fetchAccountStudioOverview(accountId, { forceRefresh });
+    res.json(overview);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Could not load YouTube Studio analytics' });
+  }
+});
+
+youtubeAuthRouter.get('/dashboard', async (req, res) => {
+  const forceRefresh = req.query.refresh === '1' || req.query.refresh === 'true';
+  try {
+    const dashboard = await fetchAllAccountsStudioDashboard({ forceRefresh });
+    res.json(dashboard);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Could not load multi-account YouTube Studio dashboard' });
   }
 });
 

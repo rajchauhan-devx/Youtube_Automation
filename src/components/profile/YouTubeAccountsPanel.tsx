@@ -8,8 +8,8 @@ type CredentialInfo = {
   configured: boolean; clientId: string | null; source: 'account' | 'shared' | 'env' | 'none';
   hasOwnFile: boolean; hasToken: boolean; redirectUri: string;
 };
-export function YouTubeAccountsPanel({ accounts, onAccountsChange, onSelectAccount }: {
-  accounts: Channel[]; onAccountsChange: (accounts: Channel[]) => void; onSelectAccount: (account: Channel) => void;
+export function YouTubeAccountsPanel({ accounts, onAccountsChange, onSelectAccount, onOpenDashboard }: {
+  accounts: Channel[]; onAccountsChange: (accounts: Channel[]) => void; onSelectAccount: (account: Channel) => void; onOpenDashboard?: () => void;
 }) {
   const { account: active, profile } = useWorkspaceApi();
   const [name, setName] = useState('');
@@ -133,7 +133,7 @@ export function YouTubeAccountsPanel({ accounts, onAccountsChange, onSelectAccou
   }
 
   return <section aria-label="YouTube accounts" className="space-y-4 rounded-xl border border-border bg-surface p-5">
-    <div><h2 className="flex items-center gap-2 text-xl font-semibold"><Youtube className="text-red-400" />YouTube accounts</h2>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-xl font-semibold"><Youtube className="text-red-400" />YouTube accounts</h2>{onOpenDashboard && <button type="button" onClick={onOpenDashboard} className="rounded-lg border border-accent/40 bg-accentSoft px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent">Open YT Studio Dashboard</button>}</div><div>
       <p className="mt-2 text-sm text-gray-400">Each account has separate Shorts and Long Video workspaces. Add an account, connect its YouTube channel, then switch accounts to work on its videos.</p></div>
     <form onSubmit={add} className="flex flex-wrap gap-2">
       <input aria-label="New YouTube account name" placeholder="Account name, e.g. My travel channel" maxLength={80} required value={name} onChange={e => setName(e.target.value)} className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm" />

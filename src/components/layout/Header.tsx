@@ -15,7 +15,7 @@ export function Header({
   onNewScript: () => void;
 }) {
   const sectionLabel =
-    section === 'shorts' ? 'Shorts' : section === 'mixed' ? 'Mixed Media' : section === 'long' ? 'Long Video' : (section as string);
+    section === 'shorts' ? 'Shorts' : section === 'mixed' ? 'Mixed Media' : section === 'long' ? 'Long Video' : section === 'dashboard' ? 'YouTube Studio' : section === 'profile' ? 'Profile & Voices' : (section as string);
   return (
     <header className="sticky top-0 z-20 flex h-[68px] shrink-0 items-center justify-between gap-4 border-b border-borderSoft bg-bg/85 px-5 backdrop-blur-xl sm:px-7">
       <div className="flex min-w-0 items-center gap-2 text-[13px]">

@@ -112,6 +112,8 @@ export interface YouTubeExportData {
   description?: string;
   tags?: string[];
   privacyStatus?: 'public' | 'unlisted' | 'private';
+  publishMode?: 'now' | 'schedule';
+  scheduledPublishAt?: string;
   categoryId?: string;
   selectedThumbnailIndex?: number;
   uploadedVideoId?: string;

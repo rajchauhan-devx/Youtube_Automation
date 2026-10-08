@@ -112,10 +112,10 @@ function VoiceLibrary({ language }: { language: VoiceLanguage }) {
   );
 }
 
-export function ProfilePage({ accounts, onAccountsChange, onSelectAccount }: { accounts: Channel[]; onAccountsChange: (accounts: Channel[]) => void; onSelectAccount: (account: Channel) => void }) {
+export function ProfilePage({ accounts, onAccountsChange, onSelectAccount, onOpenDashboard }: { accounts: Channel[]; onAccountsChange: (accounts: Channel[]) => void; onSelectAccount: (account: Channel) => void; onOpenDashboard?: () => void }) {
   const { account } = useWorkspaceApi();
   return <div className="mx-auto max-w-5xl space-y-6">
-    <YouTubeAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} />
+    <YouTubeAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} onOpenDashboard={onOpenDashboard} />
     <MetaAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} />
     <div>
       <p className="mb-2 text-xs font-medium uppercase tracking-wider text-accent">Profile · {account.name}</p>

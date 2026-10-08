@@ -15,11 +15,13 @@ import {
   Rocket,
   ScrollText,
   CircleUserRound,
+  LayoutDashboard,
 } from 'lucide-react';
 import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './services/workspaceApi';
 import type { Section, Tab, Channel, Script } from './data';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { ProfilePage } from './components/profile/ProfilePage';
+import { YouTubeStudioDashboard } from './components/dashboard/YouTubeStudioDashboard';
 import { ScriptsTab } from './components/scripts/ScriptsTab';
 import { NewScriptModal } from './components/scripts/NewScriptModal';
 import { ScriptRunModal } from './components/scripts/ScriptRunModal';
@@ -51,6 +53,12 @@ const TABS: { id: Tab; label: string; icon: typeof ScrollText; step: string }[] 
 type SidebarGroup = { title: string; items: { id: string; label: string; icon: typeof Zap; badge?: string }[] };
 
 const SIDEBAR_GROUPS: SidebarGroup[] = [
+  {
+    title: 'Studio',
+    items: [
+      { id: 'dashboard', label: 'YT Studio', icon: LayoutDashboard, badge: '3 YT' },
+    ],
+  },
   {
     title: 'Create',
     items: [
@@ -116,7 +124,7 @@ function saveUiState(state: PersistedUiState) {
   }
 }
 
-type SidebarId = Section | 'queue' | 'library' | 'settings' | 'profile';
+type SidebarId = Section | 'dashboard' | 'queue' | 'library' | 'settings' | 'profile';
 
 function isMainSectionSidebar(id: SidebarId): boolean {
   return id === 'shorts' || id === 'long' || id === 'mixed';
@@ -876,7 +884,24 @@ export default function App() {
 
         <main key={scopeKey} className="thin-scrollbar flex-1 overflow-y-auto">
           <div className="mx-auto w-full max-w-[1440px] px-5 py-6 sm:px-7">
-            {sidebar === 'profile' ? <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} /> : sidebar === 'settings' ? (
+            {sidebar === 'dashboard' ? (
+              <YouTubeStudioDashboard
+                accounts={accounts}
+                activeAccount={activeChannel}
+                onSelectAccount={switchChannel}
+                onOpenWorkspace={(account, targetSection) => {
+                  setNewScriptOpen(false);
+                  setRunModalScript(null);
+                  setActiveChannel(account);
+                  setChannelSwitcherOpen(false);
+                  setSection(targetSection);
+                  setSidebar(targetSection);
+                  setTab('scripts');
+                  setSelectedScriptId(null);
+                }}
+                onManageAccounts={() => setSidebar('profile')}
+              />
+            ) : sidebar === 'profile' ? <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} /> : sidebar === 'settings' ? (
               <SetupTab />
             ) : !isMainSection ? (
               <PlaceholderPage label={sidebar.charAt(0).toUpperCase() + sidebar.slice(1)} />

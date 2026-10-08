@@ -24,6 +24,8 @@ import {
   Film,
   Image as ImageIcon,
   CheckCircle,
+  Calendar,
+  Clock,
 } from 'lucide-react';
 import { Field } from '../layout/Field';
 import type { Script, GeneratedImage } from '../../data';
@@ -49,6 +51,34 @@ interface GeneratedMetadataResponse {
   titles: string[];
   description: string;
   tags: string[];
+}
+
+function toLocalDateTimeInput(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function defaultScheduleDateTime(): string {
+  const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  d.setHours(18, 0, 0, 0);
+  if (d.getTime() <= Date.now() + 30 * 60 * 1000) {
+    d.setDate(d.getDate() + 1);
+  }
+  return toLocalDateTimeInput(d);
+}
+
+function formatScheduledDisplay(val: string): string {
+  if (!val) return '';
+  const parsed = new Date(val);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 export function YouTubeExportTab({
@@ -99,6 +129,16 @@ export function YouTubeExportTab({
   const [privacyStatus, setPrivacyStatus] = useState<'public' | 'unlisted' | 'private'>(
     initialData?.privacyStatus || 'private'
   );
+  const [publishMode, setPublishMode] = useState<'now' | 'schedule'>(
+    initialData?.publishMode || (initialData?.scheduledPublishAt ? 'schedule' : 'now')
+  );
+  const [scheduledPublishAt, setScheduledPublishAt] = useState<string>(() => {
+    if (initialData?.scheduledPublishAt) {
+      const d = new Date(initialData.scheduledPublishAt);
+      if (!Number.isNaN(d.getTime())) return toLocalDateTimeInput(d);
+    }
+    return defaultScheduleDateTime();
+  });
   const [categoryId] = useState(initialData?.categoryId || '22');
   const [selectedThumbnailIndex, setSelectedThumbnailIndex] = useState<number>(
     initialData?.selectedThumbnailIndex ?? 0
@@ -116,9 +156,14 @@ export function YouTubeExportTab({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStage, setUploadStage] = useState('');
-  const [uploadSuccess, setUploadSuccess] = useState<{ videoId: string; videoUrl: string } | null>(
+  const [uploadSuccess, setUploadSuccess] = useState<{ videoId: string; videoUrl: string; scheduled?: boolean; publishAt?: string } | null>(
     initialData?.uploadedVideoId && initialData?.uploadedVideoUrl
-      ? { videoId: initialData.uploadedVideoId, videoUrl: initialData.uploadedVideoUrl }
+      ? {
+          videoId: initialData.uploadedVideoId,
+          videoUrl: initialData.uploadedVideoUrl,
+          scheduled: initialData.publishMode === 'schedule' && Boolean(initialData.scheduledPublishAt),
+          publishAt: initialData.scheduledPublishAt,
+        }
       : null
   );
   const [uploadError, setUploadError] = useState('');
@@ -348,11 +393,35 @@ export function YouTubeExportTab({
     });
   }
 
-  // 5. Upload Video Directly
+  function applySchedulePreset(hoursFromNow?: number, targetHour?: number, daysOffset = 1) {
+    const d = new Date();
+    if (typeof hoursFromNow === 'number') {
+      d.setTime(Date.now() + hoursFromNow * 60 * 60 * 1000);
+      d.setMinutes(Math.ceil(d.getMinutes() / 15) * 15, 0, 0);
+    } else {
+      d.setDate(d.getDate() + daysOffset);
+      d.setHours(targetHour ?? 18, 0, 0, 0);
+    }
+    const formatted = toLocalDateTimeInput(d);
+    setScheduledPublishAt(formatted);
+    persistExportData({ publishMode: 'schedule', scheduledPublishAt: d.toISOString(), privacyStatus: 'private' });
+  }
+
+  // 5. Upload Video Directly (or Schedule on YouTube)
   async function handleUploadToYouTube() {
     if (!script?.id || !title.trim()) {
-      alert('Please provide a video title before uploading.');
+      setUploadError('Please provide a video title before uploading.');
       return;
+    }
+
+    let isoPublishAt: string | undefined;
+    if (publishMode === 'schedule') {
+      const parsedSchedule = new Date(scheduledPublishAt);
+      if (Number.isNaN(parsedSchedule.getTime()) || parsedSchedule.getTime() <= Date.now() + 2 * 60_000) {
+        setUploadError('Scheduled publish time must be at least 5 minutes in the future.');
+        return;
+      }
+      isoPublishAt = parsedSchedule.toISOString();
     }
 
     setUploading(true);
@@ -395,7 +464,8 @@ export function YouTubeExportTab({
           title,
           description,
           tags: parsedTags,
-          privacyStatus,
+          privacyStatus: isoPublishAt ? 'private' : privacyStatus,
+          publishAt: isoPublishAt,
           categoryId,
           thumbnailFilename,
         }),
@@ -405,10 +475,18 @@ export function YouTubeExportTab({
       if (!res.ok) throw new Error(data.error || 'Upload failed');
 
       setUploadProgress(100);
-      setUploadStage('Upload Complete!');
-      setUploadSuccess({ videoId: data.videoId, videoUrl: data.videoUrl });
+      setUploadStage(data.scheduled ? 'Scheduled on YouTube!' : 'Upload Complete!');
+      setUploadSuccess({
+        videoId: data.videoId,
+        videoUrl: data.videoUrl,
+        scheduled: Boolean(data.scheduled),
+        publishAt: data.publishAt || isoPublishAt,
+      });
 
       persistExportData({
+        publishMode,
+        scheduledPublishAt: data.publishAt || isoPublishAt,
+        privacyStatus: data.scheduled ? 'private' : privacyStatus,
         uploadedVideoId: data.videoId,
         uploadedVideoUrl: data.videoUrl,
         uploadedAt: new Date().toISOString(),
@@ -808,22 +886,157 @@ export function YouTubeExportTab({
               />
             </div>
 
-            {/* Publishing Settings (Privacy) */}
-            <div className="pt-2 border-t border-border/50">
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Privacy Status</label>
-              <select
-                value={privacyStatus}
-                onChange={(e) => {
-                  const val = e.target.value as any;
-                  setPrivacyStatus(val);
-                  persistExportData({ privacyStatus: val });
-                }}
-                className="w-full sm:w-1/2 rounded-lg border border-border bg-bg px-3 py-2 text-xs text-white outline-none focus:border-accent"
-              >
-                <option value="public">Public (Visible to Everyone)</option>
-                <option value="unlisted">Unlisted (Anyone with link can view)</option>
-                <option value="private">Private (Only you can view)</option>
-              </select>
+            {/* Publishing Settings (Privacy & Scheduling) */}
+            <div className="space-y-3 pt-3 border-t border-border/50">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="block text-xs font-semibold text-gray-300">
+                  Publishing Mode & Schedule
+                </label>
+                <div className="inline-flex rounded-lg border border-border bg-bg p-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPublishMode('now');
+                      persistExportData({ publishMode: 'now' });
+                    }}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1 font-semibold transition-all ${
+                      publishMode === 'now'
+                        ? 'bg-accent text-white shadow'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <UploadCloud className="h-3.5 w-3.5" />
+                    Publish Now
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPublishMode('schedule');
+                      const nextIso = new Date(scheduledPublishAt).toISOString();
+                      persistExportData({
+                        publishMode: 'schedule',
+                        privacyStatus: 'private',
+                        scheduledPublishAt: nextIso,
+                      });
+                    }}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1 font-semibold transition-all ${
+                      publishMode === 'schedule'
+                        ? 'bg-accent text-white shadow'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    Schedule Video
+                  </button>
+                </div>
+              </div>
+
+              {publishMode === 'now' ? (
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-400 mb-1">
+                    Visibility Status
+                  </label>
+                  <select
+                    aria-label="Privacy Status"
+                    value={privacyStatus}
+                    onChange={(e) => {
+                      const val = e.target.value as 'public' | 'unlisted' | 'private';
+                      setPrivacyStatus(val);
+                      persistExportData({ privacyStatus: val, publishMode: 'now' });
+                    }}
+                    className="w-full sm:w-2/3 rounded-lg border border-border bg-bg px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                  >
+                    <option value="public">Public (Visible to Everyone immediately)</option>
+                    <option value="unlisted">Unlisted (Anyone with link can view)</option>
+                    <option value="private">Private (Only you can view)</option>
+                  </select>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-accent/30 bg-accent/5 p-3.5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-white">
+                      <Clock className="h-4 w-4 text-accent" />
+                      <span>Schedule Public Release on YouTube</span>
+                    </div>
+                    <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[10px] font-bold text-accent">
+                      Local Time ({Intl.DateTimeFormat().resolvedOptions().timeZone})
+                    </span>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-[11px] font-medium text-gray-300 mb-1">
+                        Publish Date & Time
+                      </label>
+                      <input
+                        type="datetime-local"
+                        aria-label="Scheduled publish date and time"
+                        min={toLocalDateTimeInput(new Date(Date.now() + 5 * 60_000))}
+                        value={scheduledPublishAt}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setScheduledPublishAt(val);
+                          const parsed = new Date(val);
+                          if (!Number.isNaN(parsed.getTime())) {
+                            persistExportData({
+                              publishMode: 'schedule',
+                              privacyStatus: 'private',
+                              scheduledPublishAt: parsed.toISOString(),
+                            });
+                          }
+                        }}
+                        className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-xs text-white outline-none focus:border-accent"
+                      />
+                    </div>
+
+                    <div>
+                      <span className="block text-[11px] font-medium text-gray-300 mb-1">
+                        Quick Schedule Presets
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => applySchedulePreset(3)}
+                          className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-gray-200 hover:border-accent hover:text-white"
+                        >
+                          +3 Hours
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applySchedulePreset(undefined, 9, 1)}
+                          className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-gray-200 hover:border-accent hover:text-white"
+                        >
+                          Tomorrow 9 AM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applySchedulePreset(undefined, 18, 1)}
+                          className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-gray-200 hover:border-accent hover:text-white"
+                        >
+                          Tomorrow 6 PM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applySchedulePreset(undefined, 18, 2)}
+                          className="rounded-lg border border-border bg-bg px-2.5 py-1.5 text-[11px] font-medium text-gray-200 hover:border-accent hover:text-white"
+                        >
+                          +2 Days 6 PM
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {formatScheduledDisplay(scheduledPublishAt) && (
+                    <p className="text-[11px] text-gray-300 leading-relaxed">
+                      YouTube will keep this video <strong>Private</strong> until{" "}
+                      <strong className="text-white">
+                        {formatScheduledDisplay(scheduledPublishAt)}
+                      </strong>
+                      , then automatically publish it as <strong>Public</strong>.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -840,9 +1053,15 @@ export function YouTubeExportTab({
                 <div className="flex items-center gap-2.5">
                   <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0" />
                   <div>
-                    <h4 className="text-sm font-bold text-white">Video Published to YouTube!</h4>
+                    <h4 className="text-sm font-bold text-white">
+                      {uploadSuccess.scheduled
+                        ? 'Video Scheduled on YouTube Studio!'
+                        : 'Video Published to YouTube!'}
+                    </h4>
                     <p className="text-xs text-emerald-300">
-                      Your video has been transferred directly to your YouTube channel.
+                      {uploadSuccess.scheduled && uploadSuccess.publishAt
+                        ? `Uploaded as Private and scheduled to go Public on ${formatScheduledDisplay(uploadSuccess.publishAt)}.`
+                        : 'Your video has been transferred directly to your YouTube channel.'}
                     </p>
                   </div>
                 </div>
@@ -889,6 +1108,14 @@ export function YouTubeExportTab({
                     <>
                       <Loader2 className="h-5 w-5 animate-spin" />
                       {uploadStage} ({uploadProgress}%)
+                    </>
+                  ) : publishMode === 'schedule' ? (
+                    <>
+                      <Calendar className="h-5 w-5" />
+                      Schedule Video on YouTube ({ytStatus.channel?.title || 'Account'}
+                      {formatScheduledDisplay(scheduledPublishAt)
+                        ? ` · ${formatScheduledDisplay(scheduledPublishAt)}`
+                        : ''})
                     </>
                   ) : (
                     <>
