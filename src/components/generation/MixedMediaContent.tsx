@@ -72,16 +72,40 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   }
 
   async function stopModel() {
-    if (locked || modelStatus === 'stopping') return;
-    setModelStatus('stopping'); setModelDetail('Stopping the local image model…'); setError('');
+    if (modelStatus === 'stopping') return;
+    stopRequested.current = true;
+    setModelStatus('stopping');
+    setModelDetail('Stopping the local image model…');
+    setError('');
     try {
+      if (script && activeIndex !== null) {
+        await fetch('/api/generate/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scriptId: script.id, index: activeIndex }),
+        }).catch(() => {});
+      }
       const response = await fetch('/api/generate/stop', { method: 'POST' });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || 'Could not stop the image model.');
-      setModelStatus('offline'); setModelDetail(result.message || 'Image model is stopped.');
-    } catch (err) {
       setModelStatus('offline');
-      setModelDetail(err instanceof Error ? err.message : 'Could not stop the image model.');
+      setModelDetail(result.message || 'Image model is stopped.');
+      setNotice('Image model stopped successfully.');
+    } catch (err) {
+      const isOnline = await refreshModelStatus();
+      if (!isOnline) {
+        setModelStatus('offline');
+        setModelDetail('Image model is stopped.');
+      } else {
+        setModelDetail(err instanceof Error ? err.message : 'Could not stop the image model.');
+      }
+    } finally {
+      if (mounted.current) {
+        setGenerating(false);
+        setActiveIndex(null);
+        setActiveRefIndex(null);
+        setStopping(false);
+      }
     }
   }
 
@@ -213,7 +237,25 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
       <div className="flex flex-wrap items-center gap-4">
         <label className="text-xs text-gray-400">Quality <select aria-label="Image quality" value={preset} disabled={locked} onChange={event => setPreset(event.target.value as typeof preset)} className="ml-2 rounded-lg border border-border bg-bg px-3 py-2 text-white"><option value="fast">Fast</option><option value="standard">Standard</option><option value="high">High</option></select></label>
         <span role="status" className="text-xs text-gray-400">Image model: {modelStatus}</span>
-        {modelStatus === 'online' ? <button disabled={locked} onClick={() => void stopModel()} className="studio-btn-ghost">Stop model</button> : <button disabled={locked || modelStatus !== 'offline'} onClick={() => void startModel()} className="studio-btn-ghost">{modelStatus === 'starting' ? 'Starting model...' : 'Start model'}</button>}
+        {modelStatus === 'online' || modelStatus === 'stopping' ? (
+          <button
+            disabled={modelStatus === 'stopping'}
+            onClick={() => void stopModel()}
+            className="studio-btn-ghost text-red-300 hover:text-red-200"
+            title="Stop the local ComfyUI image model process and release GPU memory"
+          >
+            <Square className="h-3.5 w-3.5 mr-1" />
+            {modelStatus === 'stopping' ? 'Stopping model...' : 'Stop model'}
+          </button>
+        ) : (
+          <button
+            disabled={locked || modelStatus !== 'offline'}
+            onClick={() => void startModel()}
+            className="studio-btn-ghost"
+          >
+            {modelStatus === 'starting' ? 'Starting model...' : 'Start model'}
+          </button>
+        )}
         <button disabled={locked || modelStatus === 'checking' || modelStatus === 'starting' || modelStatus === 'stopping'} onClick={() => void refreshModelStatus()} className="studio-btn-ghost">Refresh</button>
       </div>
       <div className="mt-4 rounded-lg border border-accent/30 bg-accent/5 p-3 text-xs">

@@ -71,6 +71,11 @@ generateRouter.post('/start', async (_req, res) => {
 generateRouter.post('/stop', async (_req, res) => {
   if (presenterState.editingRequests) { res.status(409).json({ error: 'Cancel the artifact generation job before stopping ComfyUI.' }); return; }
   if (localMusicBusy()) { res.status(409).json({ error: 'Cancel music generation in Timeline & Render before stopping the local engine.' }); return; }
+  // Abort any in-flight image generation controllers so they do not hang
+  for (const controller of activeControllers.values()) {
+    try { controller.abort(); } catch {}
+  }
+  await interruptComfyUI();
   const result = await stopComfyUI();
   res.json(result);
 });

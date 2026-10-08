@@ -507,26 +507,46 @@ export async function interruptComfyUI(): Promise<void> {
 export async function stopComfyUI(): Promise<{ success: boolean; message: string }> {
   let killed = false;
 
-  // 1. Interrupt running generation and clear queue
+  // 1. Interrupt running generation, free models/VRAM, and clear queue
   await interruptComfyUI();
+  try {
+    await fetch(`${COMFY_URL}/free`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ unload_models: true, free_memory: true }),
+      signal: AbortSignal.timeout(2000),
+    });
+  } catch {}
 
   // 2. Kill tracked child process
   if (comfyProcess) {
     try {
-      if (comfyProcess.pid && process.platform === 'win32') {
-        const { execSync } = await import('child_process');
-        try {
-          execSync(`taskkill /F /T /PID ${comfyProcess.pid}`);
-          killed = true;
-        } catch {}
+      const pid = comfyProcess.pid;
+      if (pid) {
+        if (process.platform === 'win32') {
+          const { execSync } = await import('child_process');
+          try {
+            execSync(`taskkill /F /T /PID ${pid}`);
+            killed = true;
+          } catch {}
+        } else {
+          try {
+            process.kill(-pid, 'SIGKILL');
+            killed = true;
+          } catch {
+            try {
+              process.kill(pid, 'SIGKILL');
+              killed = true;
+            } catch {}
+          }
+        }
       }
-      comfyProcess.kill();
-      killed = true;
+      try { comfyProcess.kill('SIGKILL'); } catch {}
     } catch {}
     comfyProcess = null;
   }
 
-  // 3. Find and kill any process listening on the ComfyUI port (Windows & Unix)
+  // 3. Find and kill ANY process listening on the ComfyUI port (macOS, Linux & Windows)
   try {
     const { execSync } = await import('child_process');
     let port = '8188';
@@ -535,48 +555,77 @@ export async function stopComfyUI(): Promise<{ success: boolean; message: string
     } catch {}
 
     if (process.platform === 'win32') {
-      const out = execSync('netstat -ano', { encoding: 'utf8' });
-      const lines = out.split('\n');
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        const parts = trimmed.split(/\s+/);
-        if (parts.length >= 4) {
-          const localAddr = parts[1] || '';
-          const pid = parts[parts.length - 1] || '';
-          if (localAddr.endsWith(`:${port}`) && /^\d+$/.test(pid) && pid !== '0') {
-            try {
-              execSync(`taskkill /F /T /PID ${pid}`);
-              killed = true;
-            } catch {}
-          }
-        }
-      }
-    } else {
       try {
-        const pids = execSync(`lsof -ti :${port}`, { encoding: 'utf8' }).trim();
-        if (pids) {
-          for (const pid of pids.split(/\s+/)) {
-            if (/^\d+$/.test(pid)) {
-              execSync(`kill -9 ${pid}`);
-              killed = true;
+        const out = execSync('netstat -ano', { encoding: 'utf8' });
+        const lines = out.split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          const parts = trimmed.split(/\s+/);
+          if (parts.length >= 4) {
+            const localAddr = parts[1] || '';
+            const pid = parts[parts.length - 1] || '';
+            if (localAddr.endsWith(`:${port}`) && /^\d+$/.test(pid) && pid !== '0') {
+              try {
+                execSync(`taskkill /F /T /PID ${pid}`);
+                killed = true;
+              } catch {}
             }
           }
         }
+      } catch {}
+    } else {
+      // macOS / Linux: multi-method port + process kill
+      const killCommands = [
+        `lsof -nP -iTCP:${port} -sTCP:LISTEN -t`,
+        `lsof -ti :${port}`,
+      ];
+      for (const cmd of killCommands) {
+        try {
+          const pids = execSync(cmd, { encoding: 'utf8', env: { ...process.env, PATH: `${process.env.PATH || ''}:/usr/sbin:/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin` } }).trim();
+          if (pids) {
+            for (const pid of pids.split(/\s+/)) {
+              if (/^\d+$/.test(pid) && pid !== String(process.pid)) {
+                try {
+                  execSync(`kill -9 ${pid}`);
+                  killed = true;
+                } catch {}
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // Also kill any orphaned ComfyUI main.py processes
+      try {
+        execSync('pkill -9 -f "ComfyUI/main\\.py"', { stdio: 'ignore' });
+        killed = true;
+      } catch {}
+      try {
+        execSync(`pkill -9 -f "main\\.py.*--port.*${port}"`, { stdio: 'ignore' });
+        killed = true;
       } catch {}
     }
   } catch (err: any) {
     console.error('Error stopping ComfyUI processes:', err);
   }
 
-  // Verify status after short delay
-  await new Promise((r) => setTimeout(r, 1000));
-  const s = await checkComfyStatus();
-  if (s.online) {
+  // 4. Poll status up to 3 seconds to guarantee it is offline
+  const pollStart = Date.now();
+  while (Date.now() - pollStart < 3000) {
+    await new Promise((r) => setTimeout(r, 500));
+    const s = await checkComfyStatus();
+    if (!s.online) {
+      return { success: true, message: 'Image model stopped successfully' };
+    }
+  }
+
+  const finalCheck = await checkComfyStatus();
+  if (finalCheck.online) {
     return { success: false, message: 'ComfyUI is still responding after stop attempt' };
   }
 
-  return { success: true, message: killed ? 'ComfyUI stopped successfully' : 'No ComfyUI process found' };
+  return { success: true, message: 'Image model stopped successfully' };
 }
 
 export interface GenerateOptions {
