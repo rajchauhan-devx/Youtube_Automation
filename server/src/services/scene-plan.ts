@@ -92,7 +92,14 @@ export function parseScenePlan(raw: string, _useTimelineNarration = false, optio
   }
 
   if (/COVERAGE AND ASSET MANIFEST/i.test(raw)) {
-    return validateScenePlan(parseLegacyScenePackage(raw));
+    try {
+      return validateScenePlan(parseLegacyScenePackage(raw));
+    } catch {
+      // Tag-only extraction: strict SECTION 1 / manifest / title / narration
+      // linking must never block usable <script> + <image_prompt> /
+      // <video_prompt> assets. Fall back to the universal tag parser.
+      return validateScenePlan(parseSimpleTagPackage(raw, options));
+    }
   }
 
   // Primary universal 3-tag extraction (<script>/<narration>, <image_prompt>, <video_prompt>)

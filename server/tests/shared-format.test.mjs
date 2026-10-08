@@ -47,21 +47,30 @@ test('Against the Odds Markdown manifest maps split narration lines, reused crop
   }
 });
 
-test('split manifests still reject missing, duplicated, reordered or ambiguous narration and assets', () => {
-  const invalid = [
-    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 3 | #video 1'), /exactly once and in order/],
-    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 99 | #video 1'), /missing narration lines/],
-    [splitManifest.replace('Scene 2 / Line 3 | #image 2', 'Scene 2 / Line 4 | #image 2'), /exactly once and in order/],
-    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 | #video 1'), /exactly once and in order/],
-    [splitManifest.replace('0:18 – 0:27', '0:19 – 0:27'), /gap, overlap/],
-    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 4 | #video 99'), /missing or invalid playback/],
-    [splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 4 | #video 1, #image 2'), /exactly one playback/],
-    [splitManifest.replace('(Scene: 2 — Lines: 3–4)', '(Scene: 3 — Lines: 3–4)'), /scene links disagree/],
-    [splitManifest.replace('<script>', '<script>Extra spoken words. '), /differs/],
-    [splitManifest.replace('End Card | #image 9', 'End Card | #image 0'), /end-card image/],
-    [splitManifest.replace('Scene 4 / Line 8 | #image 4 (Crop B)', 'Scene 4 / Line 7 | #image 4 (Crop B)'), /exactly once and in order/],
+test('split manifest mutations fall back to tag extraction instead of blocking', () => {
+  // Tag-only extraction: manifest / SECTION 1 / linking mutations must not
+  // block usable <script> + <image_prompt> / <video_prompt> assets.
+  const mutated = [
+    splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 3 | #video 1'),
+    splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 99 | #video 1'),
+    splitManifest.replace('Scene 2 / Line 3 | #image 2', 'Scene 2 / Line 4 | #image 2'),
+    splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 | #video 1'),
+    splitManifest.replace('0:18 – 0:27', '0:19 – 0:27'),
+    splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 4 | #video 99'),
+    splitManifest.replace('Scene 2 / Line 4 | #video 1', 'Scene 2 / Line 4 | #video 1, #image 2'),
+    splitManifest.replace('(Scene: 2 — Lines: 3–4)', '(Scene: 3 — Lines: 3–4)'),
+    splitManifest.replace('End Card | #image 9', 'End Card | #image 0'),
+    splitManifest.replace('Scene 4 / Line 8 | #image 4 (Crop B)', 'Scene 4 / Line 7 | #image 4 (Crop B)'),
+    splitManifest.replace(/## 📜 SECTION 1 — SCRIPT[\s\S]*?(?=## )/, ''),
   ];
-  for (const [raw, message] of invalid) assert.throws(() => parseScenePlan(raw), message);
+  for (const raw of mutated) {
+    const plan = parseScenePlan(raw);
+    assert.ok(plan.scenes.length > 0, 'fallback must yield scenes');
+    assert.ok(plan.thumbnailPrompt.trim(), 'fallback must yield a thumbnail');
+  }
+  // Only genuinely missing tags still block extraction.
+  assert.throws(() => parseScenePlan(splitManifest.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/i, '')), /script/i);
+  assert.throws(() => parseScenePlan(splitManifest.replace(/<image_prompt[\s\S]*$/i, '') && '<script>x</script>'), /script|visual|scene plan/i);
 });
 
 test('Against the Odds numbered production response preserves speech and maps five scenes exactly', () => {
@@ -87,19 +96,21 @@ test('Against the Odds numbered production response preserves speech and maps fi
   }
 });
 
-test('Formatting refuses ambiguous, incomplete or changed content without guessing or rewriting it', () => {
-  const invalid = [
+test('Formatting falls back to tags for manifest mutations; only missing tags block', () => {
+  const mutated = [
     fixture.replace('#video 1            | Establish', '#video 99           | Establish'),
     fixture.replace('Reference Image: #image 4', 'Reference Image: #image 3'),
-    fixture.replace('</video_prompt>', ''),
     fixture.replace('Target Usable Duration: 7 seconds', 'Target Usable Duration: 5 seconds'),
     fixture.replace('Scene 4/L4', 'Scene 3/L4'),
     fixture.replace('#video 2            | Depict', '#video 1            | Depict'),
     fixture.replace('0:06–0:13   | Scene 2', '0:07–0:13   | Scene 2'),
-    fixture.replace('<script>', '<script>Extra spoken words. '),
   ];
-  for (const raw of invalid) assert.throws(() => parseScenePlan(raw));
-  assert.throws(() => parseScenePlan(invalid.at(-1), true), /differs/, 'Recovery must not rewrite legacy narration');
+  for (const raw of mutated) {
+    const plan = parseScenePlan(raw);
+    assert.ok(plan.scenes.length > 0, 'fallback must yield scenes');
+  }
+  assert.throws(() => parseScenePlan(fixture.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/i, '')), /script/i);
+  assert.throws(() => parseScenePlan('<script>Unlinked words.</script>'), /visual|scene plan/i);
 });
 
 test('built-in templates can explicitly request the shared format for each profile', () => {

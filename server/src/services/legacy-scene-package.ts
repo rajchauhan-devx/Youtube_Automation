@@ -40,8 +40,13 @@ export function parseLegacyScenePackage(raw: string): ScenePlan {
         independentVideo: type === 'video' && /^Mode:[ \t]*TEXT_TO_VIDEO_ILLUSTRATION[ \t]*$/im.test(header) });
     }
   }
-  const thumbnails = [...assets.values()].filter(asset => asset.thumbnail);
-  if (thumbnails.length !== 1) throw new Error('Include exactly one separately labeled THUMBNAIL image prompt.');
+  const thumbnailEntries = [...assets.entries()]
+    .filter(([, asset]) => asset.thumbnail)
+    .sort((a, b) => Number(a[0].split(' ')[1]) - Number(b[0].split(' ')[1]));
+  // The thumbnail is editorial metadata, never a reason to block extraction:
+  // an explicitly THUMBNAIL-labeled block wins (lowest number on duplicates),
+  // otherwise the first playback scene doubles as the thumbnail prompt.
+  const explicitThumbnailPrompt = thumbnailEntries[0]?.[1].prompt;
   const scriptSection = text.match(/^#{1,6}\s+[^\n]*\bSECTION\s+1\b[^\n]*\n([\s\S]*?)(?=^#{1,6}\s+|(?![\s\S]))/im)?.[1];
   if (!scriptSection) throw new Error('Include SECTION 1 with explicitly numbered scenes and their Text narration.');
   const authoredScenes = [...scriptSection.matchAll(/^.*?\bSCENE\s+(\d+)\s*[–—-]\s*([^\n]+)\n([\s\S]*?)(?=^.*?\bSCENE\s+\d+\s*[–—-]|(?![\s\S]))/gim)];
@@ -110,5 +115,6 @@ export function parseLegacyScenePackage(raw: string): ScenePlan {
   const title = text.match(/^(?:[-*+]\s+)?Title:[ \t]*([^\n]+)/im)?.[1].trim()
     || titleOptions?.match(/^\s*1[.)][ \t]+([^\n]+)/m)?.[1].trim();
   if (!title) throw new Error('Include a Title field or a numbered TITLE OPTIONS publishing section.');
-  return { version: 1, title, thumbnailPrompt: thumbnails[0].prompt, scenes };
+  if (!scenes.length) throw new Error('The manifest must cover every numbered script scene exactly once.');
+  return { version: 1, title, thumbnailPrompt: explicitThumbnailPrompt ?? scenes[0].imagePrompt, scenes };
 }
