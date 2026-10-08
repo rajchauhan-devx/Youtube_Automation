@@ -21,7 +21,9 @@
     "test:editing:browser": "npm run build && npm run build --prefix server && node tests/editing/browser-smoke.mjs",
     "test:editing:live": "npm run build --prefix server && node tests/editing/live-smoke.mjs",
     "test": "npm run build --prefix server && node --test server/tests/*.test.mjs",
-    "build:all": "npm run typecheck && npm run build && npm run build --prefix server"
+    "build:all": "npm run typecheck && npm run build && npm run build --prefix server",
+    "setup:loras": "node server/scripts/setup-channel-loras.mjs",
+    "train:lora": "./artifacts/comfy-venv/bin/python server/scripts/train-channel-lora.py --prepare-datasets --train --channel all"
   },
   "dependencies": {
     "@fontsource/noto-sans": "5.2.8",

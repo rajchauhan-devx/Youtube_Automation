@@ -14,13 +14,14 @@ import {
   stopComfyUI,
   interruptComfyUI,
   listAvailableModels,
+  resolveChannelLoraForAccount,
   ComfyError,
   sanitizeSegment,
   type QualityPreset,
 } from '../services/comfyui.js';
 
 export const generateRouter = Router();
-generateRouter.use(presenterGuard(['/start', '/image']));
+generateRouter.use(presenterGuard(['/start', '/image', '/reference-frame']));
 
 const activeControllers = new Map<string, AbortController>();
 const imageCompletions = new Map<string, Promise<void>>();
@@ -50,10 +51,16 @@ generateRouter.get('/status', async (_req, res) => {
 generateRouter.get('/models', async (_req, res) => {
   try {
     const models = await listAvailableModels();
-    res.json({ models });
+    const channelLora = resolveChannelLoraForAccount(currentWorkspace().accountId);
+    res.json({ models, channelLora });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Failed to list models', models: [] });
   }
+});
+
+generateRouter.get('/channel-lora', (_req, res) => {
+  const channelLora = resolveChannelLoraForAccount(currentWorkspace().accountId);
+  res.json(channelLora);
 });
 
 generateRouter.post('/start', async (_req, res) => {
@@ -134,6 +141,114 @@ generateRouter.post('/image', async (req, res) => {
     activeControllers.delete(key);
     imageCompletions.delete(key);
     finishImage();
+    presenterState.imageRequests--;
+  }
+});
+
+generateRouter.post('/reference-frame', async (req, res) => {
+  if (localMusicBusy()) {
+    res.status(409).json({ error: 'Wait for local music generation to finish before generating reference frames.' });
+    return;
+  }
+  const { scriptId, index, prompt, seed, preset, modelName } = req.body || {};
+
+  if (
+    !sanitizeSegment(scriptId) ||
+    !Number.isInteger(index) ||
+    index < 0 ||
+    index > 9999 ||
+    !prompt ||
+    typeof prompt !== 'string' ||
+    prompt.length > 20000
+  ) {
+    res.status(400).json({ error: 'scriptId, index (number), and prompt (string) are required' });
+    return;
+  }
+
+  const currentScript = store.getById<any>('scripts', scriptId);
+  if (!currentScript) {
+    res.status(404).json({ error: 'Script not found.' });
+    return;
+  }
+
+  const scenes = mediaScenes({ ...currentScript, section: currentWorkspace().profile });
+  const scene = scenes[index];
+  if (!scene || scene.imagePrompt !== prompt) {
+    res.status(400).json({ error: 'Choose a valid scene with its current extracted prompt.' });
+    return;
+  }
+
+  const validPreset: QualityPreset = preset === 'fast' || preset === 'high' ? preset : 'standard';
+  const key = workspaceKey(`${scriptId}:ref:${index}`);
+  if (activeControllers.size) {
+    res.status(409).json({ error: 'An image or reference frame is already generating. Wait for completion before retrying.' });
+    return;
+  }
+
+  const controller = new AbortController();
+  activeControllers.set(key, controller);
+  let finishRef!: () => void;
+  imageCompletions.set(key, new Promise<void>((resolve) => { finishRef = resolve; }));
+  presenterState.imageRequests++;
+
+  try {
+    const result = await generateImage({
+      prompt,
+      scriptId,
+      index,
+      seed: typeof seed === 'number' ? seed : undefined,
+      signal: controller.signal,
+      preset: validPreset,
+      modelName: typeof modelName === 'string' ? modelName : undefined,
+      filePrefix: 'ref-frame',
+    });
+
+    const latest = store.getById<any>('scripts', scriptId);
+    if (!latest || JSON.stringify(mediaScenes({ ...latest, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) {
+      res.status(409).json({ error: 'Scene changed during reference frame generation. Generate again using the updated scene.' });
+      return;
+    }
+
+    const refAsset = {
+      index,
+      prompt,
+      url: result.publicUrl,
+      loraFileName: result.loraFileName,
+      seed: result.seed,
+      elapsedMs: result.elapsedMs,
+      createdAt: new Date().toISOString(),
+    };
+
+    const referenceFrames = {
+      ...(latest.referenceFrames || {}),
+      [index]: refAsset,
+    };
+
+    store.add('scripts', {
+      ...latest,
+      referenceFrames,
+    });
+
+    res.json({
+      ok: true,
+      url: result.publicUrl,
+      seed: result.seed,
+      elapsedMs: result.elapsedMs,
+      loraFileName: result.loraFileName,
+      referenceFrame: refAsset,
+      referenceFrames,
+    });
+  } catch (err: any) {
+    console.error(`Reference frame generation failed for ${key}:`, err.message);
+    if (err instanceof ComfyError) {
+      res.status(statusCode[err.code] || 500).json({ error: err.message, code: err.code, detail: err.detail });
+    } else {
+      res.status(500).json({ error: err.message || 'Unknown generation error', code: 'UNKNOWN' });
+    }
+  } finally {
+    activeControllers.delete(key);
+    imageCompletions.delete(key);
+    finishRef();
     presenterState.imageRequests--;
   }
 });

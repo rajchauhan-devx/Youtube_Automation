@@ -137,3 +137,23 @@ Detailed 90-150 word 16:9 continuous-shot video prompt...
 </video_prompt>
 
 Scale the scene count to at least ceiling(targetSeconds / 10) scenes (capped at 160). Write every <image_prompt> and <video_prompt> in full with no placeholders or "[...Repeat...]" shortcuts.`;
+
+import { getChannelLoraProfile } from '../data';
+
+export function withChannelStyleDna(
+  template: string,
+  channelOrAccount?: { id?: string; name?: string; youtubeChannelTitle?: string } | string | null,
+): string {
+  const profile = getChannelLoraProfile(channelOrAccount);
+  const block = `
+
+## MANDATORY CHANNEL VISUAL STYLE-DNA (STRICT CHANNEL ISOLATION — ${profile.channelLabel.toUpperCase()})
+Every <image_prompt>, <video_prompt>, imagePrompt, and videoPrompt MUST incorporate this channel's locked Juggernaut XL LoRA aesthetic so local ComfyUI images and online Google Studio videos match 100% in style:
+- Active Channel LoRA: ${profile.loraTitle} (${profile.loraFileName}, weight ${profile.strengthModel})
+- Mandatory Visual Style-DNA: ${profile.styleDna}
+- Never mix visual styles from other channels.`;
+  if (template.includes('MANDATORY CHANNEL VISUAL STYLE-DNA')) {
+    return template;
+  }
+  return `${template.trimEnd()}${block}`;
+}

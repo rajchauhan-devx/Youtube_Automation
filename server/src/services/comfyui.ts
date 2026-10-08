@@ -158,15 +158,138 @@ export async function listAvailableModels(): Promise<string[]> {
   return Array.from(models);
 }
 
+
+export interface ResolvedChannelLora {
+  channelKey: 'ancient_dharma' | 'rule_zero' | 'against_the_odds';
+  channelLabel: string;
+  loraTitle: string;
+  loraFileName: string;
+  installed: boolean;
+  strengthModel: number;
+  strengthClip: number;
+  triggerToken: string;
+  styleDna: string;
+}
+
+const SERVER_CHANNEL_LORAS: Record<
+  ResolvedChannelLora['channelKey'],
+  Omit<ResolvedChannelLora, 'loraFileName' | 'installed'> & {
+    preferredFile: string;
+    fallbackFile: string;
+  }
+> = {
+  ancient_dharma: {
+    channelKey: 'ancient_dharma',
+    channelLabel: 'Ancient Dharma',
+    loraTitle: 'Chiaroscuro Fantasy XL (Sacred Temple & Mythic Glow)',
+    preferredFile: 'ancient_dharma_custom_xl.safetensors',
+    fallbackFile: 'ancient_dharma_chiaroscuro_xl.safetensors',
+    strengthModel: 0.70,
+    strengthClip: 0.70,
+    triggerToken: 'dharma_sacred_chiaroscuro',
+    styleDna:
+      'Sacred chiaroscuro lighting, warm golden oil-lamp glow, deep carved-stone temple shadows, volumetric incense haze, burnished gold and saffron color palette, painterly mythological photorealism.',
+  },
+  rule_zero: {
+    channelKey: 'rule_zero',
+    channelLabel: 'Rule Zero',
+    loraTitle: "Zavy's Dark Atmospheric Contrast XL (Neo-Noir Thriller)",
+    preferredFile: 'rule_zero_custom_xl.safetensors',
+    fallbackFile: 'rule_zero_dark_contrast_xl.safetensors',
+    strengthModel: 0.75,
+    strengthClip: 0.75,
+    triggerToken: 'rulezero_noir_contrast',
+    styleDna:
+      'Dark atmospheric contrast, low-key Fincher neo-noir cinematography, deep crushed obsidian shadows, cold cyan glass reflections contrasted with warm tungsten rim light, high-tension thriller mood.',
+  },
+  against_the_odds: {
+    channelKey: 'against_the_odds',
+    channelLabel: 'Against the Odds',
+    loraTitle: 'Analog Film XL v1 (Raw 35mm Documentary Photojournalism)',
+    preferredFile: 'against_the_odds_custom_xl.safetensors',
+    fallbackFile: 'against_the_odds_analog_film_xl.safetensors',
+    strengthModel: 0.80,
+    strengthClip: 0.80,
+    triggerToken: 'odds_docu35mm_film',
+    styleDna:
+      'Analog Film Style, raw 1970s 35mm Kodak documentary photojournalism, gritty analog film grain, subtle halation, weathered skin pores and frost/mud micro-textures, desaturated natural storm palette.',
+  },
+};
+
+export function resolveComfyLorasDir(): string {
+  const comfyPath = resolveComfyPath() || process.env.COMFYUI_PATH || path.join(REPO_ROOT, 'ComfyUI');
+  return path.join(comfyPath, 'models', 'loras');
+}
+
+export function resolveChannelLoraForAccount(accountId?: string): ResolvedChannelLora {
+  const rawId = (accountId || currentWorkspace().accountId || 'default').toLowerCase();
+  let channelKey: ResolvedChannelLora['channelKey'] = 'ancient_dharma';
+  if (rawId.includes('3ea89878') || rawId.includes('rule_zero') || rawId.includes('zero rule')) {
+    channelKey = 'rule_zero';
+  } else if (rawId.includes('620a1d5e') || rawId.includes('against_the_odds') || rawId.includes('against the odds')) {
+    channelKey = 'against_the_odds';
+  } else {
+    // Also check accounts.json if a custom account ID was used
+    try {
+      const accPath = path.join(SERVER_ROOT, 'data', 'accounts.json');
+      if (fs.existsSync(accPath)) {
+        const accounts = JSON.parse(fs.readFileSync(accPath, 'utf8'));
+        const matched = Array.isArray(accounts)
+          ? accounts.find((a: any) => String(a?.id || '').toLowerCase() === rawId)
+          : null;
+        if (matched) {
+          const combined = `${matched.name || ''} ${matched.youtubeChannelTitle || ''}`.toLowerCase();
+          if (combined.includes('rule zero') || combined.includes('zero rule')) {
+            channelKey = 'rule_zero';
+          } else if (combined.includes('against the odds')) {
+            channelKey = 'against_the_odds';
+          }
+        }
+      }
+    } catch {}
+  }
+
+  const spec = SERVER_CHANNEL_LORAS[channelKey];
+  const lorasDir = resolveComfyLorasDir();
+  const preferredPath = path.join(lorasDir, spec.preferredFile);
+  const fallbackPath = path.join(lorasDir, spec.fallbackFile);
+
+  let loraFileName = spec.preferredFile;
+  let installed = false;
+  if (fs.existsSync(preferredPath)) {
+    loraFileName = spec.preferredFile;
+    installed = true;
+  } else if (fs.existsSync(fallbackPath)) {
+    loraFileName = spec.fallbackFile;
+    installed = true;
+  }
+
+  return {
+    channelKey: spec.channelKey,
+    channelLabel: spec.channelLabel,
+    loraTitle: spec.loraTitle,
+    loraFileName,
+    installed,
+    strengthModel: spec.strengthModel,
+    strengthClip: spec.strengthClip,
+    triggerToken: spec.triggerToken,
+    styleDna: spec.styleDna,
+  };
+}
+
 export interface WorkflowOptions {
   promptStr: string;
   seed: number;
   preset?: QualityPreset;
   modelName?: string;
+  channelAccountId?: string;
+  loraName?: string;
+  loraStrengthModel?: number;
+  loraStrengthClip?: number;
 }
 
 export function buildWorkflow(opts: WorkflowOptions): any {
-  const { promptStr, seed, preset = 'standard', modelName } = opts;
+  const { promptStr, seed, preset = 'standard', modelName, channelAccountId, loraName, loraStrengthModel, loraStrengthClip } = opts;
   const wf = loadTemplate();
   const cfg = PRESET_CONFIG[preset] || PRESET_CONFIG.standard;
 
@@ -185,6 +308,38 @@ export function buildWorkflow(opts: WorkflowOptions): any {
         if (ckpts.length > 0) {
           wf['4'].inputs.ckpt_name = ckpts[0];
         }
+      }
+    }
+  }
+
+  // Strictly isolated per-channel LoRA loader (node "20")
+  if (loraName || channelAccountId) {
+    const resolved = resolveChannelLoraForAccount(channelAccountId);
+    const activeLoraName = loraName ? loraName.trim() : (resolved.installed ? resolved.loraFileName : '');
+    if (activeLoraName) {
+      const sm = typeof loraStrengthModel === 'number' ? loraStrengthModel : resolved.strengthModel;
+      const sc = typeof loraStrengthClip === 'number' ? loraStrengthClip : resolved.strengthClip;
+      wf['20'] = {
+        inputs: {
+          lora_name: activeLoraName,
+          strength_model: sm,
+          strength_clip: sc,
+          model: ['4', 0],
+          clip: ['4', 1],
+        },
+        class_type: 'LoraLoader',
+        _meta: {
+          title: `Channel LoRA (${resolved.channelLabel})`,
+        },
+      };
+      if (wf['13']?.inputs) {
+        wf['13'].inputs.model = ['20', 0];
+      }
+      if (wf[PROMPT_NODE_ID]?.inputs) {
+        wf[PROMPT_NODE_ID].inputs.clip = ['20', 1];
+      }
+      if (wf['15']?.inputs) {
+        wf['15'].inputs.clip = ['20', 1];
       }
     }
   }
@@ -432,20 +587,25 @@ export interface GenerateOptions {
   signal?: AbortSignal;
   preset?: QualityPreset;
   modelName?: string;
+  filePrefix?: 'image' | 'ref-frame';
 }
 
-export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl: string; fileName: string; seed: number; elapsedMs: number }> {
+export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl: string; fileName: string; seed: number; elapsedMs: number; loraFileName?: string }> {
   const started = Date.now();
   const scriptId = sanitizeSegment(opts.scriptId);
   if (!scriptId) throw new ComfyError('CONFIG', 'Invalid scriptId.');
   const seed = opts.seed ?? Math.floor(Math.random() * 2 ** 31);
-  const clientId = `server-${scriptId}-${opts.index}-${started}`;
+  const prefix = opts.filePrefix || 'image';
+  const clientId = `server-${scriptId}-${prefix}-${opts.index}-${started}`;
+  const accountId = currentWorkspace().accountId || 'default';
+  const channelLora = resolveChannelLoraForAccount(accountId);
 
   const workflow = buildWorkflow({
     promptStr: opts.prompt,
     seed,
     preset: opts.preset || 'standard',
     modelName: opts.modelName,
+    channelAccountId: accountId,
   });
   const promptId = await queuePrompt(workflow, clientId);
   const historyEntry = await pollHistory(promptId, GEN_TIMEOUT_MS, opts.signal);
@@ -454,7 +614,7 @@ export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl:
 
   const outDir = path.join(generatedDir(), scriptId);
   fs.mkdirSync(outDir, { recursive: true });
-  const fileName = `image-${String(opts.index).padStart(2, '0')}-${started}.png`;
+  const fileName = `${prefix}-${String(opts.index).padStart(2, '0')}-${started}.png`;
   fs.writeFileSync(path.join(outDir, fileName), buffer);
 
   return {
@@ -462,5 +622,6 @@ export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl:
     fileName,
     seed,
     elapsedMs: Date.now() - started,
+    loraFileName: channelLora.installed ? channelLora.loraFileName : undefined,
   };
 }

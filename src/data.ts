@@ -172,6 +172,7 @@ export interface Script {
   narration?: string;
   scenePlan?: ScenePlan;
   generatedImages?: GeneratedImage[];
+  referenceFrames?: Record<number, ReferenceFrameAsset>;
     generatedAudio?: GeneratedAudio[];
     generatedMusic?: { filename: string; url: string; prompt: string; duration: number; seed: number; contextHash: string; createdAt: string };
   pipeline?: PipelineStep[];
@@ -190,6 +191,106 @@ export interface PipelineStep {
   summary: string;
   inputLog: string;
   outputPreview: string;
+}
+
+export interface ReferenceFrameAsset {
+  index: number;
+  prompt: string;
+  url: string;
+  loraFileName?: string;
+  seed?: number;
+  elapsedMs?: number;
+  createdAt: string;
+}
+
+export interface ChannelLoraProfile {
+  channelKey: 'ancient_dharma' | 'rule_zero' | 'against_the_odds';
+  channelLabel: string;
+  loraTitle: string;
+  loraFileName: string;
+  fallbackLoraFileName: string;
+  strengthModel: number;
+  strengthClip: number;
+  triggerToken: string;
+  styleDna: string;
+}
+
+export const CHANNEL_LORA_PROFILES: Record<ChannelLoraProfile['channelKey'], ChannelLoraProfile> = {
+  ancient_dharma: {
+    channelKey: 'ancient_dharma',
+    channelLabel: 'Ancient Dharma',
+    loraTitle: 'Chiaroscuro Fantasy XL (Sacred Temple & Mythic Glow)',
+    loraFileName: 'ancient_dharma_custom_xl.safetensors',
+    fallbackLoraFileName: 'ancient_dharma_chiaroscuro_xl.safetensors',
+    strengthModel: 0.70,
+    strengthClip: 0.70,
+    triggerToken: 'dharma_sacred_chiaroscuro',
+    styleDna:
+      'Sacred chiaroscuro lighting, warm golden oil-lamp glow, deep carved-stone temple shadows, volumetric incense haze, burnished gold and saffron color palette, painterly mythological photorealism.',
+  },
+  rule_zero: {
+    channelKey: 'rule_zero',
+    channelLabel: 'Rule Zero',
+    loraTitle: "Zavy's Dark Atmospheric Contrast XL (Neo-Noir Thriller)",
+    loraFileName: 'rule_zero_custom_xl.safetensors',
+    fallbackLoraFileName: 'rule_zero_dark_contrast_xl.safetensors',
+    strengthModel: 0.75,
+    strengthClip: 0.75,
+    triggerToken: 'rulezero_noir_contrast',
+    styleDna:
+      'Dark atmospheric contrast, low-key Fincher neo-noir cinematography, deep crushed obsidian shadows, cold cyan glass reflections contrasted with warm tungsten rim light, high-tension thriller mood.',
+  },
+  against_the_odds: {
+    channelKey: 'against_the_odds',
+    channelLabel: 'Against the Odds',
+    loraTitle: 'Analog Film XL v1 (Raw 35mm Documentary Photojournalism)',
+    loraFileName: 'against_the_odds_custom_xl.safetensors',
+    fallbackLoraFileName: 'against_the_odds_analog_film_xl.safetensors',
+    strengthModel: 0.80,
+    strengthClip: 0.80,
+    triggerToken: 'odds_docu35mm_film',
+    styleDna:
+      'Analog Film Style, raw 1970s 35mm Kodak documentary photojournalism, gritty analog film grain, subtle halation, weathered skin pores and frost/mud micro-textures, desaturated natural storm palette.',
+  },
+};
+
+export function getChannelLoraProfile(
+  channelOrAccount?: { id?: string; name?: string; youtubeChannelTitle?: string } | string | null,
+): ChannelLoraProfile {
+  const raw =
+    typeof channelOrAccount === 'string'
+      ? channelOrAccount.toLowerCase()
+      : `${channelOrAccount?.id || ''} ${channelOrAccount?.name || ''} ${channelOrAccount?.youtubeChannelTitle || ''}`.toLowerCase();
+
+  if (
+    raw.includes('3ea89878') ||
+    raw.includes('rule zero') ||
+    raw.includes('zero rule') ||
+    raw.includes('rule_zero')
+  ) {
+    return CHANNEL_LORA_PROFILES.rule_zero;
+  }
+  if (
+    raw.includes('620a1d5e') ||
+    raw.includes('against the odds') ||
+    raw.includes('against_the_odds')
+  ) {
+    return CHANNEL_LORA_PROFILES.against_the_odds;
+  }
+  return CHANNEL_LORA_PROFILES.ancient_dharma;
+}
+
+export function formatPromptWithChannelStyleDna(
+  prompt: string,
+  channelOrAccount?: { id?: string; name?: string; youtubeChannelTitle?: string } | string | null,
+): string {
+  const clean = (prompt || '').trim();
+  if (!clean) return '';
+  const profile = getChannelLoraProfile(channelOrAccount);
+  if (clean.toLowerCase().includes(profile.styleDna.slice(0, 28).toLowerCase())) {
+    return clean;
+  }
+  return `${clean} Visual Style-DNA (${profile.channelLabel}): ${profile.styleDna}`;
 }
 
 export interface GeneratedImage {

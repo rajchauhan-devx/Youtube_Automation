@@ -22,7 +22,7 @@ import {
   Upload,
   Sparkles,
 } from 'lucide-react';
-import type { Script, GeneratedImage, GeneratedAudio } from '../../data';
+import { type Script, type GeneratedImage, type GeneratedAudio, getChannelLoraProfile } from '../../data';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { MixedMediaContent } from './MixedMediaContent';
 import { GenerationDisclosure } from './GenerationDisclosure';
@@ -93,7 +93,8 @@ function ImageGenerationContent({
   script: Script | null;
   onUpdate: (patch: Partial<Script>) => void;
 }) {
-  const { fetch, profile } = useWorkspaceApi();
+  const { fetch, profile, account } = useWorkspaceApi();
+  const channelLora = getChannelLoraProfile(account);
   const [images, setImages] = useState<GeneratedImage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -437,7 +438,19 @@ function ImageGenerationContent({
 
       {cooldownRemaining > 0 && <p role="status" className="px-4 py-3 text-xs text-amber-200">Computer rest: {cooldownRemaining}s remaining</p>}
       <div className="px-4 pt-4">
-        <GenerationDisclosure title="Image settings" hint={`Local model / ${preset} quality`}>
+        <GenerationDisclosure title="Image settings" hint={`${channelLora.channelLabel} LoRA / ${preset} quality`}>
+        <div className="border-b border-border/80 bg-accent/5 px-4 py-2.5 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <span className="font-semibold text-white">Channel-Isolated LoRA ({channelLora.channelLabel}): </span>
+              <span className="text-accent">{channelLora.loraTitle}</span>
+              <span className="ml-2 text-gray-400">({channelLora.loraFileName} · weight {channelLora.strengthModel})</span>
+            </div>
+          </div>
+          <p className="mt-1 text-[11px] text-gray-400">
+            <span className="font-medium text-gray-300">Style-DNA:</span> {channelLora.styleDna}
+          </p>
+        </div>
       {profile !== 'shorts' && (
         <div className="flex flex-wrap items-center gap-4 border-b border-border bg-surface px-4 py-3 text-xs">
           <div>
