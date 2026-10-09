@@ -163,6 +163,8 @@ scriptsRouter.put('/:id', async (req, res) => {
   if (reset) {
     delete updated.generatedMusic;
     for (const key of ['timelineConfig', 'sceneAnalysis', 'youtubeExport', 'facebookExport', 'instagramExport', 'scenePlan']) delete updated[key];
+    if (!('researchData' in (req.body || {}))) delete updated.researchData;
+    if (!('researchSources' in (req.body || {}))) delete updated.researchSources;
     updated.generatedImages = [];
     updated.generatedAudio = [];
     if (responseReplaced) {

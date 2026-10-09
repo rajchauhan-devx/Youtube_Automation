@@ -18,7 +18,7 @@ import {
   LayoutDashboard,
 } from 'lucide-react';
 import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './services/workspaceApi';
-import type { Section, Tab, Channel, Script } from './data';
+import type { Section, Tab, Channel, Script, PipelineStep } from './data';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { ProfilePage } from './components/profile/ProfilePage';
 import { YouTubeStudioDashboard } from './components/dashboard/YouTubeStudioDashboard';
@@ -253,13 +253,11 @@ export default function App() {
     return saved;
   }
 
-  function buildPrompt(template: string, topic: string, instructions: string, duration?: number): string {
+  function buildPrompt(template: string, topic: string, instructions: string, duration?: number, researchData?: string): string {
     // Template-sovereign free chat: the template goes through untouched plus
-    // topic, authoritative target duration (with minimum scene scaling) and
-    // extra instructions. The template keeps its tag system; extraction
-    // validates the tags.
-    return buildFreePrompt(template, topic, instructions, duration || 30);
-
+    // topic, authoritative target duration (with minimum scene scaling),
+    // extra instructions, and any researched topic/script data.
+    return buildFreePrompt(template, topic, instructions, duration || 30, researchData);
   }
 
   async function generateScript(script: Script, topic: string, instructions: string) {
@@ -276,18 +274,14 @@ export default function App() {
       .filter((p) => p.content.trim())
       .map((p) => p.content)
       .join('\n\n');
-    const promptText = buildPrompt(
-      template || script.howItWorks || '',
-      topic,
-      instructions,
-      script.duration || 30
-    );
 
     const initialPatch: Partial<Script> = {
       id: scriptId,
       topicName: topic,
       aiInstructions: instructions,
       aiResponse: '',
+      researchData: '',
+      researchSources: [],
       extractedScript: '',
       imagePrompts: [],
       narration: '',
@@ -303,10 +297,18 @@ export default function App() {
       status: 'active',
       pipeline: [
         {
+          id: 'research',
+          label: 'Research',
+          status: 'running' as const,
+          summary: 'Researching topic, facts & script requirements...',
+          inputLog: topic,
+          outputPreview: '',
+        },
+        {
           id: 'response',
           label: 'Response',
           status: 'running' as const,
-          summary: 'Starting generation...',
+          summary: 'Researching topic & gathering script data...',
           inputLog: topic,
           outputPreview: '',
         },
@@ -333,13 +335,102 @@ export default function App() {
     if (controller.signal.aborted || generationAbortRef.current !== controller) return;
 
     let fullResponse = '';
+    let researchData = '';
+    let researchSources: { title: string; url?: string; snippet?: string }[] = [];
+    let researchStep: PipelineStep = {
+      id: 'research',
+      label: 'Research',
+      status: 'running',
+      summary: 'Researching topic, facts & script requirements...',
+      inputLog: topic,
+      outputPreview: '',
+    };
 
     try {
+      // Step 1: AI Model Researches Topic & Script Requirements First
+      const researchRes = await fetch('/api/llm/research', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(getApiKey() ? { 'x-api-key': getApiKey() } : {}),
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: script.model || 'gemini-3.6-flash',
+          topic,
+          template: template || script.howItWorks || '',
+          instructions,
+          duration: script.duration || 30,
+        }),
+      });
+
+      if (researchRes.status === 401) {
+        const body = await researchRes.text().catch(() => '');
+        const parsed = safeJsonParse<{ error?: string }>(body, {});
+        throw new Error(parsed?.error?.trim() || 'Missing API key');
+      }
+
+      if (researchRes.ok) {
+        const researchJson = await parseJsonResponse<{
+          researchData?: string;
+          sources?: { title: string; url?: string; snippet?: string }[];
+        }>(researchRes, {});
+        researchData = (researchJson.researchData || '').trim();
+        researchSources = Array.isArray(researchJson.sources) ? researchJson.sources : [];
+        researchStep = {
+          id: 'research',
+          label: 'Research',
+          status: 'done',
+          summary: researchSources.length
+            ? `Researched topic & script data (${researchSources.length} reference source${researchSources.length === 1 ? '' : 's'})`
+            : 'Topic & script research complete',
+          inputLog: topic,
+          outputPreview: researchData.slice(0, 240),
+        };
+      } else {
+        researchStep = {
+          id: 'research',
+          label: 'Research',
+          status: 'warning',
+          summary: 'Research step skipped — generating directly',
+          inputLog: topic,
+          outputPreview: '',
+        };
+      }
+
+      if (controller.signal.aborted || generationAbortRef.current !== controller) return;
+
+      patchScriptState(scriptId, {
+        researchData,
+        researchSources,
+        pipeline: [
+          researchStep,
+          {
+            id: 'response',
+            label: 'Response',
+            status: 'running' as const,
+            summary: researchData
+              ? 'Generating live response using researched data...'
+              : 'Generating live response...',
+            inputLog: topic,
+            outputPreview: '',
+          },
+        ],
+      });
+
+      // Step 2: Generate Script Response Using Researched Data
+      const promptText = buildPrompt(
+        template || script.howItWorks || '',
+        topic,
+        instructions,
+        script.duration || 30,
+        researchData
+      );
+
       // Same plain-chat shape for every profile: neutral system line plus the
-      // template-driven user prompt. No per-profile system contracts and no
-      // provider JSON-schema enforcement — the template owns the format.
+      // template-driven user prompt (enriched with the researched dossier).
       const baseMessages = [
-        { role: 'system', content: freeChatSystem(template) },
+        { role: 'system', content: freeChatSystem(template, Boolean(researchData)) },
         { role: 'user', content: promptText },
       ];
       let messages = baseMessages;
@@ -400,6 +491,7 @@ export default function App() {
           if (parsed.status && !parsed.token) {
             patchScriptState(scriptId, {
               pipeline: [
+                researchStep,
                 {
                   id: 'response',
                   label: 'Response',
@@ -417,11 +509,17 @@ export default function App() {
             patchScriptState(scriptId, {
               aiResponse: fullResponse,
               pipeline: [
+                researchStep,
                 {
                   id: 'response',
                   label: 'Response',
                   status: 'running' as const,
-                  summary: attempt > 0 ? `Continuing response (${attempt + 1})...` : 'Generating live response...',
+                  summary:
+                    attempt > 0
+                      ? `Continuing response (${attempt + 1})...`
+                      : researchData
+                        ? 'Generating live response using researched data...'
+                        : 'Generating live response...',
                   inputLog: topic,
                   outputPreview: fullResponse.slice(-200),
                 },
@@ -500,7 +598,10 @@ export default function App() {
       const completedNormally = finishReason === 'STOP' && !incomplete;
       const donePatch: Partial<Script> = {
         aiResponse: fullResponse,
+        researchData,
+        researchSources,
         pipeline: [
+          researchStep,
           {
             id: 'response',
             label: 'Response',
@@ -520,9 +621,20 @@ export default function App() {
       if (generationAbortRef.current !== controller) return;
       const wasStopped = err instanceof DOMException && err.name === 'AbortError';
       if (!wasStopped) console.error('Streaming failed:', err);
+      const failedResearchStep: PipelineStep =
+        researchStep.status === 'running'
+          ? {
+              ...researchStep,
+              status: wasStopped ? ('warning' as const) : ('error' as const),
+              summary: wasStopped ? 'Research stopped' : 'Research failed',
+            }
+          : researchStep;
       const errorPatch: Partial<Script> = {
         aiResponse: fullResponse,
+        researchData,
+        researchSources,
         pipeline: [
+          failedResearchStep,
           {
             id: 'response',
             label: 'Response',

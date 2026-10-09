@@ -167,6 +167,8 @@ export interface Script {
   topicName?: string;
   aiInstructions?: string;
   aiResponse?: string;
+  researchData?: string;
+  researchSources?: { title: string; url?: string; snippet?: string }[];
   extractedScript?: string;
   imagePrompts?: string[];
   narration?: string;

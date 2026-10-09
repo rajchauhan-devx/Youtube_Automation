@@ -99,12 +99,20 @@ export function promptMinimumWords(template: string) {
   return { image: floor('image'), video: Math.max(80, floor('video')) };
 }
 
-export function buildGenerationPrompt(template: string, topic: string, instructions: string, duration: number, profile: 'shorts' | 'long' | 'mixed') {
+function sanitizeResearchForPrompt(researchData?: string): string {
+  if (!researchData?.trim()) return '';
+  return researchData
+    .trim()
+    .replace(/^(#{1,6}\s+[^\n]*?)\bSECTION\s+(\d+[A-Z]?)\b/gim, '$1Part $2');
+}
+
+export function buildGenerationPrompt(template: string, topic: string, instructions: string, duration: number, profile: 'shorts' | 'long' | 'mixed', researchData?: string) {
   const budget = narrationWordBudget(duration);
   const supporting = supportingSections(template);
   const videos = requiredVideoCount(template);
   const minimum = promptMinimumWords(template);
   const sceneCount = Math.min(160, Math.ceil(duration / 10));
+  const cleanResearch = sanitizeResearchForPrompt(researchData);
   return `${withScenePlanFormat(template, profile)}
 
 ## Selected episode settings
@@ -119,24 +127,29 @@ ${requiresThumbnailMotion(template) ? `The template also requests thumbnail anim
 ${requiresBothMedia(template) ? 'This template requires both image and video playback scenes. Include at least one of each.' : ''}
 Each imagePrompt must contain at least ${minimum.image} words and each videoPrompt at least ${minimum.video} words when present. Expand with concrete renderable detail, not repeated adjectives.
 ${supporting.length ? `After the extraction tags, include these original supporting section headings with their complete requested editorial content (without repeating extraction wrappers):\n${supporting.map(section => section.heading).join('\n')}` : ''}
-${instructions.trim() ? `Additional Instructions: ${instructions.trim()}` : ''}`.trim();
+${instructions.trim() ? `Additional Instructions: ${instructions.trim()}` : ''}
+${cleanResearch ? `\n## Pre-Generation Research Dossier (Mandatory Reference Data)\nUse the following researched facts, chronology, narrative beats, and visual world-building data related to the script and topic when generating the narration and visual scene prompts:\n${cleanResearch}` : ''}`.trim();
 }
 
-export function freeChatSystem(template?: string): string {
+export function freeChatSystem(template?: string, hasResearch = false): string {
   const isImageOnly = template ? isImageOnlyTemplate(template) : false;
+  const researchDirective = hasResearch
+    ? ' Ground all voiceover narration, factual claims, chronology, character/location details, and visual scene prompts in the provided Pre-Generation Research Dossier so the response is deeply researched, accurate, and specific.'
+    : '';
   if (isImageOnly) {
-    return 'You are an expert video production assistant. Follow the user template instructions, story requirements and visual style. Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and wrap each scene still-image prompt inside its own sequentially numbered tag: <image_prompt1>...</image_prompt1>, <image_prompt2>...</image_prompt2>, up to <image_prompt[N]>. Do NOT generate any <video_prompt> tags; this is a static image-only production. The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.';
+    return `You are an expert video production assistant. Follow the user template instructions, story requirements and visual style.${researchDirective} Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and wrap each scene still-image prompt inside its own sequentially numbered tag: <image_prompt1>...</image_prompt1>, <image_prompt2>...</image_prompt2>, up to <image_prompt[N]>. Do NOT generate any <video_prompt> tags; this is a static image-only production. The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.`;
   }
-  return 'You are an expert video production assistant. Follow the user template instructions, story requirements and visual style. Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and wrap scene prompts inside sequentially numbered tags incrementing chronologically across the video timeline (<image_prompt[N]> for static images and <video_prompt[N]> for video shots, e.g. <image_prompt1>, <video_prompt2>, <image_prompt3>). The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.';
+  return `You are an expert video production assistant. Follow the user template instructions, story requirements and visual style.${researchDirective} Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and wrap scene prompts inside sequentially numbered tags incrementing chronologically across the video timeline (<image_prompt[N]> for static images and <video_prompt[N]> for video shots, e.g. <image_prompt1>, <video_prompt2>, <image_prompt3>). The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.`;
 }
 
 export const FREE_CHAT_SYSTEM = freeChatSystem();
 
-export function buildFreePrompt(template: string, topic: string, instructions: string, duration: number): string {
+export function buildFreePrompt(template: string, topic: string, instructions: string, duration: number, researchData?: string): string {
   const head = (template || '').trimEnd();
   const target = Number.isFinite(duration) && duration > 0 ? Math.round(duration) : 30;
   const minScenes = Math.min(160, Math.max(3, Math.ceil(target / (target > 120 ? 10 : 6))));
   const isImageOnly = isImageOnlyTemplate(template);
+  const cleanResearch = sanitizeResearchForPrompt(researchData);
 
   const tagRules = isImageOnly
     ? `REQUIRED EXTRACTION TAGS (image-only production): (1) Wrap the complete spoken voiceover inside <script>...</script>, (2) Wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and (3) Wrap each scene still-image prompt inside its own sequentially numbered tag: <image_prompt1>...</image_prompt1>, <image_prompt2>...</image_prompt2>, up to <image_prompt${minScenes}>. Do NOT generate any <video_prompt> tags.`
@@ -147,6 +160,11 @@ export function buildFreePrompt(template: string, topic: string, instructions: s
     `Target duration: ~${target} seconds. MANDATORY: this selected runtime overrides any default, example or maximum runtime in the template. Scale the episode to ~${target} seconds with at least ${minScenes} story scenes. ${tagRules} Write every prompt block in full; never use placeholders such as [...Repeat...] or "following the same standard".`,
   ];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
+  if (cleanResearch) {
+    tail.push(
+      `\n## Pre-Generation Research Dossier (Use This Researched Data in Your Response)\nThe AI research step gathered the following facts, chronology, story beats, and visual world-building details for this script and topic. Use this researched data to write the <script> narration and <image_prompt>/<video_prompt> blocks so the script is accurate, authentic, and deeply detailed (do not output the research headings themselves—apply the data directly inside the required template output):\n\n${cleanResearch}`
+    );
+  }
   return `${head}${head ? '\n\n' : ''}${tail.join('\n')}`.trim();
 }
 

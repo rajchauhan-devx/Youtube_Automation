@@ -19,6 +19,14 @@ import {
   sanitizeSegment,
   type QualityPreset,
 } from '../services/comfyui.js';
+import {
+  getCloudflareConfig,
+  getPublicCloudflareConfig,
+  saveCloudflareConfig,
+  testCloudflareConnection,
+  generateCloudflareImage,
+  isCloudflareConfigured,
+} from '../services/cloudflare-image.js';
 
 export const generateRouter = Router();
 generateRouter.use(presenterGuard(['/start', '/image', '/reference-frame']));
@@ -44,8 +52,57 @@ const statusCode: Record<string, number> = {
   CANCELLED: 499,
 };
 
-generateRouter.get('/status', async (_req, res) => {
-  res.json(await checkComfyStatus());
+generateRouter.get('/status', async (req, res) => {
+  const cfStatus = getPublicCloudflareConfig();
+  const requestedProvider =
+    req.query.provider === 'cloudflare'
+      ? 'cloudflare'
+      : req.query.provider === 'local'
+        ? 'local'
+        : cfStatus.provider;
+  const comfy = await checkComfyStatus();
+  if (requestedProvider === 'cloudflare') {
+    res.json({
+      online: cfStatus.configured,
+      provider: 'cloudflare',
+      model: cfStatus.model,
+      modelLabel: cfStatus.modelLabel,
+      detail: cfStatus.configured
+        ? `Cloudflare Workers AI ready (${cfStatus.modelLabel})`
+        : 'Cloudflare Workers AI is not configured yet. Add your Worker URL or API Token below.',
+      cloudflare: cfStatus,
+      comfyOnline: comfy.online,
+    });
+    return;
+  }
+  res.json({
+    ...comfy,
+    provider: 'local',
+    cloudflare: cfStatus,
+    comfyOnline: comfy.online,
+  });
+});
+
+generateRouter.get('/cloudflare/config', (_req, res) => {
+  res.json(getPublicCloudflareConfig());
+});
+
+generateRouter.post('/cloudflare/config', (req, res) => {
+  try {
+    const updated = saveCloudflareConfig(req.body || {});
+    res.json({ ok: true, config: updated });
+  } catch (err: any) {
+    if (err instanceof ComfyError) {
+      res.status(400).json({ error: err.message, code: err.code });
+    } else {
+      res.status(400).json({ error: err?.message || 'Invalid Cloudflare configuration' });
+    }
+  }
+});
+
+generateRouter.post('/cloudflare/test', async (_req, res) => {
+  const result = await testCloudflareConnection();
+  res.status(result.ok ? 200 : 400).json(result);
 });
 
 generateRouter.get('/models', async (_req, res) => {
@@ -63,7 +120,20 @@ generateRouter.get('/channel-lora', (_req, res) => {
   res.json(channelLora);
 });
 
-generateRouter.post('/start', async (_req, res) => {
+generateRouter.post('/start', async (req, res) => {
+  const cfCfg = getCloudflareConfig();
+  const requestedProvider = req.body?.provider || cfCfg.provider;
+  if (requestedProvider === 'cloudflare') {
+    if (isCloudflareConfigured(cfCfg)) {
+      res.json({ success: true, message: 'Cloudflare Workers AI is ready' });
+    } else {
+      res.json({
+        success: false,
+        message: 'Cloudflare Workers AI is not configured. Open Cloudflare settings to add your Worker URL or API Token.',
+      });
+    }
+    return;
+  }
   const result = await startComfyUI();
   res.json(result);
 });
@@ -89,6 +159,7 @@ generateRouter.post('/image', async (req, res) => {
     seed,
     preset,
     modelName,
+    provider,
   } = req.body || {};
 
   if (!sanitizeSegment(scriptId) || !Number.isInteger(index) || index < 0 || index > 9999 || !prompt || typeof prompt !== 'string' || prompt.length > 20000) {
@@ -114,7 +185,12 @@ generateRouter.post('/image', async (req, res) => {
   presenterState.imageRequests++;
 
   try {
-    const result = await generateImage({
+    const cfCfg = getCloudflareConfig();
+    const useCloudflare =
+      provider === 'cloudflare' ||
+      (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
+      (provider !== 'local' && cfCfg.provider === 'cloudflare');
+    const result = await (useCloudflare ? generateCloudflareImage : generateImage)({
       prompt,
       scriptId,
       index,
@@ -155,7 +231,7 @@ generateRouter.post('/reference-frame', async (req, res) => {
     res.status(409).json({ error: 'Wait for local music generation to finish before generating reference frames.' });
     return;
   }
-  const { scriptId, index, prompt, seed, preset, modelName } = req.body || {};
+  const { scriptId, index, prompt, seed, preset, modelName, provider } = req.body || {};
 
   if (
     !sanitizeSegment(scriptId) ||
@@ -197,7 +273,12 @@ generateRouter.post('/reference-frame', async (req, res) => {
   presenterState.imageRequests++;
 
   try {
-    const result = await generateImage({
+    const cfCfg = getCloudflareConfig();
+    const useCloudflare =
+      provider === 'cloudflare' ||
+      (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
+      (provider !== 'local' && cfCfg.provider === 'cloudflare');
+    const result = await (useCloudflare ? generateCloudflareImage : generateImage)({
       prompt,
       scriptId,
       index,

@@ -26,6 +26,7 @@ import { type Script, type GeneratedImage, type GeneratedAudio, getChannelLoraPr
 import { ErrorBoundary } from '../ErrorBoundary';
 import { MixedMediaContent } from './MixedMediaContent';
 import { GenerationDisclosure } from './GenerationDisclosure';
+import { CloudflareImagePanel, type ImageProviderMode } from './CloudflareImagePanel';
 import { saveVoiceReference, rememberVoice, preferredVoice, VOICES_CHANGED } from '../../services/voiceLibrary';
 import { normalizeNarration, spokenText, syncScenePlanNarration } from '../../../server/src/services/scene-plan';
 import { parseJsonResponse } from '../../lib/safe';
@@ -102,6 +103,8 @@ function ImageGenerationContent({
   const [serverError, setServerError] = useState('');
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [preset, setPreset] = useState<'fast' | 'standard' | 'high'>('standard');
+  const [imageProvider, setImageProvider] = useState<ImageProviderMode>('local');
+  const [cloudflareModelLabel, setCloudflareModelLabel] = useState<string>('FLUX.1 Schnell (12B)');
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [seedMode, setSeedMode] = useState<'random' | 'fixed'>('random');
@@ -195,7 +198,8 @@ function ImageGenerationContent({
           index: item.index,
           prompt: item.prompt,
           preset,
-          modelName: selectedModel || undefined,
+          provider: imageProvider,
+          modelName: imageProvider === 'local' ? (selectedModel || undefined) : undefined,
           seed: seedMode === 'fixed' ? fixedSeed : undefined,
         }),
       });
@@ -238,7 +242,7 @@ function ImageGenerationContent({
       // Long videos can have dozens of high-resolution images. Give the local
       // image model and GPU a configurable recovery period between batches.
       const remaining = items.slice(itemPosition + 1).some((candidate) => candidate.status !== 'done');
-      if (profile !== 'shorts' && remaining && completedInBatch >= Math.max(1, batchSizeRef.current)) {
+      if (imageProvider === 'local' && profile !== 'shorts' && remaining && completedInBatch >= Math.max(1, batchSizeRef.current)) {
         completedInBatch = 0;
         const rest = Math.max(0, Math.round(restSecondsRef.current));
         if (rest > 0) {
@@ -438,7 +442,15 @@ function ImageGenerationContent({
 
       {cooldownRemaining > 0 && <p role="status" className="px-4 py-3 text-xs text-amber-200">Computer rest: {cooldownRemaining}s remaining</p>}
       <div className="px-4 pt-4">
-        <GenerationDisclosure title="Image settings" hint={`${channelLora.channelLabel} LoRA / ${preset} quality`}>
+        <CloudflareImagePanel
+          disabled={isRunning}
+          onConfigChange={(cfg) => {
+            setImageProvider(cfg.provider);
+            setCloudflareModelLabel(cfg.modelLabel);
+            void checkServer();
+          }}
+        />
+        <GenerationDisclosure title="Image settings" hint={imageProvider === 'cloudflare' ? `Cloudflare (${cloudflareModelLabel}) / ${preset} quality` : `${channelLora.channelLabel} LoRA / ${preset} quality`}>
         <div className="border-b border-border/80 bg-accent/5 px-4 py-2.5 text-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>

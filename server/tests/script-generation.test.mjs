@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGenerationPrompt, generationIssue, generationResponseSchema, narrationWordBudget, supportingSections, requiredVideoCount } from '../dist/services/script-generation.js';
+import { buildGenerationPrompt, buildFreePrompt, freeChatSystem, generationIssue, generationResponseSchema, narrationWordBudget, supportingSections, requiredVideoCount } from '../dist/services/script-generation.js';
+import { buildResearchMessages, summarizeTemplateForResearch } from '../dist/services/script-research.js';
 import { serializeScenePlan } from '../dist/services/scene-plan-format.js';
 import { incompleteResponse } from '../dist/services/generation-status.js';
 
@@ -102,3 +103,26 @@ Second scene video
   assert.equal(incompleteResponse('', broken, true), 'Unfinished <image_prompt> block');
 });
 
+test('research messages extract template requirements and buildFreePrompt injects researched data without adding false SECTION requirements', () => {
+  const template = '## SECTION 1 — Hook\n## SECTION 4 — ENGLISH TEXT OVERLAYS\nTell an authentic survival story.';
+  const summary = summarizeTemplateForResearch(template);
+  assert.match(summary, /SECTION 1/);
+  const messages = buildResearchMessages({
+    topic: '1972 Andes flight disaster',
+    template,
+    instructions: 'Focus on Nando Parrado',
+    duration: 60,
+    webSources: [{ title: 'Uruguayan Air Force Flight 571', url: 'https://en.wikipedia.org/wiki/Uruguayan_Air_Force_Flight_571', snippet: 'Chartered flight that crashed in the Andes.' }],
+  });
+  assert.equal(messages.length, 2);
+  assert.match(messages[1].content, /1972 Andes flight disaster/);
+  assert.match(messages[1].content, /Uruguayan Air Force Flight 571/);
+
+  const researchDossier = '## SECTION 9 — Extra Research Heading\n- Crash date: October 13, 1972\n- Elevation: 3,570 meters';
+  const freePrompt = buildFreePrompt(template, '1972 Andes flight disaster', 'Focus on Nando Parrado', 60, researchDossier);
+  assert.match(freePrompt, /Pre-Generation Research Dossier/);
+  assert.match(freePrompt, /October 13, 1972/);
+  // Sanitized so research headings never masquerade as required template SECTIONs
+  assert.deepEqual(supportingSections(freePrompt).map(s => s.id), ['4']);
+  assert.match(freeChatSystem(template, true), /Pre-Generation Research Dossier/);
+});

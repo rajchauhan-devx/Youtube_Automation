@@ -14,6 +14,7 @@ import { streamOpenCode, streamReasoning } from '../services/opencode.js';
 import { reasoningProvider, GROQ_MODELS, OPENROUTER_MODELS } from '../services/reasoning-models.js';
 import { isLocalModel, LOCAL_MODELS } from '../services/local-models.js';
 import { streamLocal } from '../services/ollama.js';
+import { conductScriptResearch } from '../services/script-research.js';
 
 export const llmRouter = Router();
 
@@ -239,6 +240,46 @@ Output JSON format:
   }
 });
 
+llmRouter.post('/research', async (req, res) => {
+  const model = typeof req.body?.model === 'string' && req.body.model.trim() ? req.body.model.trim() : 'gemini-3.6-flash';
+  const local = isLocalModel(model);
+  const openCode = isOpenCodeModel(model);
+  const provider = reasoningProvider(model);
+  const apiKey = provider === 'xkiro' ? process.env.XKIRO_API_KEY : provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'openrouter' ? process.env.OPENROUTER_API_KEY : openCode ? process.env.OPENCODE_API_KEY : getApiKey(req);
+  if (!apiKey && !local) {
+    res.status(401).json({ error: provider ? `Missing ${provider} API key in server settings` : openCode ? 'Missing OpenCode API key in server settings' : 'Missing Gemini API key' });
+    return;
+  }
+
+  const topic = typeof req.body?.topic === 'string' ? req.body.topic.trim() : '';
+  if (!topic) {
+    res.status(400).json({ error: 'Topic is required for script research' });
+    return;
+  }
+
+  const controller = new AbortController();
+  const disconnect = () => controller.abort();
+  res.on('close', disconnect);
+  try {
+    const result = await conductScriptResearch({
+      topic,
+      template: typeof req.body?.template === 'string' ? req.body.template : '',
+      instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : '',
+      duration: Number(req.body?.duration) || 30,
+      model,
+      apiKey: apiKey || '',
+      signal: controller.signal,
+    });
+    res.json(result);
+  } catch (error) {
+    if (!controller.signal.aborted) {
+      res.status(502).json({ error: error instanceof Error ? error.message : 'Script research failed' });
+    }
+  } finally {
+    res.off('close', disconnect);
+  }
+});
+
 llmRouter.post('/chat/stream', async (req, res) => {
   const local = isLocalModel(req.body?.model);
   const openCode = isOpenCodeModel(req.body?.model);
@@ -249,8 +290,8 @@ llmRouter.post('/chat/stream', async (req, res) => {
     return;
   }
 
-  const { messages, model, temperature, max_tokens, jsonSchema } = req.body;
-  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+  const { messages: rawMessages, model, temperature, max_tokens, jsonSchema, research } = req.body;
+  if (!rawMessages || !Array.isArray(rawMessages) || rawMessages.length === 0) {
     res.status(400).json({ error: 'Messages array is required' });
     return;
   }
@@ -260,6 +301,43 @@ llmRouter.post('/chat/stream', async (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
+
+  let messages = rawMessages.map((msg: any) => ({ ...msg }));
+  if (research && typeof research === 'object' && typeof research.topic === 'string' && research.topic.trim()) {
+    const researchController = new AbortController();
+    const onDisconnect = () => researchController.abort();
+    res.on('close', onDisconnect);
+    try {
+      res.write(`data: ${JSON.stringify({ status: 'Researching topic & gathering script data...' })}\n\n`);
+      const researchResult = await conductScriptResearch({
+        topic: research.topic.trim(),
+        template: typeof research.template === 'string' ? research.template : '',
+        instructions: typeof research.instructions === 'string' ? research.instructions : '',
+        duration: Number(research.duration) || 30,
+        model: model || 'gemini-3.6-flash',
+        apiKey: apiKey || '',
+        signal: researchController.signal,
+      });
+      if (researchResult.researchData.trim()) {
+        res.write(`data: ${JSON.stringify({ researchData: researchResult.researchData, researchSources: researchResult.sources, status: 'Research complete — generating script from researched data...' })}\n\n`);
+        const lastUserIdx = messages.map((m: any) => m.role).lastIndexOf('user');
+        if (lastUserIdx >= 0 && !String(messages[lastUserIdx].content || '').includes('Pre-Generation Research Dossier')) {
+          messages[lastUserIdx] = {
+            ...messages[lastUserIdx],
+            content: `${messages[lastUserIdx].content}\n\n## Pre-Generation Research Dossier (Use This Researched Data in Your Response)\nThe AI research step gathered the following facts, chronology, story beats, and visual world-building details for this script and topic. Use this researched data to write the <script> narration and <image_prompt>/<video_prompt> blocks:\n\n${researchResult.researchData.trim()}`,
+          };
+        }
+      }
+    } catch {
+      if (researchController.signal.aborted) {
+        res.off('close', onDisconnect);
+        res.end();
+        return;
+      }
+    } finally {
+      res.off('close', onDisconnect);
+    }
+  }
 
   if (local || openCode || provider) {
     const controller = new AbortController();

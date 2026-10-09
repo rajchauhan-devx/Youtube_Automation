@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
+  BookOpen,
   Bot,
   Check,
   Copy,
+  ExternalLink,
+  Search,
   Send,
   Sparkles,
   Square,
@@ -54,7 +57,7 @@ export function PreviewTab({
 
   useEffect(() => {
     responseEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [script?.aiResponse]);
+  }, [script?.aiResponse, script?.researchData]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -84,11 +87,15 @@ export function PreviewTab({
     return <div className="flex h-full items-center justify-center text-gray-500">No script selected.</div>;
   }
 
+  const researchStage = pipeline.find((step) => step.id === 'research');
   const responseStage = pipeline.find((step) => step.id === 'response') || ({} as PipelineStep);
+  const isResearching = researchStage?.status === 'running';
   const isDone = responseStage.status === 'done';
-  const isGenerating = responseStage.status === 'running';
+  const isGenerating = isResearching || responseStage.status === 'running';
   const extractionFailed = responseStage.status === 'error' && responseStage.summary === 'Asset extraction needs attention';
   const hasResponse = Boolean(script.aiResponse?.trim());
+  const hasResearch = Boolean(script.researchData?.trim());
+  const researchSources = Array.isArray(script.researchSources) ? script.researchSources : [];
   const hasPrompt = Boolean(script.topicName?.trim());
 
   return (
@@ -100,7 +107,13 @@ export function PreviewTab({
           </div>
           <div>
             <h3 className="text-sm font-semibold">AI Script Assistant</h3>
-            <p className="text-xs text-gray-500">{isGenerating ? 'Generating a live response…' : 'Ready'}</p>
+            <p className="text-xs text-gray-500">
+              {isResearching
+                ? 'Researching topic & script data…'
+                : isGenerating
+                  ? 'Generating a live response from researched data…'
+                  : 'Ready'}
+            </p>
           </div>
         </div>
 
@@ -152,7 +165,7 @@ export function PreviewTab({
             </div>
             <h4 className="text-base font-semibold">What should the next video be about?</h4>
             <p className="mt-2 max-w-md text-sm leading-relaxed text-gray-500">
-              Enter a topic or a detailed request below. The response will appear here live as it is generated.
+              Enter a topic or a detailed request below. The AI will research the topic and script requirements first, then generate the live response using that data.
             </p>
           </div>
         ) : (
@@ -171,12 +184,74 @@ export function PreviewTab({
               </div>
             )}
 
-            {(hasResponse || isGenerating || responseStage.status === 'error' || responseStage.status === 'warning') && (
+            {(hasResponse || hasResearch || isGenerating || responseStage.status === 'error' || responseStage.status === 'warning') && (
               <div className="flex items-start gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
                   <Bot className="h-4 w-4" />
                 </div>
                 <div className="min-w-0 max-w-[88%] flex-1">
+                  {isResearching && (
+                    <div className="mb-4 flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-xs text-gray-200">
+                      <Search className="h-4 w-4 shrink-0 animate-pulse text-accent" />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-white">Researching topic &amp; script requirements first…</p>
+                        <p className="mt-0.5 text-gray-400">
+                          {researchStage?.summary || 'Gathering verified facts, chronology, story beats, and visual references before generating the script.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {hasResearch && (
+                    <details className="mb-4 rounded-xl border border-border bg-bg/70 px-4 py-3 text-xs">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 font-medium text-gray-200">
+                        <span className="flex items-center gap-2">
+                          <BookOpen className="h-3.5 w-3.5 text-accent" />
+                          <span>Researched Topic &amp; Script Data</span>
+                          {researchSources.length > 0 && (
+                            <span className="rounded-md bg-accent/15 px-1.5 py-0.5 text-[10px] font-semibold text-accent">
+                              {researchSources.length} source{researchSources.length === 1 ? '' : 's'}
+                            </span>
+                          )}
+                        </span>
+                        <span className="flex items-center gap-1 text-[11px] text-emerald-400">
+                          <Check className="h-3 w-3" /> Used in generation
+                        </span>
+                      </summary>
+                      <div className="mt-3 space-y-3 border-t border-border/70 pt-3">
+                        {researchSources.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {researchSources.map((src, idx) => {
+                              const safeHref = typeof src.url === 'string' && /^https?:\/\//i.test(src.url) ? src.url : undefined;
+                              return safeHref ? (
+                                <a
+                                  key={`${src.title}-${idx}`}
+                                  href={safeHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-gray-300 hover:border-accent/50 hover:text-white"
+                                >
+                                  <span>{src.title}</span>
+                                  <ExternalLink className="h-2.5 w-2.5 text-gray-500" />
+                                </a>
+                              ) : (
+                                <span
+                                  key={`${src.title}-${idx}`}
+                                  className="inline-flex items-center rounded-md border border-border bg-surface px-2 py-1 text-[11px] text-gray-300"
+                                >
+                                  {src.title}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                        <div className="max-h-72 overflow-y-auto whitespace-pre-wrap text-xs leading-relaxed text-gray-300">
+                          {script.researchData}
+                        </div>
+                      </div>
+                    </details>
+                  )}
+
                   <div className="whitespace-pre-wrap text-sm leading-7 text-gray-200">
                     {script.aiResponse}
                     {isGenerating && !hasResponse && (
@@ -192,7 +267,13 @@ export function PreviewTab({
                   </div>
 
                   <div className="mt-3 flex items-center gap-2 text-xs">
-                    {isGenerating && <span className="text-accent">{responseStage.summary || 'Generating…'}</span>}
+                    {isGenerating && (
+                      <span className="text-accent">
+                        {isResearching
+                          ? researchStage?.summary || 'Researching topic & script data…'
+                          : responseStage.summary || 'Generating…'}
+                      </span>
+                    )}
                     {isDone && (
                       <span className="flex items-center gap-1 text-green-400">
                         <Check className="h-3 w-3" /> Complete
@@ -226,7 +307,13 @@ export function PreviewTab({
             disabled={isGenerating}
             rows={1}
             aria-label="Message AI Script Assistant"
-            placeholder={isGenerating ? 'Generating response…' : 'Describe the video you want to create…'}
+            placeholder={
+              isResearching
+                ? 'Researching topic & script data…'
+                : isGenerating
+                  ? 'Generating response…'
+                  : 'Describe the video you want to create…'
+            }
             className="max-h-36 min-h-10 flex-1 resize-none bg-transparent py-2 text-sm leading-6 text-white outline-none placeholder:text-gray-600 disabled:cursor-not-allowed"
           />
           {isGenerating ? (

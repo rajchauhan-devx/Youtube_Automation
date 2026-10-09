@@ -4,6 +4,7 @@ import { Copy, Plus, Loader2, Sparkles, Square, Film, Image as ImageIcon, Downlo
 import { type Script, getChannelLoraProfile, formatPromptWithChannelStyleDna } from '../../data';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import { GenerationDisclosure } from './GenerationDisclosure';
+import { CloudflareImagePanel, type ImageProviderMode } from './CloudflareImagePanel';
 
 export function MixedMediaContent({ script, onUpdate }: { script: Script | null; onUpdate: (patch: Partial<Script>) => unknown }) {
   const { fetch, profile, account } = useWorkspaceApi();
@@ -16,6 +17,8 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   const [activeRefIndex, setActiveRefIndex] = useState<number | null>(null);
   const [stopping, setStopping] = useState(false);
   const [preset, setPreset] = useState<'fast' | 'standard' | 'high'>('standard');
+  const [imageProvider, setImageProvider] = useState<ImageProviderMode>('local');
+  const [cloudflareModelLabel, setCloudflareModelLabel] = useState<string>('FLUX.1 Schnell (12B)');
   const [autoStyleDna, setAutoStyleDna] = useState(true);
   const [modelStatus, setModelStatus] = useState<'checking' | 'online' | 'offline' | 'starting' | 'stopping'>('checking');
   const [modelDetail, setModelDetail] = useState('');
@@ -129,10 +132,11 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
       let completed = 0;
       for (const index of queue) {
         if (stopRequested.current) break;
-        setActiveIndex(index); setNotice(`Generating image ${completed + 1} of ${queue.length} · scene ${index + 1} (${channelLora.loraTitle})…`);
+        const activeEngineLabel = imageProvider === 'cloudflare' ? `Cloudflare · ${cloudflareModelLabel}` : channelLora.loraTitle;
+        setActiveIndex(index); setNotice(`Generating image ${completed + 1} of ${queue.length} · scene ${index + 1} (${activeEngineLabel})…`);
         const response = await fetch('/api/generate/image', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scriptId: script.id, index, prompt: scenes[index].imagePrompt, preset }),
+          body: JSON.stringify({ scriptId: script.id, index, prompt: scenes[index].imagePrompt, preset, provider: imageProvider }),
         });
         const result = await response.json();
         if (!response.ok) throw new Error(`Scene ${index + 1}: ${result.error || 'Image generation failed.'}`);
@@ -233,7 +237,15 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         <button disabled={locked || !scenes.length} className="studio-btn-ghost" onClick={() => { selectedIndex.current = null; if (fileInput.current) { fileInput.current.multiple = true; fileInput.current.accept = videoCount > 0 ? '.png,.jpg,.jpeg,.webp,.mp4' : '.png,.jpg,.jpeg,.webp'; fileInput.current.click(); } }}>Import media</button>
       </div>
     </div>
-    <GenerationDisclosure title="Media settings" hint="Images: local model / Videos: import MP4" className="mb-5">
+    <CloudflareImagePanel
+      disabled={locked}
+      onConfigChange={(cfg) => {
+        setImageProvider(cfg.provider);
+        setCloudflareModelLabel(cfg.modelLabel);
+        void refreshModelStatus();
+      }}
+    />
+    <GenerationDisclosure title="Media settings" hint={imageProvider === 'cloudflare' ? `Images: Cloudflare (${cloudflareModelLabel}) / Videos: import MP4` : "Images: local model / Videos: import MP4"} className="mb-5">
       <div className="flex flex-wrap items-center gap-4">
         <label className="text-xs text-gray-400">Quality <select aria-label="Image quality" value={preset} disabled={locked} onChange={event => setPreset(event.target.value as typeof preset)} className="ml-2 rounded-lg border border-border bg-bg px-3 py-2 text-white"><option value="fast">Fast</option><option value="standard">Standard</option><option value="high">High</option></select></label>
         <span role="status" className="text-xs text-gray-400">Image model: {modelStatus}</span>
