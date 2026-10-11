@@ -55,3 +55,4 @@ server/data/editing-assets/
 server/data/editing-scheduler.lock
 services/alignment/.venv/
 server/data/cloudflare-image-config.json
+server/data/flow/
