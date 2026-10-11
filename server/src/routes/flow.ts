@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { flowLoginSteps, flowStatus } from '../services/flow/profile.js';
-import { cancelFlowJob, flowJobStatus, flowJobsFor, startFlowJob } from '../services/flow/jobs.js';
+import { cancelFlowJob, flowJobStatus, flowJobsFor, resolveFlowDownload, startFlowJob } from '../services/flow/jobs.js';
 
 export const flowRouter = Router();
 
@@ -55,4 +55,17 @@ flowRouter.post('/jobs/:id/cancel', async (req, res) => {
   } catch (error) {
     res.status(404).json({ error: error instanceof Error ? error.message : 'Cancel failed' });
   }
+});
+
+// Authenticated-session download. The client then imports these bytes through
+// the existing workspace-scoped media-import endpoint (same as manual upload),
+// so Flow routes never need workspace context.
+flowRouter.get('/downloads/:id', (req, res) => {
+  const file = resolveFlowDownload(req.params.id);
+  if (!file) {
+    res.status(404).json({ error: 'Download not found. The job must be done first.' });
+    return;
+  }
+  res.set('Content-Type', 'video/mp4');
+  res.sendFile(file);
 });

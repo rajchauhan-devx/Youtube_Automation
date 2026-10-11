@@ -18,6 +18,13 @@ export interface FlowJobSpec {
 
 export type FlowJobModel = FlowModel;
 
+export interface StepLog {
+  step: string;
+  at: string;
+  shot?: string;
+  detail?: string;
+}
+
 export interface FlowJob extends FlowJobSpec {
   id: string;
   state: FlowJobState;
@@ -32,6 +39,8 @@ export interface FlowJob extends FlowJobSpec {
   stage: string;
   progress: number;
   error?: string;
+  overseerCode?: string;
+  log: StepLog[];
   preview?: { promptWrapped: string; warnings: string[] };
   result?: { downloadId: string; bytes: number };
 }
@@ -104,6 +113,7 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
       createdAt: now, updatedAt: now,
       stage: 'Dry run: prompt prepared, 0 credits spent',
       progress: 100,
+      log: [],
       preview: { promptWrapped: wrapPrompt(prompt, model, aspect, duration), warnings: [] },
     };
     jobs.set(job.id, job);
@@ -128,17 +138,74 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
     createdAt: now, updatedAt: now,
     stage: 'Queued: waiting for browser worker',
     progress: 0,
+    log: [],
     preview: { promptWrapped: wrapPrompt(prompt, model, aspect, duration), warnings: [] },
   };
   spend.set(spec.scriptId, committed + cost);
   jobs.set(job.id, job);
 
-  // Live browser generation lands here next (real-click worker + UI map).
-  // Queued explicitly so the failure mode is visible, not a silent no-op.
-  job.error = 'Live generation worker is not wired yet. Use dryRun to validate, then run from the Flow tab manually until the worker lands.';
-  job.state = 'error';
-  job.updatedAt = new Date().toISOString();
+  // Async: the request returns 202 immediately; the client polls the job.
+  const controller = new AbortController();
+  controllers.set(job.id, controller);
+  void runLive(job.id, controller.signal);
   return job;
+}
+
+async function runLive(jobId: string, signal: AbortSignal): Promise<void> {
+  const job = jobs.get(jobId);
+  if (!job) return;
+  job.state = 'running';
+  job.stage = 'Launching persistent browser profile';
+  job.progress = 3;
+  job.updatedAt = new Date().toISOString();
+  try {
+    const { runLiveGeneration } = await import('./worker.js');
+    const status = await flowStatus();
+    const result = await runLiveGeneration({
+      jobId: job.id,
+      promptWrapped: job.preview?.promptWrapped || wrapPrompt(job.prompt, job.model, job.aspect, job.duration),
+      projectUrl: status.projectUrl,
+      aspect: job.aspect,
+      signal,
+      onStage: (stage, progress) => {
+        const current = jobs.get(jobId);
+        if (!current) return;
+        current.stage = stage;
+        current.progress = progress;
+        current.updatedAt = new Date().toISOString();
+      },
+      logStep: (entry) => {
+        const current = jobs.get(jobId);
+        if (!current) return;
+        current.log.push(entry);
+        current.updatedAt = new Date().toISOString();
+      },
+    });
+    const current = jobs.get(jobId);
+    if (!current) return;
+    current.state = 'done';
+    current.stage = 'Downloaded from Flow — import into the scene to finish';
+    current.progress = 100;
+    current.result = { downloadId: current.id, bytes: result.bytes };
+    current.updatedAt = new Date().toISOString();
+  } catch (error) {
+    const current = jobs.get(jobId);
+    if (!current) return;
+    if (signal.aborted && (current.state === 'cancelled' || error instanceof Error && error.name === 'AbortError')) {
+      current.state = 'cancelled';
+      current.stage = 'Cancelled by user.';
+    } else {
+      // Credits may already be spent (render started). Spend stays committed;
+      // idempotent retry returns the file without re-billing once it exists.
+      current.state = 'error';
+      current.stage = 'Flow generation failed — see error + step log';
+      current.error = error instanceof Error ? error.message : String(error);
+      current.overseerCode = (error as { overseerCode?: string }).overseerCode;
+    }
+    current.updatedAt = new Date().toISOString();
+  } finally {
+    controllers.delete(jobId);
+  }
 }
 
 export async function cancelFlowJob(id: string): Promise<FlowJob> {
@@ -159,4 +226,16 @@ export function flowDownloadsDir(): string {
   const dir = path.join(flowProfileDir(), '..', 'downloads');
   fs.mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+// Contained download resolution for the route: only <jobId>.mp4 inside the
+// downloads dir, nothing else on disk is reachable.
+export function resolveFlowDownload(downloadId: string): string | null {
+  if (!/^flow_[A-Za-z0-9-]{1,80}$/.test(downloadId)) return null;
+  const job = jobs.get(downloadId);
+  if (!job || job.state !== 'done' || !job.result) return null;
+  const dir = flowDownloadsDir();
+  const file = path.resolve(dir, `${downloadId}.mp4`);
+  if (path.dirname(file) !== path.resolve(dir) || !fs.existsSync(file)) return null;
+  return file;
 }

@@ -6,6 +6,126 @@ import { useWorkspaceApi } from '../../services/workspaceApi';
 import { GenerationDisclosure } from './GenerationDisclosure';
 import { CloudflareImagePanel, type ImageProviderMode } from './CloudflareImagePanel';
 
+interface FlowJobState {
+  id: string;
+  state: 'queued' | 'running' | 'done' | 'error' | 'cancelled';
+  stage: string;
+  progress: number;
+  error?: string;
+  overseerCode?: string;
+  result?: { downloadId: string; bytes: number };
+}
+
+// Per-scene Google Flow automation: start → poll → download → import.
+// Uses the global /api/flow routes (own Google session); the downloaded MP4 is
+// imported through the workspace-scoped media-import, same as manual upload.
+function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, disabled, onImported, onError, onNotice }: {
+  scriptId: string; sceneIndex: number; prompt: string; duration: number; aspect: 'portrait' | 'landscape';
+  disabled: boolean; onImported: (blob: Blob) => Promise<void>; onError: (message: string) => void; onNotice: (message: string) => void;
+}) {
+  const [job, setJob] = useState<FlowJobState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
+
+  async function poll(id: string): Promise<FlowJobState> {
+    const res = await globalThis.fetch(`/api/flow/jobs/${id}`);
+    const data = await res.json() as FlowJobState & { error?: string };
+    if (!res.ok) throw new Error((data as { error?: string }).error || 'Flow job lookup failed.');
+    return data;
+  }
+
+  async function start() {
+    if (busy) return;
+    setBusy(true);
+    onError('');
+    try {
+      onNotice('Validating Flow prompt (0 credits)…');
+      const res = await globalThis.fetch('/api/flow/jobs', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptId, sceneIndex, prompt, model: 'veo-3.1-fast', aspect, duration, dryRun: false }),
+      });
+      const data = await res.json() as FlowJobState & { error?: string };
+      if (!res.ok) throw new Error(data.error || 'Flow job failed to start.');
+      setJob(data);
+      if (data.state === 'done' && data.result) {
+        await finishImport(data);
+        return;
+      }
+      onNotice(data.stage || 'Flow job queued…');
+      timer.current = setInterval(async () => {
+        try {
+          const current = await poll(data.id);
+          setJob(current);
+          if (current.state === 'queued' || current.state === 'running') {
+            onNotice(`${current.stage} (${current.progress}%)`);
+            return;
+          }
+          if (timer.current) clearInterval(timer.current);
+          setBusy(false);
+          if (current.state === 'done' && current.result) {
+            await finishImport(current);
+          } else if (current.state !== 'cancelled') {
+            onError(current.error || 'Flow generation failed. See job log.');
+          }
+        } catch (err) {
+          if (timer.current) clearInterval(timer.current);
+          setBusy(false);
+          onError(err instanceof Error ? err.message : 'Flow poll failed.');
+        }
+      }, 3000);
+    } catch (err) {
+      setBusy(false);
+      onError(err instanceof Error ? err.message : 'Flow job failed to start.');
+    }
+  }
+
+  async function finishImport(current: FlowJobState) {
+    if (!current.result) return;
+    onNotice('Downloading Flow render…');
+    const dl = await globalThis.fetch(`/api/flow/downloads/${current.result.downloadId}`);
+    if (!dl.ok) throw new Error('Flow download missing. The job must be done first.');
+    await onImported(new Blob([await dl.blob()], { type: 'video/mp4' }));
+    onNotice(`Scene ${sceneIndex + 1}: Flow video imported (${Math.round(current.result.bytes / 1024)} KB).`);
+  }
+
+  async function cancel() {
+    if (!job || busy === false) return;
+    try {
+      await globalThis.fetch(`/api/flow/jobs/${job.id}/cancel`, { method: 'POST' });
+      if (timer.current) clearInterval(timer.current);
+      setBusy(false);
+      setJob(null);
+      onNotice('Flow job cancelled.');
+    } catch (err) {
+      onError(err instanceof Error ? err.message : 'Cancel failed.');
+    }
+  }
+
+  const running = busy && job && (job.state === 'queued' || job.state === 'running');
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {!running ? (
+        <button type="button" disabled={disabled || busy} onClick={() => void start()}
+          className="flex items-center gap-1.5 rounded bg-purple-500/25 px-2.5 py-1.5 text-xs font-medium text-purple-100 hover:bg-purple-500/35 disabled:opacity-40"
+          title="Auto-generate this scene in Google Flow (subscription credits) and import the MP4">
+          <Sparkles className="h-3.5 w-3.5" /> Auto-generate ▸ Flow
+        </button>
+      ) : (
+        <>
+          <span role="status" className="flex items-center gap-1.5 text-xs text-purple-200">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> {job?.stage} ({job?.progress}%)
+          </span>
+          <button type="button" onClick={() => void cancel()} className="rounded border border-red-400/40 px-2 py-1 text-xs text-red-200 hover:bg-red-500/15">Cancel</button>
+        </>
+      )}
+      {job?.state === 'error' && job.error && (
+        <span role="alert" className="w-full text-[11px] leading-relaxed text-red-300">{job.overseerCode ? `[${job.overseerCode}] ` : ''}{job.error}</span>
+      )}
+    </div>
+  );
+}
+
 export function MixedMediaContent({ script, onUpdate }: { script: Script | null; onUpdate: (patch: Partial<Script>) => unknown }) {
   const { fetch, profile, account } = useWorkspaceApi();
   const channelLora = getChannelLoraProfile(account);
@@ -43,10 +163,14 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   ) ? [index] : []);
   const videoSceneIndices = scenes.flatMap((scene, index) => scene.mediaType === 'video' ? [index] : []);
 
-  async function refreshModelStatus() {
+  const imageProviderRef = useRef<ImageProviderMode>('local');
+  imageProviderRef.current = imageProvider;
+
+  async function refreshModelStatus(providerOverride?: ImageProviderMode) {
+    const provider = providerOverride ?? imageProviderRef.current;
     setModelStatus('checking');
     try {
-      const response = await fetch('/api/generate/status');
+      const response = await fetch(`/api/generate/status?provider=${provider}`);
       const result = await response.json();
       setModelStatus(result.online ? 'online' : 'offline');
       setModelDetail(result.detail || '');
@@ -58,11 +182,21 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     }
   }
 
-  async function startModel(): Promise<boolean> {
+  async function startModel(providerOverride?: ImageProviderMode): Promise<boolean> {
+    const provider = providerOverride ?? imageProviderRef.current;
     if (locked || modelStatus === 'starting') return false;
+    if (provider === 'cloudflare') {
+      // Cloudflare needs no local startup — just re-check its API readiness.
+      const online = await refreshModelStatus('cloudflare');
+      return online;
+    }
     setModelStatus('starting'); setModelDetail('Starting the local image model…'); setError('');
     try {
-      const response = await fetch('/api/generate/start', { method: 'POST' });
+      const response = await fetch('/api/generate/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'local' }),
+      });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.message || 'Could not start the image model.');
       setModelStatus('online'); setModelDetail(result.message || 'Image model is ready.');
@@ -72,6 +206,10 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
       setModelDetail(err instanceof Error ? err.message : 'Could not start the image model.');
       return false;
     }
+  }
+
+  function cloudflareNotReadyMessage(): string {
+    return modelDetail || 'Cloudflare API is not ready. Open "Configure Cloudflare APIs" above, add at least one Worker URL + Key or Account ID + Token, then press "Test all APIs".';
   }
 
   async function stopModel() {
@@ -124,6 +262,9 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     try {
       const online = await refreshModelStatus();
       if (!online && !stopRequested.current) {
+        if (imageProviderRef.current === 'cloudflare') {
+          throw new Error(cloudflareNotReadyMessage());
+        }
         setNotice('Starting image model…');
         const started = await startModel();
         if (!started) throw new Error('The image model could not be started. Check the model status message above.');
@@ -163,6 +304,9 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     try {
       const online = await refreshModelStatus();
       if (!online && !stopRequested.current) {
+        if (imageProviderRef.current === 'cloudflare') {
+          throw new Error(cloudflareNotReadyMessage());
+        }
         setNotice('Starting image model…');
         const started = await startModel();
         if (!started) throw new Error('The image model could not be started. Check the model status message above.');
@@ -176,7 +320,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         const response = await fetch('/api/generate/reference-frame', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ scriptId: script.id, index, prompt: scenes[index].imagePrompt, preset }),
+          body: JSON.stringify({ scriptId: script.id, index, prompt: scenes[index].imagePrompt, preset, provider: imageProviderRef.current }),
         });
         const result = await response.json();
         if (!response.ok) throw new Error(`Scene ${index + 1}: ${result.error || 'Reference frame generation failed.'}`);
@@ -193,6 +337,20 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
       operation.current = false;
       if (mounted.current) { setGenerating(false); setActiveRefIndex(null); setStopping(false); }
     }
+  }
+
+  async function importOne(file: File, index: number, extension: string) {
+    if (!script) throw new Error('No script selected.');
+    const response = await fetch(`/api/media-import/${script.id}/${index}?extension=${extension}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
+    const data = await response.json();
+    if (!response.ok) throw new Error(`${file.name}: ${data.error || 'Import failed'}`);
+    // Server has already saved the imported asset; sync the visible script.
+    await onUpdate({ generatedImages: data.generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
+  }
+
+  async function importFlowBlob(blob: Blob, index: number) {
+    const file = new File([blob], `${String(index + 1).padStart(3, '0')}_flow.mp4`, { type: 'video/mp4' });
+    await importOne(file, index, 'mp4');
   }
 
   async function upload(files: FileList | null) {
@@ -212,11 +370,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
       if (new Set(entries.map(entry => entry.index)).size !== entries.length) throw new Error('Choose only one file per scene.');
       let completed = 0;
       for (const { file, index, extension } of entries) {
-        const response = await fetch(`/api/media-import/${script.id}/${index}?extension=${extension}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
-        const data = await response.json();
-        if (!response.ok) throw new Error(`${file.name}: ${data.error || 'Import failed'}`);
-        // Server has already saved the imported asset; sync the visible script.
-        await onUpdate({ generatedImages: data.generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
+        await importOne(file, index, extension!);
         completed++;
         setNotice(`Saved ${completed} of ${entries.length} imports.`);
       }
@@ -241,15 +395,20 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
       disabled={locked}
       onConfigChange={(cfg) => {
         setImageProvider(cfg.provider);
+        imageProviderRef.current = cfg.provider;
         setCloudflareModelLabel(cfg.modelLabel);
-        void refreshModelStatus();
+        void refreshModelStatus(cfg.provider);
       }}
     />
     <GenerationDisclosure title="Media settings" hint={imageProvider === 'cloudflare' ? `Images: Cloudflare (${cloudflareModelLabel}) / Videos: import MP4` : "Images: local model / Videos: import MP4"} className="mb-5">
       <div className="flex flex-wrap items-center gap-4">
         <label className="text-xs text-gray-400">Quality <select aria-label="Image quality" value={preset} disabled={locked} onChange={event => setPreset(event.target.value as typeof preset)} className="ml-2 rounded-lg border border-border bg-bg px-3 py-2 text-white"><option value="fast">Fast</option><option value="standard">Standard</option><option value="high">High</option></select></label>
-        <span role="status" className="text-xs text-gray-400">Image model: {modelStatus}</span>
-        {modelStatus === 'online' || modelStatus === 'stopping' ? (
+        <span role="status" className="text-xs text-gray-400">
+          {imageProvider === 'cloudflare' ? `Cloudflare API: ${modelStatus}` : `Image model: ${modelStatus}`}
+        </span>
+        {imageProvider === 'cloudflare' ? (
+          <span className="text-[11px] text-gray-500">No local model needed — images render on Cloudflare Workers AI.</span>
+        ) : modelStatus === 'online' || modelStatus === 'stopping' ? (
           <button
             disabled={modelStatus === 'stopping'}
             onClick={() => void stopModel()}
@@ -386,6 +545,20 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
                   </div>
                 </div>
               )}
+              <div className="pt-1">
+                <FlowVideoButton
+                  scriptId={script!.id}
+                  sceneIndex={index}
+                  prompt={scene.videoPrompt || styleDnaPrompt}
+                  duration={spokenSeconds !== undefined ? Math.min(10, Math.max(4, Math.round(spokenSeconds))) : 8}
+                  aspect={profile === 'shorts' ? 'portrait' : 'landscape'}
+                  disabled={locked}
+                  onImported={(blob) => importFlowBlob(blob, index)}
+                  onError={setError}
+                  onNotice={setNotice}
+                />
+                <p className="mt-1 text-[11px] text-gray-500">Auto uses your Flow subscription credits (Fast ≈ 20). Dry-run validation first, cancel anytime, resume never re-bills a finished render.</p>
+              </div>
             </div>
           )}
           <p className="mb-3 whitespace-pre-wrap text-xs leading-relaxed text-gray-400">{scene.imagePrompt}</p>
