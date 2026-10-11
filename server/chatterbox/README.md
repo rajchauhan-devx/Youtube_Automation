@@ -30,9 +30,9 @@ Upload a clean 8–15 second recording from the Audio Generation tab. Use only r
 
 ## Natural narration
 
-The default **Natural Conversation** preset uses exaggeration 0.5, CFG 0.5 and temperature 0.8. The dramatic presets remain available. Higher exaggeration can speed up delivery; it is not a general quality slider. These starting values follow the [upstream guidance](https://github.com/resemble-ai/chatterbox#original-chatterbox-tips).
+The default **Cinematic Storyteller** preset uses exaggeration 0.68, CFG 0.32 and temperature 0.75 with locked seed 42. Higher exaggeration can speed up delivery; it is not a general quality slider. CFG above ~0.5 sounds increasingly flat and robotic — keep it low for human feel.
 
-Use **Try your own sentence** to compare settings on up to 500 characters of your actual script. Previews use a fixed seed for repeatable comparisons. Full narration retains normal sampling. Use a reference in the intended language with the conversational delivery you want; a flat or synthetic reference will limit the result. The bundled preset references were generated with Edge TTS, so a good human recording is preferable for natural cloning.
+Use **Try your own sentence** to compare settings on up to 500 characters of your actual script. Previews and full narration share the same locked seed so what you hear is what you render. Use a clean 15-30s human reference in the intended language (ElevenLabs studio export works great — upload it as a clone); a flat or synthetic reference will limit the result. The bundled Edge-generated preset references are kept for drafts only.
 
 The service retains complete sentences where possible, splits long sentences at clauses before falling back to word boundaries, and preserves ellipses within the model's context. Blank lines add a 450 ms paragraph pause. Explicit `[pause 0.6s]` markers still work. Existing silence counts toward a boundary pause; no speech is overlapped across chunks. Only excess outer silence is trimmed, with guard space for consonants and breaths; internal pauses are retained. The old `CHATTERBOX_CROSSFADE_MS` setting is no longer used.
 

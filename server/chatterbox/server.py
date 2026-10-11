@@ -22,7 +22,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-from prosody import _segments, prepare_audio, gap_samples, boundary_pause, REVISION
+from prosody import _segments, prepare_audio, gap_samples, boundary_pause, normalize_for_speech, REVISION
 
 
 logging.basicConfig(
@@ -39,7 +39,9 @@ VOICE_DIR.mkdir(parents=True, exist_ok=True)
 MODEL_VERSION = os.getenv("CHATTERBOX_T3_MODEL", "v3")
 REQUESTED_DEVICE = os.getenv("CHATTERBOX_DEVICE", "auto").lower()
 MAX_INPUT_CHARS = int(os.getenv("CHATTERBOX_MAX_INPUT_CHARS", "50000"))
-MAX_CHUNK_CHARS = int(os.getenv("CHATTERBOX_MAX_CHUNK_CHARS", "280"))
+# Longer chunks keep 1-2 full sentences in one model call so intonation has
+# context. 280 chars forced mid-sentence cuts and flat list prosody.
+MAX_CHUNK_CHARS = int(os.getenv("CHATTERBOX_MAX_CHUNK_CHARS", "420"))
 
 MODEL: ChatterboxMultilingualTTS | None = None
 BUILTIN_CONDITIONALS = None
@@ -202,18 +204,38 @@ def _seed_everything(seed: int) -> None:
 
 
 
+def _terminated(chunk: str, language: str) -> str:
+    """End every model call with real terminal punctuation.
+
+    The old code appended a comma to unterminated chunks, which forced flat
+    list intonation across the whole episode. Declaratives get a full stop
+    (Devanagari danda for Hindi), questions/exclamations are preserved.
+    """
+    text = str(chunk).strip()
+    if re.search(r"[.!?।,…:;…]$", text):
+        return text
+    if language == "hi":
+        return text + "।"
+    return text + "."
+
+
 def _generate(request: SpeechRequest) -> tuple[bytes, int]:
     global MODEL
     if MODEL_STATE != "ready" or MODEL is None:
         raise RuntimeError(MODEL_ERROR or f"Model is {MODEL_STATE}")
 
-    parsed = _segments(request.input, MAX_CHUNK_CHARS)
+    parsed = _segments(request.input, MAX_CHUNK_CHARS, request.language)
     text_count = sum(1 for kind, _ in parsed if kind == "text")
     if text_count == 0:
         raise ValueError("Input contains no speakable text")
 
     with GENERATION_LOCK:
-        _seed_everything(request.seed)
+        # A fixed seed keeps the whole episode in one voice. Seed 0 used to
+        # mean "random every chunk" so timbre drifted mid-sentence. Now a
+        # single random base is drawn per request and derived per chunk.
+        import random as _random
+        base_seed = int(request.seed) if request.seed else _random.randint(1, 2_147_483_647)
+        _seed_everything(base_seed)
         voice_path = _resolve_voice_path(request.voice, request.voice_path)
         if voice_path is not None:
             MODEL.prepare_conditionals(str(voice_path), exaggeration=request.exaggeration)
@@ -232,21 +254,24 @@ def _generate(request: SpeechRequest) -> tuple[bytes, int]:
                 continue
 
             text_index += 1
-            chunk_seed = request.seed + text_index - 1 if request.seed else 0
-            _seed_everything(chunk_seed)
+            _seed_everything(base_seed + text_index - 1)
             LOGGER.info("Generating chunk %d/%d (%d chars)", text_index, text_count, len(str(value)))
+            spoken = normalize_for_speech(_terminated(value, request.language), request.language)
+            # Hindi repeats है/का/में constantly; the default 1.2 penalty can
+            # skip or garble them. 1.15 keeps Hindi stable without dulling English.
+            rp = 1.15 if request.language == "hi" and request.repetition_penalty >= 1.2 else request.repetition_penalty
             waveform = MODEL.generate(
-                str(value) if re.search(r"[.!?।,;:…]$", str(value)) else str(value) + ",",
+                spoken,
                 language_id=request.language,
                 audio_prompt_path=None,
                 exaggeration=request.exaggeration,
                 cfg_weight=request.cfg_weight,
                 temperature=request.temperature,
-                repetition_penalty=request.repetition_penalty,
+                repetition_penalty=rp,
             )
             audio = prepare_audio(waveform.squeeze().detach().cpu().float().numpy(), sample_rate)
             if previous_audio is not None:
-                pause = pending_pause if pending_pause else boundary_pause(previous_text)
+                pause = pending_pause if pending_pause else boundary_pause(previous_text, request.language)
                 gap = gap_samples(previous_audio, audio, sample_rate, pause)
                 if gap:
                     output_parts.append(np.zeros(gap, dtype=np.float32))

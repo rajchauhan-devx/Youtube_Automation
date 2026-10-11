@@ -232,7 +232,7 @@ export const Node = z.discriminatedUnion("kind", [
   }),
 ]);
 export const MotionGraphic = z.strictObject({
-  kind: z.enum(["title", "lower-third", "badge", "spotlight", "caption"]),
+  kind: z.enum(["title", "lower-third", "badge", "spotlight", "caption", "route", "counter", "frame", "diagram"]),
   title: z.string().trim().min(1).max(64),
   detail: z.string().trim().max(120),
   bounds: Rect,
@@ -573,7 +573,7 @@ export const durationFrames = (seconds: number, fps: number) =>
 export const capabilities = {
   schemaVersion: 1,
   rendererVersion: RENDERER_VERSION,
-  primitives: ["CinematicTitle", "CharacterLowerThird", "LocationBadge", "ObjectSpotlight", "MotionCaption"],
+  primitives: ["CinematicTitle", "CharacterLowerThird", "LocationBadge", "ObjectSpotlight", "MotionCaption", "RouteLine", "DateCounter", "ArchivalFrame", "DiagramCallout"],
   coordinates:
     "design pixels; source anchors/crops normalized; keyframes artifact-local",
   limits: {

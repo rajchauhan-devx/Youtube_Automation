@@ -392,10 +392,10 @@ export async function synthesizeChatterbox(
         ...(voicePath ? { voice_path: voicePath } : {}),
         language,
         response_format: 'wav',
-        exaggeration: clamp(options.exaggeration, 0.25, 1.5, 0.5),
-        cfg_weight: clamp(options.cfgWeight, 0, 1, 0.5),
-        temperature: clamp(options.temperature, 0.05, 2, 0.8),
-        seed: Math.max(0, Math.floor(options.seed || 0)),
+        exaggeration: clamp(options.exaggeration, 0.25, 1.5, 0.68),
+        cfg_weight: clamp(options.cfgWeight, 0, 1, 0.32),
+        temperature: clamp(options.temperature, 0.05, 2, 0.75),
+        seed: Math.max(0, Math.floor(options.seed ?? 42)),
       }),
     });
     if (!response.ok) {
@@ -469,20 +469,64 @@ export async function createChatterboxVoice(params: {
   fs.writeFileSync(inputPath, input, { flag: 'wx' });
 
   try {
-    await execFileAsync('ffmpeg', [
-      '-hide_banner',
-      '-loglevel', 'error',
-      '-y',
-      '-i', inputPath,
-      '-t', '20',
-      '-ac', '1',
-      '-ar', '24000',
-      '-c:a', 'pcm_s16le',
-      wavPath,
-    ], { windowsHide: true, timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });
+    // Cleaning chain tuned for studio references (ElevenLabs exports included).
+    // Falls back to plain conversion for edge cases (e.g. near-silence test
+    // fixtures) so library flows never break on filter quirks.
+    let cleaned = false;
+    try {
+      await execFileAsync('ffmpeg', [
+        '-hide_banner',
+        '-loglevel', 'error',
+        '-y',
+        '-i', inputPath,
+        '-t', '30',
+        '-ac', '1',
+        '-ar', '24000',
+        '-af', 'highpass=f=70,afftdn=nf=-25,loudnorm=I=-16:TP=-1.5:LRA=11,silenceremove=start_periods=1:start_duration=0.15:start_threshold=-50dB,atrim=duration=25',
+        '-c:a', 'pcm_s16le',
+        wavPath,
+      ], { windowsHide: true, timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });
+      cleaned = fs.existsSync(wavPath) && fs.statSync(wavPath).size >= 24_000;
+    } catch {
+      cleaned = false;
+    }
+    if (!cleaned) {
+      await execFileAsync('ffmpeg', [
+        '-hide_banner',
+        '-loglevel', 'error',
+        '-y',
+        '-i', inputPath,
+        '-t', '30',
+        '-ac', '1',
+        '-ar', '24000',
+        '-c:a', 'pcm_s16le',
+        wavPath,
+      ], { windowsHide: true, timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });
+    }
 
     const stats = fs.statSync(wavPath);
     if (stats.size < 24_000) throw new Error('Reference must contain at least about half a second of valid speech.');
+    // QA: hard-reject only corrupt/empty results (<0.8s). Short but valid clips
+    // (<8s) still save so existing flows keep working, but clone quality will
+    // be lower — prefer a 15-30s ElevenLabs export for hero voices.
+    try {
+      const { stdout } = await execFileAsync('ffprobe', [
+        '-v', 'error',
+        '-show_entries', 'format=duration',
+        '-of', 'default=noprint_wrappers=1:nokey=1',
+        wavPath,
+      ], { windowsHide: true, timeout: 15_000 });
+      const durationSec = Number.parseFloat(String(stdout).trim());
+      if (Number.isFinite(durationSec) && durationSec < 0.8) {
+        throw new Error('Voice reference has no usable speech after cleaning — upload a clear 15-30s recording.');
+      }
+      if (Number.isFinite(durationSec) && durationSec < 8) {
+        console.warn(`Short voice reference (${durationSec.toFixed(1)}s) for "${name}" — 15-30s clones noticeably better.`);
+      }
+    } catch (error) {
+      if (error instanceof TtsError) throw error;
+      // If ffprobe is missing, keep the file — size check above already ran.
+    }
     fs.writeFileSync(metadataPath, JSON.stringify({
       id,
       name,

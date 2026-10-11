@@ -120,6 +120,8 @@ function ImageGenerationContent({
   const restSecondsRef = useRef(longRestSeconds);
   batchSizeRef.current = longBatchSize;
   restSecondsRef.current = longRestSeconds;
+  const imageProviderRef = useRef<ImageProviderMode>('local');
+  imageProviderRef.current = imageProvider;
 
   useEffect(() => {
     imagesRef.current = images;
@@ -148,14 +150,19 @@ function ImageGenerationContent({
     return () => { runTokenRef.current++; pausedRef.current = false; };
   }, [script?.id, script?.imagePrompts]);
 
-  async function checkServer() {
+  async function checkServer(providerOverride?: ImageProviderMode) {
+    const provider = providerOverride ?? imageProviderRef.current;
     setServerStatus('checking');
-    const status = await fetch('/api/generate/status')
+    const status = await fetch(`/api/generate/status?provider=${provider}`)
       .then(async (r) => parseJsonResponse<{ online?: boolean; detail?: string }>(r, {}))
       .catch((err) => ({ online: false as boolean, detail: err?.message as string | undefined }));
     setServerStatus(status.online ? 'online' : 'offline');
     setServerError(status.detail || '');
     return status.online as boolean;
+  }
+
+  function cloudflareNotReadyMessage(): string {
+    return serverError || 'Cloudflare API is not ready. Open "Configure Cloudflare APIs" above, add at least one Worker URL + Key or Account ID + Token, then press "Test all APIs".';
   }
 
   async function loadModels() {
@@ -265,10 +272,19 @@ function ImageGenerationContent({
   }
 
   async function handleStartModel() {
+    if (imageProviderRef.current === 'cloudflare') {
+      // Cloudflare needs no local startup — just re-check its API readiness.
+      await checkServer('cloudflare');
+      return;
+    }
     setServerStatus('starting');
     setServerError('');
     try {
-      const res = await fetch('/api/generate/start', { method: 'POST' });
+      const res = await fetch('/api/generate/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: 'local' }),
+      });
       const data = await res.json();
       if (data.success) {
         setServerStatus('online');
@@ -303,10 +319,20 @@ function ImageGenerationContent({
     if (!script || images.length === 0 || isRunning) return;
     let online = await checkServer();
     if (!online) {
+      if (imageProviderRef.current === 'cloudflare') {
+        // Cloudflare has no local model to start — surface the real API status instead.
+        setServerStatus('offline');
+        setServerError(cloudflareNotReadyMessage());
+        return;
+      }
       setServerStatus('starting');
       setServerError('');
       try {
-        const res = await fetch('/api/generate/start', { method: 'POST' });
+        const res = await fetch('/api/generate/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ provider: 'local' }),
+        });
         const data = await res.json();
         if (data.success) {
           setServerStatus('online');
@@ -446,8 +472,9 @@ function ImageGenerationContent({
           disabled={isRunning}
           onConfigChange={(cfg) => {
             setImageProvider(cfg.provider);
+            imageProviderRef.current = cfg.provider;
             setCloudflareModelLabel(cfg.modelLabel);
-            void checkServer();
+            void checkServer(cfg.provider);
           }}
         />
         <GenerationDisclosure title="Image settings" hint={imageProvider === 'cloudflare' ? `Cloudflare (${cloudflareModelLabel}) / ${preset} quality` : `${channelLora.channelLabel} LoRA / ${preset} quality`}>
@@ -535,10 +562,18 @@ function ImageGenerationContent({
         </div>
       </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span role="status" className="mr-auto text-xs text-gray-400">Model: {serverStatus}</span>
-            {serverStatus === 'online' && <button onClick={handleStopModel} className="studio-btn-ghost"><Square className="h-3.5 w-3.5" />Stop Model</button>}
-            {serverStatus === 'offline' && <button onClick={handleStartModel} className="studio-btn-ghost"><Zap className="h-3.5 w-3.5" />Run Image Model</button>}
-            <button onClick={checkServer} disabled={serverStatus === 'starting' || serverStatus === 'stopping' || isRunning} className="studio-btn-ghost">Retry connection</button>
+            <span role="status" className="mr-auto text-xs text-gray-400">
+              {imageProvider === 'cloudflare' ? `Cloudflare API: ${serverStatus}` : `Model: ${serverStatus}`}
+            </span>
+            {imageProvider === 'cloudflare' ? (
+              <span className="text-[11px] text-gray-500">No local model needed — images render on Cloudflare Workers AI.</span>
+            ) : (
+              <>
+                {serverStatus === 'online' && <button onClick={handleStopModel} className="studio-btn-ghost"><Square className="h-3.5 w-3.5" />Stop Model</button>}
+                {serverStatus === 'offline' && <button onClick={handleStartModel} className="studio-btn-ghost"><Zap className="h-3.5 w-3.5" />Run Image Model</button>}
+              </>
+            )}
+            <button onClick={() => void checkServer()} disabled={serverStatus === 'starting' || serverStatus === 'stopping' || isRunning} className="studio-btn-ghost">Retry connection</button>
           </div>
         </GenerationDisclosure>
       </div>
@@ -557,9 +592,9 @@ function ImageGenerationContent({
         <div className="mx-4 mt-4 flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <div className="flex-1">
-            <p className="font-medium">Image Model is offline</p>
+            <p className="font-medium">{imageProvider === 'cloudflare' ? 'Cloudflare API is not ready' : 'Image Model is offline'}</p>
             <p className="mt-1 text-red-300/80">{serverError}</p>
-            <p className="mt-1 text-gray-400">Generation starts the local model automatically. Connection controls are in Image settings.</p>
+            <p className="mt-1 text-gray-400">{imageProvider === 'cloudflare' ? 'Add at least one API in "Configure Cloudflare APIs" above, then press "Test all APIs". No local model is needed.' : 'Generation starts the local model automatically. Connection controls are in Image settings.'}</p>
           </div>
         </div>
       )}
@@ -679,10 +714,13 @@ function AudioGenerationContent({
   // Voice Customization Controls
   const [rateOffset, setRateOffset] = useState<number>(0); // -25% to +35%
   const [pitchOffset, setPitchOffset] = useState<number>(0); // -12Hz to +12Hz
-  const [stylePreset, setStylePreset] = useState<'natural' | 'cinematic' | 'shorts' | 'tech' | 'vlog' | 'custom'>('natural');
-  const [exaggeration, setExaggeration] = useState(0.5);
-  const [cfgWeight, setCfgWeight] = useState(0.5);
-  const [temperature, setTemperature] = useState(0.8);
+  const [stylePreset, setStylePreset] = useState<'natural' | 'cinematic' | 'shorts' | 'tech' | 'vlog' | 'custom'>('cinematic');
+  const [exaggeration, setExaggeration] = useState(0.65);
+  const [cfgWeight, setCfgWeight] = useState(0.32);
+  const [temperature, setTemperature] = useState(0.72);
+  // Locked seed keeps preview and final render in the same voice. Seed 0 used
+  // to sound different every time and drift mid-episode.
+  const [ttsSeed] = useState(42);
   const [voiceFile, setVoiceFile] = useState<File | null>(null);
   const [voiceName, setVoiceName] = useState('');
   const [uploadingVoice, setUploadingVoice] = useState(false);
@@ -802,15 +840,15 @@ function AudioGenerationContent({
     if (preset === 'natural') {
       setRateOffset(0);
       setPitchOffset(0);
-      setExaggeration(0.5);
-      setCfgWeight(0.5);
-      setTemperature(0.8);
+      setExaggeration(0.62);
+      setCfgWeight(0.35);
+      setTemperature(0.75);
     } else if (preset === 'cinematic') {
       setRateOffset(0);
       setPitchOffset(-2);
-      setExaggeration(0.72);
+      setExaggeration(0.65);
       setCfgWeight(0.32);
-      setTemperature(0.75);
+      setTemperature(0.72);
     } else if (preset === 'shorts') {
       setRateOffset(10);
       setPitchOffset(2);
@@ -1016,6 +1054,20 @@ function AudioGenerationContent({
     setPreviewError('');
     setError('');
     setSelectedLanguage(lang);
+    // Hindi storytelling wants a touch more expression and warmth than
+    // English documentary delivery. Only nudge the cinematic default so manual
+    // tweaks are never overwritten mid-session.
+    if (stylePreset === 'cinematic') {
+      if (lang === 'hi') {
+        setExaggeration(0.7);
+        setCfgWeight(0.3);
+        setTemperature(0.75);
+      } else {
+        setExaggeration(0.65);
+        setCfgWeight(0.32);
+        setTemperature(0.72);
+      }
+    }
   }
 
   async function handlePreviewVoice(v: VoiceItem, e: React.MouseEvent) {
@@ -1291,7 +1343,7 @@ function AudioGenerationContent({
       }
       setGenerating(true); setError(''); setProgressPercent(0);
       try {
-        const { ok, data } = await fetchJson('/api/tts/long/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: script.id, language: selectedLanguage, voice: selectedVoice, rate: formattedRate, pitch: formattedPitch, exaggeration, cfgWeight, temperature }) });
+        const { ok, data } = await fetchJson('/api/tts/long/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: script.id, language: selectedLanguage, voice: selectedVoice, rate: formattedRate, pitch: formattedPitch, exaggeration, cfgWeight, temperature, seed: ttsSeed }) });
         if (!ok) throw new Error(data?.error || 'Could not start narration');
         onUpdate({ generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
       } catch (error) { setGenerating(false); setError(getErrorMessage(error, 'Could not start narration')); }
@@ -1339,6 +1391,7 @@ function AudioGenerationContent({
           exaggeration,
           cfgWeight,
           temperature,
+          seed: ttsSeed,
         }),
       });
 

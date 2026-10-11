@@ -15,6 +15,10 @@ export function makeStyleTestProject(project: EditingProject): { project: Editin
     title: { title: 'Title style', detail: '', position: 'center' },
     'lower-third': { title: 'Character name', detail: 'Style test', position: 'bottom' },
     badge: { title: 'Location / Era', detail: 'Style test', position: 'top' },
+    route: { title: 'Route style', detail: 'Start – End', position: 'bottom' },
+    counter: { title: '1987', detail: 'Style test', position: 'bottom' },
+    frame: { title: 'Archive record', detail: 'Style test', position: 'bottom' },
+    diagram: { title: 'Evidence noun', detail: 'Style test', position: 'bottom' },
   };
 
   for (const kind of ['title', 'lower-third', 'badge'] as const) {

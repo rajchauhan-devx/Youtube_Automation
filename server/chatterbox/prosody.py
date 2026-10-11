@@ -8,7 +8,7 @@ REVISION = "natural-v1"
 _ABBREVIATION = re.compile(r"(?:\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc)|\b[A-Za-z])\.$", re.I)
 
 
-def split_phrases(text: str, max_chars: int = 280) -> list[str]:
+def split_phrases(text: str, max_chars: int = 420) -> list[str]:
     """Keep sentences together, then prefer clauses over arbitrary word cuts.
 
     Decimal points, initials, abbreviations and complete punctuation survive.
@@ -79,8 +79,23 @@ def prepare_audio(audio: np.ndarray, sample_rate: int) -> np.ndarray:
     return x
 
 
-def boundary_pause(text: str) -> int:
-    return 220 if re.search(r'[.!?।][\"\'”’]*$', text.strip()) else 100
+def boundary_pause(text: str, language: str = "en") -> int:
+    """Syntax-aware pause so narration breathes like a human.
+
+    Questions and exclamations get a longer beat, full stops a medium beat,
+    commas and clause marks a short beat. Hindi devotional delivery breathes
+    slightly longer after the danda (।) than English does after a period.
+    """
+    stripped = text.strip()
+    if re.search(r'[?!][\"\'”’]*$', stripped):
+        return 340 if language == "hi" else 320
+    if re.search(r'।[\"\'”’]*$', stripped):
+        return 280
+    if re.search(r'\.[\"\'”’]*$', stripped):
+        return 240
+    if re.search(r'[,;:—–…][\"\'”’]*$', stripped):
+        return 150 if language == "hi" else 140
+    return 120 if language == "hi" else 110
 
 
 def gap_samples(left: np.ndarray, right: np.ndarray, sample_rate: int, pause_ms: int) -> int:
@@ -132,16 +147,159 @@ def _clean_spoken_text(text: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
+_ONES = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+         "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+         "seventeen", "eighteen", "nineteen"]
+_TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
+
+
+def _cardinal(n: int) -> str:
+    """Dependency-free integer to words for speech normalization (0-999M)."""
+    if n < 0:
+        return "minus " + _cardinal(-n)
+    if n < 20:
+        return _ONES[n]
+    if n < 100:
+        return _TENS[n // 10] + ("" if n % 10 == 0 else " " + _ONES[n % 10])
+    if n < 1000:
+        return _ONES[n // 100] + " hundred" + ("" if n % 100 == 0 else " " + _cardinal(n % 100))
+    if n < 1_000_000:
+        return _cardinal(n // 1000) + " thousand" + ("" if n % 1000 == 0 else " " + _cardinal(n % 1000))
+    if n < 1_000_000_000:
+        return _cardinal(n // 1_000_000) + " million" + ("" if n % 1_000_000 == 0 else " " + _cardinal(n % 1_000_000))
+    return str(n)
+
+
+def _year_words(year: int) -> str:
+    if 1000 <= year <= 2099:
+        first, second = year // 100, year % 100
+        head = _cardinal(first)
+        if second == 0:
+            return head + " hundred"
+        if second < 10:
+            return head + " oh " + _ONES[second]
+        return head + " " + _cardinal(second)
+    return _cardinal(year)
+
+
+_ABBR = [(r"\bDr\.", "Doctor"), (r"\bMr\.", "Mister"), (r"\bMrs\.", "Missus"),
+         (r"\bMs\.", "Miss"), (r"\bSt\.", "Saint"), (r"\bvs\.", "versus"),
+         (r"\be\.g\.", "for example"), (r"\bi\.e\.", "that is"),
+         (r"\betc\.", "etcetera"), (r"\bapprox\.", "approximately")]
+
+
+_HI_ONES = ["शून्य", "एक", "दो", "तीन", "चार", "पाँच", "छह", "सात", "आठ", "नौ",
+             "दस", "ग्यारह", "बारह", "तेरह", "चौदह", "पंद्रह", "सोलह", "सत्रह",
+             "अठारह", "उन्नीस"]
+# Idiomatic 20-99 (compositional tens+ones sounds wrong in Hindi, e.g. 87 is
+# सत्तासी, not अस्सी सात).
+_HI_2DIGIT = ["बीस", "इक्कीस", "बाईस", "तेईस", "चौबीस", "पच्चीस", "छब्बीस",
+              "सत्ताईस", "अट्ठाईस", "उनतीस", "तीस", "इकतीस", "बत्तीस", "तैंतीस",
+              "चौंतीस", "पैंतीस", "छत्तीस", "सैंतीस", "अड़तीस", "उनतालीस",
+              "चालीस", "इकतालीस", "बयालीस", "तैंतालीस", "चवालीस", "पैंतालीस",
+              "छियालीस", "सैंतालीस", "अड़तालीस", "उनचास", "पचास", "इक्यावन",
+              "बावन", "तिरपन", "चौवन", "पचपन", "छप्पन", "सत्तावन", "अट्ठावन",
+              "उनसठ", "साठ", "इकसठ", "बासठ", "तिरसठ", "चौंसठ", "पैंसठ",
+              "छियासठ", "सड़सठ", "अड़सठ", "उनहत्तर", "सत्तर", "इकहत्तर",
+              "बहत्तर", "तिहत्तर", "चौहत्तर", "पचहत्तर", "छिहत्तर", "सतहत्तर",
+              "अठहत्तर", "उन्यासी", "अस्सी", "इक्यासी", "बयासी", "तिरासी",
+              "चौरासी", "पचासी", "छियासी", "सत्तासी", "अट्ठासी", "नवासी",
+              "नब्बे", "इक्यानवे", "बानवे", "तिरानवे", "चौरानवे", "पचानवे",
+              "छियानवे", "सत्तानवे", "अट्ठानवे", "निन्यानवे"]
+
+
+def _hindi_cardinal(n: int) -> str:
+    """Integer to idiomatic Hindi words using Indian place values."""
+    if n < 0:
+        return "ऋण " + _hindi_cardinal(-n)
+    if n < 20:
+        return _HI_ONES[n]
+    if n < 100:
+        return _HI_2DIGIT[n - 20]
+    if n < 1000:
+        return _HI_ONES[n // 100] + " सौ" + ("" if n % 100 == 0 else " " + _hindi_cardinal(n % 100))
+    if n < 100_000:
+        return _hindi_cardinal(n // 1000) + " हज़ार" + ("" if n % 1000 == 0 else " " + _hindi_cardinal(n % 1000))
+    if n < 10_000_000:
+        return _hindi_cardinal(n // 100_000) + " लाख" + ("" if n % 100_000 == 0 else " " + _hindi_cardinal(n % 100_000))
+    if n < 1_000_000_000:
+        return _hindi_cardinal(n // 10_000_000) + " करोड़" + ("" if n % 10_000_000 == 0 else " " + _hindi_cardinal(n % 10_000_000))
+    return str(n)
+
+
+def _hindi_year(year: int) -> str:
+    if 1000 <= year <= 2099:
+        first, second = year // 100, year % 100
+        head = _hindi_cardinal(first)
+        if second == 0:
+            return head + " सौ"
+        return head + " सौ " + _hindi_cardinal(second)
+    return _hindi_cardinal(year)
+
+
+_HI_UNITS = {"km": " किलोमीटर", "ml": " मिलीलीटर", "kg": " किलोग्राम", "cm": " सेंटीमीटर"}
+
+
+def normalize_for_speech(text: str, language: str = "en") -> str:
+    """Expand what TTS models otherwise spell out literally.
+
+    Runs at synthesis time (not inside segmentation) so chunk-boundary unit
+    tests stay exact. Devanagari wording is preserved; Arabic numerals inside
+    Hindi get Hindi words, Latin patterns get English equivalents.
+    """
+    out = str(text)
+    if language == "hi":
+        out = out.replace("&", " और ")
+        out = re.sub(r"\b(\d{1,3}(?:,\d{3})+)\b", lambda m: _hindi_cardinal(int(m.group(1).replace(",", ""))), out)
+        out = re.sub(r"(?:₹|Rs\.?|रु\.?)\s*(\d+(?:\.\d+)?)\b",
+                     lambda m: _hindi_cardinal(int(float(m.group(1)))) + " रुपये", out)
+        out = re.sub(r"\b(\d+(?:\.\d+)?)%", lambda m: _hindi_cardinal(int(float(m.group(1)))) + " प्रतिशत", out)
+        out = re.sub(r"\b(\d{1,2}):(\d{2})\b",
+                     lambda m: _hindi_cardinal(int(m.group(1))) + " बजकर " + _hindi_cardinal(int(m.group(2))) + " मिनट"
+                     if int(m.group(2)) != 0 else _hindi_cardinal(int(m.group(1))) + " बजे", out)
+        out = re.sub(r"\b(\d+)\.(\d+)\s*(km|ml|kg|cm)\b",
+                     lambda m: _hindi_cardinal(int(m.group(1))) + " दशमलव " + " ".join(_HI_ONES[int(d)] for d in m.group(2)) + _HI_UNITS[m.group(3)], out)
+        out = re.sub(r"\b(\d+)\.(\d+)\b",
+                     lambda m: _hindi_cardinal(int(m.group(1))) + " दशमलव " + " ".join(_HI_ONES[int(d)] for d in m.group(2)), out)
+        out = re.sub(r"\b((?:19|20)\d{2})\b", lambda m: _hindi_year(int(m.group(1))), out)
+        out = re.sub(r"\b(\d+)\s*(km|ml|kg|cm)\b",
+                     lambda m: _hindi_cardinal(int(m.group(1))) + _HI_UNITS[m.group(2)], out)
+        out = re.sub(r"\b(\d+)\b", lambda m: _hindi_cardinal(int(m.group(1))) if len(m.group(1)) <= 7 else m.group(1), out)
+        return re.sub(r"\s+", " ", out).strip()
+    out = out.replace("&", " and ")
+    for pattern, spoken in _ABBR:
+        out = re.sub(pattern, spoken, out)
+    out = re.sub(r"\b(\d{1,3}(?:,\d{3})+)\b", lambda m: _cardinal(int(m.group(1).replace(",", ""))), out)
+    out = re.sub(r"\$(\d+(?:\.\d+)?)\s*([mMbBkK])\b",
+                 lambda m: _cardinal(int(float(m.group(1)))) + (" million dollars" if m.group(2).lower() == "m"
+                 else " billion dollars" if m.group(2).lower() == "b" else " thousand dollars"), out)
+    out = re.sub(r"\$(\d+(?:\.\d+)?)\b",
+                 lambda m: (_cardinal(int(float(m.group(1)))) + " dollars") if "." not in m.group(1)
+                 else (_cardinal(int(float(m.group(1).split(".")[0]))) + " dollars and " + " ".join(_ONES[int(d)] for d in m.group(1).split(".")[1]) + " cents"), out)
+    out = re.sub(r"\b(\d+(?:\.\d+)?)%", lambda m: _cardinal(int(float(m.group(1)))) + " percent", out)
+    out = re.sub(r"\b(\d+)\.(\d+)\s*(km|ml|kg|cm)\b",
+                 lambda m: _cardinal(int(m.group(1))) + " point " + " ".join(_ONES[int(d)] for d in m.group(2)) + {"km": " kilometers", "ml": " milliliters", "kg": " kilograms", "cm": " centimeters"}[m.group(3)], out)
+    out = re.sub(r"\b(\d+)\.(\d+)\b",
+                 lambda m: _cardinal(int(m.group(1))) + " point " + " ".join(_ONES[int(d)] for d in m.group(2)), out)
+    out = re.sub(r"\b((?:19|20)\d{2})\b", lambda m: _year_words(int(m.group(1))), out)
+    out = re.sub(r"\b(\d+)\s*(km|ml|kg|cm)\b",
+                 lambda m: _cardinal(int(m.group(1))) + {"km": " kilometers", "ml": " milliliters", "kg": " kilograms", "cm": " centimeters"}[m.group(2)], out)
+    out = re.sub(r"\b(\d+)\b", lambda m: _cardinal(int(m.group(1))) if len(m.group(1)) <= 7 else m.group(1), out)
+    return re.sub(r"\s+", " ", out).strip()
+
+
 def _split_long_piece(text: str, max_chars: int) -> list[str]:
     return split_phrases(text, max_chars)
 
 
-def _segments(text: str, max_chars: int = 280) -> list[tuple[str, str | int]]:
+def _segments(text: str, max_chars: int = 420, language: str = "en") -> list[tuple[str, str | int]]:
     result: list[tuple[str, str | int]] = []
     cursor = 0
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     # Paragraph breaks represent a new thought; single line wrapping does not.
-    text = re.sub(r"\n[ \t]*\n+", " [pause 0.45s] ", text)
+    # Hindi devotional pacing breathes slightly longer between thoughts.
+    para_pause = " [pause 0.55s] " if language == "hi" else " [pause 0.45s] "
+    text = re.sub(r"\n[ \t]*\n+", para_pause, text)
     for match in _PAUSE_PATTERN.finditer(text):
         spoken = _clean_spoken_text(text[cursor : match.start()])
         result.extend(("text", chunk) for chunk in _split_long_piece(spoken, max_chars))

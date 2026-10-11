@@ -62,8 +62,8 @@ test('English/Hindi references persist, play, and select the exact voice for gen
   const customPreview = await request('/preview', { language: 'en', voice: voices.en.id, text: 'A quiet moment... and then a surprise.', seed: 42 });
   assert.equal(customPreview.status, 200);
   assert.equal(submitted.at(-1).input, 'A quiet moment... and then a surprise.');
-  assert.equal(submitted.at(-1).exaggeration, 0.5);
-  assert.equal(submitted.at(-1).cfg_weight, 0.5);
+  assert.equal(submitted.at(-1).exaggeration, 0.68);
+  assert.equal(submitted.at(-1).cfg_weight, 0.32);
   assert.equal(submitted.at(-1).seed, 42);
   assert.equal((await request('/preview', { language: 'en', text: 'x'.repeat(501) })).status, 400);
   assert.equal((await fetch(`${base}/voices/${voices.en.id}`, { method: 'DELETE' })).status, 200);

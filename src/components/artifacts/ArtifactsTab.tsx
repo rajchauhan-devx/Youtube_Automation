@@ -15,7 +15,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   const [model, setModel] = useState('');
   const state = useEditingProject(script?.id, script?.editingProjectId, model || undefined);
   const { data, fetch } = state, { profile } = useWorkspaceApi();
-  const [audio, setAudio] = useState(''), [style, setStyle] = useState(''), [density, setDensity] = useState<'subtle' | 'balanced' | 'expressive'>('balanced');
+  const [audio, setAudio] = useState(''), [style, setStyle] = useState(''), [density, setDensity] = useState<'subtle' | 'balanced' | 'expressive'>('subtle');
   const [fps, setFps] = useState(60), [busy, setBusy] = useState(false), [frame, setFrame] = useState(0), [selected, setSelected] = useState('');
   const [showStyleTest, setShowStyleTest] = useState(false);
   const player = useRef<PlayerRef>(null), p = data?.project;
@@ -111,7 +111,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
           state.setSelectedRevision(''); state.setData(next); setSelected(''); setFrame(0);
         })}>Clear graphics</button>}
       </div>
-      <p className="text-xs text-gray-400 md:col-span-2">Graphics appear only where they add context. Captions use saved narration timing and can be created separately. Review the preview before export.</p>
+      <p className="text-xs text-gray-400 md:col-span-2">Documentary rule: most scenes stay clean. Graphics appear only where they add evidence or orientation. Motion captions replace burned-in subtitles for a revision — never enable both on the same export. Review the preview before export.</p>
     </div>}
     {!!data?.legacyArtifactCount && <p className="rounded-lg border border-amber-800 p-3 text-sm text-amber-200">This saved revision contains {data.legacyArtifactCount} retired graphics. They are hidden from preview and new exports. Generate motion graphics to replace them; original media and revision history remain available.</p>}
     {job && <div role="status" className="flex items-center justify-between rounded-lg border border-amber-700/50 p-3 text-sm"><span>{job.stage}{job.total ? ` · ${job.completed}/${job.total}` : ''}</span><button className="text-red-300" disabled={job.state === 'cancel_requested'} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${job.id}/cancel`, {}); await state.refresh(); })}>{job.state === 'cancel_requested' ? 'Cancelling…' : 'Cancel'}</button></div>}

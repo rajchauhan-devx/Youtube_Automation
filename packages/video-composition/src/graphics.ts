@@ -1,7 +1,7 @@
 import type { ArtifactComposition, EditingProject, MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { sourceToScreen, apply, type Matrix } from './math.js';
 
-export const graphicNames = { title: 'Cinematic title', 'lower-third': 'Character lower third', badge: 'Location / era', spotlight: 'Object spotlight', caption: 'Motion caption' };
+export const graphicNames = { title: 'Cinematic title', 'lower-third': 'Character lower third', badge: 'Location / era', spotlight: 'Object spotlight', caption: 'Motion caption', route: 'Route / journey line', counter: 'Date / stat counter', frame: 'Archival frame', diagram: 'Diagram callout' };
 export function graphicSafeArea(width: number, height: number) {
   const portrait = height > width;
   return { x: width * 0.06, y: height * (portrait ? 0.15 : 0.06), width: width * (portrait ? 0.78 : 0.88), height: height * (portrait ? 0.60 : 0.88) };
@@ -50,8 +50,8 @@ export function graphicIssues(p: EditingProject, a: ArtifactComposition, source:
 
 export function cardBounds(kind: MotionGraphicSpec['kind'], width: number, height: number, position = 'bottom') {
   const safe = graphicSafeArea(width, height), portrait = height > width;
-  const w = safe.width * (kind === 'title' ? 1 : kind === 'caption' ? (portrait ? 0.94 : 0.76) : kind === 'lower-third' ? (portrait ? 0.78 : 0.52) : kind === 'badge' ? (portrait ? 0.64 : 0.38) : (portrait ? 0.70 : 0.46));
-  const h = height * (kind === 'title' ? (portrait ? 0.20 : 0.27) : kind === 'caption' ? (portrait ? 0.12 : 0.18) : kind === 'lower-third' ? (portrait ? 0.12 : 0.18) : kind === 'badge' ? (portrait ? 0.08 : 0.12) : (portrait ? 0.11 : 0.16));
+  const w = safe.width * (kind === 'title' ? 0.86 : kind === 'caption' ? (portrait ? 0.94 : 0.72) : kind === 'lower-third' ? (portrait ? 0.78 : 0.48) : kind === 'badge' ? (portrait ? 0.64 : 0.34) : kind === 'route' || kind === 'counter' || kind === 'frame' || kind === 'diagram' ? (portrait ? 0.7 : 0.44) : (portrait ? 0.70 : 0.42));
+  const h = height * (kind === 'title' ? (portrait ? 0.15 : 0.20) : kind === 'caption' ? (portrait ? 0.10 : 0.14) : kind === 'lower-third' ? (portrait ? 0.11 : 0.15) : kind === 'badge' ? (portrait ? 0.07 : 0.10) : kind === 'route' || kind === 'counter' || kind === 'frame' || kind === 'diagram' ? (portrait ? 0.09 : 0.13) : (portrait ? 0.10 : 0.14));
   const x = position === 'right' ? safe.x + safe.width - w : position === 'center' || kind === 'title' || kind === 'caption' ? safe.x + (safe.width - w) / 2 : safe.x;
   const y = kind === 'caption' ? height - h - height * (portrait ? 0.075 : 0.06)
     : position === 'top' ? safe.y : position === 'center' ? safe.y + (safe.height - h) / 2 : safe.y + safe.height - h;

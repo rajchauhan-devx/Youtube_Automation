@@ -41,15 +41,15 @@ export function CinematicTitle(props: Props) {
   const { enter, opacity } = animation(props), scale = project.inputs.width / 1080, accent = accentFor(project);
   const mainHeight = b.height * (g.detail ? 0.71 : 0.87);
   return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height,
-    opacity, transform: `translateY(${(1 - enter) * 70 * scale}px) scale(${0.91 + enter * 0.09})`,
+    opacity, transform: `translateY(${(1 - enter) * 36 * scale}px) scale(${0.96 + enter * 0.04})`,
     transformOrigin: 'center', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center',
-    filter: 'drop-shadow(0 3px 10px #000e) drop-shadow(0 0 25px #000a)' }}>
+    filter: 'drop-shadow(0 2px 6px #000c)' }}>
     <div style={{ clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
-      <Text text={g.title} family={familyFor(project)} size={b.width * 0.13} height={mainHeight} color={textFor(project)} />
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.11} height={mainHeight} color={textFor(project)} />
     </div>
-    <div style={{ alignSelf: 'center', width: `${enter * 56}%`, height: Math.max(2, 5 * scale), background: accent, boxShadow: `0 0 ${18 * scale}px ${accent}`, marginTop: 2 * scale }} />
-    {g.detail && <div style={{ marginTop: 6 * scale, clipPath: `inset(0 0 ${(1 - enter) * 100}% 0)` }}>
-      <Text text={g.detail} family={familyFor(project)} size={b.width * 0.052} height={b.height - mainHeight - 9 * scale} weight={500} />
+    <div style={{ alignSelf: 'center', width: `${enter * 32}%`, height: Math.max(2, 3 * scale), background: accent, opacity: 0.9, marginTop: 2 * scale }} />
+    {g.detail && <div style={{ marginTop: 6 * scale, clipPath: `inset(0 0 ${(1 - enter) * 100}% 0)`, opacity: 0.75 }}>
+      <Text text={g.detail} family={familyFor(project)} size={b.width * 0.042} height={b.height - mainHeight - 9 * scale} weight={500} />
     </div>}
   </div>;
 }
@@ -85,13 +85,13 @@ export function LocationBadge(props: Props) {
 function SpotlightLabel(props: Props) {
   const { project, artifact } = props, g = artifact.graphic!, b = g.bounds;
   const { enter, opacity } = animation(props), scale = project.inputs.width / 1080;
-  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity,
-    transform: `translateY(${(1 - enter) * 40 * scale}px)`, boxSizing: 'border-box',
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity: opacity * 0.96,
+    transform: `translateY(${(1 - enter) * 24 * scale}px)`, boxSizing: 'border-box',
     display: 'flex', alignItems: 'center', padding: `0 ${Math.max(6, 16 * scale)}px`,
-    borderLeft: `${Math.max(3, 5 * scale)}px solid ${accentFor(project)}`, textShadow: '0 2px 8px #000, 0 0 18px #000', WebkitTextStroke: `${Math.max(1, 1.5 * scale)}px #07111d` }}>
+    borderLeft: `${Math.max(2, 3 * scale)}px solid ${accentFor(project)}`, textShadow: '0 1px 4px #000' }}>
     <div style={{ width: '100%', clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
-      <Text text={g.title} family={familyFor(project)} size={b.width * 0.10} height={b.height * (g.detail ? 0.58 : 0.82)} color={textFor(project)} />
-      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.05} height={b.height * 0.34} color={textFor(project)} weight={400} />}
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.088} height={b.height * (g.detail ? 0.58 : 0.82)} color={textFor(project)} />
+      {g.detail && <Text text={g.detail} family={familyFor(project)} size={b.width * 0.045} height={b.height * 0.34} color={textFor(project)} weight={400} />}
     </div>
   </div>;
 }
@@ -130,28 +130,101 @@ export function MotionGraphicRenderer(props: Props) {
   if (graphic.kind === 'lower-third') return <CharacterLowerThird {...props} />;
   if (graphic.kind === 'badge') return <LocationBadge {...props} />;
   if (graphic.kind === 'caption') return <MotionCaption {...props} />;
+  if (graphic.kind === 'route') return <RouteLine {...props} />;
+  if (graphic.kind === 'counter') return <DateCounter {...props} />;
+  if (graphic.kind === 'frame') return <ArchivalFrame {...props} />;
+  if (graphic.kind === 'diagram') return <DiagramCallout {...props} />;
   return <ObjectSpotlight {...props} />;
+}
+
+/** Thin journey progress line with a small evidence label. No map art needed. */
+export function RouteLine(props: Props) {
+  const { project, artifact, frame } = props, g = artifact.graphic!, b = g.bounds;
+  const { enter, opacity } = animation(props);
+  const local = frame - artifact.startFrame, duration = Math.max(1, artifact.endFrame - artifact.startFrame);
+  const draw = interpolate(local, [0, duration], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const scale = project.inputs.width / 1080, accent = accentFor(project);
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity }}>
+    <div style={{ clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.075} height={b.height * 0.52} color={textFor(project)} />
+    </div>
+    <div style={{ position: 'relative', marginTop: 6 * scale, height: Math.max(3, 4 * scale), background: '#ffffff22', borderRadius: 99 }}>
+      <div style={{ position: 'absolute', inset: 0, width: `${draw * 100}%`, background: accent, opacity: 0.9, borderRadius: 99 }} />
+      <div style={{ position: 'absolute', top: '50%', left: `${draw * 100}%`, width: Math.max(8, 12 * scale), height: Math.max(8, 12 * scale),
+        borderRadius: '50%', background: accent, border: `${Math.max(2, 3 * scale)}px solid #07111d`, transform: 'translate(-50%, -50%)' }} />
+    </div>
+    {g.detail && <div style={{ marginTop: 4 * scale, opacity: 0.7 }}>
+      <Text text={g.detail} family={familyFor(project)} size={b.width * 0.045} height={b.height * 0.26} weight={400} />
+    </div>}
+  </div>;
+}
+
+/** Large tabular date/stat numerals with a small citation. Static, no count-up gimmick. */
+export function DateCounter(props: Props) {
+  const { project, artifact } = props, g = artifact.graphic!, b = g.bounds;
+  const { enter, opacity } = animation(props), scale = project.inputs.width / 1080;
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity,
+    transform: `translateY(${(1 - enter) * 20 * scale}px)`, textAlign: 'left' }}>
+    <div style={{ fontFamily: familyFor(project), fontWeight: 700, fontSize: b.height * (g.detail ? 0.52 : 0.66),
+      lineHeight: 1.05, color: textFor(project), letterSpacing: '0.04em', textShadow: '0 1px 4px #000' }}>{g.title}</div>
+    {g.detail && <div style={{ marginTop: 4 * scale, opacity: 0.7, borderLeft: `2px solid ${accentFor(project)}`, paddingLeft: 8 * scale }}>
+      <Text text={g.detail} family={familyFor(project)} size={b.height * 0.16} height={b.height * 0.24} weight={400} />
+    </div>}
+  </div>;
+}
+
+/** Thin archival border with corner ticks and a source strip. No image filtering. */
+export function ArchivalFrame(props: Props) {
+  const { project, artifact } = props, g = artifact.graphic!, b = g.bounds;
+  const { enter, opacity } = animation(props), scale = project.inputs.width / 1080, accent = accentFor(project);
+  const tick = Math.max(10, 22 * scale), w = Math.max(2, 2.5 * scale);
+  const corner = (pos: Record<string, string | number>): Record<string, string | number> => ({ position: 'absolute', width: tick, height: tick, borderColor: accent, opacity: 0.85, ...pos });
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity }}>
+    <div style={{ position: 'absolute', inset: 0, border: `${w}px solid #ffffff2e`, opacity: enter }} />
+    <div style={corner({ top: -w, left: -w, borderTop: `${w}px solid`, borderLeft: `${w}px solid` })} />
+    <div style={corner({ top: -w, right: -w, borderTop: `${w}px solid`, borderRight: `${w}px solid` })} />
+    <div style={corner({ bottom: -w, left: -w, borderBottom: `${w}px solid`, borderLeft: `${w}px solid` })} />
+    <div style={corner({ bottom: -w, right: -w, borderBottom: `${w}px solid`, borderRight: `${w}px solid` })} />
+    <div style={{ position: 'absolute', left: 0, right: 0, bottom: -b.height * 0.32, display: 'flex', gap: 8 * scale, alignItems: 'baseline' }}>
+      <div style={{ fontFamily: familyFor(project), fontWeight: 700, fontSize: b.width * 0.07, color: textFor(project), textShadow: '0 1px 4px #000' }}>{g.title}</div>
+      {g.detail && <div style={{ opacity: 0.7 }}><Text text={g.detail} family={familyFor(project)} size={b.width * 0.045} height={b.height * 0.26} weight={400} /></div>}
+    </div>
+  </div>;
+}
+
+/** Static evidence callout: left rule + noun + citation. No tracking ellipse. */
+export function DiagramCallout(props: Props) {
+  const { project, artifact } = props, g = artifact.graphic!, b = g.bounds;
+  const { enter, opacity } = animation(props), scale = project.inputs.width / 1080;
+  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity: opacity * 0.97,
+    transform: `translateX(${(enter - 1) * 30 * scale}px)`, borderLeft: `${Math.max(2, 3 * scale)}px solid ${accentFor(project)}`,
+    paddingLeft: Math.max(8, 14 * scale), textShadow: '0 1px 4px #000' }}>
+    <div style={{ clipPath: `inset(0 ${(1 - enter) * 100}% 0 0)` }}>
+      <Text text={g.title} family={familyFor(project)} size={b.width * 0.085} height={b.height * (g.detail ? 0.56 : 0.8)} color={textFor(project)} />
+      {g.detail && <div style={{ opacity: 0.7 }}><Text text={g.detail} family={familyFor(project)} size={b.width * 0.048} height={b.height * 0.32} weight={400} /></div>}
+    </div>
+  </div>;
 }
 
 export function MotionCaption(props: Props) {
   const { project, artifact } = props, g = artifact.graphic!, b = cardBounds('caption', project.inputs.width, project.inputs.height);
   const { opacity, local, fps } = animation(props);
+  // Documentary mode: uniform readable text with a soft fade stagger. No
+  // per-word accent color or scale pop — that reads as Shorts-slop and fights
+  // burned-in subtitles. The active-word emphasis is conveyed by timing only.
   const words = g.title.split(/\s+/u).filter(Boolean);
   const duration = Math.max(1, artifact.endFrame - artifact.startFrame);
-  const weight = words.reduce((total, word) => total + word.length, 0);
-  let spoken = 0;
-  const active = words.findIndex(word => { spoken += word.length; return local / duration * weight < spoken; });
-  const fontSize = Math.min(b.height * 0.42, b.width * (project.inputs.height > project.inputs.width ? 0.095 : 0.064));
-  const delay = Math.min(fps * 0.075, duration * 0.35 / Math.max(1, words.length));
+  const fontSize = Math.min(b.height * 0.38, b.width * (project.inputs.height > project.inputs.width ? 0.085 : 0.056));
+  const delay = Math.min(fps * 0.06, duration * 0.25 / Math.max(1, words.length));
+  const color = textFor(project);
   return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity, zIndex: 2,
     display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', alignContent: 'center',
-    columnGap: '0.4em', rowGap: '0.02em', fontFamily: familyFor(project), fontWeight: 800,
-    fontSize, lineHeight: 1.13, textAlign: 'center', textShadow: '0 2px 2px #000, 0 4px 8px #000, 0 0 14px #000' }} data-editing-text="motion-caption">
+    columnGap: '0.38em', rowGap: '0.02em', fontFamily: familyFor(project), fontWeight: 700,
+    fontSize, lineHeight: 1.2, textAlign: 'center', textShadow: '0 1px 3px #000, 0 0 8px #000' }} data-editing-text="motion-caption">
     {words.map((word, index) => {
-      const reveal = spring({ frame: Math.max(0, local - index * delay), fps, config: { stiffness: 230, damping: 17, overshootClamping: false } });
-      const emphasized = index === active;
-      return <span key={`${index}-${word}`} style={{ display: 'inline-block', color: emphasized ? accentFor(project) : textFor(project),
-        opacity: reveal, transform: `translateY(${(1 - reveal) * 0.42}em) scale(${0.78 + reveal * 0.22 + (emphasized ? 0.05 : 0)})`,
+      const reveal = spring({ frame: Math.max(0, local - index * delay), fps, config: { stiffness: 180, damping: 24, overshootClamping: true } });
+      return <span key={`${index}-${word}`} style={{ display: 'inline-block', color,
+        opacity: reveal, transform: `translateY(${(1 - reveal) * 0.12}em)`,
         transformOrigin: 'center bottom' }}>{word}</span>;
     })}
   </div>;
