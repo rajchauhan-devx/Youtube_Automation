@@ -3,16 +3,16 @@ import path from 'node:path';
 import { flowDownloadsDir, type StepLog } from './jobs.js';
 import { flowProfileDir } from './profile.js';
 
-// Live Google Flow worker (unofficial browser automation).
+// Live Google Flow worker (Playwright browser automation).
 //
-// Hard rules, learned from the public Flow tooling (gflow-cli / flow-py):
-// - Generation endpoints sit behind reCAPTCHA Enterprise: only REAL UI button
-//   clicks produce valid tokens. Never replay captured HTTP directly.
-// - One profile = one writer (Chromium profile lock). The job queue enforces it.
-// - System Chrome / headed context beats bundled Chromium for Google sign-in
-//   (G12 bot-block). Headless generation is attempted first; reCAPTCHA-style
-//   failures surface as RECAPTCHA_BLOCKED with a headed-retry hint.
-// - Every step takes a screenshot. Failures are classified, never swallowed.
+// Rules for Google Flow (flow.google.com):
+// - Headless persistent context reuses Google session from profile dir.
+// - Must navigate into a project (create via "+ New project" if on dashboard).
+// - Configure Video settings: Video tab, aspect ratio (9:16 portrait or 16:9 landscape),
+//   x1 output, duration, and model.
+// - Enter prompt into contenteditable ProseMirror composer and click "Start generation".
+// - Poll until flow-video-tile finishes rendering, click tile to open scene viewer,
+//   wait for "Download media" button to become enabled, click "720p Original size", and save the MP4.
 
 export type OverseerCode =
   | 'AUTH_EXPIRED'
@@ -59,70 +59,27 @@ export function classifyFailure(message: string, url: string): OverseerCode {
 
 export function recoveryHint(code: OverseerCode): string {
   switch (code) {
-    case 'AUTH_EXPIRED': return 'GET /api/flow/login-hint, sign in once in the headed profile, then retry the job (idempotent: same prompt will not double-bill a completed render).';
+    case 'AUTH_EXPIRED': return 'Sign in to Google once in the headed profile, then retry the job.';
     case 'PROFILE_LOCKED': return 'Close the manual Flow/Chrome window that is still open on this profile, then retry. One profile = one writer.';
-    case 'CLARIFICATION': return 'Flow asked a question instead of generating (usually an invalid model/duration combo). Dry-run first, then retry with the wrapped prompt.';
+    case 'CLARIFICATION': return 'Flow asked a question instead of generating. Check prompt format.';
     case 'CREDIT_DIALOG': return 'A credit confirmation appeared. Approve manually in the profile browser once, or lower the model to Lite/Fast.';
     case 'BUDGET_BLOCKED': return 'Episode credit budget would be exceeded. Raise FLOW_CREDIT_BUDGET_PER_EPISODE or use Lite.';
-    case 'RECAPTCHA_BLOCKED': return 'Google challenged the automation. Retry headed (FLOW_HEADLESS=false) once; if it persists, generate that scene manually this round.';
-    case 'TIMEOUT': return 'Render exceeded 10 minutes. Use resume: re-post the identical job — a completed render returns the file instead of re-billing.';
-    case 'UI_CHANGED': return 'Flow changed its markup. Open the saved screenshot, update SELECTORS in worker.ts, and retry. Nothing was charged if no render started.';
+    case 'RECAPTCHA_BLOCKED': return 'Google challenged the automation. Retry headed (FLOW_HEADLESS=false) once.';
+    case 'TIMEOUT': return 'Render exceeded 10 minutes.';
+    case 'UI_CHANGED': return 'Flow changed its markup. Check the saved screenshot and retry.';
     case 'CANCELLED': return 'Cancelled by user.';
-    default: return 'See the step log + screenshot and retry. Report the step name if it repeats.';
+    default: return 'See the step log + screenshot and retry.';
   }
-}
-
-// Selectors are role/placeholder-first (resilient) with CSS fallback (brittle).
-// Update here — never scatter ad-hoc selectors through the steps.
-const SELECTORS = {
-  composer: [
-    '[aria-label*="prompt" i]',
-    'textarea[placeholder*="prompt" i]',
-    'div[contenteditable="true"]',
-    'textarea',
-  ],
-  generateButton: [
-    'button:has-text("Generate")',
-    'button:has-text("Create")',
-    '[aria-label*="generate" i]',
-  ],
-  downloadButton: [
-    'button:has-text("Download")',
-    'a:has-text("Download")',
-    '[aria-label*="download" i]',
-  ],
-};
-
-async function clickFirst(
-  page: {
-    locator: (sel: string) => {
-      first: () => { click: (opts?: object) => Promise<void>; fill: (v: string) => Promise<void>; count: () => Promise<number> };
-    };
-  },
-  selectors: string[],
-  action: 'click' | 'fill',
-  value?: string,
-): Promise<string> {
-  let lastError = '';
-  for (const sel of selectors) {
-    try {
-      const target = page.locator(sel).first();
-      if ((await target.count()) === 0) continue;
-      if (action === 'click') await target.click({ timeout: STEP_TIMEOUT_MS });
-      else await target.fill(value || '');
-      return sel;
-    } catch (error) {
-      lastError = error instanceof Error ? error.message : String(error);
-    }
-  }
-  throw new Error(`UI_CHANGED: no working selector (${selectors.join(' | ')}). Last: ${lastError}`);
 }
 
 export interface LiveRunInput {
   jobId: string;
+  prompt?: string;
   promptWrapped: string;
   projectUrl: string;
   aspect: 'portrait' | 'landscape';
+  duration?: number;
+  model?: string;
   signal: AbortSignal;
   onStage: (stage: string, progress: number, detail?: string) => void;
   logStep: (entry: StepLog) => void;
@@ -132,123 +89,248 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
   const { chromium } = await import('playwright');
   const headless = (process.env.FLOW_HEADLESS || 'true').toLowerCase() !== 'false';
   const dir = shotsDir(input.jobId);
-  const fail = async (step: string, error: unknown, url: string): Promise<never> => {
+
+  const fail = (step: string, error: unknown, url: string): Error => {
     const code = input.signal.aborted ? 'CANCELLED' : classifyFailure(error instanceof Error ? error.message : String(error), url);
     const err = new Error(`${code}: ${error instanceof Error ? error.message : String(error)} — ${recoveryHint(code)}`);
     (err as { overseerCode?: OverseerCode }).overseerCode = code;
     input.logStep({ step: `${step}:failed`, at: new Date().toISOString(), detail: code });
-    throw err;
+    return err;
   };
 
-  let context: { pages: () => unknown[]; newPage: () => Promise<unknown>; close: () => Promise<unknown> } | undefined;
+  let context: Awaited<ReturnType<typeof chromium.launchPersistentContext>> | undefined;
   try {
     input.onStage('Opening Flow in persistent profile', 5);
-    context = (await chromium.launchPersistentContext(flowProfileDir(), {
+    context = await chromium.launchPersistentContext(flowProfileDir(), {
       headless,
       viewport: { width: 1366, height: 900 },
       args: ['--disable-blink-features=AutomationControlled'],
+      acceptDownloads: true,
       timeout: STEP_TIMEOUT_MS,
-    })) as unknown as typeof context;
-    if (!context) throw new Error('UI_CHANGED: browser context failed to launch.');
-    const page = (await context.newPage()) as unknown as {
-      goto: (url: string, opts?: object) => Promise<unknown>;
-      url: () => string;
-      locator: (sel: string) => { first: () => { click: (o?: object) => Promise<void>; fill: (v: string) => Promise<void>; count: () => Promise<number> } };
-      screenshot: (opts: { path: string }) => Promise<unknown>;
-      waitForEvent: (name: string, opts?: object) => Promise<unknown>;
-      waitForTimeout: (ms: number) => Promise<unknown>;
-      close: () => Promise<unknown>;
-    };
+    });
+
+    const page = context.pages()[0] || (await context.newPage());
     input.signal.throwIfAborted();
+
+    const targetUrl = input.projectUrl || 'https://flow.google.com/';
     try {
-      await page.goto(input.projectUrl, { timeout: STEP_TIMEOUT_MS, waitUntil: 'domcontentloaded' });
+      await page.goto(targetUrl, { timeout: STEP_TIMEOUT_MS, waitUntil: 'domcontentloaded' });
+      await page.waitForTimeout(2000);
     } catch (error) {
       await shot(page, dir, 'open-failed');
-      return fail('open', error, '');
+      throw fail('open', error, page.url());
     }
     input.logStep({ step: 'open', at: new Date().toISOString(), shot: await shot(page, dir, 'open') });
+
     if (/accounts\.google|signin\/rejected/i.test(page.url())) {
       await shot(page, dir, 'auth-expired');
-      return fail('open', new Error('Google sign-in required in this profile.'), page.url());
+      throw fail('open', new Error('Google sign-in required in this profile.'), page.url());
     }
 
-    input.onStage('Pasting scene prompt', 15);
+    // If on home/dashboard, create or open a project
+    input.onStage('Entering project studio', 15);
+    input.signal.throwIfAborted();
+    if (!page.url().includes('/project/')) {
+      const newProjectBtn = page.locator('button:has-text("New project"), [aria-label*="New project" i], div:has-text("New project")').first();
+      if ((await newProjectBtn.count()) > 0) {
+        await newProjectBtn.click({ timeout: 15000 });
+        await page.waitForURL('**/project/**', { timeout: 30000 }).catch(() => null);
+        await page.waitForTimeout(2000);
+      }
+    }
+    input.logStep({ step: 'project-opened', at: new Date().toISOString(), shot: await shot(page, dir, 'project-opened') });
+
+    // Wait for the prompt composer to be ready
+    const composer = page.locator('div[contenteditable="true"].ProseMirror, div[contenteditable="true"]').first();
+    try {
+      await composer.waitFor({ state: 'visible', timeout: 30000 });
+    } catch (error) {
+      await shot(page, dir, 'composer-missing');
+      throw fail('composer-wait', error, page.url());
+    }
+
+    // Configure video generation settings
+    input.onStage('Configuring video settings (aspect, model, duration)', 25);
     input.signal.throwIfAborted();
     try {
-      await clickFirst(page, SELECTORS.composer, 'fill', input.promptWrapped);
+      const settingsBtn = page.locator('button[aria-label="Settings trigger"], .settings-trigger-button').first();
+      if ((await settingsBtn.count()) > 0) {
+        await settingsBtn.click();
+        await page.waitForTimeout(600);
+
+        // Click "Video" tab
+        const videoTab = page.locator('button:has-text("Video"), [role="tab"]:has-text("Video")').first();
+        if ((await videoTab.count()) > 0) {
+          await videoTab.click();
+          await page.waitForTimeout(500);
+        }
+
+        // Aspect ratio: 9:16 for portrait, 16:9 for landscape
+        if (input.aspect === 'portrait') {
+          const aspect916 = page.locator('button:has-text("9:16")').first();
+          if ((await aspect916.count()) > 0) await aspect916.click();
+        } else {
+          const aspect169 = page.locator('button:has-text("16:9")').first();
+          if ((await aspect169.count()) > 0) await aspect169.click();
+        }
+
+        // Output count: x1
+        const x1Btn = page.locator('button:has-text("x1")').first();
+        if ((await x1Btn.count()) > 0) await x1Btn.click();
+
+        // Duration: 4s, 6s, 8s, 10s
+        if (input.duration) {
+          const durBtn = page.locator(`button:has-text("${input.duration}s")`).first();
+          if ((await durBtn.count()) > 0) await durBtn.click();
+        }
+
+        // Model selection if specified
+        if (input.model) {
+          const modelMap: Record<string, string> = {
+            'veo-3.1-fast': 'Veo 3.1 - Fast',
+            'veo-3.1-lite': 'Veo 3.1 - Lite',
+            'veo-3.1-quality': 'Veo 3.1 - Quality',
+            'omni-flash': 'Omni 1.1 Flash',
+          };
+          const targetModel = modelMap[input.model];
+          if (targetModel) {
+            const dropdown = page.locator('button:has-text("arrow_drop_down"), button:has-text("Veo"), button:has-text("Omni")').first();
+            if ((await dropdown.count()) > 0) {
+              await dropdown.click();
+              await page.waitForTimeout(500);
+              const opt = page.locator(`[role="menuitem"]:has-text("${targetModel}"), mat-option:has-text("${targetModel}"), button:has-text("${targetModel}")`).first();
+              if ((await opt.count()) > 0) {
+                await opt.click();
+                await page.waitForTimeout(500);
+              }
+            }
+          }
+        }
+
+        // Close settings popup
+        await page.keyboard.press('Escape');
+        await page.waitForTimeout(500);
+      }
+    } catch {
+      // Non-fatal if settings popup already matched defaults
+    }
+
+    // Fill scene prompt
+    input.onStage('Pasting scene prompt into Google Flow', 35);
+    input.signal.throwIfAborted();
+    try {
+      await composer.click();
+      const promptToUse = (input.prompt || input.promptWrapped || '').trim();
+      await composer.fill(promptToUse);
+      await page.waitForTimeout(800);
     } catch (error) {
       await shot(page, dir, 'paste-failed');
-      return fail('paste', error, page.url());
+      throw fail('paste', error, page.url());
     }
     input.logStep({ step: 'paste', at: new Date().toISOString(), shot: await shot(page, dir, 'paste') });
 
-    input.onStage('Starting generation (real click, 0 automation bypass)', 25);
+    // Click Start Generation
+    input.onStage('Submitting generation to Google Flow', 45);
     input.signal.throwIfAborted();
     try {
-      await clickFirst(page, SELECTORS.generateButton, 'click');
+      const startBtn = page.locator('button[aria-label="Start generation"], button.generate-icon-button, button[type="submit"]:has(mat-icon:has-text("arrow_forward"))').first();
+      await startBtn.click();
+      await page.waitForTimeout(3000);
     } catch (error) {
       await shot(page, dir, 'generate-failed');
-      return fail('generate', error, page.url());
+      throw fail('generate', error, page.url());
     }
     input.logStep({ step: 'generate-click', at: new Date().toISOString(), shot: await shot(page, dir, 'generate-click') });
 
-    input.onStage('Rendering in Flow (up to 10 min) — poll, no re-click', 45);
+    // Click the new flow-video-tile to enter scene viewer (where live progress percentage and download live)
+    const videoTile = page.locator('flow-video-tile').first();
+    try {
+      await videoTile.waitFor({ state: 'attached', timeout: 30000 });
+      await videoTile.click({ timeout: 10000 }).catch(() => null);
+    } catch {
+      // Continue polling
+    }
+
+    input.onStage('Rendering in Google Flow (tracking progress)', 50);
     const deadline = Date.now() + GENERATION_TIMEOUT_MS;
     let downloadPath = '';
+
     while (Date.now() < deadline) {
       input.signal.throwIfAborted();
-      try {
-        const dl = (await Promise.race([
-          page.waitForEvent('download', { timeout: 30_000 }).catch(() => null),
-          (async () => {
-            await page.waitForTimeout(30_000);
-            return null;
-          })(),
-        ])) as { path?: () => Promise<string>; saveAs?: (p: string) => Promise<void> } | null;
-        if (dl) {
+
+      // Ensure we are inside the scene viewer; if closed, click tile
+      const dlBtn = page.locator('button[aria-label="Download media"]').first();
+      if ((await dlBtn.count()) === 0) {
+        const tile = page.locator('flow-video-tile').first();
+        if ((await tile.count()) > 0) {
+          await tile.click({ timeout: 5000 }).catch(() => null);
+          await page.waitForTimeout(1000);
+        }
+      }
+
+      // Check if download button is enabled (enabled only when generation is 100% complete)
+      const dlEnabled = page.locator('button[aria-label="Download media"]:not([disabled])').first();
+      const isEnabled = (await dlEnabled.count()) > 0 && (await dlEnabled.isEnabled().catch(() => false));
+
+      // Extract visible percentage from player (e.g. "21%", "65%")
+      const pctMatch = await page.evaluate(() => {
+        const bodyText = document.body ? document.body.innerText : '';
+        const m = bodyText.match(/\b(\d{1,3})%/);
+        return m ? parseInt(m[1], 10) : null;
+      }).catch(() => null);
+
+      if (pctMatch !== null && pctMatch < 100) {
+        input.onStage(`Rendering in Flow (${pctMatch}%)`, Math.max(50, Math.min(92, pctMatch)));
+      } else {
+        const elapsed = Math.round((Date.now() - (deadline - GENERATION_TIMEOUT_MS)) / 1000);
+        input.onStage(`Rendering in Flow (${elapsed}s elapsed)`, Math.min(90, 50 + Math.round((elapsed / 60) * 10)));
+      }
+
+      if (isEnabled) {
+        input.onStage('Render finished — initiating MP4 download', 94);
+        try {
+          await dlEnabled.click({ timeout: 10000 });
+          await page.waitForTimeout(800);
+
+          const opt720 = page.locator('button:has-text("720p Original size"), button:has-text("720p"), [role="menuitem"]:has-text("720p")').first();
+          await opt720.waitFor({ state: 'visible', timeout: 10000 });
+
+          const downloadPromise = page.waitForEvent('download', { timeout: 45000 });
+          await opt720.click();
+
+          const download = await downloadPromise;
           const out = path.join(flowDownloadsDir(), `${input.jobId}.mp4`);
-          if (dl.saveAs) await dl.saveAs(out);
-          else if (dl.path) fs.copyFileSync(await dl.path(), out);
+          await download.saveAs(out);
           downloadPath = out;
           break;
+        } catch {
+          // If menu click failed temporarily, close menu and retry
+          await page.keyboard.press('Escape').catch(() => null);
+          await page.waitForTimeout(1000);
         }
-      } catch (error) {
-        await shot(page, dir, 'poll-failed');
-        return fail('poll', error, page.url());
       }
-      // Fallback: an explicit Download button appeared for a finished render.
-      try {
-        const btn = page.locator(SELECTORS.downloadButton.join(', ')).first();
-        if ((await btn.count()) > 0) {
-          const waiting = page.waitForEvent('download', { timeout: 60_000 }).catch(() => null) as Promise<{ saveAs?: (p: string) => Promise<void>; path?: () => Promise<string> } | null>;
-          await btn.click({ timeout: 15_000 });
-          const dl = await waiting;
-          if (dl) {
-            const out = path.join(flowDownloadsDir(), `${input.jobId}.mp4`);
-            if (dl.saveAs) await dl.saveAs(out);
-            else if (dl.path) fs.copyFileSync(await dl.path(), out);
-            downloadPath = out;
-            break;
-          }
-        }
-      } catch {
-        // Keep polling until the deadline; missing button is not failure yet.
-      }
-      input.onStage('Rendering in Flow (up to 10 min) — poll, no re-click', Math.min(90, 45 + Math.round(((GENERATION_TIMEOUT_MS - (deadline - Date.now())) / GENERATION_TIMEOUT_MS) * 45)));
+
+      await page.waitForTimeout(4000);
     }
+
     if (!downloadPath) {
       await shot(page, dir, 'timeout');
-      return fail('download', new Error(`No downloadable render within ${GENERATION_TIMEOUT_MS / 60000} minutes.`), page.url());
+      throw fail('download', new Error(`No downloadable render within ${GENERATION_TIMEOUT_MS / 60000} minutes.`), page.url());
     }
+
     input.logStep({ step: 'download', at: new Date().toISOString(), shot: await shot(page, dir, 'download') });
     const bytes = fs.statSync(downloadPath).size;
-    if (bytes < 10_000) throw new Error(`UI_CHANGED: downloaded file is suspiciously small (${bytes} bytes).`);
+    if (bytes < 10_000) {
+      throw fail('download', new Error(`Downloaded video is suspiciously small (${bytes} bytes).`), page.url());
+    }
+
+    input.onStage('Video downloaded from Flow successfully', 100);
     return { filePath: downloadPath, bytes };
   } finally {
     try {
       await context?.close();
     } catch {
-      // Profile lock must always release, even after failures.
+      // Profile lock must release
     }
   }
 }

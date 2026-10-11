@@ -81,7 +81,7 @@ export async function flowStatus(): Promise<FlowStatus> {
     browsersInstalled,
     profileReady,
     profileDir,
-    projectUrl: process.env.FLOW_PROJECT_URL || 'https://labs.google/fx/tools/flow',
+    projectUrl: process.env.FLOW_PROJECT_URL || 'https://flow.google.com',
     headless: (process.env.FLOW_HEADLESS || 'true').toLowerCase() !== 'false',
     creditBudgetPerEpisode: Number.parseInt(process.env.FLOW_CREDIT_BUDGET_PER_EPISODE || '320', 10),
     maxJobs: Math.max(1, Number.parseInt(process.env.FLOW_MAX_JOBS || '1', 10)),
@@ -92,7 +92,7 @@ export async function flowStatus(): Promise<FlowStatus> {
 export function flowLoginSteps(): { profileDir: string; projectUrl: string; steps: string[] } {
   return {
     profileDir: flowProfileDir(),
-    projectUrl: process.env.FLOW_PROJECT_URL || 'https://labs.google/fx/tools/flow',
+    projectUrl: process.env.FLOW_PROJECT_URL || 'https://flow.google.com',
     steps: [
       'Launch Chromium with the profile dir above (headed).',
       'Sign in to your Google account and solve any 2FA/CAPTCHA yourself.',

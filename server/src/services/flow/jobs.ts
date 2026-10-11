@@ -147,7 +147,7 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
   // Async: the request returns 202 immediately; the client polls the job.
   const controller = new AbortController();
   controllers.set(job.id, controller);
-  void runLive(job.id, controller.signal);
+  void runLive(job.id, controller.signal).catch((err) => console.error('Flow job run error:', err));
   return job;
 }
 
@@ -163,9 +163,12 @@ async function runLive(jobId: string, signal: AbortSignal): Promise<void> {
     const status = await flowStatus();
     const result = await runLiveGeneration({
       jobId: job.id,
+      prompt: job.prompt,
       promptWrapped: job.preview?.promptWrapped || wrapPrompt(job.prompt, job.model, job.aspect, job.duration),
       projectUrl: status.projectUrl,
       aspect: job.aspect,
+      duration: job.duration,
+      model: job.model,
       signal,
       onStage: (stage, progress) => {
         const current = jobs.get(jobId);

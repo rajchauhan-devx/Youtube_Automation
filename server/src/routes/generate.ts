@@ -26,6 +26,11 @@ import {
   testCloudflareConnection,
   generateCloudflareImage,
   isCloudflareConfigured,
+  addCloudflareEndpoint,
+  updateCloudflareEndpoint,
+  removeCloudflareEndpoint,
+  reorderCloudflareEndpoints,
+  clearEndpointCooldowns,
 } from '../services/cloudflare-image.js';
 
 export const generateRouter = Router();
@@ -47,6 +52,7 @@ const statusCode: Record<string, number> = {
   QUEUE_FAILED: 422,
   WORKFLOW_INVALID: 422,
   GENERATION_ERROR: 422,
+  RATE_LIMITED: 429,
   NO_OUTPUT: 422,
   DOWNLOAD_FAILED: 502,
   CANCELLED: 499,
@@ -100,9 +106,57 @@ generateRouter.post('/cloudflare/config', (req, res) => {
   }
 });
 
-generateRouter.post('/cloudflare/test', async (_req, res) => {
-  const result = await testCloudflareConnection();
+generateRouter.post('/cloudflare/test', async (req, res) => {
+  const endpointId = typeof req.body?.endpointId === 'string' ? req.body.endpointId : undefined;
+  const result = await testCloudflareConnection(endpointId);
   res.status(result.ok ? 200 : 400).json(result);
+});
+
+generateRouter.post('/cloudflare/endpoints', (req, res) => {
+  try {
+    const updated = addCloudflareEndpoint(req.body || {});
+    res.json({ ok: true, config: updated });
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || 'Invalid endpoint' });
+  }
+});
+
+generateRouter.patch('/cloudflare/endpoints/:id', (req, res) => {
+  try {
+    const updated = updateCloudflareEndpoint(req.params.id, req.body || {});
+    res.json({ ok: true, config: updated });
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || 'Invalid endpoint' });
+  }
+});
+
+generateRouter.delete('/cloudflare/endpoints/:id', (req, res) => {
+  try {
+    const updated = removeCloudflareEndpoint(req.params.id);
+    res.json({ ok: true, config: updated });
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || 'Could not remove endpoint' });
+  }
+});
+
+generateRouter.post('/cloudflare/endpoints/reorder', (req, res) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.filter((x: unknown) => typeof x === 'string') : [];
+    const updated = reorderCloudflareEndpoints(ids);
+    res.json({ ok: true, config: updated });
+  } catch (err: any) {
+    res.status(400).json({ error: err?.message || 'Could not reorder endpoints' });
+  }
+});
+
+generateRouter.post('/cloudflare/endpoints/:id/test', async (req, res) => {
+  const result = await testCloudflareConnection(req.params.id);
+  res.status(result.ok ? 200 : 400).json(result);
+});
+
+generateRouter.post('/cloudflare/cooldowns/clear', (_req, res) => {
+  clearEndpointCooldowns();
+  res.json({ ok: true, config: getPublicCloudflareConfig() });
 });
 
 generateRouter.get('/models', async (_req, res) => {
@@ -210,7 +264,8 @@ generateRouter.post('/image', async (req, res) => {
       generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index || (currentWorkspace().profile === 'shorts' && item.mediaType === 'video')), asset].sort((a, b) => a.index - b.index);
       store.add('scripts', { ...current, generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
     }
-    res.json({ ok: true, url: result.publicUrl, seed: result.seed, elapsedMs: result.elapsedMs, ...(mixed ? { generatedImages } : {}) });
+    const cfMeta = 'endpointId' in result ? { endpointId: (result as any).endpointId, endpointLabel: (result as any).endpointLabel, attempts: (result as any).attempts } : {};
+    res.json({ ok: true, url: result.publicUrl, seed: result.seed, elapsedMs: result.elapsedMs, ...cfMeta, ...(mixed ? { generatedImages } : {}) });
   } catch (err: any) {
     console.error(`Generation failed for ${key}:`, err.message);
     if (err instanceof ComfyError) {

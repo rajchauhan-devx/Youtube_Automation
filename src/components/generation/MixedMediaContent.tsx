@@ -108,8 +108,8 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, disab
       {!running ? (
         <button type="button" disabled={disabled || busy} onClick={() => void start()}
           className="flex items-center gap-1.5 rounded bg-purple-500/25 px-2.5 py-1.5 text-xs font-medium text-purple-100 hover:bg-purple-500/35 disabled:opacity-40"
-          title="Auto-generate this scene in Google Flow (subscription credits) and import the MP4">
-          <Sparkles className="h-3.5 w-3.5" /> Auto-generate ▸ Flow
+          title="Generate video directly from Google Flow using Playwright and import MP4">
+          <Sparkles className="h-3.5 w-3.5" /> Generate with Flow
         </button>
       ) : (
         <>
@@ -499,6 +499,24 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
             {sceneRunning && <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 p-4 text-center text-purple-200"><Loader2 className="h-9 w-9 animate-spin" /><span className="text-sm font-medium">{activeRefIndex === index ? 'Generating LoRA reference frame...' : 'Generating image...'}</span></div>}
             <button disabled={locked} aria-label={`Add or replace ${type} for scene ${index + 1}`} title={`Add or replace ${type}`} className="absolute right-3 top-3 rounded-lg border border-white/10 bg-black/60 p-2 text-gray-200 hover:bg-black/80 disabled:opacity-40" onClick={() => { selectedIndex.current = index; if (fileInput.current) { fileInput.current.multiple = false; fileInput.current.accept = type === 'video' ? '.mp4' : '.png,.jpg,.jpeg,.webp'; fileInput.current.click(); } }}><Plus className="h-5 w-5" /></button>
           </div>
+          {type === 'video' && (
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-purple-500/30 bg-purple-500/10 p-2.5">
+              <FlowVideoButton
+                scriptId={script!.id}
+                sceneIndex={index}
+                prompt={scene.videoPrompt || styleDnaPrompt}
+                duration={spokenSeconds !== undefined ? Math.min(10, Math.max(4, Math.round(spokenSeconds))) : 8}
+                aspect={profile === 'shorts' ? 'portrait' : 'landscape'}
+                disabled={locked}
+                onImported={(blob) => importFlowBlob(blob, index)}
+                onError={setError}
+                onNotice={setNotice}
+              />
+              <span className="text-[11px] text-gray-400">
+                {asset ? 'Ready in scene' : 'Generate video directly with Flow'}
+              </span>
+            </div>
+          )}
           <GenerationDisclosure title="Scene actions & prompt" className="mt-3">
           {type === 'image' && <button disabled={locked} onClick={() => void generateImages([index])} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Generating image…' : asset ? 'Regenerate image' : 'Generate image'}</button>}
           {type === 'video' && (

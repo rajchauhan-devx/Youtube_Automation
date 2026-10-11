@@ -125,6 +125,38 @@ export default {
   },
 };`;
 
+export interface CloudflareEndpoint {
+  id: string;
+  label: string;
+  mode: CloudflareConnectionMode;
+  workerUrl: string;
+  workerApiKey: string;
+  accountId: string;
+  apiToken: string;
+  disabled: boolean;
+}
+
+export interface PublicCloudflareEndpoint {
+  id: string;
+  label: string;
+  mode: CloudflareConnectionMode;
+  workerUrl: string;
+  hasWorkerApiKey: boolean;
+  workerApiKeyMasked: string;
+  accountId: string;
+  hasApiToken: boolean;
+  apiTokenMasked: string;
+  disabled: boolean;
+  configured: boolean;
+  coolingDownUntil: number;
+  coolingDownSecs: number;
+  lastError: string;
+  lastLatencyMs: number;
+  consecutiveFailures: number;
+}
+
+export type CloudflareStrategy = "failover" | "round-robin";
+
 export interface StoredCloudflareConfig {
   provider: ImageProvider;
   mode: CloudflareConnectionMode;
@@ -134,6 +166,11 @@ export interface StoredCloudflareConfig {
   apiToken: string;
   model: string;
   injectStyleDna: boolean;
+  /** Multi-API pool. When present, this is the source of truth for generation failover. */
+  endpoints?: CloudflareEndpoint[];
+  strategy?: CloudflareStrategy;
+  /** Cooldown applied to an endpoint after it hits a rate/quota limit (ms). Default 5 min. */
+  cooldownMs?: number;
 }
 
 export interface PublicCloudflareConfig {
@@ -151,6 +188,12 @@ export interface PublicCloudflareConfig {
   configured: boolean;
   models: CloudflareModelInfo[];
   workerScript: string;
+  /** Multi-API pool (masked secrets). */
+  endpoints: PublicCloudflareEndpoint[];
+  strategy: CloudflareStrategy;
+  cooldownMs: number;
+  lastUsedEndpointId: string | null;
+  activeEndpointCount: number;
 }
 
 function resolveConfigFilePath(): string {
@@ -163,6 +206,84 @@ function maskSecret(secret: string): string {
   if (!trimmed) return "";
   if (trimmed.length <= 6) return "••••••••";
   return `••••••••${trimmed.slice(-4)}`;
+}
+
+export const DEFAULT_STRATEGY: CloudflareStrategy = "failover";
+export const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000;
+
+function createEndpointId(): string {
+  return `cf-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function isEndpointConfigured(ep: Pick<CloudflareEndpoint, "mode" | "workerUrl" | "workerApiKey" | "accountId" | "apiToken">): boolean {
+  if (ep.mode === "worker") return Boolean((ep.workerUrl || "").trim() && (ep.workerApiKey || "").trim());
+  return Boolean((ep.accountId || "").trim() && (ep.apiToken || "").trim());
+}
+
+// ---- In-memory health / failover state (per server process) ----
+const endpointCooldowns = new Map<string, number>();
+const endpointStats = new Map<string, { consecutiveFailures: number; lastError: string; lastLatencyMs: number }>();
+let roundRobinCursor = 0;
+let lastUsedEndpointId: string | null = null;
+
+function getEndpointStat(id: string) {
+  let s = endpointStats.get(id);
+  if (!s) {
+    s = { consecutiveFailures: 0, lastError: "", lastLatencyMs: 0 };
+    endpointStats.set(id, s);
+  }
+  return s;
+}
+
+function markEndpointSuccess(id: string, latencyMs: number) {
+  const s = getEndpointStat(id);
+  s.consecutiveFailures = 0;
+  s.lastError = "";
+  s.lastLatencyMs = latencyMs;
+  endpointCooldowns.delete(id);
+  lastUsedEndpointId = id;
+}
+
+function markEndpointFailure(id: string, message: string, latencyMs: number, rateLimited: boolean, cooldownMs: number) {
+  const s = getEndpointStat(id);
+  s.consecutiveFailures += 1;
+  s.lastError = (message || "failed").slice(0, 240);
+  s.lastLatencyMs = latencyMs;
+  if (rateLimited) {
+    endpointCooldowns.set(id, Date.now() + Math.max(1000, cooldownMs));
+  }
+}
+
+export function isRateLimitSignal(status: number, bodyText: string): boolean {
+  if (status === 429) return true;
+  const t = (bodyText || "").toLowerCase();
+  if (!t) return false;
+  return (
+    t.includes("rate limit") ||
+    t.includes("rate_limit") ||
+    t.includes("too many requests") ||
+    t.includes("quota") ||
+    t.includes("daily limit") ||
+    t.includes("limit exceeded") ||
+    t.includes("exceeds") && t.includes("limit") ||
+    t.includes("capacity") ||
+    t.includes("neurons") ||
+    t.includes("free plan") ||
+    t.includes("error code: 1027") ||
+    t.includes("\"code\":1027") ||
+    t.includes("workers ai") && t.includes("limit")
+  );
+}
+
+function isRetryableFailure(status: number, bodyText: string): boolean {
+  if (status === 429) return true;
+  if (status === 500 || status === 502 || status === 503 || status === 504) return true;
+  if (isRateLimitSignal(status, bodyText)) return true;
+  return false;
+}
+
+export function getLastUsedEndpointId(): string | null {
+  return lastUsedEndpointId;
 }
 
 function isPrivateOrLoopbackHost(hostname: string): boolean {
@@ -218,6 +339,58 @@ export function validateAccountId(rawAccountId: string): string {
   return trimmed;
 }
 
+function parseEnvEndpointList(): CloudflareEndpoint[] {
+  // Supports comma-separated multi-account env config:
+  // CLOUDFLARE_WORKER_URLS + CLOUDFLARE_WORKER_API_KEYS, or
+  // CLOUDFLARE_ACCOUNT_IDS + CLOUDFLARE_API_TOKENS
+  const out: CloudflareEndpoint[] = [];
+  const workerUrls = (process.env.CLOUDFLARE_WORKER_URLS || process.env.CLOUDFLARE_WORKER_URL || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const workerKeys = (process.env.CLOUDFLARE_WORKER_API_KEYS || process.env.CLOUDFLARE_WORKER_API_KEY || "")
+    .split(",")
+    .map((s) => s.trim());
+  workerUrls.forEach((url, i) => {
+    const key = (workerKeys[i] ?? workerKeys[0] ?? "").trim();
+    if (url && key) {
+      out.push({
+        id: `env-worker-${i + 1}`,
+        label: `Worker ${i + 1} (env)`,
+        mode: "worker",
+        workerUrl: url,
+        workerApiKey: key,
+        accountId: "",
+        apiToken: "",
+        disabled: false,
+      });
+    }
+  });
+  const accountIds = (process.env.CLOUDFLARE_ACCOUNT_IDS || process.env.CLOUDFLARE_ACCOUNT_ID || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const apiTokens = (process.env.CLOUDFLARE_API_TOKENS || process.env.CLOUDFLARE_API_TOKEN || "")
+    .split(",")
+    .map((s) => s.trim());
+  accountIds.forEach((accountId, i) => {
+    const token = (apiTokens[i] ?? apiTokens[0] ?? "").trim();
+    if (accountId && token) {
+      out.push({
+        id: `env-direct-${i + 1}`,
+        label: `Account ${i + 1} (env)`,
+        mode: "direct",
+        workerUrl: "",
+        workerApiKey: "",
+        accountId,
+        apiToken: token,
+        disabled: false,
+      });
+    }
+  });
+  return out;
+}
+
 export function getCloudflareConfig(): StoredCloudflareConfig {
   const filePath = resolveConfigFilePath();
   let fileData: Partial<StoredCloudflareConfig> = {};
@@ -246,28 +419,114 @@ export function getCloudflareConfig(): StoredCloudflareConfig {
   const modelCandidate = fileData.model || process.env.CLOUDFLARE_IMAGE_MODEL || DEFAULT_CLOUDFLARE_MODEL;
   const model = ALLOWED_MODEL_IDS.has(modelCandidate) ? modelCandidate : DEFAULT_CLOUDFLARE_MODEL;
 
+  const legacyWorkerUrl = (fileData.workerUrl ?? process.env.CLOUDFLARE_WORKER_URL ?? "").trim();
+  const legacyWorkerApiKey = (fileData.workerApiKey ?? process.env.CLOUDFLARE_WORKER_API_KEY ?? "").trim();
+  const legacyAccountId = (fileData.accountId ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? "").trim();
+  const legacyApiToken = (fileData.apiToken ?? process.env.CLOUDFLARE_API_TOKEN ?? "").trim();
+
+  // Build endpoint pool: explicit file list wins, else migrate legacy single + env lists.
+  let endpoints: CloudflareEndpoint[];
+  if (Array.isArray(fileData.endpoints) && fileData.endpoints.length > 0) {
+    endpoints = fileData.endpoints
+      .filter((e) => e && typeof e === "object")
+      .map((e, i) => ({
+        id: typeof (e as any).id === "string" && (e as any).id ? String((e as any).id) : `cf-${i + 1}`,
+        label: typeof (e as any).label === "string" && (e as any).label.trim() ? String((e as any).label).slice(0, 80) : `API ${i + 1}`,
+        mode: (e as any).mode === "direct" ? "direct" as const : "worker" as const,
+        workerUrl: String((e as any).workerUrl ?? "").trim(),
+        workerApiKey: String((e as any).workerApiKey ?? "").trim(),
+        accountId: String((e as any).accountId ?? "").trim(),
+        apiToken: String((e as any).apiToken ?? "").trim(),
+        disabled: Boolean((e as any).disabled),
+      }));
+  } else if (legacyWorkerUrl || legacyWorkerApiKey || legacyAccountId || legacyApiToken) {
+    // Migrate legacy single-key config into a one-entry pool (keeps old tests/behaviour working).
+    const legacyMode = mode;
+    endpoints = [
+      {
+        id: "cf-primary",
+        label: "Primary API",
+        mode: legacyMode,
+        workerUrl: legacyWorkerUrl,
+        workerApiKey: legacyWorkerApiKey,
+        accountId: legacyAccountId,
+        apiToken: legacyApiToken,
+        disabled: false,
+      },
+    ];
+    // Also merge any extra env-provided keys beyond the first as backups.
+    const envExtra = parseEnvEndpointList().slice(1);
+    for (const extra of envExtra) {
+      if (!endpoints.some((e) => e.workerUrl === extra.workerUrl && e.accountId === extra.accountId)) {
+        endpoints.push(extra);
+      }
+    }
+  } else {
+    endpoints = parseEnvEndpointList();
+  }
+
+  const strategy: CloudflareStrategy = fileData.strategy === "round-robin" ? "round-robin" : "failover";
+  const cooldownMs =
+    typeof fileData.cooldownMs === "number" && Number.isFinite(fileData.cooldownMs)
+      ? Math.min(60 * 60 * 1000, Math.max(5000, Math.floor(fileData.cooldownMs)))
+      : DEFAULT_COOLDOWN_MS;
+
   return {
     provider,
     mode,
-    workerUrl: (fileData.workerUrl ?? process.env.CLOUDFLARE_WORKER_URL ?? "").trim(),
-    workerApiKey: (fileData.workerApiKey ?? process.env.CLOUDFLARE_WORKER_API_KEY ?? "").trim(),
-    accountId: (fileData.accountId ?? process.env.CLOUDFLARE_ACCOUNT_ID ?? "").trim(),
-    apiToken: (fileData.apiToken ?? process.env.CLOUDFLARE_API_TOKEN ?? "").trim(),
+    workerUrl: legacyWorkerUrl,
+    workerApiKey: legacyWorkerApiKey,
+    accountId: legacyAccountId,
+    apiToken: legacyApiToken,
     model,
     injectStyleDna: typeof fileData.injectStyleDna === "boolean" ? fileData.injectStyleDna : true,
+    endpoints,
+    strategy,
+    cooldownMs,
   };
 }
 
+export function getEnabledEndpoints(cfg: StoredCloudflareConfig = getCloudflareConfig()): CloudflareEndpoint[] {
+  return (cfg.endpoints || []).filter((e) => !e.disabled);
+}
+
 export function isCloudflareConfigured(cfg: StoredCloudflareConfig = getCloudflareConfig()): boolean {
+  const enabled = getEnabledEndpoints(cfg);
+  if (enabled.length > 0) return enabled.some(isEndpointConfigured);
   if (cfg.mode === "worker") {
     return Boolean(cfg.workerUrl && cfg.workerApiKey);
   }
   return Boolean(cfg.accountId && cfg.apiToken);
 }
 
+function toPublicEndpoint(ep: CloudflareEndpoint): PublicCloudflareEndpoint {
+  const now = Date.now();
+  const until = endpointCooldowns.get(ep.id) || 0;
+  const stat = endpointStats.get(ep.id);
+  return {
+    id: ep.id,
+    label: ep.label,
+    mode: ep.mode,
+    workerUrl: ep.workerUrl,
+    hasWorkerApiKey: Boolean(ep.workerApiKey),
+    workerApiKeyMasked: maskSecret(ep.workerApiKey),
+    accountId: ep.accountId,
+    hasApiToken: Boolean(ep.apiToken),
+    apiTokenMasked: maskSecret(ep.apiToken),
+    disabled: ep.disabled,
+    configured: isEndpointConfigured(ep),
+    coolingDownUntil: until > now ? until : 0,
+    coolingDownSecs: until > now ? Math.ceil((until - now) / 1000) : 0,
+    lastError: stat?.lastError || "",
+    lastLatencyMs: stat?.lastLatencyMs || 0,
+    consecutiveFailures: stat?.consecutiveFailures || 0,
+  };
+}
+
 export function getPublicCloudflareConfig(): PublicCloudflareConfig {
   const cfg = getCloudflareConfig();
   const modelInfo = CLOUDFLARE_IMAGE_MODELS.find((m) => m.id === cfg.model) || CLOUDFLARE_IMAGE_MODELS[0];
+  const endpoints = (cfg.endpoints || []).map(toPublicEndpoint);
   return {
     provider: cfg.provider,
     mode: cfg.mode,
@@ -283,7 +542,23 @@ export function getPublicCloudflareConfig(): PublicCloudflareConfig {
     configured: isCloudflareConfigured(cfg),
     models: CLOUDFLARE_IMAGE_MODELS,
     workerScript: UPGRADED_WORKER_SCRIPT,
+    endpoints,
+    strategy: cfg.strategy || DEFAULT_STRATEGY,
+    cooldownMs: cfg.cooldownMs || DEFAULT_COOLDOWN_MS,
+    lastUsedEndpointId,
+    activeEndpointCount: endpoints.filter((e) => !e.disabled && e.configured).length,
   };
+}
+
+export interface SaveCloudflareEndpointInput {
+  id?: string;
+  label?: string;
+  mode?: CloudflareConnectionMode;
+  workerUrl?: string;
+  workerApiKey?: string;
+  accountId?: string;
+  apiToken?: string;
+  disabled?: boolean;
 }
 
 export interface SaveCloudflareConfigInput {
@@ -296,6 +571,58 @@ export interface SaveCloudflareConfigInput {
   model?: string;
   injectStyleDna?: boolean;
   clearSecrets?: boolean;
+  strategy?: CloudflareStrategy;
+  cooldownMs?: number;
+  endpoints?: SaveCloudflareEndpointInput[];
+}
+
+function sanitizeEndpointInput(
+  raw: SaveCloudflareEndpointInput,
+  index: number,
+  existing?: CloudflareEndpoint
+): CloudflareEndpoint {
+  const mode: CloudflareConnectionMode =
+    raw.mode === "direct" || raw.mode === "worker"
+      ? raw.mode
+      : existing?.mode || "worker";
+  let workerUrl = existing?.workerUrl || "";
+  if (typeof raw.workerUrl === "string") {
+    workerUrl = raw.workerUrl.trim() ? validateWorkerUrl(raw.workerUrl) : "";
+  }
+  let accountId = existing?.accountId || "";
+  if (typeof raw.accountId === "string") {
+    accountId = raw.accountId.trim() ? validateAccountId(raw.accountId) : "";
+  }
+  let workerApiKey = existing?.workerApiKey || "";
+  if (typeof raw.workerApiKey === "string") {
+    if (raw.workerApiKey.trim().length > 0) workerApiKey = raw.workerApiKey.trim();
+  }
+  let apiToken = existing?.apiToken || "";
+  if (typeof raw.apiToken === "string") {
+    if (raw.apiToken.trim().length > 0) apiToken = raw.apiToken.trim();
+  }
+  return {
+    id:
+      typeof raw.id === "string" && raw.id.trim()
+        ? raw.id.trim().slice(0, 64)
+        : existing?.id || createEndpointId(),
+    label:
+      typeof raw.label === "string" && raw.label.trim()
+        ? raw.label.trim().slice(0, 80)
+        : existing?.label || `API ${index + 1}`,
+    mode,
+    workerUrl,
+    workerApiKey,
+    accountId,
+    apiToken,
+    disabled: typeof raw.disabled === "boolean" ? raw.disabled : existing?.disabled || false,
+  };
+}
+
+function persistConfig(cfg: StoredCloudflareConfig): void {
+  const filePath = resolveConfigFilePath();
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(cfg, null, 2), { mode: 0o600 });
 }
 
 export function saveCloudflareConfig(input: SaveCloudflareConfigInput): PublicCloudflareConfig {
@@ -328,22 +655,130 @@ export function saveCloudflareConfig(input: SaveCloudflareConfigInput): PublicCl
   const nextInjectStyleDna =
     typeof input.injectStyleDna === "boolean" ? input.injectStyleDna : current.injectStyleDna;
 
+  const nextStrategy: CloudflareStrategy =
+    input.strategy === "round-robin" || input.strategy === "failover"
+      ? input.strategy
+      : current.strategy || DEFAULT_STRATEGY;
+
+  const nextCooldownMs =
+    typeof input.cooldownMs === "number" && Number.isFinite(input.cooldownMs)
+      ? Math.min(60 * 60 * 1000, Math.max(5000, Math.floor(input.cooldownMs)))
+      : current.cooldownMs || DEFAULT_COOLDOWN_MS;
+
+  // Endpoint pool: explicit array wins; else legacy single-field patch upserts endpoint[0].
+  let nextEndpoints: CloudflareEndpoint[];
+  const legacyPatchProvided =
+    typeof input.workerUrl === "string" ||
+    typeof input.workerApiKey === "string" ||
+    typeof input.accountId === "string" ||
+    typeof input.apiToken === "string" ||
+    typeof input.mode === "string";
+  if (Array.isArray(input.endpoints)) {
+    if (input.endpoints.length > 10) {
+      throw new ComfyError("CONFIG", "Maximum 10 Cloudflare API endpoints are supported.");
+    }
+    const seen = new Set<string>();
+    nextEndpoints = input.endpoints.map((raw, i) => {
+      const ep = sanitizeEndpointInput(raw || {}, i);
+      if (seen.has(ep.id)) ep.id = createEndpointId();
+      seen.add(ep.id);
+      return ep;
+    });
+    if (input.clearSecrets) {
+      nextEndpoints = nextEndpoints.map((e) => ({ ...e, workerApiKey: "", apiToken: "" }));
+    }
+  } else if (legacyPatchProvided) {
+    const base = (current.endpoints || []).map((e) => ({ ...e }));
+    if (base.length === 0) {
+      base.push({
+        id: "cf-primary",
+        label: "Primary API",
+        mode: nextMode,
+        workerUrl: "",
+        workerApiKey: "",
+        accountId: "",
+        apiToken: "",
+        disabled: false,
+      });
+    }
+    const primary = { ...base[0] };
+    primary.mode = nextMode;
+    if (typeof input.workerUrl === "string") primary.workerUrl = nextWorkerUrl;
+    if (typeof input.accountId === "string") primary.accountId = nextAccountId;
+    primary.workerApiKey = nextWorkerApiKey;
+    primary.apiToken = nextApiToken;
+    base[0] = primary;
+    nextEndpoints = base;
+  } else {
+    nextEndpoints = (current.endpoints || []).map((e) => ({ ...e }));
+    if (input.clearSecrets) {
+      nextEndpoints = nextEndpoints.map((e) => ({ ...e, workerApiKey: "", apiToken: "" }));
+    }
+  }
+
   const toStore: StoredCloudflareConfig = {
     provider: nextProvider,
     mode: nextMode,
-    workerUrl: nextWorkerUrl,
-    workerApiKey: nextWorkerApiKey,
-    accountId: nextAccountId,
-    apiToken: nextApiToken,
+    workerUrl: nextEndpoints[0]?.workerUrl ?? nextWorkerUrl,
+    workerApiKey: nextEndpoints[0]?.workerApiKey ?? nextWorkerApiKey,
+    accountId: nextEndpoints[0]?.accountId ?? nextAccountId,
+    apiToken: nextEndpoints[0]?.apiToken ?? nextApiToken,
     model: nextModel,
     injectStyleDna: nextInjectStyleDna,
+    endpoints: nextEndpoints,
+    strategy: nextStrategy,
+    cooldownMs: nextCooldownMs,
   };
 
-  const filePath = resolveConfigFilePath();
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  fs.writeFileSync(filePath, JSON.stringify(toStore, null, 2), { mode: 0o600 });
+  persistConfig(toStore);
 
   return getPublicCloudflareConfig();
+}
+
+export function addCloudflareEndpoint(input: SaveCloudflareEndpointInput): PublicCloudflareConfig {
+  const current = getCloudflareConfig();
+  const list = [...(current.endpoints || [])];
+  if (list.length >= 10) throw new ComfyError("CONFIG", "Maximum 10 Cloudflare API endpoints are supported.");
+  const ep = sanitizeEndpointInput(input || {}, list.length);
+  if (!ep.id || list.some((e) => e.id === ep.id)) ep.id = createEndpointId();
+  list.push(ep);
+  return saveCloudflareConfig({ endpoints: list });
+}
+
+export function updateCloudflareEndpoint(id: string, patch: SaveCloudflareEndpointInput): PublicCloudflareConfig {
+  const current = getCloudflareConfig();
+  const list = [...(current.endpoints || [])];
+  const idx = list.findIndex((e) => e.id === id);
+  if (idx === -1) throw new ComfyError("CONFIG", "Cloudflare endpoint not found.");
+  list[idx] = sanitizeEndpointInput({ ...(patch || {}), id }, idx, list[idx]);
+  return saveCloudflareConfig({ endpoints: list });
+}
+
+export function removeCloudflareEndpoint(id: string): PublicCloudflareConfig {
+  const current = getCloudflareConfig();
+  const list = (current.endpoints || []).filter((e) => e.id !== id);
+  endpointCooldowns.delete(id);
+  endpointStats.delete(id);
+  return saveCloudflareConfig({ endpoints: list });
+}
+
+export function reorderCloudflareEndpoints(ids: string[]): PublicCloudflareConfig {
+  const current = getCloudflareConfig();
+  const byId = new Map((current.endpoints || []).map((e) => [e.id, e]));
+  const reordered: CloudflareEndpoint[] = [];
+  for (const id of ids || []) {
+    const ep = byId.get(id);
+    if (ep) {
+      reordered.push(ep);
+      byId.delete(id);
+    }
+  }
+  for (const ep of byId.values()) reordered.push(ep);
+  return saveCloudflareConfig({ endpoints: reordered });
+}
+
+export function clearEndpointCooldowns(): void {
+  endpointCooldowns.clear();
 }
 
 async function extractImageBufferFromResponse(res: Response): Promise<Buffer> {
@@ -392,110 +827,142 @@ async function extractImageBufferFromResponse(res: Response): Promise<Buffer> {
   return rawBuffer;
 }
 
-export async function testCloudflareConnection(): Promise<{
+export interface CloudflareEndpointTestResult {
+  id: string;
+  label: string;
   ok: boolean;
   message: string;
   latencyMs: number;
   model: string;
-}> {
-  const cfg = getCloudflareConfig();
-  if (!isCloudflareConfigured(cfg)) {
-    return {
-      ok: false,
-      message:
-        cfg.mode === "worker"
-          ? "Enter your Cloudflare Worker URL and API Key first."
-          : "Enter your Cloudflare Account ID and API Token first.",
-      latencyMs: 0,
-      model: cfg.model,
-    };
-  }
+}
 
+async function pingEndpoint(ep: CloudflareEndpoint, model: string): Promise<CloudflareEndpointTestResult> {
   const started = Date.now();
+  const done = (ok: boolean, message: string): CloudflareEndpointTestResult => ({
+    id: ep.id,
+    label: ep.label,
+    ok,
+    message,
+    latencyMs: Date.now() - started,
+    model,
+  });
+  if (!isEndpointConfigured(ep)) {
+    return done(false, `"${ep.label}" is incomplete — add its ${ep.mode === "worker" ? "Worker URL + API Key" : "Account ID + API Token"} first.`);
+  }
   try {
-    if (cfg.mode === "worker") {
-      const targetUrl = validateWorkerUrl(cfg.workerUrl);
+    if (ep.mode === "worker") {
+      const targetUrl = validateWorkerUrl(ep.workerUrl);
       const res = await fetch(targetUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${cfg.workerApiKey}`,
+          Authorization: `Bearer ${ep.workerApiKey}`,
         },
         body: JSON.stringify({
           action: "ping",
           prompt: "cinematic test lighting frame",
-          model: cfg.model,
+          model,
           steps: 4,
           width: 512,
           height: 512,
         }),
         signal: AbortSignal.timeout(25000),
       });
-
       if (res.status === 401 || res.status === 403) {
-        return {
-          ok: false,
-          message: "Authentication failed (HTTP 401/403). Verify your Worker API_KEY.",
-          latencyMs: Date.now() - started,
-          model: cfg.model,
-        };
+        return done(false, `"${ep.label}": auth failed (401/403). Verify its Worker API_KEY.`);
       }
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
-        return {
-          ok: false,
-          message: `Worker responded with HTTP ${res.status}: ${errText.slice(0, 160)}`,
-          latencyMs: Date.now() - started,
-          model: cfg.model,
-        };
+        if (isRateLimitSignal(res.status, errText)) {
+          return done(false, `"${ep.label}": rate/quota limit hit (HTTP ${res.status}). A backup API will be used automatically.`);
+        }
+        return done(false, `"${ep.label}": worker HTTP ${res.status}: ${errText.slice(0, 160)}`);
       }
+      return done(true, `"${ep.label}" connected (${model}) in ${Date.now() - started}ms.`);
+    }
+    const accountId = validateAccountId(ep.accountId);
+    const url = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/models/search?per_page=1`;
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${ep.apiToken}` },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.status === 401 || res.status === 403) {
+      return done(false, `"${ep.label}": auth failed (401/403). Verify Account ID & API Token.`);
+    }
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      if (isRateLimitSignal(res.status, errText)) {
+        return done(false, `"${ep.label}": rate/quota limit hit (HTTP ${res.status}). A backup API will be used automatically.`);
+      }
+      return done(false, `"${ep.label}": Cloudflare API HTTP ${res.status}.`);
+    }
+    return done(true, `"${ep.label}" connected (${model}) in ${Date.now() - started}ms.`);
+  } catch (err: any) {
+    return done(false, `"${ep.label}": ${err?.message || "could not connect"}`);
+  }
+}
+
+export async function testCloudflareConnection(endpointId?: string): Promise<{
+  ok: boolean;
+  message: string;
+  latencyMs: number;
+  model: string;
+  results?: CloudflareEndpointTestResult[];
+}> {
+  const cfg = getCloudflareConfig();
+  const pool = (cfg.endpoints || []).filter((e) => !e.disabled);
+  const targets = endpointId ? pool.filter((e) => e.id === endpointId) : pool;
+  if (endpointId && targets.length === 0) {
+    return { ok: false, message: "Endpoint not found.", latencyMs: 0, model: cfg.model };
+  }
+  if (targets.length === 0) {
+    if (!isCloudflareConfigured(cfg)) {
       return {
-        ok: true,
-        message: `Connected to Cloudflare Worker (${cfg.model}) in ${Date.now() - started}ms.`,
-        latencyMs: Date.now() - started,
-        model: cfg.model,
-      };
-    } else {
-      const accountId = validateAccountId(cfg.accountId);
-      const url = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId)}/ai/models/search?per_page=1`;
-      const res = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${cfg.apiToken}`,
-        },
-        signal: AbortSignal.timeout(15000),
-      });
-      if (res.status === 401 || res.status === 403) {
-        return {
-          ok: false,
-          message: "Authentication failed (HTTP 401/403). Verify your Cloudflare Account ID & API Token.",
-          latencyMs: Date.now() - started,
-          model: cfg.model,
-        };
-      }
-      if (!res.ok) {
-        return {
-          ok: false,
-          message: `Cloudflare API responded with HTTP ${res.status}.`,
-          latencyMs: Date.now() - started,
-          model: cfg.model,
-        };
-      }
-      return {
-        ok: true,
-        message: `Connected to Cloudflare Workers AI (${cfg.model}) in ${Date.now() - started}ms.`,
-        latencyMs: Date.now() - started,
+        ok: false,
+        message: "Add at least one Cloudflare API (Worker URL + Key, or Account ID + Token) first.",
+        latencyMs: 0,
         model: cfg.model,
       };
     }
-  } catch (err: any) {
-    return {
-      ok: false,
-      message: err?.message || "Could not connect to Cloudflare.",
-      latencyMs: Date.now() - started,
-      model: cfg.model,
+    // Legacy fallback (no pool yet): ping legacy single config.
+    const legacyEp: CloudflareEndpoint = {
+      id: "cf-primary",
+      label: "Primary API",
+      mode: cfg.mode,
+      workerUrl: cfg.workerUrl,
+      workerApiKey: cfg.workerApiKey,
+      accountId: cfg.accountId,
+      apiToken: cfg.apiToken,
+      disabled: false,
     };
+    const single = await pingEndpoint(legacyEp, cfg.model);
+    return { ok: single.ok, message: single.message, latencyMs: single.latencyMs, model: cfg.model, results: [single] };
   }
+  if (targets.length === 1) {
+    const single = await pingEndpoint(targets[0], cfg.model);
+    const stat = getEndpointStat(targets[0].id);
+    stat.lastLatencyMs = single.latencyMs;
+    if (!single.ok) stat.lastError = single.message.slice(0, 240);
+    return { ok: single.ok, message: single.message, latencyMs: single.latencyMs, model: cfg.model, results: [single] };
+  }
+  const results: CloudflareEndpointTestResult[] = [];
+  for (const ep of targets) {
+    // Sequential to avoid bursting all keys at once.
+    const r = await pingEndpoint(ep, cfg.model);
+    results.push(r);
+    const stat = getEndpointStat(ep.id);
+    stat.lastLatencyMs = r.latencyMs;
+    if (!r.ok) stat.lastError = r.message.slice(0, 240);
+  }
+  const okCount = results.filter((r) => r.ok).length;
+  return {
+    ok: okCount > 0,
+    message: `${okCount}/${results.length} Cloudflare APIs reachable.`,
+    latencyMs: results.reduce((a, r) => a + r.latencyMs, 0),
+    model: cfg.model,
+    results,
+  };
 }
 
 export interface CloudflareGenerateOptions {
@@ -509,6 +976,72 @@ export interface CloudflareGenerateOptions {
   filePrefix?: "image" | "ref-frame";
 }
 
+function orderEndpointsForAttempt(
+  pool: CloudflareEndpoint[],
+  strategy: CloudflareStrategy
+): CloudflareEndpoint[] {
+  if (pool.length <= 1 || strategy !== "round-robin") return [...pool];
+  const start = roundRobinCursor % pool.length;
+  roundRobinCursor = (roundRobinCursor + 1) % 1000000;
+  return [...pool.slice(start), ...pool.slice(0, start)];
+}
+
+async function attemptEndpointGenerate(
+  ep: CloudflareEndpoint,
+  args: {
+    effectivePrompt: string;
+    model: string;
+    isFlux: boolean;
+    fluxSteps: number;
+    sdxlSteps: number;
+    targetWidth: number;
+    targetHeight: number;
+    seed: number;
+    signal: AbortSignal;
+  }
+): Promise<Response> {
+  if (ep.mode === "worker") {
+    const targetUrl = validateWorkerUrl(ep.workerUrl);
+    return fetch(targetUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${ep.workerApiKey}`,
+      },
+      body: JSON.stringify({
+        prompt: args.effectivePrompt,
+        model: args.model,
+        width: args.targetWidth,
+        height: args.targetHeight,
+        steps: args.isFlux ? args.fluxSteps : args.sdxlSteps,
+        num_steps: args.isFlux ? args.fluxSteps : args.sdxlSteps,
+        seed: args.seed,
+      }),
+      signal: args.signal,
+    });
+  }
+  const cfAccountId = validateAccountId(ep.accountId);
+  const directUrl = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(cfAccountId)}/ai/run/${args.model}`;
+  const payload = args.isFlux
+    ? { prompt: args.effectivePrompt, steps: args.fluxSteps }
+    : {
+        prompt: args.effectivePrompt,
+        width: args.targetWidth,
+        height: args.targetHeight,
+        num_steps: args.sdxlSteps,
+        seed: args.seed,
+      };
+  return fetch(directUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${ep.apiToken}`,
+    },
+    body: JSON.stringify(payload),
+    signal: args.signal,
+  });
+}
+
 export async function generateCloudflareImage(opts: CloudflareGenerateOptions): Promise<{
   publicUrl: string;
   fileName: string;
@@ -517,6 +1050,9 @@ export async function generateCloudflareImage(opts: CloudflareGenerateOptions): 
   loraFileName?: string;
   provider: "cloudflare";
   model: string;
+  endpointId: string;
+  endpointLabel: string;
+  attempts: number;
 }> {
   const started = Date.now();
   const scriptId = sanitizeSegment(opts.scriptId);
@@ -526,9 +1062,7 @@ export async function generateCloudflareImage(opts: CloudflareGenerateOptions): 
   if (!isCloudflareConfigured(cfg)) {
     throw new ComfyError(
       "CONFIG",
-      cfg.mode === "worker"
-        ? "Cloudflare Worker URL and API Key are not configured. Open Cloudflare settings in the Image tab to configure."
-        : "Cloudflare Account ID and API Token are not configured. Open Cloudflare settings in the Image tab to configure."
+      "No Cloudflare API is configured. Open Cloudflare settings in the Image tab and add at least one Worker URL + Key or Account ID + Token."
     );
   }
 
@@ -554,101 +1088,158 @@ export async function generateCloudflareImage(opts: CloudflareGenerateOptions): 
 
   const fluxSteps = preset === "fast" ? 4 : preset === "high" ? 8 : 6;
   const sdxlSteps = preset === "fast" ? 12 : preset === "high" ? 28 : 20;
+  const cooldownMs = cfg.cooldownMs || DEFAULT_COOLDOWN_MS;
 
-  let res: Response;
-  try {
-    if (cfg.mode === "worker") {
-      const targetUrl = validateWorkerUrl(cfg.workerUrl);
-      res = await fetch(targetUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${cfg.workerApiKey}`,
-        },
-        body: JSON.stringify({
-          prompt: effectivePrompt,
-          model,
-          width: targetWidth,
-          height: targetHeight,
-          steps: isFlux ? fluxSteps : sdxlSteps,
-          num_steps: isFlux ? fluxSteps : sdxlSteps,
-          seed,
-        }),
-        signal: opts.signal || AbortSignal.timeout(90000),
-      });
-    } else {
-      const cfAccountId = validateAccountId(cfg.accountId);
-      const directUrl = `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(cfAccountId)}/ai/run/${model}`;
-      const payload = isFlux
-        ? { prompt: effectivePrompt, steps: fluxSteps }
-        : {
-            prompt: effectivePrompt,
-            width: targetWidth,
-            height: targetHeight,
-            num_steps: sdxlSteps,
-            seed,
-          };
-      res = await fetch(directUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${cfg.apiToken}`,
-        },
-        body: JSON.stringify(payload),
-        signal: opts.signal || AbortSignal.timeout(90000),
-      });
-    }
-  } catch (err: any) {
-    if (opts.signal?.aborted || err?.name === "AbortError") {
-      throw new ComfyError("CANCELLED", "Generation cancelled by user.");
-    }
-    if (err instanceof ComfyError) throw err;
-    throw new ComfyError("OFFLINE", `Could not reach Cloudflare AI endpoint: ${err?.message || "network error"}`);
+  // Resolve pool: prefer explicit endpoints, fall back to legacy single for old configs.
+  let pool: CloudflareEndpoint[] = getEnabledEndpoints(cfg).filter(isEndpointConfigured);
+  if (pool.length === 0) {
+    pool = [
+      {
+        id: "cf-primary",
+        label: "Primary API",
+        mode: cfg.mode,
+        workerUrl: cfg.workerUrl,
+        workerApiKey: cfg.workerApiKey,
+        accountId: cfg.accountId,
+        apiToken: cfg.apiToken,
+        disabled: false,
+      },
+    ].filter(isEndpointConfigured);
+  }
+  if (pool.length === 0) {
+    throw new ComfyError("CONFIG", "All Cloudflare APIs are disabled or incomplete. Enable at least one.");
   }
 
-  if (!res.ok) {
+  const ordered = orderEndpointsForAttempt(pool, cfg.strategy || DEFAULT_STRATEGY);
+  const now = Date.now();
+  // Prefer endpoints not in cooldown; if all are cooling down, still try them (shortest cooldown first).
+  const fresh = ordered.filter((e) => (endpointCooldowns.get(e.id) || 0) <= now);
+  const cooled = ordered
+    .filter((e) => (endpointCooldowns.get(e.id) || 0) > now)
+    .sort((a, b) => (endpointCooldowns.get(a.id) || 0) - (endpointCooldowns.get(b.id) || 0));
+  const attemptOrder = [...fresh, ...cooled];
+
+  const failures: Array<{ label: string; status: number; message: string }> = [];
+  let attempts = 0;
+
+  for (const ep of attemptOrder) {
+    if (opts.signal?.aborted) throw new ComfyError("CANCELLED", "Generation cancelled by user.");
+    attempts += 1;
+    const epStarted = Date.now();
+    let res: Response;
+    try {
+      res = await attemptEndpointGenerate(ep, {
+        effectivePrompt,
+        model,
+        isFlux,
+        fluxSteps,
+        sdxlSteps,
+        targetWidth,
+        targetHeight,
+        seed,
+        signal: opts.signal || AbortSignal.timeout(90000),
+      });
+    } catch (err: any) {
+      if (opts.signal?.aborted || err?.name === "AbortError") {
+        throw new ComfyError("CANCELLED", "Generation cancelled by user.");
+      }
+      if (err instanceof ComfyError) throw err;
+      // Network-level failure -> try next endpoint.
+      const msg = `Could not reach "${ep.label}": ${err?.message || "network error"}`;
+      markEndpointFailure(ep.id, msg, Date.now() - epStarted, false, cooldownMs);
+      failures.push({ label: ep.label, status: 0, message: msg });
+      continue;
+    }
+
+    if (res.ok) {
+      let rawImageBuffer: Buffer;
+      try {
+        rawImageBuffer = await extractImageBufferFromResponse(res);
+      } catch (err: any) {
+        if (err instanceof ComfyError) {
+          const msg = `"${ep.label}": ${err.message}`;
+          const rateLimited = isRateLimitSignal(0, err.message);
+          markEndpointFailure(ep.id, msg, Date.now() - epStarted, rateLimited, cooldownMs);
+          failures.push({ label: ep.label, status: res.status, message: msg });
+          continue;
+        }
+        throw err;
+      }
+      // Normalize to PNG at target aspect ratio so downstream FFmpeg and media validators work identically to local ComfyUI
+      let pngBuffer: Buffer;
+      try {
+        const img = sharp(rawImageBuffer, { limitInputPixels: 40000000 });
+        const meta = await img.metadata();
+        if (!meta.width || !meta.height) {
+          throw new Error("Invalid image metadata");
+        }
+        pngBuffer = await img
+          .resize(targetWidth, targetHeight, { fit: "cover", position: "centre" })
+          .png()
+          .toBuffer();
+      } catch (err: any) {
+        throw new ComfyError(
+          "GENERATION_ERROR",
+          `Cloudflare returned invalid image data: ${err?.message || "decode failed"}`
+        );
+      }
+
+      markEndpointSuccess(ep.id, Date.now() - epStarted);
+      const outDir = path.join(generatedDir(), scriptId);
+      fs.mkdirSync(outDir, { recursive: true });
+      const fileName = `${prefix}-${String(opts.index).padStart(2, "0")}-${started}.png`;
+      fs.writeFileSync(path.join(outDir, fileName), pngBuffer);
+
+      if (attempts > 1) {
+        console.log(`[cloudflare] failover succeeded on "${ep.label}" after ${attempts} attempt(s).`);
+      }
+      return {
+        publicUrl: mediaUrl(`generate/file/${scriptId}/${fileName}`),
+        fileName,
+        seed,
+        elapsedMs: Date.now() - started,
+        provider: "cloudflare",
+        model,
+        endpointId: ep.id,
+        endpointLabel: ep.label,
+        attempts,
+      };
+    }
+
+    // Non-OK response: decide retry vs fail.
     const errText = await res.text().catch(() => "");
+    if (opts.signal?.aborted) throw new ComfyError("CANCELLED", "Generation cancelled by user.");
+    const rateLimited = isRateLimitSignal(res.status, errText);
+    if (res.status === 400 || res.status === 404 || res.status === 415) {
+      // Prompt/model rejection — retrying another key won't help.
+      throw new ComfyError(
+        "GENERATION_ERROR",
+        `Cloudflare image generation failed on "${ep.label}" (HTTP ${res.status}): ${errText.slice(0, 240)}`
+      );
+    }
     if (res.status === 401 || res.status === 403) {
-      throw new ComfyError("CONFIG", "Cloudflare authentication failed (HTTP 401/403). Check your API Key / Token.");
+      const msg = `"${ep.label}": auth failed (401/403) — check its key/token.`;
+      markEndpointFailure(ep.id, msg, Date.now() - epStarted, false, cooldownMs);
+      failures.push({ label: ep.label, status: res.status, message: `${msg} ${errText.slice(0, 120)}` });
+      continue; // try next key — it may be valid.
     }
-    throw new ComfyError(
-      "GENERATION_ERROR",
-      `Cloudflare image generation failed (HTTP ${res.status}): ${errText.slice(0, 240)}`
-    );
+    if (isRetryableFailure(res.status, errText) || rateLimited) {
+      const reason = rateLimited ? "limit hit" : `HTTP ${res.status}`;
+      const msg = `"${ep.label}": ${reason} — switching to backup API. ${errText.slice(0, 120)}`;
+      markEndpointFailure(ep.id, msg, Date.now() - epStarted, true, cooldownMs);
+      failures.push({ label: ep.label, status: res.status, message: msg });
+      continue;
+    }
+    const msg = `"${ep.label}": HTTP ${res.status} ${errText.slice(0, 160)}`;
+    markEndpointFailure(ep.id, msg, Date.now() - epStarted, false, cooldownMs);
+    failures.push({ label: ep.label, status: res.status, message: msg });
   }
 
-  const rawImageBuffer = await extractImageBufferFromResponse(res);
-
-  // Normalize to PNG at target aspect ratio so downstream FFmpeg and media validators work identically to local ComfyUI
-  let pngBuffer: Buffer;
-  try {
-    const img = sharp(rawImageBuffer, { limitInputPixels: 40000000 });
-    const meta = await img.metadata();
-    if (!meta.width || !meta.height) {
-      throw new Error("Invalid image metadata");
-    }
-    pngBuffer = await img
-      .resize(targetWidth, targetHeight, { fit: "cover", position: "centre" })
-      .png()
-      .toBuffer();
-  } catch (err: any) {
-    throw new ComfyError(
-      "GENERATION_ERROR",
-      `Cloudflare returned invalid image data: ${err?.message || "decode failed"}`
-    );
-  }
-
-  const outDir = path.join(generatedDir(), scriptId);
-  fs.mkdirSync(outDir, { recursive: true });
-  const fileName = `${prefix}-${String(opts.index).padStart(2, "0")}-${started}.png`;
-  fs.writeFileSync(path.join(outDir, fileName), pngBuffer);
-
-  return {
-    publicUrl: mediaUrl(`generate/file/${scriptId}/${fileName}`),
-    fileName,
-    seed,
-    elapsedMs: Date.now() - started,
-    provider: "cloudflare",
-    model,
-  };
+  const summary = failures.map((f) => f.message).join(" | ").slice(0, 600) || "all endpoints failed";
+  const allRateLimited = failures.length > 0 && failures.every((f) => f.status === 429 || /limit|quota|capacity|neurons/i.test(f.message));
+  throw new ComfyError(
+    allRateLimited ? "RATE_LIMITED" : "GENERATION_ERROR",
+    `All ${attemptOrder.length} Cloudflare API(s) failed after ${attempts} attempt(s): ${summary}`,
+    { failures }
+  );
 }

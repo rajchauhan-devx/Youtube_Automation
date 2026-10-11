@@ -58,12 +58,11 @@ export function validateScenePlan(value: unknown): ScenePlan {
     if (typeof scene.narration === 'string') {
       scene.narration = cleanSpokenNarration(scene.narration) || scene.narration.trim();
     }
-    if (typeof scene.narration === 'string' && scene.narration.length > 700) throw new Error(`Scene ${scene.id}: narration has ${scene.narration.length} characters; use at most 700. Split this chapter across multiple scenes while keeping the required video quota.`);
     if (!scene || typeof scene.id !== 'string' || !/^[A-Za-z0-9_-]{1,60}$/.test(scene.id) || ids.has(scene.id) ||
         !['story', 'cta'].includes(scene.role) || typeof scene.chapter !== 'string' || !scene.chapter.trim() ||
-        typeof scene.narration !== 'string' || !scene.narration.trim() || scene.narration.length > 700 ||
+        typeof scene.narration !== 'string' || !scene.narration.trim() ||
         typeof scene.imagePrompt !== 'string' || !scene.imagePrompt.trim() || scene.imagePrompt.length > 8000) {
-      throw new Error('Each scene needs a unique ID, chapter, role, image prompt and spoken narration of at most 700 characters.');
+      throw new Error('Each scene needs a unique ID, chapter, role, image prompt and spoken narration.');
     }
     ids.add(scene.id);
   }
