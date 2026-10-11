@@ -16,6 +16,7 @@ import { flowProfileDir } from './profile.js';
 
 export type OverseerCode =
   | 'AUTH_EXPIRED'
+  | 'PROFILE_LOCKED'
   | 'CLARIFICATION'
   | 'CREDIT_DIALOG'
   | 'BUDGET_BLOCKED'
@@ -47,6 +48,7 @@ async function shot(page: { screenshot: (opts: { path: string }) => Promise<unkn
 export function classifyFailure(message: string, url: string): OverseerCode {
   const text = `${message} ${url}`.toLowerCase();
   if (/accounts\.google|signin\/rejected|choose an account|session expired/i.test(text)) return 'AUTH_EXPIRED';
+  if (/profile.*(in use|locked)|singletonlock|user data directory is already in use|could not remove old devtools/i.test(text)) return 'PROFILE_LOCKED';
   if (/recaptcha|unusual traffic|try again later|automated queries/i.test(text)) return 'RECAPTCHA_BLOCKED';
   if (/credit|billing|payment|quota|out of credits/i.test(text)) return 'CREDIT_DIALOG';
   if (/clarif|could you|which.*prefer|what.*mean/i.test(text)) return 'CLARIFICATION';
@@ -58,6 +60,7 @@ export function classifyFailure(message: string, url: string): OverseerCode {
 export function recoveryHint(code: OverseerCode): string {
   switch (code) {
     case 'AUTH_EXPIRED': return 'GET /api/flow/login-hint, sign in once in the headed profile, then retry the job (idempotent: same prompt will not double-bill a completed render).';
+    case 'PROFILE_LOCKED': return 'Close the manual Flow/Chrome window that is still open on this profile, then retry. One profile = one writer.';
     case 'CLARIFICATION': return 'Flow asked a question instead of generating (usually an invalid model/duration combo). Dry-run first, then retry with the wrapped prompt.';
     case 'CREDIT_DIALOG': return 'A credit confirmation appeared. Approve manually in the profile browser once, or lower the model to Lite/Fast.';
     case 'BUDGET_BLOCKED': return 'Episode credit budget would be exceeded. Raise FLOW_CREDIT_BUDGET_PER_EPISODE or use Lite.';
