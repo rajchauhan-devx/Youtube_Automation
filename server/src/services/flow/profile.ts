@@ -17,6 +17,8 @@ function findServerRoot(): string {
 }
 const SERVER_ROOT = findServerRoot();
 
+import { getFlowCreditsInfo, type FlowCreditsState } from './credits.js';
+
 export interface FlowStatus {
   installed: boolean;
   browsersInstalled: boolean;
@@ -26,6 +28,8 @@ export interface FlowStatus {
   headless: boolean;
   creditBudgetPerEpisode: number;
   maxJobs: number;
+  creditsRemaining: number;
+  credits: FlowCreditsState;
   note: string;
 }
 
@@ -85,6 +89,8 @@ export async function flowStatus(): Promise<FlowStatus> {
     headless: (process.env.FLOW_HEADLESS || 'true').toLowerCase() !== 'false',
     creditBudgetPerEpisode: Number.parseInt(process.env.FLOW_CREDIT_BUDGET_PER_EPISODE || '320', 10),
     maxJobs: Math.max(1, Number.parseInt(process.env.FLOW_MAX_JOBS || '1', 10)),
+    creditsRemaining: getFlowCreditsInfo().credits,
+    credits: getFlowCreditsInfo(),
     note,
   };
 }

@@ -183,94 +183,7 @@
         "elapsedMs": 2877
       }
     ],
-    "generatedAudio": [
-      {
-        "filename": "narration_hi_ab2381fa-28d6-4d9a-882c-a607c7432f6d.wav",
-        "url": "/api/accounts/default/profiles/shorts/generate/file/usr_1787934167716/narration_hi_ab2381fa-28d6-4d9a-882c-a607c7432f6d.wav",
-        "language": "hi",
-        "voice": "clone_7510581a-5e3e-4cd1-a3e1-283620667ae5",
-        "sync": {
-          "version": 1,
-          "timingMode": "narration",
-          "planHash": "20e6be4a6ec6ad06e6c7fcb1a3a3cee8ea77829658a1cced80fb0bfc4f31827f",
-          "sampleRate": 48000,
-          "totalSamples": 2160000,
-          "scenes": [
-            {
-              "sceneId": "scene_001",
-              "startSample": 0,
-              "endSample": 246240
-            },
-            {
-              "sceneId": "scene_002",
-              "startSample": 246240,
-              "endSample": 401280
-            },
-            {
-              "sceneId": "scene_003",
-              "startSample": 401280,
-              "endSample": 479520
-            },
-            {
-              "sceneId": "scene_004",
-              "startSample": 479520,
-              "endSample": 687360
-            },
-            {
-              "sceneId": "scene_005",
-              "startSample": 687360,
-              "endSample": 860640
-            },
-            {
-              "sceneId": "scene_006",
-              "startSample": 860640,
-              "endSample": 1001280
-            },
-            {
-              "sceneId": "scene_007",
-              "startSample": 1001280,
-              "endSample": 1115040
-            },
-            {
-              "sceneId": "scene_008",
-              "startSample": 1115040,
-              "endSample": 1260480
-            },
-            {
-              "sceneId": "scene_009",
-              "startSample": 1260480,
-              "endSample": 1404000
-            },
-            {
-              "sceneId": "scene_010",
-              "startSample": 1404000,
-              "endSample": 1572480
-            },
-            {
-              "sceneId": "scene_011",
-              "startSample": 1572480,
-              "endSample": 1725600
-            },
-            {
-              "sceneId": "scene_012",
-              "startSample": 1725600,
-              "endSample": 1858560
-            },
-            {
-              "sceneId": "scene_013",
-              "startSample": 1858560,
-              "endSample": 2102880
-            },
-            {
-              "sceneId": "scene_014",
-              "startSample": 2102880,
-              "endSample": 2160000
-            }
-          ]
-        },
-        "narrationText": "ऋत का वह शाश्वत नियम — ब्रह्मांड की चाल और सत्य का वह अदृश्य धागा,\n\nजो सृष्टि के कण-कण को अनुशासन में बांधता है।\n\nप्राचीन वैदिक काल में,\n\nऋत वह ब्रह्मांडीय व्यवस्था थी जो सूर्य के उदय होने,\n\nऋतुओं के बदलने और नदियों के बहने को नियंत्रित करती थी।\n\nयही ऋत आगे चलकर मानव जीवन और नैतिकता\n\nके रूप में 'धर्म' के नाम से जाना गया।\n\nकिंतु, क्या धर्म केवल कुछ नियमों का नाम है?\n\nया यह उस परम कर्तव्य का पालन है जो\n\nहर परिस्थिति में न्याय और संतुलन स्थापित करता है?\n\nवैदिक ऋषियों ने सिखाया कि धर्म वह आधार है\n\nजो इस संपूर्ण जगत को थामे हुए है —\n\nसत्य, करुणा और कर्तव्य का ऐसा संगम जो कभी नष्ट नहीं होता।\n\nजय श्री राम 🙏"
-      }
-    ],
+    "generatedAudio": [],
     "pipeline": [
       {
         "id": "response",
@@ -306,7 +219,7 @@
           "chapter": "[Vedic Cosmos and Ṛta]",
           "role": "story",
           "narration": "ऋत का वह शाश्वत नियम — ब्रह्मांड की चाल और सत्य का वह अदृश्य धागा,",
-          "mediaType": "image",
+          "mediaType": "video",
           "duration": 5,
           "imagePrompt": "[120 words self-contained static prompt. A majestic primordial sunrise over a serene, untouched Vedic landscape during Treta Yuga, showing golden rays breaking through swirling morning mist over the sacred river, symbolizing the eternal cosmic order of Ṛta. Deep depth layers, towering ancient sal trees, ancient stone altar with a quiet dhuni fire in the foreground, cinematic volumetric lighting, 8K resolution.]\n\nContinuity Lock:\n[No primary character present; focus on landscape and sacred environment.]\n\nNegative Prompt:\n[cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy]\n\nStyle Tags:\n[ultra realistic, cinematic photography, Treta Yuga ancient India, devotional epic atmosphere, volumetric lighting, photorealistic textures, 8K resolution, emotionally powerful composition, sacred grandeur]"
         },
@@ -523,12 +436,30 @@
     ],
     "generatedImages": [
       {
+        "index": 0,
+        "prompt": "A ancient Treta Yuga scene inside a grand Vedic ashram courtyards in ancient Ayodhya. An aged revered Vedic Brahmarshi with a long white beard sitting on a tiger skin mat under a colossal ancient Banyan tree, holding a peacock quill, inscribing Sanskrit mantras onto golden palm leaf manuscripts (tadpatra). Floating softly around him are four glowing golden geometric mandalas representing Dharma, Artha, Kama, and Moksha. Atmospheric morning light filtering through tree leaves, rising holy havan smoke from a brass yajna pit, carved stone pillars in background, hyper-detailed volumetric depth, rich ochre and warm bronze color grading.\n\nContinuity Lock:\nAncient Vedic Rishi: Venerable sage, long white beard, matted hair, ascetic cotton garments, serene contemplative eyes, holy ash (vibhuti) on forehead.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-00-1791709153351.png",
+        "seed": 938953882,
+        "elapsedMs": 6018
+      },
+      {
         "index": 1,
         "prompt": "Starting frame establishes Shri Rama standing on the grand Vedic carved stone terrace of Ayodhya Palace. Shri Rama has deep blue-dark skin, holding his legendary bow Sharanga firmly in his left hand, looking out over his kingdom with profound compassion and moral resolve. Over 6 seconds, the camera executes a slow, continuous tracking push-in shot toward Rama's regal face as royal saffron banners gently flutter in the morning breeze behind him. Soft golden sunlight glistens on his yellow silk dhoti and sacred gold jewelry. The motion remains perfectly steady with clean terminal framing on his serene blue-dark face.\n\nContinuity Lock:\nShri Rama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall muscular body with broad shoulders, long black hair tied in a warrior bun, yellow silk dhoti, ornate crown (mukut), bow Sharanga, serene divine majesty expression.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth camera push-in motion, no lip sync, no text, stable final frame.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter",
         "mediaType": "video",
         "duration": 8,
         "status": "done",
-        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_1_7e569c32-cd07-4ab6-b4b5-128fee473bea.mp4"
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_1_6233dfef-f672-442f-8609-40472cadc2eb.mp4"
+      },
+      {
+        "index": 2,
+        "prompt": "A vibrant Treta Yuga Vedic city square in ancient Ayodhya illustrating Artha (righteous prosperity). Wealthy merchants and joyful citizens in traditional silk dhotis and sarees trading ethically in open stone pavilions filled with golden coins, brass vessels, woven textiles, and overflowing baskets of grains and fresh fruits. Classical Vedic stone architecture with grand carved elephants and pillars, marigold flower garlands draped across archways, bright warm amber sunlight casting soft cinematic shadows, balanced deep focal length composition, serene wealth without greed.\n\nContinuity Lock:\nVedic Citizens: Ayodhya inhabitants, ancient Treta Yuga Indian apparel, warm skin tones, traditional silk robes, wooden and gold jewelry, peaceful joyful expressions.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-02-1791709159435.png",
+        "seed": 1300642195,
+        "elapsedMs": 3508
       },
       {
         "index": 3,
@@ -536,10 +467,128 @@
         "mediaType": "video",
         "duration": 8,
         "status": "done",
-        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_3_08bdf0be-d390-4668-85fa-ad397ba0475e.mp4"
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_3_60099eac-a85f-4944-8fb6-3f81f7306bbf.mp4"
+      },
+      {
+        "index": 4,
+        "prompt": "Dramatic dark mood framing King Ravana seated upon a grand black obsidian and gold throne inside the opulent palace of Lanka. Ravana has dark bronze skin, an imposing muscular physique, black and blood-red silk robes, heavy gold chest armor, and ten crowned heads depicted in wide background shadow depth. He clutches a jeweled goblet with arrogant pride, surrounded by overflowing hoardings of gold, severed from righteousness and Dharma. Fiery crimson torchlight creates high-contrast shadows on black stone carved spires, evoking intense spiritual imbalance and destructive ego.\n\nContinuity Lock:\nRavana: Age 40–50 appearance, imposing sovereign king, dark bronze skin with fiery undertones, ten heads in establishing view, dark blood-red royal silk, heavy gold armor, regal arrogance and unyielding pride.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-04-1791709162992.png",
+        "seed": 1279437932,
+        "elapsedMs": 3488
+      },
+      {
+        "index": 5,
+        "prompt": "Starting frame shows Shri Rama on the stormy ocean shore of Lanka, drawing his divine longbow Sharanga with powerful alignment. His skin is deep blue-dark (\"shyama varna\"), hair flying in wind, eyes burning with righteous determination. Over 6 seconds, the camera executes a dynamic, rapid forward tracking shot along the length of the glowing divine arrow notched on his bowstring. Electric blue energy crackles along the arrow shaft as wind whips his saffron bark-cloth dhoti. The camera comes to a steady hold right near the divine glowing arrow tip as it readies to launch.\n\nContinuity Lock:\nShri Rama: Age 25–30, deep blue-dark complexion (\"shyama varna\"), athletic muscular frame, matted black hair warrior knot, saffron bark-cloth, intense moral resolve and divine fierce focus, bow Sharanga.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, dynamic smooth forward tracking motion, no lip sync, no text, stable terminal frame.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_5_b5b3e5d3-ec35-4d8f-8a40-d0317f9f5c73.mp4"
+      },
+      {
+        "index": 6,
+        "prompt": "A serene static visual of Shri Rama sitting in deep meditation outside a humble thatched ashram hut in the Chitrakuta forest during morning mist. Shri Rama has deep blue-dark skin (\"shyama varna\"), wearing simple saffron bark-cloth, matted hair tied in an ascetic knot, completely detached from imperial wealth, embodying pure sacrifice and adherence to truth. A quiet sacred dhuni fire crackles softly before him, casting gentle golden embers into the cool green rainforest background filled with wild deer and sal trees.\n\nContinuity Lock:\nShri Rama: Age 25–30, deep blue-dark complexion (\"shyama varna\"), matted black hair in ascetic knot, saffron bark-cloth dhoti, serene tranquil expression, relaxed meditative posture.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-06-1791709166528.png",
+        "seed": 428845360,
+        "elapsedMs": 3321
+      },
+      {
+        "index": 7,
+        "prompt": "Starting on a close-up of a glowing sacred lotus flower resting on calm water. Over 6 seconds, the camera smoothly tilts up to reveal a majestic divine silhouette meditating in lotus position against a brilliant cosmic background filled with soft golden light rays, blooming lotus petals floating upward into the cosmos, and ancient Sanskrit glyphs shimmering softly. The lighting brightens in a smooth transition toward blinding ethereal golden purity, symbolizing spiritual liberation (Moksha). Smooth continuous vertical pan ending in a brilliant celestial vista.\n\nContinuity Lock:\nSacred Meditating Figure: Spiritual soul in deep bliss, radiating divine golden aura, completely harmonious and detached.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, continuous camera tilt-up motion, no lip sync, no text, stable final frame.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_7_706e0c86-2562-4ee4-8d71-0f5f770dd71a.mp4"
+      },
+      {
+        "index": 8,
+        "prompt": "Grand symmetrical master shot of the coronation court of Shri Rama and Mata Sita inside Ayodhya palace (Rama Rajya). Shri Rama with deep blue-dark skin (\"shyama varna\") and Mata Sita with golden complexion sit upon a divine gold throne, crowned in supreme majesty. Surrounding them are Lakshmana, Hanuman, noble sages, and joyous citizens showering flower petals under carved stone Vedic cupolas. Bright golden light showers from the heavens, casting a glowing aura over the perfect balance of Dharma, Artha, Kama, and Moksha in society.\n\nContinuity Lock:\nShri Rama: Deep blue-dark complexion (\"shyama varna\"), golden royal robes, ornate crown, divine supreme smile.\nMata Sita: Golden-fair complexion (\"suvarna varna\"), rich red silk saree, elaborate traditional gold jewelry, majestic peaceful grace.\nHanuman: Muscular golden-orange fur Vanara, kneeling humbly in devotional surrender with hands folded.\nLakshmana: Fair wheatish complexion, sharp warrior features, protective standing posture holding longbow.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-08-1791709169896.png",
+        "seed": 540012011,
+        "elapsedMs": 3658
+      },
+      {
+        "index": 9,
+        "prompt": "Starting frame on a medium close-up of Shri Rama’s divine blue-dark hands slowly joining together into a revered Namaste gesture. Over 3 seconds, the camera glides in a very subtle, continuous slow push-in, as a warm beam of divine golden sunlight illuminates his chest and face, conveying eternal blessing, peace, and spiritual harmony. Smooth, still ending frame.\n\nContinuity Lock:\nShri Rama: Deep blue-dark complexion (\"shyama varna\"), calm compassionate eyes, slight divine smile, yellow silk apparel, gold necklace, divine aura.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, smooth camera push-in, no lip sync, no text, clean terminal frame.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_9_334cab16-f80a-4bba-abc6-f19b3fe344ce.mp4"
       }
     ],
-    "generatedAudio": [],
+    "generatedAudio": [
+      {
+        "filename": "narration_hi_479145ed-6b1d-4400-a430-67c229b97c12.wav",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/narration_hi_479145ed-6b1d-4400-a430-67c229b97c12.wav",
+        "language": "hi",
+        "voice": "clone_7510581a-5e3e-4cd1-a3e1-283620667ae5",
+        "sync": {
+          "version": 1,
+          "timingMode": "narration",
+          "planHash": "8455e99c403e7561c4b977a2cb7b85348050bc1b8e683afcfbdd0b8546c8a461",
+          "sampleRate": 48000,
+          "totalSamples": 2321280,
+          "scenes": [
+            {
+              "sceneId": "scene_001",
+              "startSample": 0,
+              "endSample": 157920
+            },
+            {
+              "sceneId": "scene_002",
+              "startSample": 157920,
+              "endSample": 421440
+            },
+            {
+              "sceneId": "scene_003",
+              "startSample": 421440,
+              "endSample": 701280
+            },
+            {
+              "sceneId": "scene_004",
+              "startSample": 701280,
+              "endSample": 960000
+            },
+            {
+              "sceneId": "scene_005",
+              "startSample": 960000,
+              "endSample": 1204320
+            },
+            {
+              "sceneId": "scene_006",
+              "startSample": 1204320,
+              "endSample": 1411200
+            },
+            {
+              "sceneId": "scene_007",
+              "startSample": 1411200,
+              "endSample": 1604640
+            },
+            {
+              "sceneId": "scene_008",
+              "startSample": 1604640,
+              "endSample": 1865280
+            },
+            {
+              "sceneId": "scene_009",
+              "startSample": 1865280,
+              "endSample": 2100960
+            },
+            {
+              "sceneId": "scene_010",
+              "startSample": 2100960,
+              "endSample": 2321280
+            }
+          ]
+        },
+        "narrationText": "क्या आप जानते हैं जीवन के चार परम लक्ष्य क्या हैं?\n\nधर्म—सत्य और कर्तव्य का मार्ग, जिसे श्री राम ने अपने हर कार्य से सिद्ध किया।\n\nअर्थ—समृद्धि और धन, जो समाज के कल्याण और धर्म की रक्षा के लिए उपार्जित हो।\n\nकाम—सौंदर्य, प्रेम और आनंद की पावन अनुभूति, जो धर्म की मर्यादा में रहकर फलती है।\n\nजब अर्थ और काम धर्म से भटकते हैं, तो रावण जैसा विनाश जन्म लेता है!\n\nधर्म की पुनर्स्थापना ही जीवन को सत्य के मार्ग पर लौटाती है।\n\nत्याग और संतुलन ही जीवन के वास्तविक अर्थ को उजागर करते हैं।\n\nमोक्ष—समस्त बंधनों से मुक्ति, जो धर्म, अर्थ और काम के संतुलन से प्राप्त होती है।\n\nजब चारों पुरुषार्थ संतुलित होते हैं, तब जीवन में रामराज्य स्थापित होता है।\n\nअपने जीवन में धर्म को साधें और परम सुख पाएं। जय श्री राम!"
+      }
+    ],
     "pipeline": [
       {
         "id": "response",
@@ -701,6 +750,149 @@
       "timings": [],
       "mood": "epic",
       "colorGrade": "warm-vintage"
+    },
+    "editingProjectId": "624742d9-bba1-4282-8394-db2108aa0a64",
+    "timelineConfig": {
+      "clips": [
+        {
+          "id": "scene_001",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-00-1791709153351.png",
+          "mediaType": "image",
+          "prompt": "A ancient Treta Yuga scene inside a grand Vedic ashram courtyards in ancient Ayodhya. An aged revered Vedic Brahmarshi with a long white beard sitting on a tiger skin mat under a colossal ancient Banyan tree, holding a peacock quill, inscribing Sanskrit mantras onto golden palm leaf manuscripts (tadpatra). Floating softly around him are four glowing golden geometric mandalas representing Dharma, Artha, Kama, and Moksha. Atmospheric morning light filtering through tree leaves, rising holy havan smoke from a brass yajna pit, carved stone pillars in background, hyper-detailed volumetric depth, rich ochre and warm bronze color grading.\n\nContinuity Lock:\nAncient Vedic Rishi: Venerable sage, long white beard, matted hair, ascetic cotton garments, serene contemplative eyes, holy ash (vibhuti) on forehead.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+          "duration": 3.29,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "क्या आप जानते हैं जीवन के चार परम लक्ष्य क्या हैं?"
+        },
+        {
+          "id": "scene_002",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_1_6233dfef-f672-442f-8609-40472cadc2eb.mp4",
+          "mediaType": "video",
+          "prompt": "Starting frame establishes Shri Rama standing on the grand Vedic carved stone terrace of Ayodhya Palace. Shri Rama has deep blue-dark skin, holding his legendary bow Sharanga firmly in his left hand, looking out over his kingdom with profound compassion and moral resolve. Over 6 seconds, the camera executes a slow, continuous tracking push-in shot toward Rama's regal face as royal saffron banners gently flutter in the morning breeze behind him. Soft golden sunlight glistens on his yellow silk dhoti and sacred gold jewelry. The motion remains perfectly steady with clean terminal framing on his serene blue-dark face.\n\nContinuity Lock:\nShri Rama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall muscular body with broad shoulders, long black hair tied in a warrior bun, yellow silk dhoti, ornate crown (mukut), bow Sharanga, serene divine majesty expression.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth camera push-in motion, no lip sync, no text, stable final frame.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter",
+          "duration": 5.49,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "धर्म—सत्य और कर्तव्य का मार्ग, जिसे श्री राम ने अपने हर कार्य से सिद्ध किया।"
+        },
+        {
+          "id": "scene_003",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-02-1791709159435.png",
+          "mediaType": "image",
+          "prompt": "A vibrant Treta Yuga Vedic city square in ancient Ayodhya illustrating Artha (righteous prosperity). Wealthy merchants and joyful citizens in traditional silk dhotis and sarees trading ethically in open stone pavilions filled with golden coins, brass vessels, woven textiles, and overflowing baskets of grains and fresh fruits. Classical Vedic stone architecture with grand carved elephants and pillars, marigold flower garlands draped across archways, bright warm amber sunlight casting soft cinematic shadows, balanced deep focal length composition, serene wealth without greed.\n\nContinuity Lock:\nVedic Citizens: Ayodhya inhabitants, ancient Treta Yuga Indian apparel, warm skin tones, traditional silk robes, wooden and gold jewelry, peaceful joyful expressions.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+          "duration": 5.83,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "अर्थ—समृद्धि और धन, जो समाज के कल्याण और धर्म की रक्षा के लिए उपार्जित हो।"
+        },
+        {
+          "id": "scene_004",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_3_60099eac-a85f-4944-8fb6-3f81f7306bbf.mp4",
+          "mediaType": "video",
+          "prompt": "Starting on a wide peaceful view of a riverbank at twilight in Panchavati, where Shri Rama and Mata Sita stand side-by-side, offering lotus flowers into the crystal-clear Sarayu river water. Over 6 seconds, the camera performs a smooth, continuous horizontal arching camera movement around the couple. Golden sunset light reflects off the water surface as lotus petals float gently down the river. Shri Rama with deep blue-dark skin turned affectionately towards Mata Sita, who smiles softly with divine grace. Clean, fluid movement ending in a beautiful medium double portrait framed by weeping willow and banyan branches.\n\nContinuity Lock:\nShri Rama: Age 25–30, deep blue-dark complexion (\"shyama varna\"), long matted black hair in knot, saffron bark-cloth dhoti, serene affectionate expression.\nMata Sita: Age 20–25, golden-fair radiant complexion (\"suvarna varna\"), large expressive lotus eyes, simple cream cotton saree, minimal seed jewelry, braided black hair, devoted gentle expression.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth arc shot motion, no lip sync, no text, stable final frame.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter",
+          "duration": 5.39,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "काम—सौंदर्य, प्रेम और आनंद की पावन अनुभूति, जो धर्म की मर्यादा में रहकर फलती है।"
+        },
+        {
+          "id": "scene_005",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-04-1791709162992.png",
+          "mediaType": "image",
+          "prompt": "Dramatic dark mood framing King Ravana seated upon a grand black obsidian and gold throne inside the opulent palace of Lanka. Ravana has dark bronze skin, an imposing muscular physique, black and blood-red silk robes, heavy gold chest armor, and ten crowned heads depicted in wide background shadow depth. He clutches a jeweled goblet with arrogant pride, surrounded by overflowing hoardings of gold, severed from righteousness and Dharma. Fiery crimson torchlight creates high-contrast shadows on black stone carved spires, evoking intense spiritual imbalance and destructive ego.\n\nContinuity Lock:\nRavana: Age 40–50 appearance, imposing sovereign king, dark bronze skin with fiery undertones, ten heads in establishing view, dark blood-red royal silk, heavy gold armor, regal arrogance and unyielding pride.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+          "duration": 5.09,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "जब अर्थ और काम धर्म से भटकते हैं, तो रावण जैसा विनाश जन्म लेता है!"
+        },
+        {
+          "id": "scene_006",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_5_b5b3e5d3-ec35-4d8f-8a40-d0317f9f5c73.mp4",
+          "mediaType": "video",
+          "prompt": "Starting frame shows Shri Rama on the stormy ocean shore of Lanka, drawing his divine longbow Sharanga with powerful alignment. His skin is deep blue-dark (\"shyama varna\"), hair flying in wind, eyes burning with righteous determination. Over 6 seconds, the camera executes a dynamic, rapid forward tracking shot along the length of the glowing divine arrow notched on his bowstring. Electric blue energy crackles along the arrow shaft as wind whips his saffron bark-cloth dhoti. The camera comes to a steady hold right near the divine glowing arrow tip as it readies to launch.\n\nContinuity Lock:\nShri Rama: Age 25–30, deep blue-dark complexion (\"shyama varna\"), athletic muscular frame, matted black hair warrior knot, saffron bark-cloth, intense moral resolve and divine fierce focus, bow Sharanga.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, dynamic smooth forward tracking motion, no lip sync, no text, stable terminal frame.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter",
+          "duration": 4.31,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "धर्म की पुनर्स्थापना ही जीवन को सत्य के मार्ग पर लौटाती है।"
+        },
+        {
+          "id": "scene_007",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-06-1791709166528.png",
+          "mediaType": "image",
+          "prompt": "A serene static visual of Shri Rama sitting in deep meditation outside a humble thatched ashram hut in the Chitrakuta forest during morning mist. Shri Rama has deep blue-dark skin (\"shyama varna\"), wearing simple saffron bark-cloth, matted hair tied in an ascetic knot, completely detached from imperial wealth, embodying pure sacrifice and adherence to truth. A quiet sacred dhuni fire crackles softly before him, casting gentle golden embers into the cool green rainforest background filled with wild deer and sal trees.\n\nContinuity Lock:\nShri Rama: Age 25–30, deep blue-dark complexion (\"shyama varna\"), matted black hair in ascetic knot, saffron bark-cloth dhoti, serene tranquil expression, relaxed meditative posture.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+          "duration": 4.03,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "त्याग और संतुलन ही जीवन के वास्तविक अर्थ को उजागर करते हैं।"
+        },
+        {
+          "id": "scene_008",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_7_706e0c86-2562-4ee4-8d71-0f5f770dd71a.mp4",
+          "mediaType": "video",
+          "prompt": "Starting on a close-up of a glowing sacred lotus flower resting on calm water. Over 6 seconds, the camera smoothly tilts up to reveal a majestic divine silhouette meditating in lotus position against a brilliant cosmic background filled with soft golden light rays, blooming lotus petals floating upward into the cosmos, and ancient Sanskrit glyphs shimmering softly. The lighting brightens in a smooth transition toward blinding ethereal golden purity, symbolizing spiritual liberation (Moksha). Smooth continuous vertical pan ending in a brilliant celestial vista.\n\nContinuity Lock:\nSacred Meditating Figure: Spiritual soul in deep bliss, radiating divine golden aura, completely harmonious and detached.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, continuous camera tilt-up motion, no lip sync, no text, stable final frame.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter",
+          "duration": 5.43,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "मोक्ष—समस्त बंधनों से मुक्ति, जो धर्म, अर्थ और काम के संतुलन से प्राप्त होती है।"
+        },
+        {
+          "id": "scene_009",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-08-1791709169896.png",
+          "mediaType": "image",
+          "prompt": "Grand symmetrical master shot of the coronation court of Shri Rama and Mata Sita inside Ayodhya palace (Rama Rajya). Shri Rama with deep blue-dark skin (\"shyama varna\") and Mata Sita with golden complexion sit upon a divine gold throne, crowned in supreme majesty. Surrounding them are Lakshmana, Hanuman, noble sages, and joyous citizens showering flower petals under carved stone Vedic cupolas. Bright golden light showers from the heavens, casting a glowing aura over the perfect balance of Dharma, Artha, Kama, and Moksha in society.\n\nContinuity Lock:\nShri Rama: Deep blue-dark complexion (\"shyama varna\"), golden royal robes, ornate crown, divine supreme smile.\nMata Sita: Golden-fair complexion (\"suvarna varna\"), rich red silk saree, elaborate traditional gold jewelry, majestic peaceful grace.\nHanuman: Muscular golden-orange fur Vanara, kneeling humbly in devotional surrender with hands folded.\nLakshmana: Fair wheatish complexion, sharp warrior features, protective standing posture holding longbow.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy",
+          "duration": 4.91,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "जब चारों पुरुषार्थ संतुलित होते हैं, तब जीवन में रामराज्य स्थापित होता है।"
+        },
+        {
+          "id": "scene_010",
+          "imageUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_9_334cab16-f80a-4bba-abc6-f19b3fe344ce.mp4",
+          "mediaType": "video",
+          "prompt": "Starting frame on a medium close-up of Shri Rama’s divine blue-dark hands slowly joining together into a revered Namaste gesture. Over 3 seconds, the camera glides in a very subtle, continuous slow push-in, as a warm beam of divine golden sunlight illuminates his chest and face, conveying eternal blessing, peace, and spiritual harmony. Smooth, still ending frame.\n\nContinuity Lock:\nShri Rama: Deep blue-dark complexion (\"shyama varna\"), calm compassionate eyes, slight divine smile, yellow silk apparel, gold necklace, divine aura.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, smooth camera push-in, no lip sync, no text, clean terminal frame.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter",
+          "duration": 4.59,
+          "transition": "none",
+          "transitionDuration": 0,
+          "caption": "अपने जीवन में धर्म को साधें और परम सुख पाएं। जय श्री राम!"
+        }
+      ],
+      "audioUrl": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/narration_hi_479145ed-6b1d-4400-a430-67c229b97c12.wav",
+      "totalDuration": 48.36,
+      "resolution": {
+        "width": 1080,
+        "height": 1920
+      },
+      "zoomFactor": 2,
+      "ttsVolume": 1.3,
+      "bgmTrack": "ai",
+      "bgmVolume": 0.15
+    },
+    "generatedMusic": {
+      "filename": "music_10ce7ea2-54ca-4256-9af7-20b91f513ed4.mp3",
+      "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/music_10ce7ea2-54ca-4256-9af7-20b91f513ed4.mp3",
+      "prompt": "Epic yet intimate ambient score for ancient Vedic narration. Begin with soft, resonant flutes drifting over warm, vintage-sounding strings. Transition to gentle tabla pulses and a solitary cello during the storm scene, maintaining spacious dynamics. Conclude with fading harp glissandos and distant wind chimes. Keep arrangement sparse, quiet, and supportive of the voice throughout. Use a clean, sparse arrangement with only one to three complementary instruments, restrained dynamics, soft transients, and no dense layering. Keep the music quiet and supportive beneath narration. Instrumental only: no vocals, singing, choir, chanting, or spoken words.",
+      "duration": 60,
+      "seed": 2947875613,
+      "contextHash": "306ad59cfbfac53541d7ece7a18bba9b574cc652f965c835ea0535e8d14186da",
+      "createdAt": "2026-10-11T17:17:20.085Z"
+    },
+    "youtubeExport": {
+      "tags": [
+        "4 purusharthas explained",
+        "dharma artha kama moksha",
+        "shree ram motivational status",
+        "ramayan lessons for life",
+        "sanatan dharma wisdom",
+        "meaning of dharma in hindi",
+        "purushartha in hindi",
+        "shri ram vs ravan lesson",
+        "life balance lesson hindi",
+        "vedic wisdom hindi",
+        "sanatan dharma shorts",
+        "jai shree ram shorts",
+        "four goals of human life",
+        "spiritual shorts hindi",
+        "ramrajya in life"
+      ]
     }
   }
 ]

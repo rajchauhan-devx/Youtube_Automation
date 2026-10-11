@@ -1,6 +1,12 @@
 import { Router } from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { flowLoginSteps, flowStatus } from '../services/flow/profile.js';
+import { getFlowCreditsInfo, updateFlowCredits } from '../services/flow/credits.js';
 import { cancelFlowJob, flowJobStatus, flowJobsFor, resolveFlowDownload, startFlowJob } from '../services/flow/jobs.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export const flowRouter = Router();
 
@@ -13,8 +19,55 @@ flowRouter.get('/status', async (_req, res) => {
   }
 });
 
+// Current Google Flow credit balance and remaining estimated videos
+flowRouter.get('/credits', (_req, res) => {
+  try {
+    res.json(getFlowCreditsInfo());
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Flow credits query failed' });
+  }
+});
+
+// Update Google Flow credit balance and/or account email
+flowRouter.post('/credits', (req, res) => {
+  try {
+    const { credits, account, tier, costPerVideo } = req.body || {};
+    const numericCredits = typeof credits === 'number' ? credits : credits ? Number.parseInt(credits, 10) : undefined;
+    const updated = updateFlowCredits(numericCredits, {
+      account: typeof account === 'string' && account.trim() ? account.trim() : undefined,
+      tier: typeof tier === 'string' && tier.trim() ? tier.trim() : undefined,
+      costPerVideo: typeof costPerVideo === 'number' ? costPerVideo : undefined,
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Flow credits update failed' });
+  }
+});
+
+// Launch headed browser window for Google Flow login or switching accounts
+flowRouter.post('/launch-login', async (_req, res) => {
+  try {
+    const { spawn } = await import('node:child_process');
+    const scriptPath = path.resolve(__dirname, '..', '..', 'scripts', 'flow-login.mjs');
+    
+    // Launch headed browser helper detached
+    const child = spawn(process.execPath, [scriptPath], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+    });
+    child.unref();
+
+    res.json({
+      success: true,
+      message: 'Headed browser launched. Please sign in or switch your Google account, then close the browser window when done.',
+    });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to launch login browser' });
+  }
+});
+
 // One-time login guidance. The headed sign-in itself stays manual on purpose:
-// Google 2FA/CAPTCHA cannot and should not be automated by the server.
 flowRouter.get('/login-hint', (_req, res) => {
   res.json(flowLoginSteps());
 });

@@ -13,6 +13,7 @@ export interface FlowJobSpec {
   model?: FlowJobModel;
   aspect?: 'portrait' | 'landscape';
   duration?: number;
+  resolution?: '720p' | '1080p';
   dryRun?: boolean;
 }
 
@@ -31,6 +32,7 @@ export interface FlowJob extends FlowJobSpec {
   model: FlowModel;
   aspect: 'portrait' | 'landscape';
   duration: number;
+  resolution: '720p' | '1080p';
   dryRun: boolean;
   cost: number;
   idempotencyKey: string;
@@ -91,12 +93,13 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
   const model: FlowModel = spec.model || 'veo-3.1-fast';
   const aspect = spec.aspect || 'portrait';
   const duration = Math.round(spec.duration || 8);
+  const resolution: '720p' | '1080p' = spec.resolution === '1080p' ? '1080p' : '720p';
   const comboError = validCombo(model, duration);
   if (comboError) throw new Error(comboError);
   const dryRun = spec.dryRun !== false; // default safe: prepare only, 0 credits
   const cost = dryRun ? 0 : COSTS[model](duration);
   const idempotencyKey = crypto.createHash('sha256')
-    .update(JSON.stringify([spec.scriptId, spec.sceneIndex, prompt, model, aspect, duration])).digest('hex');
+    .update(JSON.stringify([spec.scriptId, spec.sceneIndex, prompt, model, aspect, duration, resolution])).digest('hex');
   const existing = [...jobs.values()].find((job) => job.idempotencyKey === idempotencyKey && job.state === 'done' && job.result);
   if (existing) return existing; // idempotent retry returns the file, never re-bills
 
@@ -109,7 +112,7 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
       ...spec,
       id: `flow_${crypto.randomUUID()}`,
       state: 'done',
-      model, aspect, duration, dryRun, cost, idempotencyKey,
+      model, aspect, duration, resolution, dryRun, cost, idempotencyKey,
       createdAt: now, updatedAt: now,
       stage: 'Dry run: prompt prepared, 0 credits spent',
       progress: 100,
@@ -134,7 +137,7 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
     ...spec,
     id: `flow_${crypto.randomUUID()}`,
     state: 'queued',
-    model, aspect, duration, dryRun, cost, idempotencyKey,
+    model, aspect, duration, resolution, dryRun, cost, idempotencyKey,
     createdAt: now, updatedAt: now,
     stage: 'Queued: waiting for browser worker',
     progress: 0,
@@ -169,6 +172,7 @@ async function runLive(jobId: string, signal: AbortSignal): Promise<void> {
       aspect: job.aspect,
       duration: job.duration,
       model: job.model,
+      resolution: job.resolution,
       signal,
       onStage: (stage, progress) => {
         const current = jobs.get(jobId);

@@ -1,6 +1,7 @@
 import { mediaScenes } from '../../../server/src/services/shorts-media';
-import { useEffect, useRef, useState } from 'react';
-import { Copy, Plus, Loader2, Sparkles, Square, Film, Image as ImageIcon, Download } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Copy, Plus, Loader2, Sparkles, Square, Film, Image as ImageIcon, Download, User, RefreshCw, ExternalLink, X } from 'lucide-react';
 import { type Script, getChannelLoraProfile, formatPromptWithChannelStyleDna } from '../../data';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import { GenerationDisclosure } from './GenerationDisclosure';
@@ -19,13 +20,211 @@ interface FlowJobState {
 // Per-scene Google Flow automation: start → poll → download → import.
 // Uses the global /api/flow routes (own Google session); the downloaded MP4 is
 // imported through the workspace-scoped media-import, same as manual upload.
-function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, disabled, onImported, onError, onNotice }: {
+interface FlowCreditsState {
+  credits: number;
+  videosRemaining: number;
+  status: 'ok' | 'low' | 'exhausted';
+  tier: string;
+  account: string;
+  costPerVideo?: number;
+}
+
+interface FlowAccountModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  credits: FlowCreditsState | null;
+  onUpdated: () => void;
+}
+
+function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountModalProps) {
+  const [emailInput, setEmailInput] = useState(credits?.account || '');
+  const [creditsInput, setCreditsInput] = useState(credits?.credits !== undefined ? String(credits.credits) : '800');
+  const [launching, setLaunching] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  useEffect(() => {
+    if (credits) {
+      setEmailInput(credits.account || '');
+      setCreditsInput(String(credits.credits ?? 800));
+    }
+  }, [credits]);
+
+  if (!isOpen) return null;
+
+  async function handleLaunchLogin() {
+    setLaunching(true);
+    setMsg('Launching browser window…');
+    try {
+      const res = await globalThis.fetch('/api/flow/launch-login', { method: 'POST' });
+      const data = await res.json() as { message?: string };
+      setMsg(data.message || 'Browser opened! Sign into your Google account, then close the browser.');
+      const poll = setInterval(() => {
+        onUpdated();
+      }, 3000);
+      setTimeout(() => clearInterval(poll), 60000);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Failed to launch login window');
+    } finally {
+      setLaunching(false);
+    }
+  }
+
+  async function handleSaveManual() {
+    setSaving(true);
+    setMsg('');
+    try {
+      const res = await globalThis.fetch('/api/flow/credits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account: emailInput.trim(),
+          credits: parseInt(creditsInput, 10),
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to update credentials');
+      onUpdated();
+      setMsg('Account info updated successfully!');
+      setTimeout(() => {
+        onClose();
+      }, 1000);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : 'Failed to update');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-gray-900 p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <div>
+              <h3 className="text-sm font-semibold text-white">Google Flow Account & Credits</h3>
+              <p className="text-[11px] text-gray-400">Switch account or sync credit balance</p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-gray-400 hover:bg-white/10 hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Current status card */}
+        <div className="rounded-xl border border-purple-500/20 bg-purple-950/30 p-3.5 space-y-1.5">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400">Active Google Account:</span>
+            <span className="font-semibold text-purple-200">{credits?.account || 'zrajchauhan3@gmail.com'}</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400">Current Balance:</span>
+            <span className="font-semibold text-emerald-300">{credits?.credits ?? 0} Credits (~{credits?.videosRemaining ?? 0} videos)</span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-400">Tier:</span>
+            <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/30">
+              {credits?.tier || 'PRO'}
+            </span>
+          </div>
+        </div>
+
+        {/* Method 1: Launch headed browser */}
+        <div className="space-y-2 rounded-xl border border-white/5 bg-black/20 p-3.5">
+          <h4 className="text-xs font-semibold text-white">1. Switch Account in Browser</h4>
+          <p className="text-[11px] text-gray-400">
+            Opens Microsoft Edge / Chrome. Sign into another Google account with Flow credits, then close the window.
+          </p>
+          <button
+            type="button"
+            disabled={launching}
+            onClick={() => void handleLaunchLogin()}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-500 disabled:opacity-50 transition shadow-lg shadow-purple-900/30"
+          >
+            {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+            Open Browser to Switch / Add Account
+          </button>
+        </div>
+
+        {/* Method 2: Manual email / balance update */}
+        <div className="space-y-2 rounded-xl border border-white/5 bg-black/20 p-3.5">
+          <h4 className="text-xs font-semibold text-white">2. Quick Account Info & Balance Sync</h4>
+          <div className="space-y-2">
+            <div>
+              <label className="text-[11px] text-gray-400 block mb-1">Google Email / Account Label</label>
+              <input
+                type="text"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                placeholder="e.g. yourname@gmail.com"
+                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-gray-400 block mb-1">Current Credits Balance</label>
+              <input
+                type="number"
+                value={creditsInput}
+                onChange={(e) => setCreditsInput(e.target.value)}
+                placeholder="e.g. 800"
+                className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-1.5 text-xs text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none"
+              />
+            </div>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void handleSaveManual()}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white hover:bg-white/15 disabled:opacity-50 transition"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Save & Sync Info
+            </button>
+          </div>
+        </div>
+
+        {msg && (
+          <p className="text-center text-xs text-purple-300 bg-purple-500/10 rounded-lg p-2 border border-purple-500/20 leading-relaxed">
+            {msg}
+          </p>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defaultResolution = '720p', disabled, onImported, onError, onNotice, onOpenAccountModal }: {
   scriptId: string; sceneIndex: number; prompt: string; duration: number; aspect: 'portrait' | 'landscape';
+  defaultResolution?: '720p' | '1080p';
   disabled: boolean; onImported: (blob: Blob) => Promise<void>; onError: (message: string) => void; onNotice: (message: string) => void;
+  onOpenAccountModal?: () => void;
 }) {
   const [job, setJob] = useState<FlowJobState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [credits, setCredits] = useState<FlowCreditsState | null>(null);
+  const [resolution, setResolution] = useState<'720p' | '1080p'>(defaultResolution);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setResolution(defaultResolution);
+  }, [defaultResolution]);
+
+  const loadCredits = useCallback(async () => {
+    try {
+      const res = await globalThis.fetch('/api/flow/credits');
+      if (res.ok) {
+        const data = await res.json() as FlowCreditsState;
+        if (typeof data.credits === 'number') setCredits(data);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    void loadCredits();
+  }, [loadCredits]);
+
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
 
   async function poll(id: string): Promise<FlowJobState> {
@@ -43,7 +242,7 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, disab
       onNotice('Validating Flow prompt (0 credits)…');
       const res = await globalThis.fetch('/api/flow/jobs', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scriptId, sceneIndex, prompt, model: 'veo-3.1-fast', aspect, duration, dryRun: false }),
+        body: JSON.stringify({ scriptId, sceneIndex, prompt, model: 'veo-3.1-fast', aspect, duration, resolution, dryRun: false }),
       });
       const data = await res.json() as FlowJobState & { error?: string };
       if (!res.ok) throw new Error(data.error || 'Flow job failed to start.');
@@ -86,6 +285,7 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, disab
     const dl = await globalThis.fetch(`/api/flow/downloads/${current.result.downloadId}`);
     if (!dl.ok) throw new Error('Flow download missing. The job must be done first.');
     await onImported(new Blob([await dl.blob()], { type: 'video/mp4' }));
+    void loadCredits();
     onNotice(`Scene ${sceneIndex + 1}: Flow video imported (${Math.round(current.result.bytes / 1024)} KB).`);
   }
 
@@ -104,23 +304,93 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, disab
 
   const running = busy && job && (job.state === 'queued' || job.state === 'running');
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {!running ? (
-        <button type="button" disabled={disabled || busy} onClick={() => void start()}
-          className="flex items-center gap-1.5 rounded bg-purple-500/25 px-2.5 py-1.5 text-xs font-medium text-purple-100 hover:bg-purple-500/35 disabled:opacity-40"
-          title="Generate video directly from Google Flow using Playwright and import MP4">
-          <Sparkles className="h-3.5 w-3.5" /> Generate with Flow
-        </button>
-      ) : (
-        <>
-          <span role="status" className="flex items-center gap-1.5 text-xs text-purple-200">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> {job?.stage} ({job?.progress}%)
-          </span>
-          <button type="button" onClick={() => void cancel()} className="rounded border border-red-400/40 px-2 py-1 text-xs text-red-200 hover:bg-red-500/15">Cancel</button>
-        </>
-      )}
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className="inline-flex items-center gap-1 rounded bg-indigo-500/20 px-2 py-1 text-[11px] font-semibold text-indigo-200 border border-indigo-500/30"
+          title={aspect === 'portrait' ? 'Renders in 9:16 vertical portrait for Shorts' : 'Renders in 16:9 horizontal landscape for YouTube'}
+        >
+          {aspect === 'portrait' ? '📱 9:16 Shorts' : '🖥️ 16:9 Landscape'}
+        </span>
+
+        <div className="inline-flex rounded-lg bg-black/40 p-0.5 border border-white/10 text-xs">
+          <button
+            type="button"
+            className={`rounded px-2 py-0.5 font-medium transition ${resolution === '720p' ? 'bg-indigo-600/50 text-indigo-100 shadow-sm' : 'text-gray-400 hover:text-white'}`}
+            onClick={() => setResolution('720p')}
+            title="Fast native 720p MP4 download (~50s)"
+          >
+            720p Fast
+          </button>
+          <button
+            type="button"
+            className={`rounded px-2 py-0.5 font-medium transition ${resolution === '1080p' ? 'bg-purple-600/50 text-purple-100 shadow-sm' : 'text-gray-400 hover:text-white'}`}
+            onClick={() => setResolution('1080p')}
+            title="Flow AI Upscaled 1080p Full HD (~2 min)"
+          >
+            1080p Upscaled
+          </button>
+        </div>
+
+        {credits && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span
+              className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium border ${
+                credits.status === 'ok'
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25'
+                  : credits.status === 'low'
+                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/25'
+                  : 'bg-red-500/15 text-red-300 border-red-500/25'
+              }`}
+              title={`${credits.account} · ${credits.tier} tier · ~${credits.costPerVideo || 12} credits per video`}
+            >
+              💳 {credits.credits} Credits (~{credits.videosRemaining} vids)
+            </span>
+            <span
+              className="inline-flex items-center gap-1 rounded bg-black/40 px-2 py-1 text-[11px] font-medium text-gray-300 border border-white/10"
+              title={`Active Google Flow account: ${credits.account}`}
+            >
+              <User className="h-3 w-3 text-purple-300" />
+              {credits.account}
+            </span>
+            {onOpenAccountModal && (
+              <button
+                type="button"
+                onClick={onOpenAccountModal}
+                className="inline-flex items-center gap-1 rounded bg-purple-500/20 hover:bg-purple-500/30 px-2 py-1 text-[11px] font-medium text-purple-200 border border-purple-500/30 transition"
+                title="Switch Google account or sync credits"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Switch
+              </button>
+            )}
+          </div>
+        )}
+
+        {!running ? (
+          <button type="button" disabled={disabled || busy || credits?.status === 'exhausted'} onClick={() => void start()}
+            className="flex items-center gap-1.5 rounded bg-purple-500/25 px-2.5 py-1.5 text-xs font-semibold text-purple-100 hover:bg-purple-500/35 disabled:opacity-40"
+            title="Generate video directly from Google Flow using Playwright and import MP4">
+            <Sparkles className="h-3.5 w-3.5 text-purple-300" /> Generate with Flow
+          </button>
+        ) : (
+          <>
+            <span role="status" className="flex items-center gap-1.5 text-xs text-purple-200">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> {job?.stage} ({job?.progress}%)
+            </span>
+            <button type="button" onClick={() => void cancel()} className="rounded border border-red-400/40 px-2 py-1 text-xs text-red-200 hover:bg-red-500/15">Cancel</button>
+          </>
+        )}
+      </div>
+
+      <p className="text-[11px] text-gray-400">
+        Renders in <strong>{aspect === 'portrait' ? '9:16 vertical (Shorts)' : '16:9 landscape'}</strong> at <strong>{resolution === '1080p' ? '1080p HD (Upscaled)' : '720p (Fast)'}</strong> via Google Flow (~12 credits). Auto-imported into scene.
+        {credits?.status === 'low' && <span className="ml-1 text-amber-300 font-medium">⚠️ Credits low ({credits.credits} left).</span>}
+        {credits?.status === 'exhausted' && <span className="ml-1 text-red-400 font-medium">❌ Out of credits. Top up in Google Flow.</span>}
+      </p>
+
       {job?.state === 'error' && job.error && (
-        <span role="alert" className="w-full text-[11px] leading-relaxed text-red-300">{job.overseerCode ? `[${job.overseerCode}] ` : ''}{job.error}</span>
+        <span role="alert" className="block text-[11px] leading-relaxed text-red-300">{job.overseerCode ? `[${job.overseerCode}] ` : ''}{job.error}</span>
       )}
     </div>
   );
@@ -135,11 +405,32 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   const [generating, setGenerating] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [activeRefIndex, setActiveRefIndex] = useState<number | null>(null);
+  const [activeVideoIndex, setActiveVideoIndex] = useState<number | null>(null);
+  const [generatingVideos, setGeneratingVideos] = useState(false);
+  const activeFlowJobId = useRef<string | null>(null);
   const [stopping, setStopping] = useState(false);
   const [preset, setPreset] = useState<'fast' | 'standard' | 'high'>('standard');
   const [imageProvider, setImageProvider] = useState<ImageProviderMode>('local');
   const [cloudflareModelLabel, setCloudflareModelLabel] = useState<string>('FLUX.1 Schnell (12B)');
   const [autoStyleDna, setAutoStyleDna] = useState(true);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [flowCredits, setFlowCredits] = useState<FlowCreditsState | null>(null);
+  const [flowResolution, setFlowResolution] = useState<'720p' | '1080p'>('720p');
+
+  const loadFlowCredits = useCallback(async () => {
+    try {
+      const res = await globalThis.fetch('/api/flow/credits');
+      if (res.ok) {
+        const data = await res.json() as FlowCreditsState;
+        if (typeof data.credits === 'number') setFlowCredits(data);
+      }
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    void loadFlowCredits();
+  }, [loadFlowCredits]);
+
   const [modelStatus, setModelStatus] = useState<'checking' | 'online' | 'offline' | 'starting' | 'stopping'>('checking');
   const [modelDetail, setModelDetail] = useState('');
   const operation = useRef(false);
@@ -353,6 +644,155 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     await importOne(file, index, 'mp4');
   }
 
+  async function generateAllFlowVideos(indices: number[]) {
+    if (!script || operation.current || !indices.length) return;
+    const queue = indices.filter(index => Boolean(scenes[index]));
+    if (!queue.length) return;
+
+    if (flowCredits && flowCredits.credits < 12) {
+      setError('Insufficient Google Flow credits. Please top up or switch accounts.');
+      return;
+    }
+
+    operation.current = true;
+    stopRequested.current = false;
+    setGenerating(true);
+    setGeneratingVideos(true);
+    setStopping(false);
+    setError('');
+    setNotice(`Starting batch Flow video generation for ${queue.length} scene(s) at ${flowResolution}…`);
+
+    let completed = 0;
+    try {
+      for (const index of queue) {
+        if (stopRequested.current) break;
+        const scene = scenes[index];
+        setActiveVideoIndex(index);
+
+        if (scene.mediaType !== 'video') {
+          await toggleMediaType(index, 'video');
+        }
+
+        const audio = script.generatedAudio?.find(item => item.sync?.timingMode === 'narration');
+        const timing = audio?.sync?.scenes.find(item => item.sceneId === scene.id);
+        const spokenSeconds = timing && audio?.sync ? (timing.endSample - timing.startSample) / audio.sync.sampleRate : undefined;
+        const duration = spokenSeconds !== undefined ? Math.min(10, Math.max(4, Math.round(spokenSeconds))) : 8;
+        const styleDnaPrompt = formatPromptWithChannelStyleDna(scene.imagePrompt, account);
+        const prompt = scene.videoPrompt || styleDnaPrompt;
+        const aspect = profile === 'shorts' ? 'portrait' : 'landscape';
+
+        setNotice(`Generating video ${completed + 1} of ${queue.length} · Scene ${index + 1} (${flowResolution}) (Submitting to Flow)…`);
+
+        const res = await globalThis.fetch('/api/flow/jobs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scriptId: script.id,
+            sceneIndex: index,
+            prompt,
+            model: 'veo-3.1-fast',
+            aspect,
+            duration,
+            resolution: flowResolution,
+            dryRun: false,
+          }),
+        });
+
+        const data = await res.json() as FlowJobState & { error?: string };
+        if (!res.ok) throw new Error(`Scene ${index + 1}: ${data.error || 'Failed to start Flow job.'}`);
+
+        activeFlowJobId.current = data.id;
+
+        // Poll job until done
+        let jobResult: FlowJobState = data;
+        while (jobResult.state === 'queued' || jobResult.state === 'running') {
+          if (stopRequested.current) {
+            await globalThis.fetch(`/api/flow/jobs/${jobResult.id}/cancel`, { method: 'POST' }).catch(() => {});
+            break;
+          }
+          await new Promise(r => setTimeout(r, 3000));
+          const pollRes = await globalThis.fetch(`/api/flow/jobs/${jobResult.id}`);
+          if (pollRes.ok) {
+            jobResult = await pollRes.json();
+            setNotice(`Generating video ${completed + 1} of ${queue.length} · Scene ${index + 1} (${flowResolution}) · ${jobResult.stage} (${jobResult.progress}%)`);
+          }
+        }
+
+        if (stopRequested.current) break;
+
+        if (jobResult.state === 'done' && jobResult.result) {
+          setNotice(`Downloading ${flowResolution} Flow video for Scene ${index + 1}…`);
+          const dl = await globalThis.fetch(`/api/flow/downloads/${jobResult.result.downloadId}`);
+          if (dl.ok) {
+            const blob = await dl.blob();
+            await importFlowBlob(blob, index);
+            completed++;
+            void loadFlowCredits();
+          }
+        } else if (jobResult.state === 'error') {
+          throw new Error(`Scene ${index + 1}: ${jobResult.error || 'Flow generation failed.'}`);
+        }
+      }
+
+      if (mounted.current) {
+        setNotice(
+          stopRequested.current
+            ? `Stopped. Generated ${completed} of ${queue.length} video(s).`
+            : `Successfully generated and imported all ${completed} Flow video(s) at ${flowResolution}!`
+        );
+      }
+    } catch (err) {
+      if (mounted.current) {
+        setNotice('');
+        setError(err instanceof Error ? err.message : 'Batch Flow video generation failed.');
+      }
+    } finally {
+      operation.current = false;
+      activeFlowJobId.current = null;
+      if (mounted.current) {
+        setGenerating(false);
+        setGeneratingVideos(false);
+        setActiveVideoIndex(null);
+        setStopping(false);
+      }
+    }
+  }
+
+  async function toggleMediaType(index: number, newType: 'image' | 'video') {
+    if (!script) return;
+    const currentScenes = script.scenePlan?.scenes || scenes;
+    const updated = currentScenes.map((s, i) => (i === index ? { ...s, mediaType: newType } : s));
+    const fallbackPlan = {
+      version: 1 as const,
+      title: script.name || 'Script',
+      thumbnailPrompt: '',
+      scenes: [],
+    };
+    const updatedScenePlan = {
+      ...(script.scenePlan || fallbackPlan),
+      scenes: updated,
+    };
+    await onUpdate({ scenePlan: updatedScenePlan });
+  }
+
+  async function setAllMediaTypes(newType: 'image' | 'video') {
+    if (!script || !scenes.length) return;
+    const currentScenes = script.scenePlan?.scenes || scenes;
+    const updated = currentScenes.map(s => ({ ...s, mediaType: newType }));
+    const fallbackPlan = {
+      version: 1 as const,
+      title: script.name || 'Script',
+      thumbnailPrompt: '',
+      scenes: [],
+    };
+    const updatedScenePlan = {
+      ...(script.scenePlan || fallbackPlan),
+      scenes: updated,
+    };
+    await onUpdate({ scenePlan: updatedScenePlan });
+    setNotice(`All ${updated.length} scenes converted to ${newType === 'video' ? 'Video' : 'Image'}.`);
+  }
+
   async function upload(files: FileList | null) {
     if (!script || !files?.length || operation.current) return;
     operation.current = true;
@@ -382,15 +822,166 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h2 className="text-lg font-semibold text-white">Scene media</h2>
-        <p className="mt-1 text-xs text-gray-400">{imageCount} images / {videoCount} videos · {scenes.length - missingImages.length - missingVideos.length} of {scenes.length} ready{scenes.length ? ` (${Math.round((scenes.length - missingImages.length - missingVideos.length) / scenes.length * 100)}%)` : ''}</p>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <span className="text-xs text-gray-400">
+            {imageCount} images / {videoCount} videos · {scenes.length - missingImages.length - missingVideos.length} of {scenes.length} ready{scenes.length ? ` (${Math.round((scenes.length - missingImages.length - missingVideos.length) / scenes.length * 100)}%)` : ''}
+          </span>
+          <span className="text-gray-600">·</span>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => void setAllMediaTypes('video')}
+            className="text-[11px] font-medium text-purple-400 hover:text-purple-300 underline underline-offset-2 disabled:opacity-40"
+            title="Convert all scenes to video"
+          >
+            Set all to Video
+          </button>
+          <span className="text-gray-600">·</span>
+          <button
+            type="button"
+            disabled={locked}
+            onClick={() => void setAllMediaTypes('image')}
+            className="text-[11px] font-medium text-blue-400 hover:text-blue-300 underline underline-offset-2 disabled:opacity-40"
+            title="Convert all scenes to image"
+          >
+            Set all to Image
+          </button>
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {generating ? <button disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }} className="studio-btn-ghost"><Square className="h-4 w-4" />{stopping ? 'Stopping after current job...' : 'Stop after current job'}</button> : <>
-          <button disabled={locked || !missingImages.length || (modelStatus === 'starting' || modelStatus === 'stopping')} onClick={() => void generateImages(missingImages)} className="studio-btn-primary"><Sparkles className="h-4 w-4" />Generate images{missingImages.length ? ` (${missingImages.length})` : ''}</button>
+        {generating ? <button disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }} className="studio-btn-ghost text-red-300 hover:text-red-200"><Square className="h-4 w-4 mr-1 text-red-400" />{stopping ? 'Stopping after current job...' : 'Stop batch generation'}</button> : <>
+          {imageCount > 0 && (
+            <button disabled={locked || !missingImages.length || (modelStatus === 'starting' || modelStatus === 'stopping')} onClick={() => void generateImages(missingImages)} className="studio-btn-primary"><Sparkles className="h-4 w-4" />Generate images{missingImages.length ? ` (${missingImages.length})` : ''}</button>
+          )}
+          {scenes.length > 0 && (
+            <div className="flex items-center rounded-lg border border-purple-500/40 bg-purple-600/25 p-0.5 shadow-sm">
+              <button
+                disabled={Boolean(locked || flowCredits?.status === 'exhausted')}
+                onClick={() => {
+                  const targets = videoCount > 0
+                    ? (missingVideos.length ? missingVideos : videoSceneIndices)
+                    : scenes.map((_, i) => i);
+                  void generateAllFlowVideos(targets);
+                }}
+                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-purple-100 hover:bg-purple-600/40 disabled:opacity-40 transition"
+                title={`Generate all ${videoCount > 0 ? (missingVideos.length || videoCount) : scenes.length} video scenes using Google Flow Veo 3.1 at ${flowResolution === '1080p' ? '1080p Upscaled' : '720p Fast'}`}
+              >
+                <Film className="h-4 w-4 text-purple-300" />
+                <span>Generate all videos with Flow ({videoCount > 0 ? (missingVideos.length || videoCount) : scenes.length})</span>
+              </button>
+              <div className="flex items-center ml-1 border-l border-purple-400/30 pl-1 pr-0.5">
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => setFlowResolution('720p')}
+                  className={`rounded px-2 py-1 text-[11px] font-medium transition ${flowResolution === '720p' ? 'bg-purple-600 text-white font-bold shadow-sm' : 'text-purple-300 hover:text-white'}`}
+                  title="Fast native 720p MP4 download (~50s)"
+                >
+                  720p
+                </button>
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => setFlowResolution('1080p')}
+                  className={`rounded px-2 py-1 text-[11px] font-medium transition ${flowResolution === '1080p' ? 'bg-purple-600 text-white font-bold shadow-sm' : 'text-purple-300 hover:text-white'}`}
+                  title="Flow AI Upscaled 1080p Full HD (~2 min)"
+                >
+                  1080p
+                </button>
+              </div>
+            </div>
+          )}
         </>}
         <button disabled={locked || !scenes.length} className="studio-btn-ghost" onClick={() => { selectedIndex.current = null; if (fileInput.current) { fileInput.current.multiple = true; fileInput.current.accept = videoCount > 0 ? '.png,.jpg,.jpeg,.webp,.mp4' : '.png,.jpg,.jpeg,.webp'; fileInput.current.click(); } }}>Import media</button>
       </div>
     </div>
+
+    {/* Google Flow Account & Credits Bar */}
+    <div className="mb-5 rounded-xl border border-purple-500/25 bg-gradient-to-r from-purple-950/40 via-purple-900/20 to-black/40 p-3.5 backdrop-blur-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            <Film className="h-4.5 w-4.5" />
+          </span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-white">Google Flow AI Video</span>
+              <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/30">
+                {flowCredits?.tier || 'PRO'}
+              </span>
+              <span className="inline-flex items-center gap-1 rounded bg-black/50 px-2 py-0.5 text-xs text-purple-200 border border-white/10 font-medium">
+                <User className="h-3 w-3 text-purple-300" />
+                {flowCredits?.account || 'zrajchauhan3@gmail.com'}
+              </span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-gray-400">
+              Live Balance: <strong className="text-emerald-400 font-semibold">{flowCredits?.credits ?? 788} Credits</strong> (~{flowCredits?.videosRemaining ?? 65} videos remaining · ~12 credits/video) · Quality: <strong className="text-purple-300">{flowResolution === '1080p' ? '1080p Upscaled' : '720p Fast'}</strong>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {scenes.length > 0 && !generating && (
+            <div className="flex items-center rounded-lg bg-purple-600 shadow-md shadow-purple-900/30 p-0.5">
+              <button
+                type="button"
+                disabled={Boolean(locked || flowCredits?.status === 'exhausted')}
+                onClick={() => {
+                  const targets = videoCount > 0
+                    ? (missingVideos.length ? missingVideos : videoSceneIndices)
+                    : scenes.map((_, i) => i);
+                  void generateAllFlowVideos(targets);
+                }}
+                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-40 transition"
+                title={`Batch generate ${videoCount > 0 ? (missingVideos.length || videoCount) : scenes.length} scenes in ${flowResolution === '1080p' ? '1080p Upscaled' : '720p Fast'}`}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Generate All Videos ({videoCount > 0 ? (missingVideos.length || videoCount) : scenes.length})
+              </button>
+              <div className="flex items-center ml-1 border-l border-white/20 pl-1 pr-0.5">
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => setFlowResolution('720p')}
+                  className={`rounded px-2 py-1 text-[11px] font-medium transition ${flowResolution === '720p' ? 'bg-black/40 text-white font-bold shadow-sm' : 'text-purple-200 hover:text-white'}`}
+                  title="Fast native 720p download"
+                >
+                  720p
+                </button>
+                <button
+                  type="button"
+                  disabled={locked}
+                  onClick={() => setFlowResolution('1080p')}
+                  className={`rounded px-2 py-1 text-[11px] font-medium transition ${flowResolution === '1080p' ? 'bg-black/40 text-white font-bold shadow-sm' : 'text-purple-200 hover:text-white'}`}
+                  title="Flow AI Upscaled 1080p Full HD"
+                >
+                  1080p
+                </button>
+              </div>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => void loadFlowCredits()}
+            className="flex items-center gap-1 rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 text-xs text-gray-300 hover:text-white hover:bg-white/5 transition"
+            title="Refresh Flow credit balance"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Sync
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAccountModal(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-purple-400/40 bg-purple-500/20 px-3 py-1.5 text-xs font-semibold text-purple-100 hover:bg-purple-500/30 transition shadow-sm"
+            title="Switch Google Account or update credits"
+          >
+            <RefreshCw className="h-3.5 w-3.5 text-purple-300" />
+            Switch Account
+          </button>
+        </div>
+      </div>
+    </div>
+
     <CloudflareImagePanel
       disabled={locked}
       onConfigChange={(cfg) => {
@@ -486,37 +1077,78 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         const spokenSeconds = timing && audio?.sync ? (timing.endSample - timing.startSample) / audio.sync.sampleRate : undefined;
         const asset = script?.generatedImages?.find(item => item.index === index && item.prompt === scene.imagePrompt && (item.mediaType || 'image') === type && item.status === 'done');
         const refFrame = script?.referenceFrames?.[index];
-        const sceneRunning = activeIndex === index || activeRefIndex === index;
+        const sceneRunning = activeIndex === index || activeRefIndex === index || activeVideoIndex === index;
         const styleDnaPrompt = formatPromptWithChannelStyleDna(scene.imagePrompt, account);
         return <article key={scene.id} className="rounded-xl border border-border bg-surface p-4">
-          <div className="mb-3 flex justify-between text-sm font-semibold text-white"><span>{String(index + 1).padStart(3, '0')} · {scene.chapter}</span><span className={type === 'video' ? 'text-purple-300' : 'text-blue-300'}>{type === 'video' ? 'Video' : 'Image'} · {spokenSeconds !== undefined ? `${spokenSeconds.toFixed(2)}s spoken` : 'Timing after narration'}</span></div>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-white">
+            <span>{String(index + 1).padStart(3, '0')} · {scene.chapter}</span>
+            <div className="flex items-center gap-2">
+              <div className="inline-flex rounded-lg bg-black/40 p-0.5 border border-white/10 text-xs">
+                <button
+                  type="button"
+                  className={`rounded px-2 py-0.5 font-medium transition ${type === 'image' ? 'bg-blue-600/40 text-blue-200' : 'text-gray-400 hover:text-white'}`}
+                  onClick={() => void toggleMediaType(index, 'image')}
+                  title="Mark scene as still image"
+                >
+                  Image
+                </button>
+                <button
+                  type="button"
+                  className={`rounded px-2 py-0.5 font-medium transition ${type === 'video' ? 'bg-purple-600/40 text-purple-200' : 'text-gray-400 hover:text-white'}`}
+                  onClick={() => void toggleMediaType(index, 'video')}
+                  title="Mark scene as video"
+                >
+                  Video
+                </button>
+              </div>
+              <span className="text-xs text-gray-400">
+                {spokenSeconds !== undefined ? `${spokenSeconds.toFixed(2)}s spoken` : 'Timing after narration'}
+              </span>
+            </div>
+          </div>
           <div className={`relative flex ${profile === 'shorts' ? 'aspect-[9/16] max-h-[420px]' : 'aspect-video'} items-center justify-center overflow-hidden rounded-lg bg-black/40`}>
             {asset?.url ? type === 'video' ? <video src={asset.url} controls muted playsInline preload="metadata" className="h-full w-full object-contain" /> : <img src={asset.url} alt={`Scene ${index + 1}`} className="h-full w-full object-contain" /> : <div className="flex flex-col items-center gap-2 text-gray-500">
               {type === 'video' ? <Film className="h-8 w-8 text-purple-300/50" /> : <ImageIcon className="h-8 w-8 text-gray-600" />}
               <span className="text-sm">{type === 'video' ? 'Video scene' : 'Image scene'}</span>
               <span className="px-3 text-center text-xs">{type === 'video' ? (refFrame?.url ? 'LoRA reference frame ready (see Scene actions below) · Import MP4' : 'Import an MP4') : 'Generate an image or import a still'}</span>
             </div>}
-            {sceneRunning && <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 p-4 text-center text-purple-200"><Loader2 className="h-9 w-9 animate-spin" /><span className="text-sm font-medium">{activeRefIndex === index ? 'Generating LoRA reference frame...' : 'Generating image...'}</span></div>}
+            {sceneRunning && (
+              <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 p-4 text-center text-purple-200">
+                <Loader2 className="h-9 w-9 animate-spin" />
+                <span className="text-sm font-medium">
+                  {activeVideoIndex === index
+                    ? 'Generating Flow video…'
+                    : activeRefIndex === index
+                    ? 'Generating LoRA reference frame…'
+                    : 'Generating image…'}
+                </span>
+              </div>
+            )}
             <button disabled={locked} aria-label={`Add or replace ${type} for scene ${index + 1}`} title={`Add or replace ${type}`} className="absolute right-3 top-3 rounded-lg border border-white/10 bg-black/60 p-2 text-gray-200 hover:bg-black/80 disabled:opacity-40" onClick={() => { selectedIndex.current = index; if (fileInput.current) { fileInput.current.multiple = false; fileInput.current.accept = type === 'video' ? '.mp4' : '.png,.jpg,.jpeg,.webp'; fileInput.current.click(); } }}><Plus className="h-5 w-5" /></button>
           </div>
-          {type === 'video' && (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-purple-500/30 bg-purple-500/10 p-2.5">
-              <FlowVideoButton
-                scriptId={script!.id}
-                sceneIndex={index}
-                prompt={scene.videoPrompt || styleDnaPrompt}
-                duration={spokenSeconds !== undefined ? Math.min(10, Math.max(4, Math.round(spokenSeconds))) : 8}
-                aspect={profile === 'shorts' ? 'portrait' : 'landscape'}
-                disabled={locked}
-                onImported={(blob) => importFlowBlob(blob, index)}
-                onError={setError}
-                onNotice={setNotice}
-              />
-              <span className="text-[11px] text-gray-400">
-                {asset ? 'Ready in scene' : 'Generate video directly with Flow'}
-              </span>
-            </div>
-          )}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-purple-500/30 bg-purple-500/10 p-2.5">
+            <FlowVideoButton
+              scriptId={script!.id}
+              sceneIndex={index}
+              prompt={scene.videoPrompt || styleDnaPrompt}
+              duration={spokenSeconds !== undefined ? Math.min(10, Math.max(4, Math.round(spokenSeconds))) : 8}
+              aspect={profile === 'shorts' ? 'portrait' : 'landscape'}
+              defaultResolution={flowResolution}
+              disabled={locked}
+              onImported={async (blob) => {
+                if (type !== 'video') {
+                  await toggleMediaType(index, 'video');
+                }
+                await importFlowBlob(blob, index);
+              }}
+              onError={setError}
+              onNotice={setNotice}
+              onOpenAccountModal={() => setShowAccountModal(true)}
+            />
+            <span className="text-[11px] text-gray-400">
+              {asset ? 'Ready in scene' : 'Direct Playwright generation'}
+            </span>
+          </div>
           <GenerationDisclosure title="Scene actions & prompt" className="mt-3">
           {type === 'image' && <button disabled={locked} onClick={() => void generateImages([index])} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Generating image…' : asset ? 'Regenerate image' : 'Generate image'}</button>}
           {type === 'video' && (
@@ -563,20 +1195,6 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
                   </div>
                 </div>
               )}
-              <div className="pt-1">
-                <FlowVideoButton
-                  scriptId={script!.id}
-                  sceneIndex={index}
-                  prompt={scene.videoPrompt || styleDnaPrompt}
-                  duration={spokenSeconds !== undefined ? Math.min(10, Math.max(4, Math.round(spokenSeconds))) : 8}
-                  aspect={profile === 'shorts' ? 'portrait' : 'landscape'}
-                  disabled={locked}
-                  onImported={(blob) => importFlowBlob(blob, index)}
-                  onError={setError}
-                  onNotice={setNotice}
-                />
-                <p className="mt-1 text-[11px] text-gray-500">Auto uses your Flow subscription credits (Fast ≈ 20). Dry-run validation first, cancel anytime, resume never re-bills a finished render.</p>
-              </div>
             </div>
           )}
           <p className="mb-3 whitespace-pre-wrap text-xs leading-relaxed text-gray-400">{scene.imagePrompt}</p>
@@ -626,5 +1244,11 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         </article>;
       })}
     </div>
+    <FlowAccountModal
+      isOpen={showAccountModal}
+      onClose={() => setShowAccountModal(false)}
+      credits={flowCredits}
+      onUpdated={() => void loadFlowCredits()}
+    />
   </div>;
 }
