@@ -95,7 +95,7 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
     // Broadcast mastering so joined scenes match ElevenLabs loudness: even
     // level, gentle glue, no clipping. Previously raw PCM was muxed as-is so
     // quiet clones stayed quiet and hot clones clipped.
-    await runMedia('ffmpeg', ['-v', 'error', '-y', '-f', 's16le', '-ar', '48000', '-ac', '1', '-i', raw, '-af', 'highpass=f=70,lowpass=f=14000,loudnorm=I=-16:TP=-1.5:LRA=11,alimiter=limit=0.891', '-c:a', 'pcm_s16le', partial], signal);
+    await runMedia('ffmpeg', ['-v', 'error', '-y', '-f', 's16le', '-ar', '48000', '-ac', '1', '-i', raw, '-af', 'highpass=f=70,lowpass=f=14000,loudnorm=I=-16:TP=-1.5:LRA=11,alimiter=limit=0.891', '-ar', '48000', '-c:a', 'pcm_s16le', partial], signal);
     signal.throwIfAborted();
     fs.renameSync(partial, output);
     atomicJson(`${output}.sync.json`, { ...sync, audioHash: createHash('sha256').update(fs.readFileSync(output)).digest('hex') });

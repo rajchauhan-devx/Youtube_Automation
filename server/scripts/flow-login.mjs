@@ -1,6 +1,10 @@
 import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SERVER_ROOT = path.resolve(__dirname, '..');
 
 function getBrowserChannel() {
   if (process.env.FLOW_BROWSER_CHANNEL) {
@@ -19,7 +23,10 @@ function getBrowserChannel() {
 }
 
 async function main() {
-  const profileDir = path.resolve('server/data/flow/profile-default');
+  const configured = process.env.FLOW_PROFILE_DIR?.trim();
+  const profileDir = configured
+    ? path.isAbsolute(configured) ? configured : path.resolve(SERVER_ROOT, configured)
+    : path.join(SERVER_ROOT, 'data', 'flow', 'profile-default');
   fs.mkdirSync(profileDir, { recursive: true });
 
   const channel = getBrowserChannel();
@@ -43,7 +50,7 @@ async function main() {
   const page = context.pages()[0] || (await context.newPage());
   await page.goto('https://flow.google.com/', { waitUntil: 'domcontentloaded' });
 
-  const creditsPath = path.resolve('server/data/flow/credits.json');
+  const creditsPath = path.join(path.dirname(profileDir), 'credits.json');
 
   // Monitor in background for account changes while user is browsing
   const interval = setInterval(async () => {

@@ -106,6 +106,13 @@ test('render uses moving footage for the spoken duration after an image scene', 
   const frame = time => execFileSync('ffmpeg', ['-v', 'error', '-ss', String(time), '-i', result.outputPath, '-frames:v', '1', '-vf', 'scale=32:18', '-f', 'rawvideo', '-pix_fmt', 'rgb24', 'pipe:1'], { windowsHide: true });
   const red = frame(0.3); assert.ok(red[0] > red[1] + 100);
   assert.notDeepEqual(frame(2), frame(3.5), 'video must move rather than repeat a still frame');
+  const overlaid = result.outputPath.replace(/\.mp4$/, '.overlaid.mp4');
+  ff(['-reinit_filter', '0', '-i', result.outputPath, '-f', 'lavfi', '-i', 'color=c=black@0.0:s=320x180:r=60:d=4.137,format=rgba',
+    '-filter_complex', '[0:v]setpts=PTS-STARTPTS[base];[1:v]setpts=PTS-STARTPTS[graphics];[base][graphics]overlay=eof_action=pass:repeatlast=0:format=auto,format=yuv420p[v]',
+    '-map', '[v]', '-map', '0:a', '-c:v', 'libx264', '-preset', 'ultrafast', '-c:a', 'copy', '-t', String(result.duration), overlaid]);
+  const overlaidProbe = JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_streams', '-of', 'json', overlaid], { encoding: 'utf8', windowsHide: true }));
+  for (const stream of overlaidProbe.streams) assert.ok(Math.abs(Number(stream.duration) - 4.137) <= 1 / 30 + 0.001, `composited ${stream.codec_type} duration drifted: ${stream.duration}`);
+  fs.rmSync(overlaid, { force: true });
 }));
 
 test('two-image sequences switch at spoken boundaries despite five-second estimates', async () => ws.workspaceContext.run(scope, async () => {

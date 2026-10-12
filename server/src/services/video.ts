@@ -316,6 +316,8 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
   const duration = sync.totalSamples / sync.sampleRate;
   const width = opts.resolution?.width || 1920;
   const height = opts.resolution?.height || 1080;
+  const normalizeVideo = 'format=yuv420p,setparams=range=tv:colorspace=bt709:color_primaries=bt709:color_trc=bt709';
+  const colorSpaceArgs = ['-color_range', 'tv', '-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709'];
   const time = (seconds: number) => {
     const centiseconds = Math.round(seconds * 100);
     return `${Math.floor(centiseconds / 360000)}:${String(Math.floor(centiseconds / 6000) % 60).padStart(2, '0')}:${String(Math.floor(centiseconds / 100) % 60).padStart(2, '0')}.${String(centiseconds % 100).padStart(2, '0')}`;
@@ -365,8 +367,8 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         const clean = `clean-${i}.mp4`;
         const file = `scene-${i}.mp4`;
         const length = frames / FPS;
-        await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', resolveInputPath(opts.imagePaths[i], opts.scriptId), '-vf', filter,
-          '-frames:v', String(frames), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', editing.quality === 'high' ? '18' : '21', '-pix_fmt', 'yuv420p', '-r', String(FPS), '-threads', '2', clean], opts.signal, work);
+        await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', resolveInputPath(opts.imagePaths[i], opts.scriptId), '-vf', `${filter},${normalizeVideo}`,
+          '-frames:v', String(frames), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', editing.quality === 'high' ? '18' : '21', '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), '-threads', '2', clean], opts.signal, work);
         const transitionLength = Math.min(editing.transitionSeconds, length / 3);
         const post: string[] = [];
         if ((i === 0 && editing.bookendFades) || decisions[i].transition === 'dip-black') post.push(`fade=t=in:st=0:d=${transitionLength}`);
@@ -379,7 +381,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
           fs.writeFileSync(containedFile(work, `polish-${i}.ass`), reservePresenterCaptionSpace(autoEditAss(scenePlan.scenes[i].narration, length, '', width, height, editing, true), opts.presenter, presenterSourceSize));
           post.push(`subtitles=polish-${i}.ass`);
         }
-        post.push('format=yuv420p');
+        post.push(normalizeVideo);
         const sceneArgs = ['-v', 'error', '-y', '-i', clean];
         if (i > 0 && decisions[i].transition === 'dissolve') {
           // Blend the prior clean final frame into the incoming scene. No overlapping
@@ -387,7 +389,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
           sceneArgs.push('-loop', '1', '-framerate', String(FPS), '-i', 'previous-tail.png', '-filter_complex_threads', '1', '-filter_complex',
             `[1:v]trim=duration=${transitionLength},settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[tail];[0:v]settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[current];[tail][current]xfade=transition=fade:duration=${transitionLength}:offset=0,${post.join(',')}[v]`, '-map', '[v]');
         } else sceneArgs.push('-vf', post.join(','));
-        sceneArgs.push('-frames:v', String(frames), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', editing.quality === 'high' ? '19' : '23', '-pix_fmt', 'yuv420p', '-r', String(FPS), '-threads', '2', file);
+        sceneArgs.push('-frames:v', String(frames), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', editing.quality === 'high' ? '19' : '23', '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), '-threads', '2', file);
         await runMedia('ffmpeg', sceneArgs, opts.signal, work);
         if (decisions[i + 1]?.transition === 'dissolve') await runMedia('ffmpeg', ['-v', 'error', '-y', '-sseof', String(-1 / FPS), '-i', clean, '-frames:v', '1', '-update', '1', 'previous-tail.png'], opts.signal, work);
         fs.rmSync(containedFile(work, clean), { force: true });
@@ -401,9 +403,10 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         fs.writeFileSync(containedFile(work, `caption-${i}.ass`), reservePresenterCaptionSpace(ass, opts.presenter, presenterSourceSize));
         filter += `,subtitles=caption-${i}.ass`;
       }
+      filter += `,${normalizeVideo}`;
       const file = `scene-${i}.mp4`;
       await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', resolveInputPath(opts.imagePaths[i], opts.scriptId), '-vf', filter,
-        '-frames:v', String(frames), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-pix_fmt', 'yuv420p', '-r', String(FPS), '-threads', '2', file], opts.signal, work);
+        '-frames:v', String(frames), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), '-threads', '2', file], opts.signal, work);
       files.push(`file '${file}'`);
       opts.onProgress?.(Math.round(90 * (i + 1) / scenePlan.scenes.length));
     }

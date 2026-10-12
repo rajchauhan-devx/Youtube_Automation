@@ -174,6 +174,11 @@ export async function exportGraphicsOverlay(
     await renderMedia({
       ...session, codec: 'vp8', imageFormat: 'png', pixelFormat: 'yuva420p', muted: true,
       outputLocation: output, concurrency: config.renderConcurrency, timeoutInMilliseconds: 60000,
+      ffmpegOverride: ({ args }) => {
+        const idx = args.indexOf('libvpx');
+        if (idx >= 0) args.splice(idx + 1, 0, '-deadline', 'realtime', '-cpu-used', '6', '-threads', '8');
+        return args;
+      },
       onProgress: p => progress(p.renderedFrames, project.inputs.durationFrames),
     });
     bounded.throwIfAborted();

@@ -212,7 +212,7 @@ export async function compositePresenter(base: string, source: string, settings:
   const graph = `${alphaGraph}${alpha ? '[cutout]' : '[1:v]'}setpts=PTS-STARTPTS,${crop},scale=${geo.width}:${geo.height},setsar=1,fps=30,format=rgba${key},tpad=stop_mode=clone:stop_duration=0.12[p];[0:v][p]overlay=x=W-w-${geo.right}:y=H-h-${geo.bottom}:eof_action=pass[v]`;
   const output = base.replace(/\.mp4$/, '.presenter.partial.mp4');
   try {
-    await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', base, '-i', source, ...(alpha ? ['-stream_loop', '-1', '-i', alpha] : []), '-filter_complex_threads', '1', '-filter_complex', graph,
+    await runMedia('ffmpeg', ['-v', 'error', '-y', '-reinit_filter', '0', '-i', base, '-i', source, ...(alpha ? ['-stream_loop', '-1', '-i', alpha] : []), '-filter_complex_threads', '1', '-filter_complex', graph,
       '-map', '[v]', '-map', '0:a:0', '-c:v', 'libx264', '-preset', 'fast', '-crf', '20', '-pix_fmt', 'yuv420p', '-r', '30',
       '-c:a', 'copy', '-t', String(duration), '-movflags', '+faststart', output], signal);
     signal?.throwIfAborted();

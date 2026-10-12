@@ -106,12 +106,19 @@ export async function compositeSavedGraphics(
     signal.throwIfAborted();
     progress('Combining video and motion graphics', 95);
     await runMedia('ffmpeg', [
-      '-v', 'error', '-y', '-i', result.outputPath, '-c:v', 'libvpx', '-i', overlay,
+      '-v', 'error', '-y', '-reinit_filter', '0', '-i', result.outputPath, '-c:v', 'libvpx', '-i', overlay,
       '-filter_complex', '[0:v]setpts=PTS-STARTPTS[base];[1:v]setpts=PTS-STARTPTS[graphics];[base][graphics]overlay=eof_action=pass:repeatlast=0:format=auto,format=yuv420p[v]',
       '-map', '[v]', '-map', '0:a', '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-c:a', 'copy',
       '-t', String(result.duration), '-movflags', '+faststart', combined,
     ], signal);
     signal.throwIfAborted();
+    const probe = JSON.parse(await runMedia('ffprobe', ['-v', 'error', '-show_streams', '-of', 'json', combined], signal));
+    for (const type of ['video', 'audio']) {
+      const stream = probe.streams.find((stream: any) => stream.codec_type === type);
+      if (!stream || !Number.isFinite(Number(stream.duration)) || Math.abs(Number(stream.duration) - result.duration) > 1 / FPS + 0.001) {
+        throw new Error(`Composited ${type} duration does not match narration. Output was not published.`);
+      }
+    }
     fs.renameSync(combined, result.outputPath);
     result.size = fs.statSync(result.outputPath).size;
     return result;
