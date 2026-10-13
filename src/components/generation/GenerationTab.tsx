@@ -220,14 +220,21 @@ function ImageGenerationContent({
         elapsedMs: data.elapsedMs,
         attempts: (item.attempts || 0) + 1,
       });
+      return 'done' as const;
     } catch (err: unknown) {
-      if (token !== runTokenRef.current) return;
+      if (token !== runTokenRef.current) return 'cancelled' as const;
+      const errCode = getErrorCode(err);
+      const errMsg = getErrorMessage(err, 'Unknown error');
       updateImage(item.index, {
         status: 'error',
-        error: getErrorMessage(err, 'Unknown error'),
-        errorCode: getErrorCode(err),
+        error: errMsg,
+        errorCode: errCode,
         attempts: (item.attempts || 0) + 1,
       });
+      if (errCode === 'RATE_LIMITED' || /All \d+ Cloudflare API\(s\) failed|10,000 neurons/i.test(errMsg)) {
+        return 'rate_limited' as const;
+      }
+      return 'error' as const;
     }
   }
 
@@ -243,7 +250,10 @@ function ImageGenerationContent({
         await new Promise((r) => setTimeout(r, 300));
         if (myToken !== runTokenRef.current) return;
       }
-      await generateOne(item);
+      const outcome = await generateOne(item);
+      if (outcome === 'rate_limited') {
+        break;
+      }
       completedInBatch += 1;
 
       // Long videos can have dozens of high-resolution images. Give the local

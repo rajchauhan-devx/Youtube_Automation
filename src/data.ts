@@ -240,7 +240,7 @@ export const CHANNEL_LORA_PROFILES: Record<ChannelLoraProfile['channelKey'], Cha
     strengthClip: 0.75,
     triggerToken: 'rulezero_noir_contrast',
     styleDna:
-      'Dark atmospheric contrast, low-key Fincher neo-noir cinematography, deep crushed obsidian shadows, cold cyan glass reflections contrasted with warm tungsten rim light, high-tension thriller mood.',
+      '2D graphic novel cel-shaded comic style, bold black charcoal ink outlines, matte flat color fills, two-step cel shading, high-contrast chiaroscuro shadows, cold cyan moonlight contrasted with warm amber tungsten rim light, psychological mystery thriller mood, no 3D, no photorealism.',
   },
   against_the_odds: {
     channelKey: 'against_the_odds',
@@ -282,12 +282,18 @@ export function getChannelLoraProfile(
   return CHANNEL_LORA_PROFILES.ancient_dharma;
 }
 
+const FRONTEND_TWO_D_STYLE_PATTERN =
+  /\b(2d\s+animated|2d\s+animation|2d\s+cartoon|animated[- ]series\s+frame|cel[- ]shad(?:ed|ing)|charcoal\s+(?:outlines|linework)|matte\s+flat\s+colou?r|flat\s+colou?r\s+fills|graphic\s+novel|hand[- ]drawn\s+2d)\b/i;
+
 export function formatPromptWithChannelStyleDna(
   prompt: string,
   channelOrAccount?: { id?: string; name?: string; youtubeChannelTitle?: string } | string | null,
 ): string {
   const clean = (prompt || '').trim();
   if (!clean) return '';
+  if (FRONTEND_TWO_D_STYLE_PATTERN.test(clean)) {
+    return clean;
+  }
   const profile = getChannelLoraProfile(channelOrAccount);
   if (clean.toLowerCase().includes(profile.styleDna.slice(0, 28).toLowerCase())) {
     return clean;

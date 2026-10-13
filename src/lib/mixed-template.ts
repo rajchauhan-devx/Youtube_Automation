@@ -24,9 +24,14 @@ CHAPTERS: structure the video into clear chapters (Opening, Development, Turn, C
 
 Narration: short, conversational, speakable sentences. Name people and places clearly for new viewers. Every paragraph must add a cause, obstacle, discovery or consequence. No stage directions, tags, timestamps, or markup in spoken text.
 
-## 2. Media planning — use movement with intent
+## 2. Media planning — STRICT 50/50 SPLIT (50% VIDEO / 50% IMAGE)
 
-Use VIDEO scenes where movement carries information: arrivals, purposeful gestures, journeys, changing environments, unfolding events, restrained reveals. Use IMAGE scenes for introductions, meaningful details, contemplative beats, geography, and explanatory narration. Mix both types as the story requires — never cluster all videos at the start, never alternate mechanically, never use motion as decoration unrelated to the spoken words.
+Every episode MUST maintain an exact 50/50 split between static image scenes and moving video scenes across the entire duration:
+- Alternating rhythm: Alternate media types across scenes (Scene 1: Image, Scene 2: Video, Scene 3: Image, Scene 4: Video, etc.) so exactly 50% of the scenes are designated as image assets and 50% as video assets.
+- For an odd total number of scenes (e.g. 11 scenes), provide 6 images and 5 videos.
+- For an even total number of scenes (e.g. 10, 14, or 64 scenes), provide an EXACT 50/50 split.
+- Use VIDEO scenes where movement carries information: arrivals, purposeful gestures, journeys, changing environments, unfolding events, restrained reveals. Use IMAGE scenes for introductions, meaningful details, contemplative beats, geography, and explanatory narration.
+- Every video scene MUST have both an <image_prompt> (to generate the reference keyframe) and a <video_prompt> (for image-to-video animation).
 
 Scene_001 is your first-impression frame: its opening composition must already work as a thumbnail-grade 16:9 still (strong subject, clean silhouette, cinematic depth).
 

@@ -195,10 +195,13 @@ function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountMo
   );
 }
 
-function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defaultResolution = '720p', disabled, onImported, onError, onNotice, onOpenAccountModal }: {
+function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defaultResolution = '720p', disabled, hasReference, onEnsureReference, onImported, onError, onNotice, onOpenAccountModal }: {
   scriptId: string; sceneIndex: number; prompt: string; duration: number; aspect: 'portrait' | 'landscape';
   defaultResolution?: '720p' | '1080p';
-  disabled: boolean; onImported: (blob: Blob) => Promise<void>; onError: (message: string) => void; onNotice: (message: string) => void;
+  disabled: boolean;
+  hasReference?: boolean;
+  onEnsureReference?: () => Promise<void>;
+  onImported: (blob: Blob) => Promise<void>; onError: (message: string) => void; onNotice: (message: string) => void;
   onOpenAccountModal?: () => void;
 }) {
   const [job, setJob] = useState<FlowJobState | null>(null);
@@ -239,6 +242,14 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defau
     setBusy(true);
     onError('');
     try {
+      if (onEnsureReference) {
+        onNotice('Ensuring 2D reference frame is generated…');
+        try {
+          await onEnsureReference();
+        } catch (refErr) {
+          console.warn('Reference generation error:', refErr);
+        }
+      }
       onNotice('Validating Flow prompt (0 credits)…');
       const res = await globalThis.fetch('/api/flow/jobs', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -370,8 +381,8 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defau
         {!running ? (
           <button type="button" disabled={disabled || busy || credits?.status === 'exhausted'} onClick={() => void start()}
             className="flex items-center gap-1.5 rounded bg-purple-500/25 px-2.5 py-1.5 text-xs font-semibold text-purple-100 hover:bg-purple-500/35 disabled:opacity-40"
-            title="Generate video directly from Google Flow using Playwright and import MP4">
-            <Sparkles className="h-3.5 w-3.5 text-purple-300" /> Generate with Flow
+            title={hasReference ? "Generate video with Google Flow using 2D image reference keyframe" : "Generate video with Google Flow"}>
+            <Sparkles className="h-3.5 w-3.5 text-purple-300" /> {hasReference ? 'Generate with Flow (Image-to-Video)' : 'Generate with Flow'}
           </button>
         ) : (
           <>
@@ -446,9 +457,9 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   const imageCount = scenes.filter(scene => scene.mediaType === 'image').length;
   const videoCount = scenes.filter(scene => scene.mediaType === 'video').length;
   const locked = busy || generating;
-  const missingImages = scenes.flatMap((scene, index) => scene.mediaType === 'image' && !script?.generatedImages?.some(asset =>
+  const missingImages = scenes.flatMap((scene, index) => !script?.generatedImages?.some(asset =>
     asset.index === index && asset.prompt === scene.imagePrompt && (asset.mediaType || 'image') === 'image' && asset.status === 'done' && asset.url
-  ) ? [index] : []);
+  ) && !script?.referenceFrames?.[index]?.url ? [index] : []);
   const missingVideos = scenes.flatMap((scene, index) => scene.mediaType === 'video' && !script?.generatedImages?.some(asset =>
     asset.index === index && asset.prompt === scene.imagePrompt && (asset.mediaType || 'image') === 'video' && asset.status === 'done' && asset.url
   ) ? [index] : []);
@@ -545,8 +556,8 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
 
   async function generateImages(indices: number[]) {
     if (!script || operation.current || !indices.length) return;
-    // Preserve original scene indices; filtering must never move an image into a video slot.
-    const queue = indices.filter(index => scenes[index]?.mediaType === 'image');
+    // Generate images for all scenes in queue (including video placeholders as reference frames)
+    const queue = indices.filter(index => Boolean(scenes[index]));
     if (!queue.length) return;
     operation.current = true; stopRequested.current = false;
     setGenerating(true); setStopping(false); setError(''); setNotice('Checking image model…');
@@ -574,7 +585,14 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         if (!response.ok) throw new Error(`Scene ${index + 1}: ${result.error || 'Image generation failed.'}`);
         // Each result is saved by the server, even when this page is closed.
         if (!mounted.current) return;
-        await onUpdate({ generatedImages: result.generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
+        await onUpdate({
+          generatedImages: result.generatedImages,
+          ...(result.referenceFrames ? { referenceFrames: result.referenceFrames } : {}),
+          timelineConfig: undefined,
+          youtubeExport: undefined,
+          facebookExport: undefined,
+          instagramExport: undefined,
+        });
         completed++;
       }
       if (mounted.current) setNotice(`${stopRequested.current ? 'Stopped. ' : ''}Saved ${completed} of ${queue.length} images (${channelLora.channelLabel} LoRA). Existing media was kept.`);
@@ -671,6 +689,32 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
 
         if (scene.mediaType !== 'video') {
           await toggleMediaType(index, 'video');
+        }
+
+        // Ensure this scene has a 2D reference image generated first
+        const hasExistingImg = script.generatedImages?.some(asset =>
+          asset.index === index && asset.prompt === scene.imagePrompt && (asset.mediaType || 'image') === 'image' && asset.status === 'done' && asset.url
+        );
+        const hasExistingRef = Boolean(script.referenceFrames?.[index]?.url);
+
+        if (!hasExistingImg && !hasExistingRef && !stopRequested.current) {
+          setNotice(`Generating 2D cartoon reference frame for Scene ${index + 1}…`);
+          try {
+            const imgRes = await fetch('/api/generate/image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ scriptId: script.id, index, prompt: scene.imagePrompt, preset, provider: imageProviderRef.current }),
+            });
+            const imgData = await imgRes.json();
+            if (imgRes.ok && imgData.generatedImages) {
+              await onUpdate({
+                generatedImages: imgData.generatedImages,
+                ...(imgData.referenceFrames ? { referenceFrames: imgData.referenceFrames } : {}),
+              });
+            }
+          } catch (imgErr) {
+            console.warn(`Could not pre-generate reference image for scene ${index + 1}:`, imgErr);
+          }
         }
 
         const audio = script.generatedAudio?.find(item => item.sync?.timingMode === 'narration');
@@ -850,8 +894,16 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {generating ? <button disabled={stopping} onClick={() => { stopRequested.current = true; setStopping(true); }} className="studio-btn-ghost text-red-300 hover:text-red-200"><Square className="h-4 w-4 mr-1 text-red-400" />{stopping ? 'Stopping after current job...' : 'Stop batch generation'}</button> : <>
-          {imageCount > 0 && (
-            <button disabled={locked || !missingImages.length || (modelStatus === 'starting' || modelStatus === 'stopping')} onClick={() => void generateImages(missingImages)} className="studio-btn-primary"><Sparkles className="h-4 w-4" />Generate images{missingImages.length ? ` (${missingImages.length})` : ''}</button>
+          {scenes.length > 0 && (
+            <button
+              disabled={locked || !missingImages.length || (modelStatus === 'starting' || modelStatus === 'stopping')}
+              onClick={() => void generateImages(missingImages.length ? missingImages : scenes.map((_, i) => i))}
+              className="studio-btn-primary"
+              title="Generate 2D cartoon images for all scenes (used directly for image scenes and as reference frames for video scenes)"
+            >
+              <Sparkles className="h-4 w-4" />
+              Generate images / reference frames{missingImages.length ? ` (${missingImages.length})` : ''}
+            </button>
           )}
           {scenes.length > 0 && (
             <div className="flex items-center rounded-lg border border-purple-500/40 bg-purple-600/25 p-0.5 shadow-sm">
@@ -1077,6 +1129,8 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         const spokenSeconds = timing && audio?.sync ? (timing.endSample - timing.startSample) / audio.sync.sampleRate : undefined;
         const asset = script?.generatedImages?.find(item => item.index === index && item.prompt === scene.imagePrompt && (item.mediaType || 'image') === type && item.status === 'done');
         const refFrame = script?.referenceFrames?.[index];
+        const stillImage = script?.generatedImages?.find(item => item.index === index && item.prompt === scene.imagePrompt && (item.mediaType || 'image') === 'image' && item.status === 'done');
+        const referenceImageToDisplay = type === 'video' && !asset?.url ? (stillImage?.url || refFrame?.url) : null;
         const sceneRunning = activeIndex === index || activeRefIndex === index || activeVideoIndex === index;
         const styleDnaPrompt = formatPromptWithChannelStyleDna(scene.imagePrompt, account);
         return <article key={scene.id} className="rounded-xl border border-border bg-surface p-4">
@@ -1107,11 +1161,27 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
             </div>
           </div>
           <div className={`relative flex ${profile === 'shorts' ? 'aspect-[9/16] max-h-[420px]' : 'aspect-video'} items-center justify-center overflow-hidden rounded-lg bg-black/40`}>
-            {asset?.url ? type === 'video' ? <video src={asset.url} controls muted playsInline preload="metadata" className="h-full w-full object-contain" /> : <img src={asset.url} alt={`Scene ${index + 1}`} className="h-full w-full object-contain" /> : <div className="flex flex-col items-center gap-2 text-gray-500">
-              {type === 'video' ? <Film className="h-8 w-8 text-purple-300/50" /> : <ImageIcon className="h-8 w-8 text-gray-600" />}
-              <span className="text-sm">{type === 'video' ? 'Video scene' : 'Image scene'}</span>
-              <span className="px-3 text-center text-xs">{type === 'video' ? (refFrame?.url ? 'LoRA reference frame ready (see Scene actions below) · Import MP4' : 'Import an MP4') : 'Generate an image or import a still'}</span>
-            </div>}
+            {asset?.url ? (
+              type === 'video' ? (
+                <video src={asset.url} controls muted playsInline preload="metadata" className="h-full w-full object-contain" />
+              ) : (
+                <img src={asset.url} alt={`Scene ${index + 1}`} className="h-full w-full object-contain" />
+              )
+            ) : referenceImageToDisplay ? (
+              <div className="relative h-full w-full flex items-center justify-center">
+                <img src={referenceImageToDisplay} alt={`Scene ${index + 1} reference frame`} className="h-full w-full object-contain opacity-90" />
+                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between rounded bg-black/80 px-2.5 py-1 text-[11px] text-purple-200 backdrop-blur-sm border border-purple-500/30">
+                  <span className="font-semibold flex items-center gap-1">🖼️ 2D Reference Frame</span>
+                  <span className="text-[10px] text-purple-300">Ready for Flow Video</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-gray-500">
+                {type === 'video' ? <Film className="h-8 w-8 text-purple-300/50" /> : <ImageIcon className="h-8 w-8 text-gray-600" />}
+                <span className="text-sm">{type === 'video' ? 'Video scene' : 'Image scene'}</span>
+                <span className="px-3 text-center text-xs">{type === 'video' ? 'Generate 2D image reference or import MP4' : 'Generate an image or import a still'}</span>
+              </div>
+            )}
             {sceneRunning && (
               <div role="status" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/75 p-4 text-center text-purple-200">
                 <Loader2 className="h-9 w-9 animate-spin" />
@@ -1135,6 +1205,12 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
               aspect={profile === 'shorts' ? 'portrait' : 'landscape'}
               defaultResolution={flowResolution}
               disabled={locked}
+              hasReference={Boolean(referenceImageToDisplay)}
+              onEnsureReference={async () => {
+                if (!referenceImageToDisplay) {
+                  await generateImages([index]);
+                }
+              }}
               onImported={async (blob) => {
                 if (type !== 'video') {
                   await toggleMediaType(index, 'video');
@@ -1150,7 +1226,14 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
             </span>
           </div>
           <GenerationDisclosure title="Scene actions & prompt" className="mt-3">
-          {type === 'image' && <button disabled={locked} onClick={() => void generateImages([index])} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">{activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}{activeIndex === index ? 'Generating image…' : asset ? 'Regenerate image' : 'Generate image'}</button>}
+          <button disabled={locked} onClick={() => void generateImages([index])} className="mt-3 flex items-center gap-2 rounded bg-accent/15 px-3 py-2 text-sm text-accent disabled:opacity-40">
+            {activeIndex === index ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {activeIndex === index
+              ? 'Generating image…'
+              : type === 'video'
+              ? (referenceImageToDisplay ? 'Regenerate 2D reference image' : 'Generate 2D reference image')
+              : (asset ? 'Regenerate image' : 'Generate image')}
+          </button>
           {type === 'video' && (
             <div className="mt-3 mb-3 rounded-lg border border-purple-500/30 bg-purple-500/10 p-3 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">

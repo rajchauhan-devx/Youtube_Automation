@@ -35,7 +35,7 @@ mediaImportRouter.post('/:scriptId/:index', express.raw({ type: 'application/oct
     const current = store.getById<any>('scripts', scriptId);
     if (!current || JSON.stringify(mediaScenes({ ...current, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) throw new Error('Scene changed during upload. Import again into the updated scene.');
     const asset = { index, prompt: scene.imagePrompt, mediaType: type, ...(type === 'video' ? { duration } : {}), status: 'done', url: mediaUrl(`generate/file/${scriptId}/${filename}`) };
-    const generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index || (currentWorkspace().profile === 'shorts' && (item.mediaType || 'image') !== type)), asset].sort((a, b) => a.index - b.index);
+    const generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index), asset].sort((a, b) => a.index - b.index);
     store.add('scripts', { ...current, generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
     target = undefined;
     res.json({ asset, generatedImages });

@@ -15,6 +15,7 @@ import {
   interruptComfyUI,
   listAvailableModels,
   resolveChannelLoraForAccount,
+  TWO_D_STYLE_PATTERN,
   ComfyError,
   sanitizeSegment,
   type QualityPreset,
@@ -32,6 +33,44 @@ import {
   reorderCloudflareEndpoints,
   clearEndpointCooldowns,
 } from '../services/cloudflare-image.js';
+
+function isScript2dStylized(scriptObj: any, rawPrompt?: string): boolean {
+  if (rawPrompt && TWO_D_STYLE_PATTERN.test(rawPrompt)) return true;
+  const planScenes = Array.isArray(scriptObj?.scenePlan?.scenes) ? scriptObj.scenePlan.scenes : [];
+  return planScenes.some(
+    (s: any) =>
+      TWO_D_STYLE_PATTERN.test(String(s?.imagePrompt || '')) ||
+      TWO_D_STYLE_PATTERN.test(String(s?.videoPrompt || ''))
+  );
+}
+
+async function generateWithAutomaticFallback(
+  useCloudflare: boolean,
+  genOpts: Parameters<typeof generateImage>[0]
+) {
+  if (!useCloudflare) {
+    return generateImage(genOpts);
+  }
+  try {
+    return await generateCloudflareImage(genOpts);
+  } catch (err: any) {
+    if (err instanceof ComfyError && err.code === 'RATE_LIMITED' && !process.env.NODE_TEST_CONTEXT) {
+      let comfy = await checkComfyStatus();
+      if (!comfy.online) {
+        const started = await startComfyUI();
+        if (started.success) {
+          comfy = await checkComfyStatus();
+        }
+      }
+      if (comfy.online) {
+        console.warn('[generate] All Cloudflare APIs hit neuron limit — automatically falling back to local ComfyUI.');
+        const localRes = await generateImage(genOpts);
+        return { ...localRes, endpointId: 'local-fallback', endpointLabel: 'Local ComfyUI (Backup)', attempts: 1 };
+      }
+    }
+    throw err;
+  }
+}
 
 export const generateRouter = Router();
 generateRouter.use(presenterGuard(['/start', '/image', '/reference-frame']));
@@ -225,8 +264,8 @@ generateRouter.post('/image', async (req, res) => {
 
   const mixed = ['mixed', 'shorts'].includes(currentWorkspace().profile) || Boolean(store.getById<any>('scripts', scriptId)?.scenePlan);
   const scene = mixed ? mediaScenes({ ...store.getById<any>('scripts', scriptId), section: currentWorkspace().profile })[index] : undefined;
-  if (mixed && (!scene || scene.mediaType !== 'image' || scene.imagePrompt !== prompt)) {
-    res.status(400).json({ error: 'Choose an image scene with its current extracted prompt. Import MP4 files for video scenes.' });
+  if (mixed && (!scene || scene.imagePrompt !== prompt)) {
+    res.status(400).json({ error: 'Choose a valid scene with its current extracted prompt.' });
     return;
   }
 
@@ -244,7 +283,9 @@ generateRouter.post('/image', async (req, res) => {
       provider === 'cloudflare' ||
       (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
       (provider !== 'local' && cfCfg.provider === 'cloudflare');
-    const result = await (useCloudflare ? generateCloudflareImage : generateImage)({
+    const scriptDoc = store.getById<any>('scripts', scriptId);
+    const force2dStylized = isScript2dStylized(scriptDoc, prompt);
+    const result = await generateWithAutomaticFallback(useCloudflare, {
       prompt,
       scriptId,
       index,
@@ -252,8 +293,10 @@ generateRouter.post('/image', async (req, res) => {
       signal: controller.signal,
       preset: validPreset,
       modelName: typeof modelName === 'string' ? modelName : undefined,
+      force2dStylized,
     });
     let generatedImages;
+    let referenceFrames: Record<string, any> | undefined;
     if (mixed) {
       const current = store.getById<any>('scripts', scriptId);
       if (!current || JSON.stringify(mediaScenes({ ...current, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) {
@@ -261,11 +304,33 @@ generateRouter.post('/image', async (req, res) => {
         return;
       }
       const asset = { index, prompt, mediaType: 'image', status: 'done', url: result.publicUrl, seed: result.seed, elapsedMs: result.elapsedMs };
-      generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index || (currentWorkspace().profile === 'shorts' && item.mediaType === 'video')), asset].sort((a, b) => a.index - b.index);
-      store.add('scripts', { ...current, generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
+      referenceFrames = {
+        ...(current.referenceFrames || {}),
+        [index]: {
+          index,
+          prompt,
+          url: result.publicUrl,
+          seed: result.seed,
+          elapsedMs: result.elapsedMs,
+          createdAt: new Date().toISOString(),
+        },
+      };
+      const hasExistingVideo = (current.generatedImages || []).some((item: any) => item.index === index && item.mediaType === 'video' && item.status === 'done');
+      generatedImages = hasExistingVideo
+        ? [...(current.generatedImages || [])]
+        : [...(current.generatedImages || []).filter((item: any) => item.index !== index), asset].sort((a: any, b: any) => a.index - b.index);
+      store.add('scripts', {
+        ...current,
+        generatedImages,
+        referenceFrames,
+        timelineConfig: undefined,
+        youtubeExport: undefined,
+        facebookExport: undefined,
+        instagramExport: undefined,
+      });
     }
     const cfMeta = 'endpointId' in result ? { endpointId: (result as any).endpointId, endpointLabel: (result as any).endpointLabel, attempts: (result as any).attempts } : {};
-    res.json({ ok: true, url: result.publicUrl, seed: result.seed, elapsedMs: result.elapsedMs, ...cfMeta, ...(mixed ? { generatedImages } : {}) });
+    res.json({ ok: true, url: result.publicUrl, seed: result.seed, elapsedMs: result.elapsedMs, ...cfMeta, ...(mixed ? { generatedImages, referenceFrames } : {}) });
   } catch (err: any) {
     console.error(`Generation failed for ${key}:`, err.message);
     if (err instanceof ComfyError) {
@@ -333,7 +398,8 @@ generateRouter.post('/reference-frame', async (req, res) => {
       provider === 'cloudflare' ||
       (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
       (provider !== 'local' && cfCfg.provider === 'cloudflare');
-    const result = await (useCloudflare ? generateCloudflareImage : generateImage)({
+    const force2dStylized = isScript2dStylized(currentScript, prompt);
+    const result = await generateWithAutomaticFallback(useCloudflare, {
       prompt,
       scriptId,
       index,
@@ -342,6 +408,7 @@ generateRouter.post('/reference-frame', async (req, res) => {
       preset: validPreset,
       modelName: typeof modelName === 'string' ? modelName : undefined,
       filePrefix: 'ref-frame',
+      force2dStylized,
     });
 
     const latest = store.getById<any>('scripts', scriptId);

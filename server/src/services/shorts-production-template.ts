@@ -50,13 +50,16 @@ Usually use 4–7 scenes for 30 seconds, 7–12 for 60 seconds and 12–20 for 9
 
 Give every scene a planned duration in seconds. The planned durations should add up to the requested target, with a natural speech budget underneath. Video source clips usually span 3–10 seconds; choose a longer suitable source duration or split a long passage at a natural sentence boundary. These numbers are planning estimates. The app measures generated narration and uses it for final scene timing. Do not pad every video scene to a fixed ten seconds, cut spoken words, or rely on looping an action to cover excess speech.
 
-## 5. Choose media deliberately
+## 5. Media Selection & Split Protocol
 
-Use video where movement conveys information: an arrival, a purposeful gesture, a journey, a changing environment, an unfolding event or a restrained reveal. Use images for an introduction, a meaningful detail, a contemplative beat, geography or explanatory narration. Include both media types unless the user explicitly requests images only. Do not mechanically alternate them, cluster all videos at the beginning, or use movement as decoration unrelated to the spoken words.
+For Mixed Media packages (images & videos):
+- Maintain an exact 50/50 split between static image scenes and moving video scenes across the entire duration.
+- Alternating rhythm: Alternate media types across scenes (Scene 1: Image, Scene 2: Video, Scene 3: Image, Scene 4: Video, etc.).
+- For an odd total number of scenes (e.g. 11 or 15 scenes), provide the closest 50/50 split (e.g. 6 images / 5 videos or 8 images / 7 videos).
+- Every video scene MUST have both an <image_prompt> (to generate the reference keyframe) and a <video_prompt> (for image-to-video animation).
 
-Scene_001 is your scroll-stopper: if it is a video scene, its first frame must already work as a thumbnail-grade still (strong face or decisive action, clean silhouette, readable at phone size). If it is an image scene, compose it as the most arresting frozen moment of the episode.
-
-Every scene MUST have a complete image prompt, including video scenes. This is the same scene's still-image alternative and allows the app's images-only setting to work without rewriting the narration. A video scene must ALSO have its own video prompt. The image alternative is not an extra timeline scene. Do not create duplicate scene IDs for the alternatives.
+For Image-Only packages (still-image production):
+- When the user selects or requests still images only, generate 100% static image scenes with <image_prompt> for every scene. Do not generate video prompts or force video scenes.
 
 ## 6. Character, location and style continuity
 

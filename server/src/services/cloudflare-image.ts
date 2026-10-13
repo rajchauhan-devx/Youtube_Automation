@@ -5,6 +5,7 @@ import sharp from "sharp";
 import {
   ComfyError,
   PRESET_CONFIG,
+  preparePromptForImageGeneration,
   resolveChannelLoraForAccount,
   sanitizeSegment,
   type QualityPreset,
@@ -101,10 +102,12 @@ export default {
 
       const model = ALLOWED_MODELS.has(body.model) ? body.model : DEFAULT_MODEL;
       const isFlux = model.includes("flux");
+      const negativePrompt = typeof body?.negative_prompt === "string" ? body.negative_prompt.trim() : "";
       const input = isFlux
         ? { prompt, steps: Math.min(8, Math.max(1, Number(body.steps) || 6)) }
         : {
             prompt,
+            ...(negativePrompt ? { negative_prompt: negativePrompt } : {}),
             width: Math.min(1536, Math.max(512, Number(body.width) || 1024)),
             height: Math.min(1536, Math.max(512, Number(body.height) || 1024)),
             num_steps: Math.min(40, Math.max(4, Number(body.num_steps || body.steps) || 20)),
@@ -974,6 +977,7 @@ export interface CloudflareGenerateOptions {
   preset?: QualityPreset;
   modelName?: string;
   filePrefix?: "image" | "ref-frame";
+  force2dStylized?: boolean;
 }
 
 function orderEndpointsForAttempt(
@@ -990,6 +994,7 @@ async function attemptEndpointGenerate(
   ep: CloudflareEndpoint,
   args: {
     effectivePrompt: string;
+    negativePrompt: string;
     model: string;
     isFlux: boolean;
     fluxSteps: number;
@@ -1010,6 +1015,7 @@ async function attemptEndpointGenerate(
       },
       body: JSON.stringify({
         prompt: args.effectivePrompt,
+        ...(args.negativePrompt ? { negative_prompt: args.negativePrompt } : {}),
         model: args.model,
         width: args.targetWidth,
         height: args.targetHeight,
@@ -1026,6 +1032,7 @@ async function attemptEndpointGenerate(
     ? { prompt: args.effectivePrompt, steps: args.fluxSteps }
     : {
         prompt: args.effectivePrompt,
+        ...(args.negativePrompt ? { negative_prompt: args.negativePrompt } : {}),
         width: args.targetWidth,
         height: args.targetHeight,
         num_steps: args.sdxlSteps,
@@ -1081,13 +1088,23 @@ export async function generateCloudflareImage(opts: CloudflareGenerateOptions): 
   const accountId = currentWorkspace().accountId || "default";
   const channelLora = resolveChannelLoraForAccount(accountId);
 
-  let effectivePrompt = opts.prompt.trim();
-  if (cfg.injectStyleDna && channelLora.styleDna) {
-    effectivePrompt = `${effectivePrompt}\n\nVisual Style: ${channelLora.styleDna}`;
-  }
+  const prepared = preparePromptForImageGeneration(opts.prompt, {
+    forCloudflare: true,
+    injectStyleDna: cfg.injectStyleDna,
+    styleDna: channelLora.styleDna,
+    force2dStylized: opts.force2dStylized,
+  });
+  const effectivePrompt = prepared.positivePrompt;
+  const negativePrompt = prepared.negativePrompt;
 
   const fluxSteps = preset === "fast" ? 4 : preset === "high" ? 8 : 6;
-  const sdxlSteps = preset === "fast" ? 12 : preset === "high" ? 28 : 20;
+  const isLightning = model.includes("lightning") || model.includes("lcm");
+  const isPhoenix = model.includes("phoenix");
+  const sdxlSteps = isLightning
+    ? (preset === "fast" ? 4 : preset === "high" ? 6 : 4)
+    : isPhoenix
+      ? (preset === "fast" ? 8 : preset === "high" ? 16 : 12)
+      : (preset === "fast" ? 12 : preset === "high" ? 24 : 18);
   const cooldownMs = cfg.cooldownMs || DEFAULT_COOLDOWN_MS;
 
   // Resolve pool: prefer explicit endpoints, fall back to legacy single for old configs.
@@ -1130,6 +1147,7 @@ export async function generateCloudflareImage(opts: CloudflareGenerateOptions): 
     try {
       res = await attemptEndpointGenerate(ep, {
         effectivePrompt,
+        negativePrompt,
         model,
         isFlux,
         fluxSteps,

@@ -200,7 +200,7 @@ const SERVER_CHANNEL_LORAS: Record<
     strengthClip: 0.75,
     triggerToken: 'rulezero_noir_contrast',
     styleDna:
-      'Dark atmospheric contrast, low-key Fincher neo-noir cinematography, deep crushed obsidian shadows, cold cyan glass reflections contrasted with warm tungsten rim light, high-tension thriller mood.',
+      '2D graphic novel cel-shaded comic style, bold black charcoal ink outlines, matte flat color fills, two-step cel shading, high-contrast chiaroscuro shadows, cold cyan moonlight contrasted with warm amber tungsten rim light, psychological mystery thriller mood, no 3D, no photorealism.',
   },
   against_the_odds: {
     channelKey: 'against_the_odds',
@@ -277,8 +277,133 @@ export function resolveChannelLoraForAccount(accountId?: string): ResolvedChanne
   };
 }
 
+export interface PreparedImagePrompt {
+  positivePrompt: string;
+  negativePrompt: string;
+  is2dStylized: boolean;
+}
+
+export const TWO_D_STYLE_PATTERN =
+  /\b(2d\s+animated|2d\s+animation|2d\s+cartoon|animated[- ]series\s+frame|cel[- ]shad(?:ed|ing)|charcoal\s+(?:outlines|linework)|matte\s+flat\s+colou?r|flat\s+colou?r\s+fills|graphic\s+novel|hand[- ]drawn\s+2d)\b/i;
+
+/**
+ * Separates embedded "Negative Prompt:" blocks from positive scene prompts and
+ * front-loads 2D cel-shaded cartoon style anchors when a 2D animated scene is
+ * detected, ensuring visual consistency across Local ComfyUI, Cloudflare Workers AI,
+ * and Google Flow video scenes.
+ */
+export function preparePromptForImageGeneration(
+  rawPrompt: string,
+  options?: {
+    forCloudflare?: boolean;
+    injectStyleDna?: boolean;
+    styleDna?: string;
+    force2dStylized?: boolean;
+  }
+): PreparedImagePrompt {
+  const input = String(rawPrompt || '');
+  const is2dStylized = Boolean(options?.force2dStylized) || TWO_D_STYLE_PATTERN.test(input);
+
+  const negativeChunks: string[] = [];
+  let working = input;
+
+  // 1. Extract multiline "Negative Prompt:" sections
+  working = working.replace(
+    /(?:^|\n)\s*Negative(?:\s+Prompt)?\s*:\s*([\s\S]*?)(?=\n\s*(?:Style(?:\s+Tags)?|Continuity(?:\s+Lock)?|Editor\s+Symbol\s+Treatment)\s*:|$)/gi,
+    (_m, negBody: string) => {
+      if (negBody && negBody.trim()) negativeChunks.push(negBody.trim());
+      return '\n';
+    }
+  );
+
+  // 2. Extract inline "Negative Prompt: ..." segments
+  working = working.replace(
+    /\bNegative(?:\s+Prompt)?\s*:\s*([\s\S]*?)(?=\b(?:Style(?:\s+Tags)?|Continuity(?:\s+Lock)?|Editor\s+Symbol\s+Treatment)\s*:|$)/gi,
+    (_m, negBody: string) => {
+      if (negBody && negBody.trim()) negativeChunks.push(negBody.trim());
+      return ' ';
+    }
+  );
+
+  // 3. Remove non-visual editor notes and duplicate trailing metadata blocks
+  working = working.replace(/(?:^|\n)\s*Editor\s+Symbol\s+Treatment\s*:[^\n]*/gi, '');
+  working = working.replace(/\bEditor\s+Symbol\s+Treatment\s*:\s*None\.?/gi, '');
+
+  // Deduplicate negative terms
+  const seenNeg = new Set<string>();
+  const negItems: string[] = [];
+  for (const chunk of negativeChunks) {
+    for (const part of chunk.split(/[,;\n]+/)) {
+      const cleaned = part.replace(/^no\s+/i, '').trim();
+      const key = cleaned.toLowerCase();
+      if (cleaned && !seenNeg.has(key)) {
+        seenNeg.add(key);
+        negItems.push(cleaned);
+      }
+    }
+  }
+
+  if (is2dStylized) {
+    // Strip duplicate Style Tags block if Render Block is already present
+    if (/\bRender\s+Block\s*:/i.test(working)) {
+      working = working.replace(/\bStyle\s+Tags\s*:[\s\S]*$/i, '');
+    }
+
+    // Remove positive-prompt negation traps ("no glossy 3D", "no photorealism") that trigger 3D in CLIP
+    working = working.replace(
+      /\bno\s+(?:painterly(?:\s+brush)?\s+texture|glossy\s+3d|photorealism|3d(?:\s+render(?:\s+appearance)?)?|glossy\s+reflections[^.;,]*)[;,.]?\s*/gi,
+      ''
+    );
+
+    // Replace 3D/photo trigger words in 2D prompts
+    working = working.replace(/\brealistic(\s+adult\s+human\s+proportions)\b/gi, 'natural$1');
+    working = working.replace(/\bsoftly\s+blurred\s+but\s+suggests\b/gi, 'drawn with clean flat 2D linework showing');
+    working = working.replace(/\bsoftly\s+blurred\b/gi, 'drawn in clean flat 2D');
+    working = working.replace(/\bshallow\s+depth\s+of\s+field\b/gi, 'flat 2D staging');
+
+    // Strip structural field headers so CLIP's first 77 tokens focus purely on art style & subject
+    working = working.replace(/\bCharacter\s+C\d+\s*(?:\([^)]*\))?\s*:\s*/gi, '');
+    working = working.replace(
+      /\b(?:Outfit|Key\s+Accessory|Rule\s+Object|Location(?:\s+[A-Z0-9]+)?|Render\s+Block|Light\/Time\s+Line|Composition|Opening\s+Frame|Primary\s+Action|Action|Camera|Persistence|Ending\s+Frame|Continuity\s+Lock|Style\s+Tags)\s*:\s*/gi,
+      ''
+    );
+    working = working.replace(/\bC1[’']s\b/g, 'her').replace(/\bC1\b/g, 'the character');
+    working = working.replace(/\s+/g, ' ').trim();
+
+    const stylePrefix = options?.forCloudflare
+      ? '2D flat cel-shaded cartoon animation frame, bold black charcoal ink outlines, flat matte color fills, two-step cel shading, 2D adult animated series and graphic novel comic illustration style, hand-drawn 2D linework: '
+      : '((2D flat cel-shaded cartoon animation frame:1.4)), ((bold black charcoal ink outlines, flat matte color fills, 2-step cel shading:1.35)), ((2D adult animated series style, western graphic novel comic illustration, hand-drawn 2D linework, flat 2D colors, stylized 2D hand-drawn ink and flat color art:1.3)). ';
+    const styleSuffix = options?.forCloudflare
+      ? ' Rendered strictly as a flat 2D hand-drawn cel-shaded cartoon frame with bold black charcoal ink outlines and flat matte colors.'
+      : ' ((flat 2D cel-shaded cartoon illustration, bold black charcoal outlines, flat matte color fills, 2D animated series frame:1.3))';
+
+    const anti3dPrefix =
+      'photorealistic, hyperrealistic, 3D render, Pixar style, Disney 3D, CGI, glossy 3D, 3D doll, 3D model, Unreal Engine, Octane render, Blender 3D, volumetric 3D lighting, realistic skin pores, subsurface scattering, photograph, live action, plastic skin, smooth airbrushed 3D shading, depth of field, bokeh, lens blur';
+
+    const combinedNegative = [anti3dPrefix, ...negItems].filter(Boolean).join(', ');
+    return {
+      positivePrompt: `${stylePrefix}${working}${styleSuffix}`,
+      negativePrompt: combinedNegative,
+      is2dStylized: true,
+    };
+  }
+
+  let positivePrompt = working.trim() || input.trim();
+  if (options?.injectStyleDna && options?.styleDna) {
+    positivePrompt = `${positivePrompt}\n\nVisual Style: ${options.styleDna}`;
+  }
+  return {
+    positivePrompt,
+    negativePrompt: negItems.join(', '),
+    is2dStylized: false,
+  };
+}
+
 export interface WorkflowOptions {
   promptStr: string;
+  negativePromptStr?: string;
+  disableChannelLora?: boolean;
+  cfgOverride?: number;
   seed: number;
   preset?: QualityPreset;
   modelName?: string;
@@ -289,7 +414,19 @@ export interface WorkflowOptions {
 }
 
 export function buildWorkflow(opts: WorkflowOptions): any {
-  const { promptStr, seed, preset = 'standard', modelName, channelAccountId, loraName, loraStrengthModel, loraStrengthClip } = opts;
+  const {
+    promptStr,
+    negativePromptStr,
+    disableChannelLora = false,
+    cfgOverride,
+    seed,
+    preset = 'standard',
+    modelName,
+    channelAccountId,
+    loraName,
+    loraStrengthModel,
+    loraStrengthClip,
+  } = opts;
   const wf = loadTemplate();
   const cfg = PRESET_CONFIG[preset] || PRESET_CONFIG.standard;
 
@@ -313,7 +450,8 @@ export function buildWorkflow(opts: WorkflowOptions): any {
   }
 
   // Strictly isolated per-channel LoRA loader (node "20")
-  if (loraName || channelAccountId) {
+  // Bypass photorealistic channel LoRAs when rendering a 2D cartoon / cel-shaded scene unless an explicit loraName was supplied.
+  if (loraName || (channelAccountId && !disableChannelLora)) {
     const resolved = resolveChannelLoraForAccount(channelAccountId);
     const activeLoraName = loraName ? loraName.trim() : (resolved.installed ? resolved.loraFileName : '');
     if (activeLoraName) {
@@ -349,9 +487,9 @@ export function buildWorkflow(opts: WorkflowOptions): any {
     wf[PROMPT_NODE_ID].inputs.text = promptStr;
   }
 
-  // Clear the template's negative text so it cannot impose another style.
+  // Route extracted negative prompt (or clear template default when none).
   if (wf['15']) {
-    wf['15'].inputs.text = '';
+    wf['15'].inputs.text = typeof negativePromptStr === 'string' ? negativePromptStr : '';
   }
 
   if (wf['13']) {
@@ -362,6 +500,8 @@ export function buildWorkflow(opts: WorkflowOptions): any {
       wf['13'].inputs.cfg = 1.8;
       wf['13'].inputs.sampler_name = 'dpmpp_sde';
       wf['13'].inputs.scheduler = 'karras';
+    } else if (typeof cfgOverride === 'number' && Number.isFinite(cfgOverride)) {
+      wf['13'].inputs.cfg = cfgOverride;
     }
     wf['13'].inputs.seed = seed;
   }
@@ -637,6 +777,7 @@ export interface GenerateOptions {
   preset?: QualityPreset;
   modelName?: string;
   filePrefix?: 'image' | 'ref-frame';
+  force2dStylized?: boolean;
 }
 
 export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl: string; fileName: string; seed: number; elapsedMs: number; loraFileName?: string }> {
@@ -649,8 +790,15 @@ export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl:
   const accountId = currentWorkspace().accountId || 'default';
   const channelLora = resolveChannelLoraForAccount(accountId);
 
+  const prepared = preparePromptForImageGeneration(opts.prompt, {
+    forCloudflare: false,
+    force2dStylized: opts.force2dStylized,
+  });
   const workflow = buildWorkflow({
-    promptStr: opts.prompt,
+    promptStr: prepared.positivePrompt,
+    negativePromptStr: prepared.negativePrompt,
+    disableChannelLora: prepared.is2dStylized,
+    cfgOverride: prepared.is2dStylized ? 7.0 : undefined,
     seed,
     preset: opts.preset || 'standard',
     modelName: opts.modelName,

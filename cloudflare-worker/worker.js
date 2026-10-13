@@ -47,6 +47,7 @@ export default {
       const model = ALLOWED_MODELS.has(body.model) ? body.model : DEFAULT_MODEL;
       const isFlux = model.includes("flux");
 
+      const negativePrompt = typeof body?.negative_prompt === "string" ? body.negative_prompt.trim() : "";
       const aiInput = isFlux
         ? {
             prompt,
@@ -55,6 +56,7 @@ export default {
           }
         : {
             prompt,
+            ...(negativePrompt ? { negative_prompt: negativePrompt } : {}),
             width: Math.min(1536, Math.max(512, Number(body.width) || 1024)),
             height: Math.min(1536, Math.max(512, Number(body.height) || 1024)),
             num_steps: Math.min(40, Math.max(4, Number(body.num_steps || body.steps) || 20)),

@@ -99,6 +99,7 @@ export interface LiveRunInput {
   duration?: number;
   model?: string;
   resolution?: '720p' | '1080p';
+  referenceImagePath?: string;
   signal: AbortSignal;
   onStage: (stage: string, progress: number, detail?: string) => void;
   logStep: (entry: StepLog) => void;
@@ -314,6 +315,50 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
       await shot(page, dir, 'settings-error');
       // If setting aspect ratio failed, do not silently proceed with wrong aspect ratio
       throw fail('settings-aspect', settingsErr, page.url());
+    }
+
+    // Attach 2D reference frame for Image-to-Video if available
+    if (input.referenceImagePath && fs.existsSync(input.referenceImagePath)) {
+      input.onStage('Attaching reference frame to Flow (Image-to-Video)', 30);
+      input.signal.throwIfAborted();
+      try {
+        const addIngredientsBtn = page.locator('button[aria-label="Add ingredients to the prompt box"], .add-menu-trigger').first();
+        if ((await addIngredientsBtn.count()) > 0) {
+          await addIngredientsBtn.click();
+          await page.waitForTimeout(600);
+
+          const uploadBtn = page.locator('button:has-text("Upload media"), .cdk-overlay-pane button:has-text("Upload")').first();
+          await uploadBtn.waitFor({ state: 'visible', timeout: 8000 });
+
+          const [fileChooser] = await Promise.all([
+            page.waitForEvent('filechooser', { timeout: 12000 }),
+            uploadBtn.click(),
+          ]);
+
+          if (fileChooser) {
+            await fileChooser.setFiles(input.referenceImagePath);
+            await page.waitForTimeout(1000);
+
+            const addToPromptBtn = page.locator('button:has-text("Add to prompt")').first();
+            await addToPromptBtn.waitFor({ state: 'visible', timeout: 15000 });
+
+            for (let i = 0; i < 20; i++) {
+              if (await addToPromptBtn.isEnabled().catch(() => false)) break;
+              await page.waitForTimeout(500);
+            }
+            await addToPromptBtn.click();
+            await page.waitForTimeout(1000);
+            input.logStep({
+              step: 'reference-attached',
+              at: new Date().toISOString(),
+              detail: path.basename(input.referenceImagePath),
+              shot: await shot(page, dir, 'reference-attached'),
+            });
+          }
+        }
+      } catch (refErr) {
+        console.warn('[Flow Worker] Could not attach reference image (proceeding with text prompt):', refErr);
+      }
     }
 
     // Fill scene prompt

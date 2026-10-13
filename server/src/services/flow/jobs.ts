@@ -15,6 +15,50 @@ export interface FlowJobSpec {
   duration?: number;
   resolution?: '720p' | '1080p';
   dryRun?: boolean;
+  referenceImagePath?: string;
+}
+
+export function findReferenceImageForScene(scriptId: string, sceneIndex: number): string | undefined {
+  const rootData = path.resolve(flowProfileDir(), '..', '..');
+  const pad = String(sceneIndex).padStart(2, '0');
+  interface Candidate { filePath: string; mtime: number; isExactScene: boolean; isSceneZero: boolean }
+  const candidates: Candidate[] = [];
+
+  function search(dir: string): void {
+    if (!fs.existsSync(dir)) return;
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const ent of entries) {
+        const full = path.join(dir, ent.name);
+        if (ent.isDirectory()) {
+          if (ent.name === scriptId && (dir.endsWith('generated') || dir.includes('generated'))) {
+            try {
+              const files = fs.readdirSync(full);
+              for (const f of files) {
+                const ext = path.extname(f).toLowerCase();
+                if (['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) {
+                  const filePath = path.join(full, f);
+                  const stat = fs.statSync(filePath);
+                  const isExactScene = f.startsWith('image-' + pad + '-') || f.startsWith('ref-frame-' + pad + '-') || f.startsWith('import_' + sceneIndex + '_');
+                  const isSceneZero = f.startsWith('image-00-') || f.startsWith('ref-frame-00-') || f.startsWith('import_0_');
+                  candidates.push({ filePath, mtime: stat.mtimeMs, isExactScene, isSceneZero });
+                }
+              }
+            } catch {}
+          } else if (!ent.name.startsWith('.') && ent.name !== 'node_modules') {
+            search(full);
+          }
+        }
+      }
+    } catch {}
+  }
+
+  search(rootData);
+  const exact = candidates.filter(c => c.isExactScene).sort((a, b) => b.mtime - a.mtime);
+  if (exact.length) return exact[0].filePath;
+  const master = candidates.filter(c => c.isSceneZero).sort((a, b) => b.mtime - a.mtime);
+  if (master.length) return master[0].filePath;
+  return undefined;
 }
 
 export type FlowJobModel = FlowModel;
@@ -62,10 +106,17 @@ function validCombo(model: FlowModel, duration: number): string | null {
   return null;
 }
 
+const FLOW_TWO_D_PATTERN =
+  /\b(2d\s+animated|2d\s+animation|2d\s+cartoon|animated[- ]series\s+frame|cel[- ]shad(?:ed|ing)|charcoal\s+(?:outlines|linework)|matte\s+flat\s+colou?r|flat\s+colou?r\s+fills|graphic\s+novel|hand[- ]drawn\s+2d)\b/i;
+
 function wrapPrompt(prompt: string, model: FlowModel, aspect: string, duration: number): string {
   // Flow is agent-first: imperative wrapping generates directly instead of
   // asking clarifying questions (which stalls automation with 0 output).
-  return `Generate one ${duration}-second ${aspect === 'portrait' ? 'vertical 9:16' : 'landscape 16:9'} video with ${model}, no questions, no clarifications: ${prompt.trim()}`;
+  const trimmed = prompt.trim();
+  const styleAnchor = FLOW_TWO_D_PATTERN.test(trimmed)
+    ? ' 2D flat cel-shaded cartoon animated video (bold black charcoal ink outlines, flat matte color fills, two-step cel shading, 2D graphic novel animated series style, no 3D CGI, no photorealism)'
+    : ' video';
+  return `Generate one ${duration}-second ${aspect === 'portrait' ? 'vertical 9:16' : 'landscape 16:9'}${styleAnchor} with ${model}, no questions, no clarifications: ${trimmed}`;
 }
 
 const jobs = new Map<string, FlowJob>();
@@ -132,9 +183,14 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
     throw new Error(`Episode budget exceeded: ${committed + cost} > ${budget} credits. Raise FLOW_CREDIT_BUDGET_PER_EPISODE or pick Lite/Fast.`);
   }
 
+  const resolvedRef = spec.referenceImagePath && fs.existsSync(spec.referenceImagePath)
+    ? spec.referenceImagePath
+    : findReferenceImageForScene(spec.scriptId, spec.sceneIndex);
+
   const now = new Date().toISOString();
   const job: FlowJob = {
     ...spec,
+    referenceImagePath: resolvedRef,
     id: `flow_${crypto.randomUUID()}`,
     state: 'queued',
     model, aspect, duration, resolution, dryRun, cost, idempotencyKey,
@@ -173,6 +229,7 @@ async function runLive(jobId: string, signal: AbortSignal): Promise<void> {
       duration: job.duration,
       model: job.model,
       resolution: job.resolution,
+      referenceImagePath: job.referenceImagePath,
       signal,
       onStage: (stage, progress) => {
         const current = jobs.get(jobId);
