@@ -24,6 +24,8 @@ interface PreviewTabProps {
   onExtractAssets?: () => void;
   onExtractTimelineAssets?: () => void;
   onImportResponse?: (response: string, extract: boolean) => Promise<void>;
+  onAutoPilot?: () => void;
+  isAutoPilotRunning?: boolean;
 }
 
 export function PreviewTab({
@@ -33,6 +35,8 @@ export function PreviewTab({
   onStop,
   onExtractAssets,
   onImportResponse,
+  onAutoPilot,
+  isAutoPilotRunning = false,
 }: PreviewTabProps) {
   const responseEndRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
@@ -118,11 +122,23 @@ export function PreviewTab({
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {onAutoPilot && (
+            <button
+              type="button"
+              onClick={onAutoPilot}
+              disabled={isGenerating || isAutoPilotRunning}
+              className="studio-btn-primary flex items-center gap-1.5 !px-3.5 !py-1.5 text-xs shadow-glow"
+              title="Run 1-Click End-to-End Autonomous Pipeline"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {isAutoPilotRunning ? 'Auto-Pilot Running…' : '⚡ 1-Click Auto-Pilot'}
+            </button>
+          )}
           {onImportResponse && (
             <button
               type="button"
               onClick={() => setShowImport(!showImport)}
-              disabled={isGenerating || importing}
+              disabled={isGenerating || importing || isAutoPilotRunning}
               className="studio-btn-ghost !px-3 !py-1.5 text-xs"
             >
               Paste AI Response
@@ -131,8 +147,8 @@ export function PreviewTab({
           {(isDone || extractionFailed || hasResponse) && onExtractAssets && (
             <button
               onClick={onExtractAssets}
-              disabled={isGenerating}
-              className="studio-btn-primary !px-3.5 !py-1.5 text-xs"
+              disabled={isGenerating || isAutoPilotRunning}
+              className="studio-btn-ghost !px-3.5 !py-1.5 text-xs"
             >
               <Sparkles className="h-3.5 w-3.5" />
               Extract Assets

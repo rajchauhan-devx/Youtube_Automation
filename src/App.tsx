@@ -40,6 +40,9 @@ import { buildFreePrompt, FREE_CHAT_SYSTEM, freeChatSystem } from '../server/src
 import { apiPost, getApiKey } from './services/api.js';
 import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AutoPilotModal } from './components/autopilot/AutoPilotModal';
+import type { AutoPilotState, AutoPilotStage } from './services/autoPilotTypes';
+import { editingRequest, type EditingPayload } from './services/editingApi';
 
 const TABS: { id: Tab; label: string; icon: typeof ScrollText; step: string }[] = [
   { id: 'scripts', label: 'Scripts', icon: ScrollText, step: '01' },
@@ -146,8 +149,73 @@ export default function App() {
   const [userScripts, setUserScripts] = useState<Script[]>([]);
   const [runModalScript, setRunModalScript] = useState<Script | null>(null);
   const saveQueues = useRef(new Map<string, Promise<void>>());
-  const [saveError, setSaveError] = useState('');
   const generationAbortRef = useRef<AbortController | null>(null);
+
+  const [autoPilotState, setAutoPilotState] = useState<AutoPilotState>({
+    isActive: false,
+    isPaused: false,
+    isMinimized: false,
+    stage: 'idle',
+    stageIndex: 0,
+    totalStages: 6,
+    progressPercent: 0,
+    statusMessage: 'Ready',
+    topic: '',
+    scriptId: null,
+    logs: [],
+    renderedVideoUrl: null,
+    error: null,
+  });
+  const autoPilotAbortRef = useRef<AbortController | null>(null);
+  const autoPilotPausedRef = useRef(false);
+
+  function addAutoPilotLog(
+    stage: AutoPilotStage,
+    message: string,
+    type: 'info' | 'gemini' | 'success' | 'warn' | 'error' = 'info'
+  ) {
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const id = Math.random().toString(36).slice(2, 9);
+    setAutoPilotState((prev) => ({
+      ...prev,
+      logs: [...prev.logs, { id, timestamp, stage, message, type }],
+    }));
+  }
+
+  function handleAutoPilotPauseToggle() {
+    autoPilotPausedRef.current = !autoPilotPausedRef.current;
+    setAutoPilotState((prev) => ({
+      ...prev,
+      isPaused: autoPilotPausedRef.current,
+      statusMessage: autoPilotPausedRef.current ? 'Auto-Pilot paused' : 'Auto-Pilot in progress...',
+    }));
+  }
+
+  function handleAutoPilotStop() {
+    autoPilotAbortRef.current?.abort();
+    autoPilotAbortRef.current = null;
+    autoPilotPausedRef.current = false;
+    setAutoPilotState((prev) => ({
+      ...prev,
+      isActive: false,
+      statusMessage: 'Auto-Pilot stopped',
+    }));
+  }
+
+  function handleAutoPilotMinimizeToggle() {
+    setAutoPilotState((prev) => ({
+      ...prev,
+      isMinimized: !prev.isMinimized,
+    }));
+  }
+
+  function handleAutoPilotClose() {
+    setAutoPilotState((prev) => ({
+      ...prev,
+      isActive: false,
+      stage: 'idle',
+    }));
+  }
 
   // Persist lightweight UI state so a refresh restores the workspace.
   useEffect(() => {
@@ -653,16 +721,473 @@ export default function App() {
     }
   }
 
-  async function handleRunScriptSubmit(topic: string, instructions: string) {
+  async function runAutoPilotPipeline(initialScript: Script, topic: string, instructions: string) {
+    if (autoPilotState.isActive) return;
+    autoPilotAbortRef.current?.abort();
+    generationAbortRef.current?.abort();
+    const controller = new AbortController();
+    autoPilotAbortRef.current = controller;
+    autoPilotPausedRef.current = false;
+
+    const scriptId = initialScript.id;
+    setSelectedScriptId(scriptId);
+
+    setAutoPilotState({
+      isActive: true,
+      isPaused: false,
+      isMinimized: false,
+      stage: 'research_script',
+      stageIndex: 0,
+      totalStages: 6,
+      progressPercent: 5,
+      statusMessage: 'Gemini Co-Pilot: Researching topic depth & generating script...',
+      topic,
+      scriptId,
+      logs: [],
+      renderedVideoUrl: null,
+      error: null,
+    });
+
+    addAutoPilotLog('research_script', `[GEMINI] ⚡ Launching 1-Click Autonomous Production for: "${topic}"`, 'gemini');
+    addAutoPilotLog('research_script', `Target profile: ${section === 'shorts' ? '9:16 Vertical Short' : '16:9 Landscape Video'}`, 'info');
+
+    async function checkPauseOrAbort() {
+      if (controller.signal.aborted) throw new DOMException('Aborted by user', 'AbortError');
+      while (autoPilotPausedRef.current) {
+        if (controller.signal.aborted) throw new DOMException('Aborted by user', 'AbortError');
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+
+    try {
+      // -------------------------------------------------------------
+      // STAGE 1: Script Research & Generation
+      // -------------------------------------------------------------
+      setTab('preview');
+      addAutoPilotLog('research_script', 'Synthesizing live research & streaming script narrative with Google Gemini...', 'info');
+      await generateScript(initialScript, topic, instructions);
+      await checkPauseOrAbort();
+
+      // Fetch freshly saved script state from backend
+      let freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+      let currentScript = (await freshRes.json()) as Script;
+      if (!currentScript.aiResponse?.trim()) {
+        throw new Error('Script generation finished without response content.');
+      }
+
+      addAutoPilotLog('research_script', `Script generated successfully (${currentScript.aiResponse.length} characters).`, 'success');
+      setAutoPilotState((prev) => ({
+        ...prev,
+        stage: 'extract_assets',
+        stageIndex: 1,
+        progressPercent: 22,
+        statusMessage: 'Gemini Co-Pilot: Extracting scenes, visual prompts & voice script...',
+      }));
+
+      // -------------------------------------------------------------
+      // STAGE 2: Scene Asset Extraction
+      // -------------------------------------------------------------
+      setTab('assets');
+      addAutoPilotLog('extract_assets', '[GEMINI] Parsing structured scene plan, visual descriptions & timing...', 'gemini');
+      await checkPauseOrAbort();
+
+      const template = currentScript.prompts
+        ?.filter((p) => p.content.trim())
+        .map((p) => p.content)
+        .join('\n\n') || currentScript.howItWorks || '';
+
+      const extractResult = await apiPost(
+        '/api/llm/extract',
+        { rawText: currentScript.aiResponse, useTimelineNarration: false, template },
+        getApiKey(),
+        fetch
+      );
+
+      const scenePlan = extractResult.scenePlan;
+      const imagePrompts: string[] = extractResult.imagePrompts || [];
+      const narration: string = extractResult.ttsText || '';
+      const extractedScript: string = extractResult.script || '';
+      const sceneAnalysis = {
+        transitions: imagePrompts.map(() => 'none'),
+        effects: imagePrompts.map(() => 'zoom-in'),
+        timings: [],
+        mood: 'epic',
+        colorGrade: 'warm-vintage',
+      };
+
+      const extractedPatch: Partial<Script> = {
+        extractedScript,
+        imagePrompts,
+        narration,
+        scenePlan,
+        sceneAnalysis,
+        pipeline: [
+          {
+            id: 'response',
+            label: 'Response',
+            status: 'done' as const,
+            summary: 'Assets extracted in the shared scene format',
+            inputLog: topic,
+            outputPreview: extractedScript.slice(0, 120),
+          },
+        ],
+      };
+      patchScriptState(scriptId, extractedPatch);
+      await persistScript(scriptId, extractedPatch);
+      await checkPauseOrAbort();
+
+      const sceneCount = scenePlan?.scenes?.length || imagePrompts.length || 1;
+      addAutoPilotLog('extract_assets', `Extracted ${sceneCount} production scenes with individual prompts & voice text.`, 'success');
+      setAutoPilotState((prev) => ({
+        ...prev,
+        stage: 'generate_images',
+        stageIndex: 2,
+        progressPercent: 35,
+        sceneTotal: sceneCount,
+        sceneCurrent: 0,
+        statusMessage: `Gemini Co-Pilot: Generating ${sceneCount} visuals via Google Cloud...`,
+      }));
+
+      // -------------------------------------------------------------
+      // STAGE 3: Visual Generation via Google Cloud
+      // -------------------------------------------------------------
+      setTab('generation');
+      addAutoPilotLog('generate_images', `[GOOGLE CLOUD] Directing image generation for ${sceneCount} scene keyframes...`, 'gemini');
+
+      const scenesToRender = scenePlan?.scenes?.length
+        ? scenePlan.scenes
+        : imagePrompts.map((p) => ({ imagePrompt: p }));
+
+      for (let i = 0; i < scenesToRender.length; i++) {
+        await checkPauseOrAbort();
+        const scenePrompt = scenesToRender[i].imagePrompt || imagePrompts[i] || 'cinematic scene visual';
+
+        setAutoPilotState((prev) => ({
+          ...prev,
+          sceneCurrent: i + 1,
+          progressPercent: 35 + ((i + 1) / scenesToRender.length) * 30, // 35% -> 65%
+          statusMessage: `Google Cloud: Rendering scene ${i + 1} of ${scenesToRender.length}...`,
+        }));
+
+        addAutoPilotLog('generate_images', `Rendering scene ${i + 1}/${scenesToRender.length}: "${scenePrompt.slice(0, 50)}..."`, 'info');
+
+        let genRes = await fetch('/api/generate/image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scriptId,
+            index: i,
+            prompt: scenePrompt,
+            preset: 'standard',
+            provider: 'google',
+          }),
+          signal: controller.signal,
+        });
+
+        // Fallback to cloudflare or local if google failed
+        if (!genRes.ok) {
+          addAutoPilotLog('generate_images', `Scene ${i + 1}: Google Cloud reported ${genRes.status}, switching to Cloudflare/Local fallback...`, 'warn');
+          genRes = await fetch('/api/generate/image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              scriptId,
+              index: i,
+              prompt: scenePrompt,
+              preset: 'standard',
+              provider: 'cloudflare',
+            }),
+            signal: controller.signal,
+          });
+        }
+
+        if (genRes.ok) {
+          const genJson = await genRes.json();
+          if (genJson.generatedImages) {
+            patchScriptState(scriptId, { generatedImages: genJson.generatedImages });
+            await persistScript(scriptId, { generatedImages: genJson.generatedImages });
+          }
+          addAutoPilotLog('generate_images', `Scene ${i + 1} visual rendered & saved.`, 'success');
+        } else {
+          const errText = await genRes.text().catch(() => '');
+          addAutoPilotLog('generate_images', `Scene ${i + 1} note: ${errText.slice(0, 100)}`, 'warn');
+        }
+      }
+
+      addAutoPilotLog('generate_images', 'All visual keyframes completed and synced.', 'success');
+      setAutoPilotState((prev) => ({
+        ...prev,
+        stage: 'generate_audio',
+        stageIndex: 3,
+        progressPercent: 68,
+        statusMessage: 'Gemini Co-Pilot: Synthesizing voiceover narration with acoustic sync...',
+      }));
+
+      // -------------------------------------------------------------
+      // STAGE 4: Voiceover Narration Synthesis
+      // -------------------------------------------------------------
+      setTab('generation');
+      addAutoPilotLog('generate_audio', '[TTS] Synthesizing acoustic voiceover with word-level timing...', 'gemini');
+      await checkPauseOrAbort();
+
+      const textToNarrate = narration || extractedScript;
+      if (!textToNarrate.trim()) {
+        throw new Error('Narration text is empty. Asset extraction did not provide voiceover text.');
+      }
+
+      if (section === 'shorts') {
+        const ttsRes = await fetch('/api/tts/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: textToNarrate,
+            language: 'en',
+            scriptId,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!ttsRes.ok) {
+          const ttsErr = await ttsRes.json().catch(() => ({}));
+          throw new Error(ttsErr.error || 'Voice narration synthesis failed');
+        }
+        const ttsData = await ttsRes.json();
+        const audioEntry = {
+          narrationText: textToNarrate,
+          language: 'en',
+          voice: ttsData.voice || 'default',
+          voiceName: 'Neural English',
+          url: ttsData.publicUrl,
+          filename: ttsData.filename,
+        };
+        patchScriptState(scriptId, { narration: textToNarrate, generatedAudio: [audioEntry] });
+        await persistScript(scriptId, { narration: textToNarrate, generatedAudio: [audioEntry] });
+      } else {
+        const longRes = await fetch('/api/tts/long/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scriptId,
+            language: 'en',
+            voice: 'default',
+          }),
+          signal: controller.signal,
+        });
+
+        if (!longRes.ok) {
+          const longErr = await longRes.json().catch(() => ({}));
+          throw new Error(longErr.error || 'Long video narration start failed');
+        }
+
+        let longDone = false;
+        while (!longDone && !controller.signal.aborted) {
+          await new Promise((r) => setTimeout(r, 1500));
+          await checkPauseOrAbort();
+          const pollRes = await fetch(`/api/tts/long/status/${scriptId}`);
+          if (pollRes.ok) {
+            const pollData = await pollRes.json();
+            if (pollData.status === 'done') {
+              longDone = true;
+              if (pollData.result) {
+                patchScriptState(scriptId, { generatedAudio: [pollData.result] });
+                await persistScript(scriptId, { generatedAudio: [pollData.result] });
+              }
+            } else if (pollData.status === 'error') {
+              throw new Error(pollData.error || 'Narration synthesis failed');
+            }
+          }
+        }
+      }
+
+      addAutoPilotLog('generate_audio', 'Voiceover audio rendered and mapped to timeline.', 'success');
+      setAutoPilotState((prev) => ({
+        ...prev,
+        stage: 'plan_motion',
+        stageIndex: 4,
+        progressPercent: 80,
+        statusMessage: 'Gemini Supervisor: Planning kinetic motion & captions...',
+      }));
+
+      // -------------------------------------------------------------
+      // STAGE 5: Motion Graphics & Animated Captions Planning
+      // -------------------------------------------------------------
+      setTab('artifacts');
+      addAutoPilotLog('plan_motion', '[GEMINI] Directing Remotion kinetic motion graphics & animated captions...', 'gemini');
+      await checkPauseOrAbort();
+
+      freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+      currentScript = (await freshRes.json()) as Script;
+
+      const audioFilename = currentScript.generatedAudio?.[0]?.filename;
+      const readyImageIndexes = (currentScript.generatedImages || [])
+        .filter((img) => img.url)
+        .map((img) => img.index);
+
+      if (audioFilename && readyImageIndexes.length) {
+        try {
+          const projectInputs = {
+            scriptId,
+            audioFilename,
+            language: 'en',
+            imageIndexes: readyImageIndexes,
+            aspect: section === 'shorts' ? '9:16' : '16:9',
+            fps: 60,
+            settings: { stylePreference: '', density: 'balanced' },
+          };
+          const created = await editingRequest<EditingPayload>(fetch, '/projects', projectInputs);
+          if (created?.project?.id) {
+            patchScriptState(scriptId, { editingProjectId: created.project.id });
+            await persistScript(scriptId, { editingProjectId: created.project.id });
+            await editingRequest<EditingPayload>(
+              fetch,
+              `/projects/${created.project.id}/captions`,
+              { expectedRevisionId: created.project.revisionId }
+            );
+            addAutoPilotLog('plan_motion', 'Kinetic captions & animated layouts generated.', 'success');
+          }
+        } catch (projErr) {
+          addAutoPilotLog('plan_motion', `Motion planner note: ${projErr instanceof Error ? projErr.message : 'Continuing directly to render'}`, 'warn');
+        }
+      }
+
+      setAutoPilotState((prev) => ({
+        ...prev,
+        stage: 'render_video',
+        stageIndex: 5,
+        progressPercent: 88,
+        statusMessage: 'Gemini Supervisor: Compiling final 1080p MP4 video...',
+      }));
+
+      // -------------------------------------------------------------
+      // STAGE 6: Video Rendering
+      // -------------------------------------------------------------
+      setTab('review');
+      addAutoPilotLog('render_video', '[RENDER] Launching video rendering engine for high-definition MP4...', 'gemini');
+      await checkPauseOrAbort();
+
+      freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+      currentScript = (await freshRes.json()) as Script;
+
+      const imagePaths = (currentScript.generatedImages || [])
+        .filter((img) => img.url)
+        .map((img) => {
+          const parts = (img.url || '').split('/');
+          return parts[parts.length - 1];
+        });
+      const audioUrl = currentScript.generatedAudio?.[0]?.url || '';
+      const audioParts = audioUrl.split('/');
+      const audioPath = audioParts[audioParts.length - 1];
+
+      const renderStartRes = await fetch('/api/render/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId,
+          imagePaths,
+          audioPath,
+          presenter: { enabled: false },
+          narration: currentScript.narration || '',
+          duration: currentScript.duration || 30,
+          resolution: section === 'shorts' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 },
+          zoomFactor: 1.15,
+          transitionDuration: 0.5,
+          sceneAnalysis: currentScript.sceneAnalysis,
+          enableSubtitles: true,
+          bgmTrack: 'epic',
+          bgmVolume: 0.15,
+          ttsVolume: 1.0,
+          colorGrade: 'teal-orange',
+          enableVignette: false,
+          enableSfx: false,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!renderStartRes.ok) {
+        const renderErr = await renderStartRes.json().catch(() => ({}));
+        throw new Error(renderErr.error || 'Failed to start video rendering');
+      }
+
+      let renderFinished = false;
+      let finalVideoUrl: string | null = null;
+      while (!renderFinished && !controller.signal.aborted) {
+        await new Promise((r) => setTimeout(r, 1000));
+        await checkPauseOrAbort();
+        const statusRes = await fetch(`/api/render/status/${scriptId}`);
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          if (statusData.status === 'running') {
+            const pct = typeof statusData.progress === 'number' ? statusData.progress : 50;
+            setAutoPilotState((prev) => ({
+              ...prev,
+              progressPercent: 88 + (pct / 100) * 11, // 88% -> 99%
+              statusMessage: statusData.message || `Rendering video composition (${Math.round(pct)}%)...`,
+            }));
+          } else if (statusData.status === 'done' && statusData.videos?.length > 0) {
+            renderFinished = true;
+            finalVideoUrl = statusData.videos[0].url;
+          } else if (statusData.status === 'error') {
+            throw new Error(statusData.error || 'Video rendering failed');
+          }
+        }
+      }
+
+      // -------------------------------------------------------------
+      // COMPLETION
+      // -------------------------------------------------------------
+      setAutoPilotState((prev) => ({
+        ...prev,
+        stage: 'completed',
+        progressPercent: 100,
+        statusMessage: 'Production complete! 1080p video ready to watch & download.',
+        renderedVideoUrl: finalVideoUrl,
+      }));
+
+      addAutoPilotLog('render_video', `🎉 Full MP4 video successfully rendered: ${finalVideoUrl}`, 'success');
+      addAutoPilotLog('render_video', '[GEMINI] Autonomous end-to-end production finished with 100% success.', 'gemini');
+    } catch (err) {
+      if (controller.signal.aborted) {
+        addAutoPilotLog(autoPilotState.stage, 'Auto-Pilot stopped by user. Manual control restored.', 'warn');
+        setAutoPilotState((prev) => ({
+          ...prev,
+          isActive: false,
+          statusMessage: 'Auto-Pilot stopped by user',
+        }));
+        return;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('Auto-Pilot error:', err);
+      addAutoPilotLog(autoPilotState.stage, `Pipeline halted: ${msg}`, 'error');
+      setAutoPilotState((prev) => ({
+        ...prev,
+        stage: 'error',
+        error: msg,
+        statusMessage: `Pipeline halted: ${msg}`,
+      }));
+    } finally {
+      if (autoPilotAbortRef.current === controller) {
+        autoPilotAbortRef.current = null;
+      }
+    }
+  }
+
+  async function handleRunScriptSubmit(topic: string, instructions: string, options?: { autoPilot?: boolean }) {
     if (!runModalScript) return;
     const script = runModalScript;
     setRunModalScript(null);
-    await generateScript(script, topic, instructions);
+    if (options?.autoPilot) {
+      void runAutoPilotPipeline(script, topic, instructions);
+    } else {
+      await generateScript(script, topic, instructions);
+    }
   }
 
   const selectedScript = scopeScripts.find(script => script.id === selectedScriptId) || null;
 
   function handleStopGeneration() {
+    if (autoPilotState.isActive) {
+      handleAutoPilotStop();
+    }
     if (generationAbortRef.current) {
       generationAbortRef.current.abort();
       generationAbortRef.current = null;
@@ -1107,6 +1632,15 @@ export default function App() {
                       onExtractAssets={() => handleExtractAssets()}
                       onExtractTimelineAssets={() => handleExtractAssets(true)}
                       onImportResponse={handleImportResponse}
+                      onAutoPilot={() =>
+                        selectedScript &&
+                        runAutoPilotPipeline(
+                          selectedScript,
+                          selectedScript.topicName || selectedScript.name,
+                          selectedScript.aiInstructions || ''
+                        )
+                      }
+                      isAutoPilotRunning={autoPilotState.isActive}
                     />
                   )}
                   {tab === 'assets' && <AssetsTab key={selectedScriptId} script={selectedScript} onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)} onProceedToGeneration={() => setTab('generation')} />}
@@ -1157,7 +1691,19 @@ export default function App() {
           onSubmit={handleRunScriptSubmit}
         />
       )}
-</div>
+
+      {autoPilotState.isActive && (
+        <AutoPilotModal
+          state={autoPilotState}
+          script={selectedScript}
+          onPauseToggle={handleAutoPilotPauseToggle}
+          onStop={handleAutoPilotStop}
+          onToggleMinimize={handleAutoPilotMinimizeToggle}
+          onClose={handleAutoPilotClose}
+          onNavigateTab={(targetTab) => setTab(targetTab)}
+        />
+      )}
+    </div>
     </WorkspaceApiContext.Provider>
   );
 }
