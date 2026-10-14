@@ -68,45 +68,45 @@ export function AssetsTab({ script, onProceedToGeneration, onUpdate }: { script:
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border p-4">
-        <div className="flex gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 bg-surface/50 p-4 sm:px-6">
+        <div className="flex items-center gap-1.5 rounded-xl border border-border bg-surface2/60 p-1">
           <button
             onClick={() => setActiveSubTab('images')}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors ${
-              activeSubTab === 'images' ? 'bg-surface2 text-white' : 'text-gray-400 hover:text-white'
+            className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              activeSubTab === 'images' ? 'bg-surface text-white shadow-sm ring-1 ring-border' : 'text-muted hover:text-white'
             }`}
           >
-            <ImageIcon className="h-4 w-4" />
+            <ImageIcon className="h-3.5 w-3.5 text-accent" />
             {mixedMedia ? 'Image & Video Prompts' : 'Image Prompts'}
             {script.imagePrompts && script.imagePrompts.length > 0 && (
-              <span className="ml-1 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] text-accent">
+              <span className="ml-1 rounded-md bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent">
                 {script.imagePrompts.length}
               </span>
             )}
           </button>
           <button
             onClick={() => setActiveSubTab('narration')}
-            className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium transition-colors ${
-              activeSubTab === 'narration' ? 'bg-surface2 text-white' : 'text-gray-400 hover:text-white'
+            className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+              activeSubTab === 'narration' ? 'bg-surface text-white shadow-sm ring-1 ring-border' : 'text-muted hover:text-white'
             }`}
           >
-            <Music className="h-4 w-4" />
+            <Music className="h-3.5 w-3.5 text-blue-400" />
             Narration
             {script.narration && (
-              <span className="ml-1 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] text-accent">
+              <span className="ml-1 rounded-md bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-300">
                 1
               </span>
             )}
           </button>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">
-            {script.imagePrompts?.length ?? 0} scenes, {videoCount} videos, {script.narration ? '1 narration' : 'no narration'}
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-muted">
+            <strong className="text-white">{script.imagePrompts?.length ?? 0}</strong> scenes · <strong className="text-white">{videoCount}</strong> videos · <strong className="text-white">{script.narration ? '1' : '0'}</strong> voiceover
           </span>
           {hasAssets && (script.imagePrompts?.length ?? 0) > 0 && onProceedToGeneration && (
             <button
               onClick={onProceedToGeneration}
-              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80"
+              className="studio-btn-primary !px-4 !py-2 text-xs"
             >
               <Play className="h-3.5 w-3.5" />
               Proceed to Generation

@@ -16,6 +16,7 @@ import {
   ScrollText,
   CircleUserRound,
   LayoutDashboard,
+  Check,
 } from 'lucide-react';
 import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './services/workspaceApi';
 import type { Section, Tab, Channel, Script, PipelineStep } from './data';
@@ -871,36 +872,41 @@ export default function App() {
         </div>
       )}
       {/* Sidebar */}
-      <aside className="hidden w-[248px] shrink-0 flex-col border-r border-borderSoft bg-[#0b0e15]/90 backdrop-blur-xl md:flex">
+      <aside className="hidden w-[252px] shrink-0 flex-col border-r border-border bg-[#0b0e15]/95 backdrop-blur-2xl md:flex">
         {/* Brand */}
-        <div className="flex h-[68px] items-center gap-3 border-b border-borderSoft px-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-b from-[#ff4d6d] to-[#c40f35] shadow-glow">
+        <div className="flex h-[68px] items-center gap-3 border-b border-border/80 px-5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#ff3366] to-[#c40f35] shadow-glow">
             <Play className="h-4 w-4 fill-white text-white" />
           </span>
-          <span className="leading-tight">
-            <span className="block text-[15px] font-extrabold tracking-tight">TubeFlow</span>
-            <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">Studio Pro</span>
-          </span>
+          <div className="flex min-w-0 flex-1 items-center justify-between">
+            <span className="leading-tight">
+              <span className="block text-[15px] font-extrabold tracking-tight text-white">TubeFlow</span>
+              <span className="block text-[9.5px] font-bold uppercase tracking-[0.18em] text-accent">Automation Studio</span>
+            </span>
+            <span className="rounded-md border border-accent/25 bg-accent/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent">
+              Pro
+            </span>
+          </div>
         </div>
 
-        {/* Channel */}
-        <div className="relative px-3 pt-3">
+        {/* Channel Switcher */}
+        <div className="relative px-3 pt-3.5">
           <button
             aria-label="Switch YouTube account"
             onClick={() => setChannelSwitcherOpen((v) => !v)}
-            className="flex w-full items-center gap-3 rounded-studio border border-borderSoft bg-surface px-3 py-2.5 text-left shadow-card transition-colors hover:border-[#334054] hover:bg-surface2"
+            className="group flex w-full items-center gap-3 rounded-xl border border-border bg-surface/90 px-3 py-2.5 text-left shadow-card transition-all hover:border-[#323d54] hover:bg-surface2"
           >
             <div
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-extrabold text-white"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold text-white shadow-sm ring-1 ring-white/10"
               style={{ backgroundColor: activeChannel.color }}
             >
               {activeChannel.avatar}
             </div>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-semibold">{activeChannel.name}</span>
-              <span className="block text-[11px] text-faint">Publishing channel</span>
+              <span className="block truncate text-[13px] font-semibold text-white group-hover:text-white">{activeChannel.name}</span>
+              <span className="block text-[11px] text-faint">Connected Workspace</span>
             </span>
-            <ChevronDown className={`h-4 w-4 shrink-0 text-faint transition-transform ${channelSwitcherOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-4 w-4 shrink-0 text-faint transition-transform duration-200 group-hover:text-muted ${channelSwitcherOpen ? 'rotate-180' : ''}`} />
           </button>
 
           {channelSwitcherOpen && (
@@ -914,11 +920,11 @@ export default function App() {
           )}
         </div>
 
-        {/* Nav */}
+        {/* Navigation */}
         <nav className="thin-scrollbar flex-1 space-y-5 overflow-y-auto px-3 py-4">
           {SIDEBAR_GROUPS.map((group) => (
             <div key={group.title}>
-              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-faint">{group.title}</p>
+              <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-faint/80">{group.title}</p>
               <div className="space-y-1">
                 {group.items.map((item) => {
                   const Icon = item.icon;
@@ -930,20 +936,20 @@ export default function App() {
                       onClick={() => selectSidebar(item.id as SidebarId)}
                       className={
                         active
-                          ? 'studio-nav-btn border border-accent/25 bg-accentSoft text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
-                          : 'studio-nav-btn border border-transparent text-muted hover:bg-white/[0.04] hover:text-white'
+                          ? 'studio-nav-btn border border-accent/30 bg-accent/15 text-white shadow-sm shadow-accent/10 ring-1 ring-accent/20'
+                          : 'studio-nav-btn border border-transparent text-muted hover:bg-surface2 hover:text-white'
                       }
                     >
-                      <span className={active ? 'flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white shadow-glow' : 'flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.05] text-muted'}>
+                      <span className={active ? 'flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-white shadow-glow' : 'flex h-8 w-8 items-center justify-center rounded-lg bg-surface2 text-muted group-hover:text-white'}>
                         <Icon className="h-4 w-4" />
                       </span>
-                      <span className="flex-1 text-left">{item.label}</span>
+                      <span className="flex-1 text-left font-medium">{item.label}</span>
                       {item.badge && (
-                        <span className={active ? 'rounded-md bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent' : 'rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-faint'}>
+                        <span className={active ? 'rounded-md bg-accent/25 px-1.5 py-0.5 text-[10px] font-bold text-accent' : 'rounded-md bg-white/[0.05] border border-borderSoft px-1.5 py-0.5 text-[10px] font-semibold text-faint'}>
                           {item.badge}
                         </span>
                       )}
-                      {active && <span className="h-1.5 w-1.5 rounded-full bg-accent" />}
+                      {active && <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />}
                     </button>
                   );
                 })}
@@ -952,22 +958,22 @@ export default function App() {
           ))}
         </nav>
 
-        {/* Profile */}
-        <div className="border-t border-borderSoft p-3">
-          <button aria-label="Profile and voices" title="Profile and voices" onClick={() => setSidebar('profile')} className={`studio-nav-btn border ${sidebar === 'profile' ? 'border-accent/25 bg-accentSoft text-white' : 'border-transparent text-muted hover:bg-white/[0.04] hover:text-white'}`}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-b from-[#3a4358] to-[#202636] text-xs font-bold text-white">
-              <CircleUserRound className="h-5 w-5" />
+        {/* Profile Bottom Card */}
+        <div className="border-t border-border p-3">
+          <button aria-label="Profile and voices" title="Profile and voices" onClick={() => setSidebar('profile')} className={`studio-nav-btn border transition-all ${sidebar === 'profile' ? 'border-accent/30 bg-accent/15 text-white shadow-sm' : 'border-border/60 bg-surface/60 text-muted hover:border-border hover:bg-surface2 hover:text-white'}`}>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-b from-[#3a4358] to-[#202636] text-xs font-bold text-white shadow-inner">
+              <CircleUserRound className="h-5 w-5 text-gray-300" />
             </span>
             <span className="flex-1 text-left">
-              <span className="block text-[13px] font-semibold">Profile & Voices</span>
-              <span className="block text-[11px] text-faint">Accounts Â· TTS Â· Clones</span>
+              <span className="block text-[13px] font-semibold text-white">Profile &amp; Voices</span>
+              <span className="block text-[11px] text-faint">Accounts · TTS · Clones</span>
             </span>
           </button>
         </div>
       </aside>
 
       {/* Mobile sidebar */}
-      <aside className="flex w-16 shrink-0 flex-col items-center border-r border-borderSoft bg-[#0b0e15] py-3 md:hidden">
+      <aside className="flex w-16 shrink-0 flex-col items-center border-r border-border bg-[#0b0e15] py-3 md:hidden">
         {SIDEBAR_GROUPS.flatMap((g) => g.items).map((item) => {
           const Icon = item.icon;
           const active = sidebar === item.id;
@@ -976,7 +982,7 @@ export default function App() {
               key={item.id}
               aria-label={item.label}
               onClick={() => selectSidebar(item.id as SidebarId)}
-              className={active ? 'mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-white shadow-glow' : 'mb-1 flex h-11 w-11 items-center justify-center rounded-xl text-muted hover:bg-white/5 hover:text-white'}
+              className={active ? 'mb-1.5 flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-white shadow-glow' : 'mb-1.5 flex h-11 w-11 items-center justify-center rounded-xl text-muted hover:bg-surface2 hover:text-white'}
             >
               <Icon className="h-5 w-5" />
             </button>
@@ -1020,7 +1026,7 @@ export default function App() {
             ) : (
               <div className="animate-fade-up">
                 {/* Pipeline stepper */}
-                <div className="studio-card mb-5 hidden items-center gap-1 overflow-x-auto p-2 no-scrollbar lg:flex">
+                <div className="mb-6 hidden items-center gap-1.5 overflow-x-auto rounded-2xl border border-border/80 bg-surface/75 p-1.5 shadow-card backdrop-blur-md no-scrollbar lg:flex">
                   {TABS.map((t, i) => {
                     const StepIcon = t.icon;
                     const done = i < activeStepIndex;
@@ -1029,13 +1035,29 @@ export default function App() {
                       <button
                         key={t.id}
                         onClick={() => setTab(t.id)}
-                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors ${current ? 'bg-accentSoft text-white' : 'text-muted hover:bg-white/[0.04] hover:text-white'}`}
+                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-all ${
+                          current
+                            ? 'bg-accent/15 border border-accent/35 text-white shadow-sm ring-1 ring-accent/25'
+                            : done
+                            ? 'border border-transparent text-gray-300 hover:bg-surface2/60 hover:text-white'
+                            : 'border border-transparent text-muted hover:bg-surface2/40 hover:text-gray-200'
+                        }`}
                       >
-                        <span className={current ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-white shadow-glow' : done ? 'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success/15 text-emerald-300' : 'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-faint'}>
-                          <StepIcon className="h-3.5 w-3.5" />
+                        <span
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                            current
+                              ? 'bg-accent text-white shadow-glow'
+                              : done
+                              ? 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-300'
+                              : 'bg-surface2 text-faint border border-borderSoft'
+                          }`}
+                        >
+                          {done ? <Check className="h-3.5 w-3.5" /> : <StepIcon className="h-3.5 w-3.5" />}
                         </span>
-                        <span className="min-w-0">
-                          <span className="block text-[9px] font-bold uppercase tracking-[0.14em] text-faint">Step {t.step}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className={`block text-[9px] font-bold uppercase tracking-[0.14em] ${current ? 'text-accent' : done ? 'text-emerald-400' : 'text-faint'}`}>
+                            {done ? 'Done' : `Step ${t.step}`}
+                          </span>
                           <span className="block truncate text-[12px] font-semibold">{t.label}</span>
                         </span>
                       </button>
@@ -1044,12 +1066,12 @@ export default function App() {
                 </div>
 
                 {/* Tabs (mobile / compact) */}
-                <div className="mb-5 flex gap-1.5 overflow-x-auto rounded-studio border border-borderSoft bg-surface/70 p-1.5 no-scrollbar lg:hidden">
+                <div className="mb-5 flex gap-1.5 overflow-x-auto rounded-xl border border-border bg-surface/80 p-1.5 no-scrollbar lg:hidden">
                   {TABS.map((t) => (
                     <button
                       key={t.id}
                       onClick={() => setTab(t.id)}
-                      className={tab === t.id ? 'studio-tab-btn shrink-0 bg-accent text-white shadow-glow' : 'studio-tab-btn shrink-0 text-muted hover:bg-white/5 hover:text-white'}
+                      className={tab === t.id ? 'studio-tab-btn shrink-0 bg-accent text-white shadow-glow' : 'studio-tab-btn shrink-0 text-muted hover:bg-surface2 hover:text-white'}
                     >
                       {t.label}
                     </button>

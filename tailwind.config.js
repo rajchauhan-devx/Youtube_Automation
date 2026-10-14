@@ -4,18 +4,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        bg: '#08090d',
-        surface: '#10131b',
-        surface2: '#181d29',
-        surface3: '#202636',
-        border: '#232b3d',
-        borderSoft: '#1a2130',
-        accent: '#ff2d55',
-        accentHover: '#e11d44',
-        accentSoft: 'rgba(255, 45, 85, 0.12)',
-        muted: '#8b94a7',
+        bg: '#090b10',
+        surface: '#10131d',
+        surface2: '#161b29',
+        surface3: '#1e2436',
+        border: '#1f273b',
+        borderSoft: '#151b2a',
+        accent: '#ff3366',
+        accentHover: '#e11d48',
+        accentSoft: 'rgba(255, 51, 102, 0.12)',
+        muted: '#8e98ad',
         faint: '#5b6478',
-        success: '#22c55e',
+        success: '#10b981',
         warning: '#f59e0b',
         danger: '#ef4444',
       },
@@ -23,21 +23,21 @@ export default {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
-        studio: '0 8px 32px -8px rgba(0, 0, 0, 0.6)',
-        card: '0 4px 24px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
-        glow: '0 0 24px rgba(255, 45, 85, 0.35)',
-        pop: '0 16px 48px -12px rgba(0, 0, 0, 0.7)',
+        studio: '0 10px 36px -8px rgba(0, 0, 0, 0.7)',
+        card: '0 4px 20px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.04)',
+        glow: '0 0 24px rgba(255, 51, 102, 0.3)',
+        pop: '0 20px 50px -12px rgba(0, 0, 0, 0.8)',
       },
       borderRadius: {
         studio: '14px',
       },
       keyframes: {
         'fade-up': {
-          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '0%': { opacity: '0', transform: 'translateY(6px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
         'scale-in': {
-          '0%': { opacity: '0', transform: 'scale(0.97)' },
+          '0%': { opacity: '0', transform: 'scale(0.98)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
         shimmer: {
@@ -46,8 +46,8 @@ export default {
         },
       },
       animation: {
-        'fade-up': 'fade-up 0.35s ease-out both',
-        'scale-in': 'scale-in 0.2s ease-out both',
+        'fade-up': 'fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both',
+        'scale-in': 'scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) both',
       },
     },
   },

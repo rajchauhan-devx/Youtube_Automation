@@ -26,8 +26,8 @@ interface SetupData {
 
 function Card({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-lg border border-border bg-surface p-4">
-      <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">{icon}{title}</h3>
+    <section className="studio-card p-5 shadow-card">
+      <h3 className="mb-3.5 flex items-center gap-2 text-sm font-bold text-white">{icon}{title}</h3>
       <div className="space-y-2 text-xs text-gray-300">{children}</div>
     </section>
   );
@@ -35,23 +35,28 @@ function Card({ icon, title, children }: { icon: React.ReactNode; title: string;
 
 function CopyBtn({ id, text, copied, onCopy }: { id: string; text: string; copied: string; onCopy: (id: string, text: string) => void }) {
   return (
-    <button onClick={() => onCopy(id, text)} className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[10px] text-gray-300 hover:bg-surface2" aria-label="Copy">
-      {copied === id ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+    <button onClick={() => onCopy(id, text)} className="shrink-0 rounded-lg border border-border bg-surface px-2 py-1 text-[10px] font-medium text-gray-300 hover:bg-surface2 transition-colors" aria-label="Copy">
+      {copied === id ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
     </button>
   );
 }
 
 function Row({ label, value, copyId, copied, onCopy }: { label: string; value: string; copyId?: string; copied?: string; onCopy?: (id: string, text: string) => void }) {
   return (
-    <div className="flex items-start justify-between gap-3 rounded bg-surface2/60 px-2 py-1.5">
-      <div className="min-w-0"><span className="text-gray-400">{label}: </span><span className="break-all font-mono text-[11px] text-gray-100">{value}</span></div>
+    <div className="flex items-start justify-between gap-3 rounded-xl border border-borderSoft bg-bg/70 px-3 py-2 text-xs">
+      <div className="min-w-0"><span className="text-muted font-medium">{label}: </span><span className="break-all font-mono text-[11px] text-gray-200">{value}</span></div>
       {copyId && onCopy && <CopyBtn id={copyId} text={value} copied={copied || ''} onCopy={onCopy} />}
     </div>
   );
 }
 
 function Status({ online, label }: { online: boolean; label: string }) {
-  return <span className={`rounded px-1.5 py-0.5 text-[10px] ${online ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>{label}: {online ? 'online' : 'offline'}</span>;
+  return (
+    <span className={`studio-pill ${online ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border border-red-500/30 bg-red-500/10 text-red-300'}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${online ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`} />
+      {label}: {online ? 'online' : 'offline'}
+    </span>
+  );
 }
 
 export function SetupTab() {

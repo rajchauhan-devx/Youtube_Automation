@@ -9,8 +9,8 @@ import { GEMINI_MODELS, type Script } from '../../data';
 import { makeStyleTestProject } from './styleTest';
 
 const activeStates = ['queued', 'running', 'cancel_requested'];
-const button = 'rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-40 hover:bg-amber-300';
-const input = 'mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-white';
+const button = 'rounded-xl bg-gradient-to-r from-accent to-[#e11d48] px-4 py-2 text-sm font-semibold text-white shadow-glow transition-all hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:shadow-none';
+const input = 'mt-1 w-full rounded-xl border border-border bg-bg/90 px-3 py-2 text-sm text-white outline-none focus:border-accent/60';
 export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Script | null; onUpdate: (patch: Partial<Script>) => unknown; editor?: boolean }) {
   const [model, setModel] = useState('');
   const state = useEditingProject(script?.id, script?.editingProjectId, model || undefined);
@@ -80,38 +80,38 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   }
   const download = data?.jobs.filter(j => j.operation === 'render' && j.state === 'succeeded' && j.outputUrl && j.revisionId === p?.revisionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   if (!script) return <p className="p-6 text-gray-400">Select a script to create motion graphics.</p>;
-  return <div className="space-y-5 p-2 text-gray-200">
-    <div className="rounded-2xl border border-amber-400/20 bg-gradient-to-br from-amber-500/10 to-surface p-5">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-300">Motion studio</p>
-      <h2 className="mt-2 text-2xl font-semibold text-white">{editor ? 'Preview & export' : 'Artifacts'}</h2>
-      <p className="mt-2 max-w-2xl text-sm text-gray-400">Story matched graphics for important moments, plus optional animated narration captions.</p>
-      <div className="mt-4 flex flex-wrap gap-2">{Object.values(graphicNames).map(name => <span key={name} className="rounded-full border border-amber-300/15 px-3 py-1 text-xs text-amber-100">{name}</span>)}</div>
+  return <div className="space-y-6 p-2 text-gray-200">
+    <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-surface to-surface2 p-6 shadow-card backdrop-blur-md">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Motion Studio</p>
+      <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">{editor ? 'Preview & Export' : 'Motion Artifacts'}</h2>
+      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">Story-matched graphics for important moments, plus optional animated narration captions.</p>
+      <div className="mt-4 flex flex-wrap gap-2">{Object.values(graphicNames).map(name => <span key={name} className="rounded-lg border border-border bg-surface2/60 px-3 py-1 text-xs font-medium text-gray-300">{name}</span>)}</div>
     </div>
-    {state.error && <div role="alert" className="rounded-lg border border-red-800 bg-red-950/30 p-3 text-sm text-red-200">{state.error}</div>}
-    {!editor && <div className="grid gap-4 rounded-xl border border-border bg-surface p-4 md:grid-cols-2">
-      <label className="text-sm">Narration<select className={input} value={audio} onChange={e => setAudio(e.target.value)}>
+    {state.error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-950/30 p-3.5 text-sm text-red-200">{state.error}</div>}
+    {!editor && <div className="grid gap-4 rounded-2xl border border-border/80 bg-surface/90 p-5 shadow-card md:grid-cols-2">
+      <label className="text-xs font-semibold text-gray-300">Narration<select className={input} value={audio} onChange={e => setAudio(e.target.value)}>
         <option value="">Select generated narration</option>{script.generatedAudio?.map(a => <option key={a.filename} value={a.filename}>{a.language === 'hi' ? 'Hindi' : 'English'} · {a.voiceName || a.voice || a.filename}</option>)}
       </select></label>
-      <label className="text-sm">Graphics & vision model<select aria-label="Visual editing AI model" className={input} value={model} onChange={e => setModel(e.target.value)}>
+      <label className="text-xs font-semibold text-gray-300">Graphics &amp; vision model<select aria-label="Visual editing AI model" className={input} value={model} onChange={e => setModel(e.target.value)}>
         <option value="">Server default{state.capabilities?.models?.planner ? ` · ${state.capabilities.models.planner}` : ''}</option>
         {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
       </select></label>
-      <label className="text-sm">Graphic density<select className={input} value={density} onChange={e => setDensity(e.target.value as typeof density)}>
+      <label className="text-xs font-semibold text-gray-300">Graphic density<select className={input} value={density} onChange={e => setDensity(e.target.value as typeof density)}>
         <option value="subtle">Subtle · fewer narrative beats</option><option value="balanced">Balanced</option><option value="expressive">Expressive · more emphasis</option>
       </select></label>
-      <label className="text-sm">Frame rate<select className={input} value={fps} onChange={e => setFps(Number(e.target.value))}><option value={60}>60 fps · smooth motion</option><option value={30}>30 fps · faster export</option></select></label>
-      <label className="text-sm md:col-span-2">Direction <span className="text-gray-500">(optional)</span><input className={input} value={style} maxLength={2000} onChange={e => setStyle(e.target.value)} placeholder="Emphasize character introductions and important objects" /></label>
-      {!!state.capabilities?.missing.length && <div className="text-sm text-amber-200 md:col-span-2">{state.capabilities.missing.join(' ')}</div>}
-      <div className="md:col-span-2 flex flex-wrap items-center gap-3">
-        <button className={button} disabled={busy || !!job || !state.capabilities?.ready || !audio || !script.generatedImages?.length} onClick={() => void generate('graphics')}>Generate motion graphics</button>
-        <button className="rounded-lg border border-sky-400/60 bg-sky-400/10 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-400/20 disabled:opacity-40" disabled={busy || !!job || !audio || !script.generatedImages?.length} onClick={() => void generate('captions')}>Create motion captions</button>
-        {p?.artifacts.some(a => a.graphic?.kind === 'caption') && <button className="text-sm text-sky-300 disabled:opacity-40" disabled={!editable} onClick={() => void act(async () => { state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/captions/clear`, { expectedRevisionId: data!.currentRevisionId })); })}>Remove captions</button>}
-        {p && <button className="text-sm text-gray-400 disabled:opacity-40" disabled={!editable} onClick={() => void act(async () => {
+      <label className="text-xs font-semibold text-gray-300">Frame rate<select className={input} value={fps} onChange={e => setFps(Number(e.target.value))}><option value={60}>60 fps · smooth motion</option><option value={30}>30 fps · faster export</option></select></label>
+      <label className="text-xs font-semibold text-gray-300 md:col-span-2">Direction <span className="text-faint font-normal">(optional)</span><input className={input} value={style} maxLength={2000} onChange={e => setStyle(e.target.value)} placeholder="Emphasize character introductions and important objects" /></label>
+      {!!state.capabilities?.missing.length && <div className="text-xs text-amber-300 md:col-span-2">{state.capabilities.missing.join(' ')}</div>}
+      <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-2">
+        <button className={button} disabled={busy || !!job || !state.capabilities?.ready || !audio || !script.generatedImages?.length} onClick={() => void generate('graphics')}>Generate Motion Graphics</button>
+        <button className="rounded-xl border border-sky-400/50 bg-sky-400/10 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-400/20 disabled:opacity-40 transition-all" disabled={busy || !!job || !audio || !script.generatedImages?.length} onClick={() => void generate('captions')}>Create Motion Captions</button>
+        {p?.artifacts.some(a => a.graphic?.kind === 'caption') && <button className="text-xs font-medium text-sky-300 hover:text-sky-200 disabled:opacity-40" disabled={!editable} onClick={() => void act(async () => { state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/captions/clear`, { expectedRevisionId: data!.currentRevisionId })); })}>Remove Captions</button>}
+        {p && <button className="text-xs font-medium text-muted hover:text-white disabled:opacity-40" disabled={!editable} onClick={() => void act(async () => {
           const next = await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/graphics/clear`, { expectedRevisionId: data!.currentRevisionId });
           state.setSelectedRevision(''); state.setData(next); setSelected(''); setFrame(0);
-        })}>Clear graphics</button>}
+        })}>Clear Graphics</button>}
       </div>
-      <p className="text-xs text-gray-400 md:col-span-2">Documentary rule: most scenes stay clean. Graphics appear only where they add evidence or orientation. Motion captions replace burned-in subtitles for a revision — never enable both on the same export. Review the preview before export.</p>
+      <p className="text-[11px] leading-relaxed text-muted md:col-span-2">Documentary rule: most scenes stay clean. Graphics appear only where they add evidence or orientation. Motion captions replace burned-in subtitles for a revision — never enable both on the same export. Review the preview before export.</p>
     </div>}
     {!!data?.legacyArtifactCount && <p className="rounded-lg border border-amber-800 p-3 text-sm text-amber-200">This saved revision contains {data.legacyArtifactCount} retired graphics. They are hidden from preview and new exports. Generate motion graphics to replace them; original media and revision history remain available.</p>}
     {job && <div role="status" className="flex items-center justify-between rounded-lg border border-amber-700/50 p-3 text-sm"><span>{job.stage}{job.total ? ` · ${job.completed}/${job.total}` : ''}</span><button className="text-red-300" disabled={job.state === 'cancel_requested'} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${job.id}/cancel`, {}); await state.refresh(); })}>{job.state === 'cancel_requested' ? 'Cancelling…' : 'Cancel'}</button></div>}

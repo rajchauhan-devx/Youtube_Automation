@@ -11,17 +11,18 @@
     height: 100%;
   }
   body {
-    background-color: #08090d;
+    background-color: #090b10;
     color: #f1f4f9;
     font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
   ::selection {
-    background: rgba(255, 45, 85, 0.35);
+    background: rgba(255, 51, 102, 0.3);
+    color: #ffffff;
   }
   :focus-visible {
-    outline: 2px solid rgba(255, 45, 85, 0.7);
+    outline: 2px solid rgba(255, 51, 102, 0.6);
     outline-offset: 2px;
   }
 }
@@ -29,31 +30,31 @@
 @layer components {
   .studio-bg {
     background:
-      radial-gradient(900px 320px at 15% -80px, rgba(255, 45, 85, 0.14), transparent 60%),
-      radial-gradient(800px 300px at 90% -60px, rgba(124, 108, 255, 0.12), transparent 60%),
-      #08090d;
+      radial-gradient(1100px 450px at 15% -100px, rgba(255, 51, 102, 0.08), transparent 65%),
+      radial-gradient(1000px 400px at 85% -80px, rgba(99, 102, 241, 0.06), transparent 65%),
+      #090b10;
   }
   .studio-card {
-    @apply rounded-studio border border-border bg-surface shadow-card;
-    background-image: linear-gradient(180deg, rgba(255,255,255,0.025), transparent 40%);
+    @apply rounded-xl border border-border bg-surface/90 shadow-card backdrop-blur-sm;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent 45%);
   }
   .studio-card-hover {
-    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-[#334054] hover:shadow-studio;
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:border-[#323d54] hover:shadow-studio;
   }
   .studio-input {
-    @apply w-full rounded-xl border border-border bg-bg px-3 py-2 text-sm text-white outline-none transition-colors placeholder:text-faint focus:border-accent/70 focus:ring-2 focus:ring-accent/20;
+    @apply w-full rounded-xl border border-border bg-bg/90 px-3.5 py-2.5 text-sm text-white outline-none transition-all placeholder:text-faint focus:border-accent/60 focus:ring-2 focus:ring-accent/15;
   }
   .studio-btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#ff4d6d] to-[#e11d44] px-4 py-2 text-sm font-semibold text-white shadow-glow transition-all hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#ff3366] to-[#e11d48] px-4 py-2.5 text-sm font-semibold text-white shadow-glow transition-all hover:brightness-110 hover:shadow-lg hover:shadow-accent/25 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none;
   }
   .studio-btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface px-3.5 py-2 text-sm font-medium text-gray-200 transition-colors hover:border-[#334054] hover:bg-surface2 hover:text-white disabled:opacity-40;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-surface/80 px-3.5 py-2 text-sm font-medium text-gray-200 transition-all hover:border-[#323d54] hover:bg-surface2 hover:text-white disabled:opacity-40;
   }
   .studio-btn-danger {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-danger/20;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-3.5 py-2 text-sm font-medium text-red-300 transition-all hover:bg-danger/20 hover:border-danger/50;
   }
   .studio-pill {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium;
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium tracking-wide;
   }
   .studio-nav-btn {
     @apply flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all duration-150;

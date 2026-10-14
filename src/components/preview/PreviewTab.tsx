@@ -99,34 +99,40 @@ export function PreviewTab({
   const hasPrompt = Boolean(script.topicName?.trim());
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-154px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-surface/40">
-      <div className="flex items-center justify-between border-b border-border bg-surface/80 px-5 py-3">
+    <div className="mx-auto flex min-h-[calc(100vh-170px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border/80 bg-surface/50 shadow-card backdrop-blur-md">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/80 bg-surface/90 px-6 py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-accent">
-            <Bot className="h-4 w-4" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-accent/25 bg-accent/10 text-accent shadow-glow">
+            <Bot className="h-4.5 w-4.5" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold">AI Script Assistant</h3>
-            <p className="text-xs text-gray-500">
+            <h3 className="text-sm font-bold text-white">AI Script Assistant</h3>
+            <p className="text-xs text-muted">
               {isResearching
                 ? 'Researching topic & script data…'
                 : isGenerating
-                  ? 'Generating a live response from researched data…'
-                  : 'Ready'}
+                  ? 'Generating live response from researched data…'
+                  : 'Ready to research & generate'}
             </p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {onImportResponse && <button type="button" onClick={() => setShowImport(!showImport)} disabled={isGenerating || importing}
-            className="rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2 disabled:opacity-40">
-            Paste AI Response
-          </button>}
+          {onImportResponse && (
+            <button
+              type="button"
+              onClick={() => setShowImport(!showImport)}
+              disabled={isGenerating || importing}
+              className="studio-btn-ghost !px-3 !py-1.5 text-xs"
+            >
+              Paste AI Response
+            </button>
+          )}
           {(isDone || extractionFailed || hasResponse) && onExtractAssets && (
             <button
               onClick={onExtractAssets}
               disabled={isGenerating}
-              className="flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/80 disabled:opacity-40"
+              className="studio-btn-primary !px-3.5 !py-1.5 text-xs"
             >
               <Sparkles className="h-3.5 w-3.5" />
               Extract Assets
@@ -135,9 +141,9 @@ export function PreviewTab({
           <button
             onClick={handleCopy}
             disabled={!hasResponse}
-            className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-gray-300 hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-40"
+            className="studio-btn-ghost !px-3 !py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <Copy className="h-3.5 w-3.5" />
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
             {copied ? 'Copied' : 'Copy'}
           </button>
         </div>
@@ -298,8 +304,8 @@ export function PreviewTab({
         <div ref={responseEndRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t border-border bg-surface/80 p-4 sm:px-8 sm:py-5">
-        <div className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border border-border bg-bg p-2 pl-4 shadow-xl focus-within:border-accent/70">
+      <form onSubmit={handleSubmit} className="border-t border-border/80 bg-surface/90 p-4 sm:px-8 sm:py-5">
+        <div className="mx-auto flex max-w-3xl items-end gap-2.5 rounded-2xl border border-border bg-bg/90 p-2 pl-4 shadow-xl backdrop-blur-md transition-all focus-within:border-accent/60 focus-within:ring-2 focus-within:ring-accent/15">
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -312,16 +318,16 @@ export function PreviewTab({
                 ? 'Researching topic & script data…'
                 : isGenerating
                   ? 'Generating response…'
-                  : 'Describe the video you want to create…'
+                  : 'Describe the video you want to create (e.g. topic, style, angle)…'
             }
-            className="max-h-36 min-h-10 flex-1 resize-none bg-transparent py-2 text-sm leading-6 text-white outline-none placeholder:text-gray-600 disabled:cursor-not-allowed"
+            className="max-h-36 min-h-10 flex-1 resize-none bg-transparent py-2 text-sm leading-6 text-white outline-none placeholder:text-faint disabled:cursor-not-allowed"
           />
           {isGenerating ? (
             <button
               type="button"
               onClick={onStop}
               title="Stop generating"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black transition-colors hover:bg-gray-200"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-black transition-all hover:bg-gray-200 active:scale-95 shadow-md"
             >
               <Square className="h-3.5 w-3.5 fill-current" />
             </button>
@@ -330,13 +336,13 @@ export function PreviewTab({
               type="submit"
               disabled={!prompt.trim() || !onGenerate}
               title="Send message"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-white transition-colors hover:bg-accent/80 disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-accent to-[#e11d48] text-white shadow-glow transition-all hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-30 disabled:shadow-none"
             >
               <Send className="h-4 w-4" />
             </button>
           )}
         </div>
-        <p className="mt-2 text-center text-[11px] text-gray-600">Press Enter to send · Shift+Enter for a new line</p>
+        <p className="mt-2.5 text-center text-[11px] text-faint">Press <kbd className="rounded border border-border bg-surface px-1 py-0.5 text-[10px] text-gray-300">Enter</kbd> to send · <kbd className="rounded border border-border bg-surface px-1 py-0.5 text-[10px] text-gray-300">Shift+Enter</kbd> for new line</p>
       </form>
     </div>
   );
