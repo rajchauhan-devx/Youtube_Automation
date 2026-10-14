@@ -329,6 +329,11 @@ function ImageGenerationContent({
     if (!script || images.length === 0 || isRunning) return;
     let online = await checkServer();
     if (!online) {
+      if (imageProviderRef.current === 'google') {
+        setServerStatus('offline');
+        setServerError('Google Cloud is unconfigured or offline. Verify GEMINI_API_KEY in server/.env.');
+        return;
+      }
       if (imageProviderRef.current === 'cloudflare') {
         // Cloudflare has no local model to start — surface the real API status instead.
         setServerStatus('offline');
@@ -483,11 +488,11 @@ function ImageGenerationContent({
           onConfigChange={(cfg) => {
             setImageProvider(cfg.provider);
             imageProviderRef.current = cfg.provider;
-            setCloudflareModelLabel(cfg.modelLabel);
+            setCloudflareModelLabel(cfg.provider === 'google' ? (cfg.googleModelLabel || 'Gemini 2.5 Flash Image') : cfg.modelLabel);
             void checkServer(cfg.provider);
           }}
         />
-        <GenerationDisclosure title="Image settings" hint={imageProvider === 'cloudflare' ? `Cloudflare (${cloudflareModelLabel}) / ${preset} quality` : `${channelLora.channelLabel} LoRA / ${preset} quality`}>
+        <GenerationDisclosure title="Image settings" hint={imageProvider === 'google' ? `Google Cloud (${cloudflareModelLabel}) / ${preset} quality` : imageProvider === 'cloudflare' ? `Cloudflare (${cloudflareModelLabel}) / ${preset} quality` : `${channelLora.channelLabel} LoRA / ${preset} quality`}>
         <div className="border-b border-border/80 bg-accent/5 px-4 py-2.5 text-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>

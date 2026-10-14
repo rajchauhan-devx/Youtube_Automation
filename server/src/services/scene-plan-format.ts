@@ -51,23 +51,24 @@ Complete standalone thumbnail image generation prompt...
 </image_prompt0>
 
 3. Every visual scene prompt inside its own sequentially numbered tag incrementing chronologically across the timeline (1, 2, 3, ...):
-- For static image scenes, use <image_prompt[N]>:
-<image_prompt1>
-#image 1
-Complete standalone still-image generation prompt for scene 1...
-</image_prompt1>
-
-- For mixed / video scenes, use <video_prompt[N]> with the same chronological index:
-<video_prompt2>
-#video 2
+- For mixed / video scenes (the first scene MUST always be a video to hook the user), use <video_prompt[N]>:
+<video_prompt1>
+#video 1
 Duration: 8 seconds
-Complete standalone continuous-shot video generation prompt for scene 2...
-</video_prompt2>
+Complete standalone continuous-shot video generation hook prompt for scene 1...
+</video_prompt1>
 
-<image_prompt3>
-#image 3
-Complete standalone still-image generation prompt for scene 3...
-</image_prompt3>
+- For static image scenes, use <image_prompt[N]>:
+<image_prompt2>
+#image 2
+Complete standalone still-image generation prompt for scene 2...
+</image_prompt2>
+
+<video_prompt3>
+#video 3
+Duration: 8 seconds
+Complete standalone continuous-shot video generation prompt for scene 3...
+</video_prompt3>
 
 Profile: ${profile}. ${profile === 'shorts' ? 'Use portrait 9:16.' : 'Use landscape 16:9.'} Write actual finished content in every tag without placeholders or "[...Repeat...]" shortcuts.`;
   return prompt.includes(SCENE_PLAN_FORMAT_MARKER) ? prompt : `${prompt.trimEnd()}\n\n${contract}`;

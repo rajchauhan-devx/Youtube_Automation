@@ -27,13 +27,13 @@ Narration: short, conversational, speakable sentences. Name people and places cl
 ## 2. Media planning — STRICT 50/50 SPLIT (50% VIDEO / 50% IMAGE)
 
 Every episode MUST maintain an exact 50/50 split between static image scenes and moving video scenes across the entire duration:
-- Alternating rhythm: Alternate media types across scenes (Scene 1: Image, Scene 2: Video, Scene 3: Image, Scene 4: Video, etc.) so exactly 50% of the scenes are designated as image assets and 50% as video assets.
-- For an odd total number of scenes (e.g. 11 scenes), provide 6 images and 5 videos.
+- Alternating rhythm: Alternate media types across scenes (Scene 1: Video, Scene 2: Image, Scene 3: Video, Scene 4: Image, etc.) so exactly 50% of the scenes are designated as image assets and 50% as video assets. Scene 1 must ALWAYS be a video to hook the user immediately.
+- For an odd total number of scenes (e.g. 11 scenes), provide 6 videos and 5 images (opening with video).
 - For an even total number of scenes (e.g. 10, 14, or 64 scenes), provide an EXACT 50/50 split.
 - Use VIDEO scenes where movement carries information: arrivals, purposeful gestures, journeys, changing environments, unfolding events, restrained reveals. Use IMAGE scenes for introductions, meaningful details, contemplative beats, geography, and explanatory narration.
 - Every video scene MUST have both an <image_prompt> (to generate the reference keyframe) and a <video_prompt> (for image-to-video animation).
 
-Scene_001 is your first-impression frame: its opening composition must already work as a thumbnail-grade 16:9 still (strong subject, clean silhouette, cinematic depth).
+Scene_001 is your hook and first-impression video: open with high-engagement cinematic motion to immediately capture and hook the viewer.
 
 ## 3. Image prompt specification — PRODUCTION LEVEL (detailed, never one-liners)
 
@@ -65,15 +65,15 @@ Detailed 60-100 word 16:9 landscape thumbnail prompt...
 
 <image_prompt>
 #image 1
-Detailed 70-120 word 16:9 landscape still-image prompt for scene 1...
+Detailed 70-120 word 16:9 landscape still-image / reference keyframe prompt for scene 1...
 </image_prompt>
 
-3. Every video prompt inside its own <video_prompt> tag (include Related image tag: #image N for the scene it pairs with):
+3. Every video prompt inside its own <video_prompt> tag (include Related image tag: #image N for the scene it pairs with — Scene 1 is always a video hook):
 <video_prompt>
 #video 1
 Related image tag: #image 1
 Duration: 10 seconds
-Detailed 90-150 word 16:9 continuous-shot video prompt...
+Detailed 90-150 word 16:9 continuous-shot hook video prompt for scene 1...
 </video_prompt>
 
 The selected Target duration in the user message overrides any example duration: scale the scene count to at least ceiling(targetSeconds / 10) scenes (capped at 160). Mix both image and video scenes as the story requires. Write every <image_prompt> and <video_prompt> in full with no placeholders or "[...Repeat...]" shortcuts.`;

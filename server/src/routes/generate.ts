@@ -33,6 +33,8 @@ import {
   reorderCloudflareEndpoints,
   clearEndpointCooldowns,
 } from '../services/cloudflare-image.js';
+import { generateGoogleImage, isGoogleImageConfigured } from '../services/google-image.js';
+import { getGoogleAuthToken } from '../services/google-adc.js';
 
 function isScript2dStylized(scriptObj: any, rawPrompt?: string): boolean {
   if (rawPrompt && TWO_D_STYLE_PATTERN.test(rawPrompt)) return true;
@@ -45,31 +47,34 @@ function isScript2dStylized(scriptObj: any, rawPrompt?: string): boolean {
 }
 
 async function generateWithAutomaticFallback(
-  useCloudflare: boolean,
+  provider: 'local' | 'cloudflare' | 'google',
   genOpts: Parameters<typeof generateImage>[0]
 ) {
-  if (!useCloudflare) {
-    return generateImage(genOpts);
+  if (provider === 'google') {
+    return generateGoogleImage(genOpts);
   }
-  try {
-    return await generateCloudflareImage(genOpts);
-  } catch (err: any) {
-    if (err instanceof ComfyError && err.code === 'RATE_LIMITED' && !process.env.NODE_TEST_CONTEXT) {
-      let comfy = await checkComfyStatus();
-      if (!comfy.online) {
-        const started = await startComfyUI();
-        if (started.success) {
-          comfy = await checkComfyStatus();
+  if (provider === 'cloudflare') {
+    try {
+      return await generateCloudflareImage(genOpts);
+    } catch (err: any) {
+      if (err instanceof ComfyError && err.code === 'RATE_LIMITED' && !process.env.NODE_TEST_CONTEXT) {
+        let comfy = await checkComfyStatus();
+        if (!comfy.online) {
+          const started = await startComfyUI();
+          if (started.success) {
+            comfy = await checkComfyStatus();
+          }
+        }
+        if (comfy.online) {
+          console.warn('[generate] All Cloudflare APIs hit neuron limit — automatically falling back to local ComfyUI.');
+          const localRes = await generateImage(genOpts);
+          return { ...localRes, endpointId: 'local-fallback', endpointLabel: 'Local ComfyUI (Backup)', attempts: 1 };
         }
       }
-      if (comfy.online) {
-        console.warn('[generate] All Cloudflare APIs hit neuron limit — automatically falling back to local ComfyUI.');
-        const localRes = await generateImage(genOpts);
-        return { ...localRes, endpointId: 'local-fallback', endpointLabel: 'Local ComfyUI (Backup)', attempts: 1 };
-      }
+      throw err;
     }
-    throw err;
   }
+  return generateImage(genOpts);
 }
 
 export const generateRouter = Router();
@@ -99,13 +104,33 @@ const statusCode: Record<string, number> = {
 
 generateRouter.get('/status', async (req, res) => {
   const cfStatus = getPublicCloudflareConfig();
+  const googleConfigured = isGoogleImageConfigured();
   const requestedProvider =
-    req.query.provider === 'cloudflare'
+    req.query.provider === 'google'
+      ? 'google'
+      : req.query.provider === 'cloudflare'
       ? 'cloudflare'
       : req.query.provider === 'local'
         ? 'local'
         : cfStatus.provider;
   const comfy = await checkComfyStatus();
+  if (requestedProvider === 'google') {
+    const activeModel = cfStatus.googleModel || 'gemini-2.5-flash-image';
+    const activeModelInfo = cfStatus.googleModels?.find((m) => m.id === activeModel);
+    res.json({
+      online: googleConfigured,
+      provider: 'google',
+      model: activeModel,
+      modelLabel: activeModelInfo?.label || 'Google Cloud (Gemini Image)',
+      detail: googleConfigured
+        ? `Google Cloud Image ready (${activeModelInfo?.label || activeModel}) · ${activeModelInfo?.costPerImage || '$0.039 / image'} ($300 Credit)`
+        : 'Google Cloud is not configured. Add GEMINI_API_KEY in server/.env.',
+      cloudflare: cfStatus,
+      googleConfigured,
+      comfyOnline: comfy.online,
+    });
+    return;
+  }
   if (requestedProvider === 'cloudflare') {
     res.json({
       online: cfStatus.configured,
@@ -116,6 +141,7 @@ generateRouter.get('/status', async (req, res) => {
         ? `Cloudflare Workers AI ready (${cfStatus.modelLabel})`
         : 'Cloudflare Workers AI is not configured yet. Add your Worker URL or API Token below.',
       cloudflare: cfStatus,
+      googleConfigured,
       comfyOnline: comfy.online,
     });
     return;
@@ -124,8 +150,100 @@ generateRouter.get('/status', async (req, res) => {
     ...comfy,
     provider: 'local',
     cloudflare: cfStatus,
+    googleConfigured,
     comfyOnline: comfy.online,
   });
+});
+
+generateRouter.get('/google/test', async (_req, res) => {
+  const auth = await getGoogleAuthToken();
+  const apiKey = (process.env.GEMINI_API_KEY || '').trim();
+
+  if (auth) {
+    try {
+      const checkRes = await fetch(
+        `https://aiplatform.googleapis.com/v1beta1/publishers/google/models?pageSize=10`,
+        {
+          headers: {
+            Authorization: `Bearer ${auth.token}`,
+            'X-Goog-User-Project': auth.projectId,
+          },
+        }
+      );
+      if (checkRes.ok) {
+        res.json({
+          ok: true,
+          mode: 'adc',
+          projectId: auth.projectId,
+          imageModel: 'gemini-3.1-flash-image',
+          message: `Connected via Google Cloud ADC (Project: ${auth.projectId}). Drawing from your $300 credit.`,
+        });
+        return;
+      }
+    } catch {}
+  }
+
+  if (apiKey) {
+    try {
+      const checkRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`
+      );
+      const data = (await checkRes.json()) as any;
+      if (checkRes.ok) {
+        res.json({
+          ok: true,
+          mode: 'apiKey',
+          modelsAvailable: (data.models || []).length,
+          imageModel: 'gemini-3.1-flash-image',
+          message: 'Connected via Gemini API Key.',
+        });
+        return;
+      }
+    } catch (err: any) {
+      res.status(500).json({ ok: false, error: err.message || 'Connection test failed.' });
+      return;
+    }
+  }
+
+  res.status(400).json({ ok: false, error: 'No Google Cloud authentication (ADC or API key) found.' });
+});
+
+generateRouter.get('/google/billing', async (_req, res) => {
+  try {
+    const auth = await getGoogleAuthToken();
+    if (!auth) {
+      res.json({
+        ok: false,
+        configured: false,
+        message: 'Google Cloud ADC is not configured',
+        billingUrl: 'https://console.cloud.google.com/billing',
+      });
+      return;
+    }
+    const accountsRes = await fetch('https://cloudbilling.googleapis.com/v1/billingAccounts', {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    });
+    const data = (await accountsRes.json()) as any;
+    const accounts = data.billingAccounts || [];
+    const active = accounts[0];
+    const accountId = active?.name ? active.name.replace('billingAccounts/', '') : undefined;
+    res.json({
+      ok: true,
+      configured: true,
+      projectId: auth.projectId,
+      accountName: active?.displayName || 'My Billing Account',
+      accountId,
+      currency: active?.currencyCode || 'INR',
+      billingUrl: accountId
+        ? `https://console.cloud.google.com/billing/${accountId}`
+        : 'https://console.cloud.google.com/billing',
+      reportsUrl: accountId
+        ? `https://console.cloud.google.com/billing/${accountId}/reports`
+        : 'https://console.cloud.google.com/billing/reports',
+    });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message, billingUrl: 'https://console.cloud.google.com/billing' });
+  }
 });
 
 generateRouter.get('/cloudflare/config', (_req, res) => {
@@ -216,6 +334,17 @@ generateRouter.get('/channel-lora', (_req, res) => {
 generateRouter.post('/start', async (req, res) => {
   const cfCfg = getCloudflareConfig();
   const requestedProvider = req.body?.provider || cfCfg.provider;
+  if (requestedProvider === 'google') {
+    if (isGoogleImageConfigured()) {
+      res.json({ success: true, message: 'Google Cloud Image Generation is ready' });
+    } else {
+      res.json({
+        success: false,
+        message: 'Google Cloud is not configured. Add GEMINI_API_KEY in server/.env.',
+      });
+    }
+    return;
+  }
   if (requestedProvider === 'cloudflare') {
     if (isCloudflareConfigured(cfCfg)) {
       res.json({ success: true, message: 'Cloudflare Workers AI is ready' });
@@ -279,20 +408,32 @@ generateRouter.post('/image', async (req, res) => {
 
   try {
     const cfCfg = getCloudflareConfig();
-    const useCloudflare =
-      provider === 'cloudflare' ||
-      (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
-      (provider !== 'local' && cfCfg.provider === 'cloudflare');
+    const activeProvider: 'local' | 'cloudflare' | 'google' =
+      provider === 'google'
+        ? 'google'
+        : provider === 'cloudflare' ||
+          (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
+          (provider !== 'local' && cfCfg.provider === 'cloudflare')
+          ? 'cloudflare'
+          : cfCfg.provider === 'google'
+            ? 'google'
+            : 'local';
     const scriptDoc = store.getById<any>('scripts', scriptId);
     const force2dStylized = isScript2dStylized(scriptDoc, prompt);
-    const result = await generateWithAutomaticFallback(useCloudflare, {
+    const effectiveModelName =
+      typeof modelName === 'string' && modelName
+        ? modelName
+        : activeProvider === 'google'
+          ? cfCfg.googleModel
+          : undefined;
+    const result = await generateWithAutomaticFallback(activeProvider, {
       prompt,
       scriptId,
       index,
       seed: typeof seed === 'number' ? seed : undefined,
       signal: controller.signal,
       preset: validPreset,
-      modelName: typeof modelName === 'string' ? modelName : undefined,
+      modelName: effectiveModelName,
       force2dStylized,
     });
     let generatedImages;
@@ -394,19 +535,31 @@ generateRouter.post('/reference-frame', async (req, res) => {
 
   try {
     const cfCfg = getCloudflareConfig();
-    const useCloudflare =
-      provider === 'cloudflare' ||
-      (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
-      (provider !== 'local' && cfCfg.provider === 'cloudflare');
+    const activeProvider: 'local' | 'cloudflare' | 'google' =
+      provider === 'google'
+        ? 'google'
+        : provider === 'cloudflare' ||
+          (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
+          (provider !== 'local' && cfCfg.provider === 'cloudflare')
+          ? 'cloudflare'
+          : cfCfg.provider === 'google'
+            ? 'google'
+            : 'local';
     const force2dStylized = isScript2dStylized(currentScript, prompt);
-    const result = await generateWithAutomaticFallback(useCloudflare, {
+    const effectiveModelName =
+      typeof modelName === 'string' && modelName
+        ? modelName
+        : activeProvider === 'google'
+          ? cfCfg.googleModel
+          : undefined;
+    const result = await generateWithAutomaticFallback(activeProvider, {
       prompt,
       scriptId,
       index,
       seed: typeof seed === 'number' ? seed : undefined,
       signal: controller.signal,
       preset: validPreset,
-      modelName: typeof modelName === 'string' ? modelName : undefined,
+      modelName: effectiveModelName,
       filePrefix: 'ref-frame',
       force2dStylized,
     });

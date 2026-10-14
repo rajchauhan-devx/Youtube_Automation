@@ -22,11 +22,13 @@ import {
   PowerOff,
   FlaskConical,
   RotateCcw,
+  ExternalLink,
+  Wallet,
 } from "lucide-react";
 import { useWorkspaceApi } from "../../services/workspaceApi";
 import { getChannelLoraProfile } from "../../data";
 
-export type ImageProviderMode = "local" | "cloudflare";
+export type ImageProviderMode = "local" | "cloudflare" | "google";
 
 export interface CloudflareModelOption {
   id: string;
@@ -56,6 +58,55 @@ export interface PublicCloudflareEndpointState {
   consecutiveFailures: number;
 }
 
+export interface GoogleImageModelOption {
+  id: string;
+  label: string;
+  costPerImage: string;
+  creditCapacity: string;
+  badge?: string;
+  description: string;
+  aspectRatios: string;
+}
+
+export const DEFAULT_GOOGLE_MODELS: GoogleImageModelOption[] = [
+  {
+    id: "gemini-3.1-flash-image",
+    label: "Gemini 3.1 Flash Image",
+    costPerImage: "$0.039 / image (~4¢)",
+    creditCapacity: "7,690+ images with $300 credit",
+    badge: "Recommended",
+    description: "Google's next-gen multimodal image generator. Cinematic lighting, rich textures, high depth, and native 9:16 Shorts & 16:9 YouTube aspect ratios.",
+    aspectRatios: "9:16 (Shorts) & 16:9 (YouTube)",
+  },
+  {
+    id: "gemini-3.1-flash-lite-image",
+    label: "Gemini 3.1 Flash Lite Image",
+    costPerImage: "$0.020 / image (~2¢)",
+    creditCapacity: "15,000 images with $300 credit",
+    badge: "Budget & Fast",
+    description: "Ultra-fast lightweight generation. Maximum volume — yields ~15,000 scene stills within your $300 Google Cloud credit.",
+    aspectRatios: "9:16 (Shorts) & 16:9 (YouTube)",
+  },
+  {
+    id: "gemini-3-pro-image",
+    label: "Gemini 3 Pro Image",
+    costPerImage: "$0.060 / image (~6¢)",
+    creditCapacity: "5,000 images with $300 credit",
+    badge: "Ultra Detail",
+    description: "Maximum photorealism, detailed fine textures, and crisp typographic rendering for hero scenes.",
+    aspectRatios: "9:16 (Shorts) & 16:9 (YouTube)",
+  },
+  {
+    id: "gemini-2.5-flash-image",
+    label: "Gemini 2.5 Flash Image",
+    costPerImage: "$0.039 / image (~4¢)",
+    creditCapacity: "7,690+ images with $300 credit",
+    badge: "Standard",
+    description: "Legacy multimodal image generation checkpoint.",
+    aspectRatios: "9:16 (Shorts) & 16:9 (YouTube)",
+  },
+];
+
 export interface PublicCloudflareConfigState {
   provider: ImageProviderMode;
   mode: "worker" | "direct";
@@ -67,6 +118,10 @@ export interface PublicCloudflareConfigState {
   apiTokenMasked: string;
   model: string;
   modelLabel: string;
+  googleModel?: string;
+  googleModelLabel?: string;
+  googleModels?: GoogleImageModelOption[];
+  googleConfigured?: boolean;
   injectStyleDna: boolean;
   configured: boolean;
   models: CloudflareModelOption[];
@@ -181,11 +236,72 @@ export function CloudflareImagePanel({
     }
   }
 
+  interface GoogleBillingInfo {
+    ok: boolean;
+    configured: boolean;
+    projectId?: string;
+    accountName?: string;
+    accountId?: string;
+    currency?: string;
+    billingUrl?: string;
+    reportsUrl?: string;
+  }
+
+  const [billingInfo, setBillingInfo] = useState<GoogleBillingInfo | null>(null);
+
+  async function loadBillingInfo() {
+    try {
+      const res = await fetch("/api/generate/google/billing");
+      if (!res.ok) return;
+      const data = (await res.json()) as GoogleBillingInfo;
+      if (data.ok) {
+        setBillingInfo(data);
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
   useEffect(() => {
     void loadConfig();
+    void loadBillingInfo();
   }, []);
 
+  const [testingGoogle, setTestingGoogle] = useState(false);
+
+  async function handleTestGoogle() {
+    setTestingGoogle(true);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/generate/google/test");
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Google API test failed.");
+      }
+      setFeedback({
+        type: "ok",
+        text: `Connected to Google Cloud API (${data.modelsAvailable} models available). Ready for image generation using your $300 credit.`,
+      });
+    } catch (err) {
+      setFeedback({
+        type: "err",
+        text: err instanceof Error ? err.message : "Google Cloud connection failed.",
+      });
+    } finally {
+      setTestingGoogle(false);
+    }
+  }
+
   async function updateConfig(patch: Record<string, unknown>, showSavedBanner = false) {
+    if (config) {
+      const optimistic = { ...config, ...patch } as PublicCloudflareConfigState;
+      if (patch.googleModel) {
+        const found = (config.googleModels || DEFAULT_GOOGLE_MODELS).find((m) => m.id === patch.googleModel);
+        if (found) optimistic.googleModelLabel = found.label;
+      }
+      setConfig(optimistic);
+      onConfigChange?.(optimistic);
+    }
     setSaving(true);
     setFeedback(null);
     try {
@@ -196,11 +312,11 @@ export function CloudflareImagePanel({
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "Failed to save Cloudflare settings.");
+        throw new Error(data.error || "Failed to save settings.");
       }
       applyConfig(data.config as PublicCloudflareConfigState);
       if (showSavedBanner) {
-        setFeedback({ type: "ok", text: "Cloudflare configuration saved securely on server." });
+        setFeedback({ type: "ok", text: "Settings saved successfully." });
       }
       const updated = data.config as PublicCloudflareConfigState;
       if (updated.provider === "cloudflare" && !updated.configured) {
@@ -209,8 +325,9 @@ export function CloudflareImagePanel({
     } catch (err) {
       setFeedback({
         type: "err",
-        text: err instanceof Error ? err.message : "Could not save Cloudflare configuration.",
+        text: err instanceof Error ? err.message : "Could not save configuration.",
       });
+      void loadConfig();
     } finally {
       setSaving(false);
     }
@@ -423,8 +540,14 @@ export function CloudflareImagePanel({
 
   if (!config) return null;
 
+  const isGoogle = config.provider === "google";
   const isCloudflare = config.provider === "cloudflare";
   const coolingCount = config.endpoints.filter((e) => e.coolingDownSecs > 0).length;
+
+  const selectedGoogleModelId = config.googleModel || DEFAULT_GOOGLE_MODELS[0].id;
+  const selectedGoogleModelObj =
+    (config.googleModels || DEFAULT_GOOGLE_MODELS).find((m) => m.id === selectedGoogleModelId) ||
+    DEFAULT_GOOGLE_MODELS[0];
 
   return (
     <div className="mb-4 rounded-xl border border-border bg-surface/90 p-4 shadow-sm">
@@ -444,13 +567,26 @@ export function CloudflareImagePanel({
               disabled={disabled || saving}
               onClick={() => void updateConfig({ provider: "local" })}
               className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                !isCloudflare
+                config.provider === "local"
                   ? "bg-surface2 text-white shadow-sm"
                   : "text-gray-400 hover:text-gray-200"
               } disabled:opacity-50`}
             >
               <Cpu className="h-3.5 w-3.5 text-purple-300" />
               Local ComfyUI (LoRA)
+            </button>
+            <button
+              type="button"
+              disabled={disabled || saving}
+              onClick={() => void updateConfig({ provider: "google" })}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
+                isGoogle
+                  ? "bg-blue-500/20 text-blue-200 border border-blue-400/30 shadow-sm"
+                  : "text-gray-400 hover:text-gray-200"
+              } disabled:opacity-50`}
+            >
+              <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+              Google Cloud (Gemini Image)
             </button>
             <button
               type="button"
@@ -469,7 +605,14 @@ export function CloudflareImagePanel({
         </div>
 
         {/* Right Status & Settings Toggle */}
-        {isCloudflare ? (
+        {isGoogle ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex items-center gap-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-1 text-[11px] font-medium text-blue-300">
+              <CheckCircle2 className="h-3.5 w-3.5 text-blue-400" />
+              Google Cloud Active · {selectedGoogleModelObj.label} ({selectedGoogleModelObj.costPerImage})
+            </span>
+          </div>
+        ) : isCloudflare ? (
           <div className="flex flex-wrap items-center gap-2">
             {config.configured ? (
               <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-300">
@@ -498,6 +641,166 @@ export function CloudflareImagePanel({
           </span>
         )}
       </div>
+
+      {/* Google Cloud Options & Info */}
+      {isGoogle && (
+        <div className="mt-4 space-y-4 border-t border-border/70 pt-4">
+          <div className="rounded-xl border border-blue-500/25 bg-blue-950/20 p-3.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-white">Google Cloud Image Engine</span>
+                  <span className="rounded bg-blue-500/20 px-1.5 py-0.5 text-[10px] font-bold text-blue-300 border border-blue-500/30">
+                    GEMINI_API_KEY
+                  </span>
+                  <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
+                    $300 Google Cloud Credit
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] text-gray-300">
+                  Generates scenes directly via Gemini on Google Cloud. Uses the same API key as your chat/preview models. Native <strong>9:16 Shorts</strong> &amp; <strong>16:9 YouTube</strong> formats.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  disabled={testingGoogle}
+                  onClick={() => void handleTestGoogle()}
+                  className="flex items-center gap-1.5 rounded-lg border border-blue-500/40 bg-blue-500/10 px-2.5 py-1.5 text-xs font-medium text-blue-200 hover:bg-blue-500/20 disabled:opacity-50"
+                >
+                  {testingGoogle ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5 text-blue-400" />
+                  )}
+                  {testingGoogle ? "Testing API…" : "Test Google API"}
+                </button>
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={config.injectStyleDna}
+                    disabled={disabled || saving}
+                    onChange={(e) => void updateConfig({ injectStyleDna: e.target.checked })}
+                    className="rounded border-border bg-bg text-blue-400"
+                  />
+                  <span>
+                    Auto-inject <strong className="text-blue-300">{channelLora.channelLabel}</strong> Style-DNA
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Google Cloud Credit & Balance Card */}
+          <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/20 p-3.5 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-emerald-400" />
+                  <span className="font-semibold text-white">Google Cloud Credits &amp; Balance</span>
+                  <span className="rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
+                    {billingInfo?.currency || "INR"} (~$300 Free Trial Credit)
+                  </span>
+                </div>
+                <div className="text-[11px] text-gray-300">
+                  <span>Billing Account: <strong className="text-white">{billingInfo?.accountName || "My Billing Account"}</strong> ({billingInfo?.accountId || "01E02C-EF633F-E3E726"})</span>
+                  <span className="mx-2 text-gray-500">·</span>
+                  <span>Project: <strong className="text-white font-mono">{billingInfo?.projectId || "project-c78fd3eb-5ca1-4965-ab2"}</strong></span>
+                </div>
+                <p className="text-[10px] text-gray-400">
+                  Google Cloud displays promotional credit balances and expiration inside your secure Billing Console. Click below to view your real-time balance.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href={billingInfo?.billingUrl || "https://console.cloud.google.com/billing/01E02C-EF633F-E3E726"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/20 transition-colors"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 text-emerald-400" />
+                  View Balance in Cloud Console ↗
+                </a>
+                <a
+                  href={billingInfo?.reportsUrl || "https://console.cloud.google.com/billing/01E02C-EF633F-E3E726/reports"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-bg/80 px-2.5 py-1.5 text-xs font-medium text-gray-300 hover:bg-surface2 transition-colors"
+                >
+                  Usage Reports ↗
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Model Selection with Cost Per Image */}
+          <div>
+            <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <span className="text-xs font-semibold text-white">
+                  Google Cloud Image Models
+                </span>
+                <span className="ml-2 text-[11px] text-gray-400">
+                  (Cost is deducted from your $300 Google Cloud credit)
+                </span>
+              </div>
+              <span className="text-[11px] text-emerald-400 font-medium">
+                Active: {selectedGoogleModelObj.label} · {selectedGoogleModelObj.costPerImage}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {(config.googleModels || DEFAULT_GOOGLE_MODELS).map((m) => {
+                const isSelected = selectedGoogleModelId === m.id;
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    disabled={disabled || saving}
+                    onClick={() => void updateConfig({ googleModel: m.id })}
+                    className={`flex flex-col justify-between rounded-xl border p-3 text-left transition-all ${
+                      isSelected
+                        ? "border-blue-500 bg-blue-950/30 shadow-sm shadow-blue-500/10 ring-1 ring-blue-500/50"
+                        : "border-border bg-bg/60 hover:border-gray-600 hover:bg-surface2/50"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`h-2.5 w-2.5 rounded-full ${
+                              isSelected ? "bg-blue-400 ring-2 ring-blue-400/30" : "bg-gray-600"
+                            }`}
+                          />
+                          <span className="text-xs font-semibold text-white">{m.label}</span>
+                        </div>
+                        {m.badge && (
+                          <span className="rounded bg-blue-500/15 border border-blue-500/30 px-1.5 py-0.5 text-[10px] font-medium text-blue-300">
+                            {m.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1.5 text-[11px] leading-relaxed text-gray-300">
+                        {m.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2 text-[11px]">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-amber-300">{m.costPerImage}</span>
+                        <span className="text-gray-500">·</span>
+                        <span className="text-gray-400">{m.creditCapacity}</span>
+                      </div>
+                      <span className="text-[10px] text-gray-400 font-mono">{m.aspectRatios}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cloudflare Model Cards & Options when Cloudflare is Selected */}
       {isCloudflare && (

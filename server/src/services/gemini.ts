@@ -32,7 +32,7 @@ export interface ChatResponse {
 }
 
 export function formatGeminiModel(modelName?: string): string {
-  if (!modelName) return 'gemini-3.6-flash';
+  if (!modelName) return 'gemini-flash-latest';
   if (
     modelName.includes('deepseek') ||
     modelName.includes('gpt') ||
@@ -40,7 +40,7 @@ export function formatGeminiModel(modelName?: string): string {
     modelName.startsWith('ollama/') ||
     modelName.includes('qwen')
   ) {
-    return 'gemini-3.6-flash';
+    return 'gemini-flash-latest';
   }
   return modelName;
 }
@@ -88,7 +88,6 @@ function buildGeminiPayload(req: ChatRequest) {
 export async function chat(apiKey: string, req: ChatRequest): Promise<ChatResponse> {
   const model = formatGeminiModel(req.model);
   const payload = buildGeminiPayload(req);
-  const url = `${GEMINI_BASE}/${model}:generateContent?key=${apiKey}`;
 
   let res: Response | undefined;
   let retryDelayMs = 0;
@@ -104,7 +103,9 @@ export async function chat(apiKey: string, req: ChatRequest): Promise<ChatRespon
       req.signal?.throwIfAborted();
     }
     try {
-      res = await fetch(url, {
+      const activeModel = attempt >= 2 && res?.status === 503 ? 'gemini-3.5-flash-lite' : model;
+      const targetUrl = `${GEMINI_BASE}/${activeModel}:generateContent?key=${apiKey}`;
+      res = await fetch(targetUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

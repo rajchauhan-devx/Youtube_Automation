@@ -53,12 +53,13 @@ Give every scene a planned duration in seconds. The planned durations should add
 ## 5. Media Selection & Split Protocol
 
 For Mixed Media packages (images & videos):
+- First scene (Scene 1) MUST ALWAYS be a video to hook the user immediately.
 - Maintain an exact 50/50 split between static image scenes and moving video scenes across the entire duration.
-- Alternating rhythm: Alternate media types across scenes (Scene 1: Image, Scene 2: Video, Scene 3: Image, Scene 4: Video, etc.).
-- For an odd total number of scenes (e.g. 11 or 15 scenes), provide the closest 50/50 split (e.g. 6 images / 5 videos or 8 images / 7 videos).
+- Alternating rhythm: Alternate media types across scenes (Scene 1: Video, Scene 2: Image, Scene 3: Video, Scene 4: Image, etc.).
+- For an odd total number of scenes (e.g. 11 or 15 scenes), provide the closest 50/50 split with video first (e.g. 6 videos / 5 images or 8 videos / 7 images).
 - Every video scene MUST have both an <image_prompt> (to generate the reference keyframe) and a <video_prompt> (for image-to-video animation).
 
-For Image-Only packages (still-image production):
+For Image-Only packages (still-image alternative production):
 - When the user selects or requests still images only, generate 100% static image scenes with <image_prompt> for every scene. Do not generate video prompts or force video scenes.
 
 ## 6. Character, location and style continuity

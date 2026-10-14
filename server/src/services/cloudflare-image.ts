@@ -15,7 +15,7 @@ import { currentWorkspace, generatedDir, mediaUrl } from "./workspace.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_DATA_DIR = path.resolve(__dirname, "..", "..", "data");
 
-export type ImageProvider = "local" | "cloudflare";
+export type ImageProvider = "local" | "cloudflare" | "google";
 export type CloudflareConnectionMode = "worker" | "direct";
 
 export interface CloudflareModelInfo {
@@ -26,6 +26,57 @@ export interface CloudflareModelInfo {
   qualityRating: string;
   speedRating: string;
 }
+
+export interface GoogleImageModelInfo {
+  id: string;
+  label: string;
+  costPerImage: string;
+  creditCapacity: string;
+  description: string;
+  badge?: string;
+  aspectRatios: string;
+}
+
+export const DEFAULT_GOOGLE_IMAGE_MODEL = "gemini-3.1-flash-image";
+
+export const GOOGLE_IMAGE_MODELS: GoogleImageModelInfo[] = [
+  {
+    id: "gemini-3.1-flash-image",
+    label: "Gemini 3.1 Flash Image",
+    costPerImage: "$0.039 / image (~4¢)",
+    creditCapacity: "7,690+ images with $300 credit",
+    badge: "Recommended",
+    description: "Google's next-gen multimodal image generator. Cinematic lighting, rich textures, high depth, and native 9:16 Shorts & 16:9 YouTube aspect ratios.",
+    aspectRatios: "9:16 (Shorts) & 16:9 (YouTube)",
+  },
+  {
+    id: "gemini-3.1-flash-lite-image",
+    label: "Gemini 3.1 Flash Lite Image",
+    costPerImage: "$0.020 / image (~2¢)",
+    creditCapacity: "15,000 images with $300 credit",
+    badge: "Budget & Fast",
+    description: "Ultra-fast lightweight generation. Maximum volume — yields ~15,000 scene stills within your $300 Google Cloud credit.",
+    aspectRatios: "9:16 (Shorts) & 16:9 (YouTube)",
+  },
+  {
+    id: "gemini-3-pro-image",
+    label: "Gemini 3 Pro Image",
+    costPerImage: "$0.060 / image (~6¢)",
+    creditCapacity: "5,000 images with $300 credit",
+    badge: "Ultra Detail",
+    description: "Maximum photorealism, detailed fine textures, and crisp typographic rendering for hero scenes.",
+    aspectRatios: "9:16 (Shorts) & 16:9 (YouTube)",
+  },
+  {
+    id: "gemini-2.5-flash-image",
+    label: "Gemini 2.5 Flash Image",
+    costPerImage: "$0.039 / image (~4¢)",
+    creditCapacity: "7,690+ images with $300 credit",
+    badge: "Standard",
+    description: "Legacy multimodal image generation checkpoint.",
+    aspectRatios: "9:16 (Shorts) & 16:9 (YouTube)",
+  },
+];
 
 export const DEFAULT_CLOUDFLARE_MODEL = "@cf/black-forest-labs/flux-1-schnell";
 
@@ -168,6 +219,7 @@ export interface StoredCloudflareConfig {
   accountId: string;
   apiToken: string;
   model: string;
+  googleModel?: string;
   injectStyleDna: boolean;
   /** Multi-API pool. When present, this is the source of truth for generation failover. */
   endpoints?: CloudflareEndpoint[];
@@ -187,6 +239,10 @@ export interface PublicCloudflareConfig {
   apiTokenMasked: string;
   model: string;
   modelLabel: string;
+  googleModel: string;
+  googleModelLabel: string;
+  googleModels: GoogleImageModelInfo[];
+  googleConfigured: boolean;
   injectStyleDna: boolean;
   configured: boolean;
   models: CloudflareModelInfo[];
@@ -406,11 +462,13 @@ export function getCloudflareConfig(): StoredCloudflareConfig {
   }
 
   const provider: ImageProvider =
-    fileData.provider === "cloudflare" || fileData.provider === "local"
+    fileData.provider === "cloudflare" || fileData.provider === "local" || fileData.provider === "google"
       ? fileData.provider
       : process.env.IMAGE_GENERATION_PROVIDER === "cloudflare"
         ? "cloudflare"
-        : "local";
+        : process.env.IMAGE_GENERATION_PROVIDER === "google"
+          ? "google"
+          : "local";
 
   const mode: CloudflareConnectionMode =
     fileData.mode === "direct" || fileData.mode === "worker"
@@ -421,6 +479,11 @@ export function getCloudflareConfig(): StoredCloudflareConfig {
 
   const modelCandidate = fileData.model || process.env.CLOUDFLARE_IMAGE_MODEL || DEFAULT_CLOUDFLARE_MODEL;
   const model = ALLOWED_MODEL_IDS.has(modelCandidate) ? modelCandidate : DEFAULT_CLOUDFLARE_MODEL;
+
+  const googleModelCandidate = fileData.googleModel || process.env.GOOGLE_IMAGE_MODEL || DEFAULT_GOOGLE_IMAGE_MODEL;
+  const googleModel = GOOGLE_IMAGE_MODELS.some((m) => m.id === googleModelCandidate)
+    ? googleModelCandidate
+    : DEFAULT_GOOGLE_IMAGE_MODEL;
 
   const legacyWorkerUrl = (fileData.workerUrl ?? process.env.CLOUDFLARE_WORKER_URL ?? "").trim();
   const legacyWorkerApiKey = (fileData.workerApiKey ?? process.env.CLOUDFLARE_WORKER_API_KEY ?? "").trim();
@@ -482,6 +545,7 @@ export function getCloudflareConfig(): StoredCloudflareConfig {
     accountId: legacyAccountId,
     apiToken: legacyApiToken,
     model,
+    googleModel,
     injectStyleDna: typeof fileData.injectStyleDna === "boolean" ? fileData.injectStyleDna : true,
     endpoints,
     strategy,
@@ -529,6 +593,9 @@ function toPublicEndpoint(ep: CloudflareEndpoint): PublicCloudflareEndpoint {
 export function getPublicCloudflareConfig(): PublicCloudflareConfig {
   const cfg = getCloudflareConfig();
   const modelInfo = CLOUDFLARE_IMAGE_MODELS.find((m) => m.id === cfg.model) || CLOUDFLARE_IMAGE_MODELS[0];
+  const googleModelCandidate = cfg.googleModel || DEFAULT_GOOGLE_IMAGE_MODEL;
+  const googleModelInfo = GOOGLE_IMAGE_MODELS.find((m) => m.id === googleModelCandidate) || GOOGLE_IMAGE_MODELS[0];
+  const googleConfigured = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim());
   const endpoints = (cfg.endpoints || []).map(toPublicEndpoint);
   return {
     provider: cfg.provider,
@@ -541,6 +608,10 @@ export function getPublicCloudflareConfig(): PublicCloudflareConfig {
     apiTokenMasked: maskSecret(cfg.apiToken),
     model: cfg.model,
     modelLabel: modelInfo.label,
+    googleModel: googleModelInfo.id,
+    googleModelLabel: googleModelInfo.label,
+    googleModels: GOOGLE_IMAGE_MODELS,
+    googleConfigured,
     injectStyleDna: cfg.injectStyleDna,
     configured: isCloudflareConfigured(cfg),
     models: CLOUDFLARE_IMAGE_MODELS,
@@ -572,6 +643,7 @@ export interface SaveCloudflareConfigInput {
   accountId?: string;
   apiToken?: string;
   model?: string;
+  googleModel?: string;
   injectStyleDna?: boolean;
   clearSecrets?: boolean;
   strategy?: CloudflareStrategy;
@@ -631,7 +703,9 @@ function persistConfig(cfg: StoredCloudflareConfig): void {
 export function saveCloudflareConfig(input: SaveCloudflareConfigInput): PublicCloudflareConfig {
   const current = getCloudflareConfig();
   const nextProvider: ImageProvider =
-    input.provider === "cloudflare" || input.provider === "local" ? input.provider : current.provider;
+    input.provider === "cloudflare" || input.provider === "local" || input.provider === "google"
+      ? input.provider
+      : current.provider;
   const nextMode: CloudflareConnectionMode =
     input.mode === "direct" || input.mode === "worker" ? input.mode : current.mode;
 
@@ -654,6 +728,11 @@ export function saveCloudflareConfig(input: SaveCloudflareConfigInput): PublicCl
 
   const nextModel =
     typeof input.model === "string" && ALLOWED_MODEL_IDS.has(input.model) ? input.model : current.model;
+
+  const nextGoogleModel =
+    typeof input.googleModel === "string" && GOOGLE_IMAGE_MODELS.some((m) => m.id === input.googleModel)
+      ? input.googleModel
+      : current.googleModel || DEFAULT_GOOGLE_IMAGE_MODEL;
 
   const nextInjectStyleDna =
     typeof input.injectStyleDna === "boolean" ? input.injectStyleDna : current.injectStyleDna;
@@ -727,6 +806,7 @@ export function saveCloudflareConfig(input: SaveCloudflareConfigInput): PublicCl
     accountId: nextEndpoints[0]?.accountId ?? nextAccountId,
     apiToken: nextEndpoints[0]?.apiToken ?? nextApiToken,
     model: nextModel,
+    googleModel: nextGoogleModel,
     injectStyleDna: nextInjectStyleDna,
     endpoints: nextEndpoints,
     strategy: nextStrategy,

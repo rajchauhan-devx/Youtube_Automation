@@ -195,14 +195,13 @@ function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountMo
   );
 }
 
-function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defaultResolution = '720p', disabled, hasReference, onEnsureReference, onImported, onError, onNotice, onOpenAccountModal }: {
+function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defaultResolution = '720p', disabled, hasReference, onEnsureReference, onImported, onError, onNotice }: {
   scriptId: string; sceneIndex: number; prompt: string; duration: number; aspect: 'portrait' | 'landscape';
   defaultResolution?: '720p' | '1080p';
   disabled: boolean;
   hasReference?: boolean;
   onEnsureReference?: () => Promise<void>;
   onImported: (blob: Blob) => Promise<void>; onError: (message: string) => void; onNotice: (message: string) => void;
-  onOpenAccountModal?: () => void;
 }) {
   const [job, setJob] = useState<FlowJobState | null>(null);
   const [busy, setBusy] = useState(false);
@@ -343,46 +342,11 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defau
           </button>
         </div>
 
-        {credits && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span
-              className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium border ${
-                credits.status === 'ok'
-                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25'
-                  : credits.status === 'low'
-                  ? 'bg-amber-500/15 text-amber-300 border-amber-500/25'
-                  : 'bg-red-500/15 text-red-300 border-red-500/25'
-              }`}
-              title={`${credits.account} · ${credits.tier} tier · ~${credits.costPerVideo || 12} credits per video`}
-            >
-              💳 {credits.credits} Credits (~{credits.videosRemaining} vids)
-            </span>
-            <span
-              className="inline-flex items-center gap-1 rounded bg-black/40 px-2 py-1 text-[11px] font-medium text-gray-300 border border-white/10"
-              title={`Active Google Flow account: ${credits.account}`}
-            >
-              <User className="h-3 w-3 text-purple-300" />
-              {credits.account}
-            </span>
-            {onOpenAccountModal && (
-              <button
-                type="button"
-                onClick={onOpenAccountModal}
-                className="inline-flex items-center gap-1 rounded bg-purple-500/20 hover:bg-purple-500/30 px-2 py-1 text-[11px] font-medium text-purple-200 border border-purple-500/30 transition"
-                title="Switch Google account or sync credits"
-              >
-                <RefreshCw className="h-3 w-3" />
-                Switch
-              </button>
-            )}
-          </div>
-        )}
-
         {!running ? (
           <button type="button" disabled={disabled || busy || credits?.status === 'exhausted'} onClick={() => void start()}
             className="flex items-center gap-1.5 rounded bg-purple-500/25 px-2.5 py-1.5 text-xs font-semibold text-purple-100 hover:bg-purple-500/35 disabled:opacity-40"
-            title={hasReference ? "Generate video with Google Flow using 2D image reference keyframe" : "Generate video with Google Flow"}>
-            <Sparkles className="h-3.5 w-3.5 text-purple-300" /> {hasReference ? 'Generate with Flow (Image-to-Video)' : 'Generate with Flow'}
+            title={hasReference ? "Generate video with Google Flow (using 2D image reference frame)" : "Generate video with Google Flow"}>
+            <Sparkles className="h-3.5 w-3.5 text-purple-300" /> Generate with Flow
           </button>
         ) : (
           <>
@@ -394,11 +358,9 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defau
         )}
       </div>
 
-      <p className="text-[11px] text-gray-400">
-        Renders in <strong>{aspect === 'portrait' ? '9:16 vertical (Shorts)' : '16:9 landscape'}</strong> at <strong>{resolution === '1080p' ? '1080p HD (Upscaled)' : '720p (Fast)'}</strong> via Google Flow (~12 credits). Auto-imported into scene.
-        {credits?.status === 'low' && <span className="ml-1 text-amber-300 font-medium">⚠️ Credits low ({credits.credits} left).</span>}
-        {credits?.status === 'exhausted' && <span className="ml-1 text-red-400 font-medium">❌ Out of credits. Top up in Google Flow.</span>}
-      </p>
+      {credits?.status === 'exhausted' && (
+        <p className="text-[11px] text-red-400 font-medium">❌ Out of credits. Top up in Google Flow or switch accounts above.</p>
+      )}
 
       {job?.state === 'error' && job.error && (
         <span role="alert" className="block text-[11px] leading-relaxed text-red-300">{job.overseerCode ? `[${job.overseerCode}] ` : ''}{job.error}</span>
@@ -487,9 +449,9 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   async function startModel(providerOverride?: ImageProviderMode): Promise<boolean> {
     const provider = providerOverride ?? imageProviderRef.current;
     if (locked || modelStatus === 'starting') return false;
-    if (provider === 'cloudflare') {
-      // Cloudflare needs no local startup — just re-check its API readiness.
-      const online = await refreshModelStatus('cloudflare');
+    if (provider === 'cloudflare' || provider === 'google') {
+      // Cloudflare and Google Cloud need no local startup — just re-check API readiness.
+      const online = await refreshModelStatus(provider);
       return online;
     }
     setModelStatus('starting'); setModelDetail('Starting the local image model…'); setError('');
@@ -564,6 +526,9 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     try {
       const online = await refreshModelStatus();
       if (!online && !stopRequested.current) {
+        if (imageProviderRef.current === 'google') {
+          throw new Error('Google Cloud is offline or unconfigured. Verify GEMINI_API_KEY in server/.env.');
+        }
         if (imageProviderRef.current === 'cloudflare') {
           throw new Error(cloudflareNotReadyMessage());
         }
@@ -575,7 +540,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
       let completed = 0;
       for (const index of queue) {
         if (stopRequested.current) break;
-        const activeEngineLabel = imageProvider === 'cloudflare' ? `Cloudflare · ${cloudflareModelLabel}` : channelLora.loraTitle;
+        const activeEngineLabel = imageProvider === 'google' ? 'Google Cloud · Gemini Image' : imageProvider === 'cloudflare' ? `Cloudflare · ${cloudflareModelLabel}` : channelLora.loraTitle;
         setActiveIndex(index); setNotice(`Generating image ${completed + 1} of ${queue.length} · scene ${index + 1} (${activeEngineLabel})…`);
         const response = await fetch('/api/generate/image', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -613,6 +578,9 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     try {
       const online = await refreshModelStatus();
       if (!online && !stopRequested.current) {
+        if (imageProviderRef.current === 'google') {
+          throw new Error('Google Cloud is offline or unconfigured. Verify GEMINI_API_KEY in server/.env.');
+        }
         if (imageProviderRef.current === 'cloudflare') {
           throw new Error(cloudflareNotReadyMessage());
         }
@@ -682,6 +650,32 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
 
     let completed = 0;
     try {
+      // Check if any scene in queue needs a reference image and ensure model is ready
+      const anyNeedsRef = queue.some(idx => {
+        const sc = scenes[idx];
+        const hasImg = script.generatedImages?.some(asset =>
+          asset.index === idx && asset.prompt === sc.imagePrompt && (asset.mediaType || 'image') === 'image' && asset.status === 'done' && asset.url
+        );
+        const hasRef = Boolean(script.referenceFrames?.[idx]?.url);
+        return !hasImg && !hasRef;
+      });
+
+      if (anyNeedsRef && !stopRequested.current) {
+        const online = await refreshModelStatus();
+        if (!online && !stopRequested.current) {
+          if (imageProviderRef.current === 'google') {
+            throw new Error('Google Cloud is offline or unconfigured. Verify GEMINI_API_KEY in server/.env.');
+          }
+          if (imageProviderRef.current === 'cloudflare') {
+            throw new Error(cloudflareNotReadyMessage());
+          }
+          setNotice('Starting image model to prepare reference frames…');
+          const started = await startModel();
+          if (!started) throw new Error('The image model could not be started for reference frames.');
+          await refreshModelStatus();
+        }
+      }
+
       for (const index of queue) {
         if (stopRequested.current) break;
         const scene = scenes[index];
@@ -973,45 +967,6 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {scenes.length > 0 && !generating && (
-            <div className="flex items-center rounded-lg bg-purple-600 shadow-md shadow-purple-900/30 p-0.5">
-              <button
-                type="button"
-                disabled={Boolean(locked || flowCredits?.status === 'exhausted')}
-                onClick={() => {
-                  const targets = videoCount > 0
-                    ? (missingVideos.length ? missingVideos : videoSceneIndices)
-                    : scenes.map((_, i) => i);
-                  void generateAllFlowVideos(targets);
-                }}
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/10 disabled:opacity-40 transition"
-                title={`Batch generate ${videoCount > 0 ? (missingVideos.length || videoCount) : scenes.length} scenes in ${flowResolution === '1080p' ? '1080p Upscaled' : '720p Fast'}`}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Generate All Videos ({videoCount > 0 ? (missingVideos.length || videoCount) : scenes.length})
-              </button>
-              <div className="flex items-center ml-1 border-l border-white/20 pl-1 pr-0.5">
-                <button
-                  type="button"
-                  disabled={locked}
-                  onClick={() => setFlowResolution('720p')}
-                  className={`rounded px-2 py-1 text-[11px] font-medium transition ${flowResolution === '720p' ? 'bg-black/40 text-white font-bold shadow-sm' : 'text-purple-200 hover:text-white'}`}
-                  title="Fast native 720p download"
-                >
-                  720p
-                </button>
-                <button
-                  type="button"
-                  disabled={locked}
-                  onClick={() => setFlowResolution('1080p')}
-                  className={`rounded px-2 py-1 text-[11px] font-medium transition ${flowResolution === '1080p' ? 'bg-black/40 text-white font-bold shadow-sm' : 'text-purple-200 hover:text-white'}`}
-                  title="Flow AI Upscaled 1080p Full HD"
-                >
-                  1080p
-                </button>
-              </div>
-            </div>
-          )}
           <button
             type="button"
             onClick={() => void loadFlowCredits()}
@@ -1039,17 +994,19 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
       onConfigChange={(cfg) => {
         setImageProvider(cfg.provider);
         imageProviderRef.current = cfg.provider;
-        setCloudflareModelLabel(cfg.modelLabel);
+        setCloudflareModelLabel(cfg.provider === 'google' ? (cfg.googleModelLabel || 'Gemini 2.5 Flash Image') : cfg.modelLabel);
         void refreshModelStatus(cfg.provider);
       }}
     />
-    <GenerationDisclosure title="Media settings" hint={imageProvider === 'cloudflare' ? `Images: Cloudflare (${cloudflareModelLabel}) / Videos: import MP4` : "Images: local model / Videos: import MP4"} className="mb-5">
+    <GenerationDisclosure title="Media settings" hint={imageProvider === 'google' ? `Images: Google Cloud (${cloudflareModelLabel}) / Videos: import MP4` : imageProvider === 'cloudflare' ? `Images: Cloudflare (${cloudflareModelLabel}) / Videos: import MP4` : "Images: local model / Videos: import MP4"} className="mb-5">
       <div className="flex flex-wrap items-center gap-4">
         <label className="text-xs text-gray-400">Quality <select aria-label="Image quality" value={preset} disabled={locked} onChange={event => setPreset(event.target.value as typeof preset)} className="ml-2 rounded-lg border border-border bg-bg px-3 py-2 text-white"><option value="fast">Fast</option><option value="standard">Standard</option><option value="high">High</option></select></label>
         <span role="status" className="text-xs text-gray-400">
-          {imageProvider === 'cloudflare' ? `Cloudflare API: ${modelStatus}` : `Image model: ${modelStatus}`}
+          {imageProvider === 'google' ? `Google Cloud: ${modelStatus}` : imageProvider === 'cloudflare' ? `Cloudflare API: ${modelStatus}` : `Image model: ${modelStatus}`}
         </span>
-        {imageProvider === 'cloudflare' ? (
+        {imageProvider === 'google' ? (
+          <span className="text-[11px] text-blue-300">Google Cloud active — images render via GEMINI_API_KEY ($300 credit).</span>
+        ) : imageProvider === 'cloudflare' ? (
           <span className="text-[11px] text-gray-500">No local model needed — images render on Cloudflare Workers AI.</span>
         ) : modelStatus === 'online' || modelStatus === 'stopping' ? (
           <button
@@ -1092,22 +1049,6 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         <p className="mt-1.5 text-[11px] text-gray-400">
           <span className="font-medium text-gray-300">Style-DNA:</span> {channelLora.styleDna}
         </p>
-        {videoSceneIndices.length > 0 && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={locked || modelStatus === 'starting' || modelStatus === 'stopping'}
-              onClick={() => void generateReferenceFrames(videoSceneIndices)}
-              className="flex items-center gap-1.5 rounded-lg border border-purple-400/40 bg-purple-500/15 px-3 py-1.5 text-xs font-medium text-purple-200 hover:bg-purple-500/25 disabled:opacity-40"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Generate All Video Reference Frames ({videoSceneIndices.length})
-            </button>
-            <span className="text-[11px] text-gray-400">
-              Creates a Juggernaut XL + {channelLora.channelLabel} LoRA starting frame for each video scene to use in Google Studio (Image-to-Video).
-            </span>
-          </div>
-        )}
       </div>
       <div className="mt-4 space-y-3">
         {profile === 'shorts' && !script?.scenePlan && <p className="text-xs text-gray-400">For video scenes, run the Shorts - Images & Videos script and extract its scene prompts.</p>}
@@ -1219,7 +1160,6 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
               }}
               onError={setError}
               onNotice={setNotice}
-              onOpenAccountModal={() => setShowAccountModal(true)}
             />
             <span className="text-[11px] text-gray-400">
               {asset ? 'Ready in scene' : 'Direct Playwright generation'}
