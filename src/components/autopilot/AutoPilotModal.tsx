@@ -325,7 +325,7 @@ export function AutoPilotModal({
                           </div>
                           <div className="p-2">
                             <p className="line-clamp-2 text-[11px] leading-tight text-gray-300">
-                              {scene.narrationText || scene.imagePrompt}
+                              {scene.narration || scene.imagePrompt}
                             </p>
                           </div>
                         </div>

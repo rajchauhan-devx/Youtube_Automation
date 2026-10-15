@@ -78,8 +78,13 @@ export function useEditingProject(scriptId?: string, reference?: string, model?:
           }
         }
       } catch (e) {
-        if (!abort.signal.aborted)
-          setError(e instanceof Error ? e.message : "Could not load project");
+        if (!abort.signal.aborted) {
+          const msg = e instanceof Error ? e.message : "Could not load project";
+          setError(msg);
+          if (msg.toLowerCase().includes("not found")) {
+            setProjectId(undefined);
+          }
+        }
       } finally {
         if (!abort.signal.aborted) timer = setTimeout(poll, 2500);
       }

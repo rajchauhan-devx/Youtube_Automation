@@ -129,24 +129,26 @@ export function ScriptDetailPanel({
       </div>
 
       <div className="thin-scrollbar max-h-[52vh] space-y-4 overflow-y-auto pr-1">
-        <div>
-          <div className="studio-label">
-            Prompts · {script.prompts.length}
-          </div>
-          <div className="space-y-2">
-            {script.prompts.map((p) => (
-              <div key={p.id} className="rounded-xl border border-borderSoft bg-bg/60 p-3">
-                <div className="mb-1.5 flex items-center gap-2">
-                  <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-muted">
-                    {p.type || 'Prompt'}
-                  </span>
-                  <span className="truncate text-xs font-semibold text-white">{p.name}</span>
+        {Boolean(script.prompts && script.prompts.length > 0) && (
+          <div>
+            <div className="studio-label">
+              Prompts · {script.prompts.length}
+            </div>
+            <div className="space-y-2">
+              {script.prompts.map((p) => (
+                <div key={p.id} className="rounded-xl border border-borderSoft bg-bg/60 p-3">
+                  <div className="mb-1.5 flex items-center gap-2">
+                    <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold text-muted">
+                      {p.type || 'Prompt'}
+                    </span>
+                    <span className="truncate text-xs font-semibold text-white">{p.name}</span>
+                  </div>
+                  <div className="line-clamp-3 text-[13px] leading-relaxed text-muted">{p.content}</div>
                 </div>
-                <div className="line-clamp-3 text-[13px] leading-relaxed text-muted">{p.content}</div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Duration Selector */}
         <div>

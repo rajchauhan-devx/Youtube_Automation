@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Script } from "../../data";
 import { ArtifactsTab } from "../artifacts/ArtifactsTab";
 import { ReviewAdjustTab } from "./ReviewAdjustTab";
@@ -12,6 +12,10 @@ export function EditingWorkspace({
   const [mode, setMode] = useState<"legacy" | "enhanced">(
     script?.editingProjectId ? "enhanced" : "legacy",
   );
+
+  useEffect(() => {
+    setMode(script?.editingProjectId ? "enhanced" : "legacy");
+  }, [script?.id, script?.editingProjectId]);
   return (
     <>
       <div className="studio-card mb-4 flex flex-wrap items-center gap-2 p-2">

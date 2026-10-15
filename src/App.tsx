@@ -19,7 +19,7 @@ import {
   Check,
 } from 'lucide-react';
 import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './services/workspaceApi';
-import type { Section, Tab, Channel, Script, PipelineStep } from './data';
+import type { Section, Tab, Channel, Script, PipelineStep, GeneratedAudio } from './data';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { ProfilePage } from './components/profile/ProfilePage';
 import { YouTubeStudioDashboard } from './components/dashboard/YouTubeStudioDashboard';
@@ -149,6 +149,7 @@ export default function App() {
   const [userScripts, setUserScripts] = useState<Script[]>([]);
   const [runModalScript, setRunModalScript] = useState<Script | null>(null);
   const saveQueues = useRef(new Map<string, Promise<void>>());
+  const [saveError, setSaveError] = useState('');
   const generationAbortRef = useRef<AbortController | null>(null);
 
   const [autoPilotState, setAutoPilotState] = useState<AutoPilotState>({
@@ -907,10 +908,91 @@ export default function App() {
             patchScriptState(scriptId, { generatedImages: genJson.generatedImages });
             await persistScript(scriptId, { generatedImages: genJson.generatedImages });
           }
-          addAutoPilotLog('generate_images', `Scene ${i + 1} visual rendered & saved.`, 'success');
+          addAutoPilotLog('generate_images', `Scene ${i + 1} keyframe rendered & saved.`, 'success');
         } else {
           const errText = await genRes.text().catch(() => '');
           addAutoPilotLog('generate_images', `Scene ${i + 1} note: ${errText.slice(0, 100)}`, 'warn');
+        }
+
+        // If this scene is a video scene (mediaType === 'video' or in mixed section):
+        const isVideoScene = (scenesToRender[i] as any).mediaType === 'video' || (section === 'mixed' && i % 2 === 0);
+        if (isVideoScene) {
+          try {
+            setAutoPilotState((prev) => ({
+              ...prev,
+              statusMessage: `Google Flow: Checking AI video worker for Scene ${i + 1}...`,
+            }));
+            const flowStatusRes = await fetch('/api/flow/status');
+            const flowStatusData = flowStatusRes.ok ? await flowStatusRes.json() : null;
+
+            if (flowStatusData?.profileReady && (flowStatusData?.creditsRemaining ?? 0) >= 12) {
+              addAutoPilotLog('generate_images', `[FLOW] Generating video for Scene ${i + 1} via Veo 3.1...`, 'gemini');
+              setAutoPilotState((prev) => ({
+                ...prev,
+                statusMessage: `Google Flow: Rendering Scene ${i + 1} video with Veo 3.1...`,
+              }));
+              const videoPrompt = (scenesToRender[i] as any).videoPrompt || scenePrompt;
+              const aspect = section === 'shorts' ? 'portrait' : 'landscape';
+              const flowJobRes = await fetch('/api/flow/jobs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  scriptId,
+                  sceneIndex: i,
+                  prompt: videoPrompt,
+                  model: 'veo-3.1-fast',
+                  aspect,
+                  duration: 8,
+                  resolution: '720p',
+                  dryRun: false,
+                }),
+                signal: controller.signal,
+              });
+
+              if (flowJobRes.ok) {
+                const flowJobData = await flowJobRes.json();
+                let jobResult = flowJobData;
+                while (jobResult.state === 'queued' || jobResult.state === 'running') {
+                  await new Promise((r) => setTimeout(r, 3000));
+                  await checkPauseOrAbort();
+                  const pollRes = await fetch(`/api/flow/jobs/${jobResult.id}`);
+                  if (pollRes.ok) {
+                    jobResult = await pollRes.json();
+                    setAutoPilotState((prev) => ({
+                      ...prev,
+                      statusMessage: `Google Flow: Generating Scene ${i + 1} video (${jobResult.stage || 'generating'} ${jobResult.progress || 0}%)...`,
+                    }));
+                  }
+                }
+
+                if (jobResult.state === 'done' && jobResult.result?.downloadId) {
+                  const dl = await fetch(`/api/flow/downloads/${jobResult.result.downloadId}`);
+                  if (dl.ok) {
+                    const videoBlob = await dl.blob();
+                    const importRes = await fetch(`/api/media-import/${encodeURIComponent(scriptId)}/${i}?extension=mp4`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/octet-stream' },
+                      body: videoBlob,
+                    });
+                    if (importRes.ok) {
+                      const importJson = await importRes.json();
+                      if (importJson.generatedImages) {
+                        patchScriptState(scriptId, { generatedImages: importJson.generatedImages });
+                        await persistScript(scriptId, { generatedImages: importJson.generatedImages });
+                      }
+                      addAutoPilotLog('generate_images', `Scene ${i + 1} full video motion rendered & imported!`, 'success');
+                    }
+                  }
+                } else if (jobResult.state === 'error') {
+                  addAutoPilotLog('generate_images', `Flow video note for Scene ${i + 1}: ${jobResult.error || 'Flow error, kept reference frame'}`, 'warn');
+                }
+              }
+            } else {
+              addAutoPilotLog('generate_images', `Scene ${i + 1}: Flow video worker not available or credits low. Using reference keyframe.`, 'info');
+            }
+          } catch (videoErr) {
+            addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${videoErr instanceof Error ? videoErr.message : 'Kept reference keyframe'}`, 'warn');
+          }
         }
       }
 
@@ -927,8 +1009,38 @@ export default function App() {
       // STAGE 4: Voiceover Narration Synthesis
       // -------------------------------------------------------------
       setTab('generation');
-      addAutoPilotLog('generate_audio', '[TTS] Synthesizing acoustic voiceover with word-level timing...', 'gemini');
+      addAutoPilotLog('generate_audio', '[TTS] Initializing acoustic voiceover with word-level timing...', 'gemini');
       await checkPauseOrAbort();
+
+      // Ensure Chatterbox is online & warmed up before sending synthesis requests
+      try {
+        let ttsStatusRes = await fetch('/api/tts/status');
+        let ttsStatus = ttsStatusRes.ok ? await ttsStatusRes.json() : null;
+        if (!ttsStatus?.online) {
+          addAutoPilotLog('generate_audio', 'Warming up Chatterbox neural TTS engine...', 'info');
+          setAutoPilotState((prev) => ({
+            ...prev,
+            statusMessage: 'Starting Chatterbox neural voice engine...',
+          }));
+          await fetch('/api/tts/start', { method: 'POST' }).catch(() => {});
+        }
+
+        let waitCount = 0;
+        while (waitCount < 45) {
+          ttsStatusRes = await fetch('/api/tts/status');
+          ttsStatus = ttsStatusRes.ok ? await ttsStatusRes.json() : null;
+          if (ttsStatus?.ready) break;
+          setAutoPilotState((prev) => ({
+            ...prev,
+            statusMessage: `Loading Chatterbox neural voice model (${waitCount * 2}s)...`,
+          }));
+          await new Promise((r) => setTimeout(r, 2000));
+          await checkPauseOrAbort();
+          waitCount++;
+        }
+      } catch (ttsErr) {
+        console.warn('TTS status check note:', ttsErr);
+      }
 
       const textToNarrate = narration || extractedScript;
       if (!textToNarrate.trim()) {
@@ -952,11 +1064,11 @@ export default function App() {
           throw new Error(ttsErr.error || 'Voice narration synthesis failed');
         }
         const ttsData = await ttsRes.json();
-        const audioEntry = {
+        const audioEntry: GeneratedAudio = {
           narrationText: textToNarrate,
           language: 'en',
-          voice: ttsData.voice || 'default',
-          voiceName: 'Neural English',
+          voice: ttsData.voice || 'builtin',
+          voiceName: 'Chatterbox Natural',
           url: ttsData.publicUrl,
           filename: ttsData.filename,
         };
@@ -969,7 +1081,7 @@ export default function App() {
           body: JSON.stringify({
             scriptId,
             language: 'en',
-            voice: 'default',
+            voice: 'builtin',
           }),
           signal: controller.signal,
         });
@@ -1005,14 +1117,14 @@ export default function App() {
         stage: 'plan_motion',
         stageIndex: 4,
         progressPercent: 80,
-        statusMessage: 'Gemini Supervisor: Planning kinetic motion & captions...',
+        statusMessage: 'Gemini Supervisor: Generating kinetic motion captions...',
       }));
 
       // -------------------------------------------------------------
-      // STAGE 5: Motion Graphics & Animated Captions Planning
+      // STAGE 5: Motion Captions Planning (Skip Artifacts)
       // -------------------------------------------------------------
-      setTab('artifacts');
-      addAutoPilotLog('plan_motion', '[GEMINI] Directing Remotion kinetic motion graphics & animated captions...', 'gemini');
+      setTab('review');
+      addAutoPilotLog('plan_motion', '[GEMINI] Directing Remotion kinetic motion captions & acoustic word alignment...', 'gemini');
       await checkPauseOrAbort();
 
       freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
@@ -1028,11 +1140,11 @@ export default function App() {
           const projectInputs = {
             scriptId,
             audioFilename,
-            language: 'en',
+            language: currentScript.generatedAudio?.[0]?.language || 'en',
             imageIndexes: readyImageIndexes,
             aspect: section === 'shorts' ? '9:16' : '16:9',
             fps: 60,
-            settings: { stylePreference: '', density: 'balanced' },
+            settings: { stylePreference: '', density: 'subtle', maxGeneratedAssets: 0, maxProviderCalls: 40 },
           };
           const created = await editingRequest<EditingPayload>(fetch, '/projects', projectInputs);
           if (created?.project?.id) {
@@ -1043,7 +1155,7 @@ export default function App() {
               `/projects/${created.project.id}/captions`,
               { expectedRevisionId: created.project.revisionId }
             );
-            addAutoPilotLog('plan_motion', 'Kinetic captions & animated layouts generated.', 'success');
+            addAutoPilotLog('plan_motion', 'Kinetic captions generated and synchronized.', 'success');
           }
         } catch (projErr) {
           addAutoPilotLog('plan_motion', `Motion planner note: ${projErr instanceof Error ? projErr.message : 'Continuing directly to render'}`, 'warn');
@@ -1068,12 +1180,13 @@ export default function App() {
       freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
       currentScript = (await freshRes.json()) as Script;
 
-      const imagePaths = (currentScript.generatedImages || [])
+      const sortedAssets = [...(currentScript.generatedImages || [])]
         .filter((img) => img.url)
-        .map((img) => {
-          const parts = (img.url || '').split('/');
-          return parts[parts.length - 1];
-        });
+        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+      const imagePaths = sortedAssets.map((img) => {
+        const parts = (img.url || '').split('/');
+        return parts[parts.length - 1];
+      });
       const audioUrl = currentScript.generatedAudio?.[0]?.url || '';
       const audioParts = audioUrl.split('/');
       const audioPath = audioParts[audioParts.length - 1];

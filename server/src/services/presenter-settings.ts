@@ -18,7 +18,10 @@ export const defaultPresenter = (): PresenterSettings => ({
 });
 
 export function validatePresenter(value: unknown): PresenterSettings {
-  const p = value as PresenterSettings;
+  if (value && typeof value === 'object' && (value as any).enabled === false) {
+    return { ...defaultPresenter(), ...(value as any), enabled: false };
+  }
+  const p = { ...defaultPresenter(), ...(value as any) } as PresenterSettings;
   const range = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
   if (!p || typeof p !== 'object' || typeof p.enabled !== 'boolean' ||
     typeof p.avatarId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(p.avatarId) ||

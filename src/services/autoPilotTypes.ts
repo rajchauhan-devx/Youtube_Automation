@@ -67,8 +67,8 @@ export const AUTO_PILOT_STAGES: {
   },
   {
     id: 'plan_motion',
-    label: 'Motion & Captions',
-    description: 'Gemini supervisor plans Remotion kinetic typography and camera motion',
+    label: 'Motion Captions',
+    description: 'Generates synchronized kinetic typography captions without heavy graphic overlays',
     stepNumber: 5,
   },
   {

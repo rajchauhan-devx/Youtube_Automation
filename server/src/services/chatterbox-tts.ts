@@ -236,7 +236,7 @@ export async function getChatterboxVoices(language: 'hi' | 'en'): Promise<VoiceI
 
 function validateVoiceSelection(voice: string | undefined, language: 'hi' | 'en') {
   if (language !== 'en' && language !== 'hi') throw new TtsError('VALIDATION', 'Choose English or Hindi.');
-  if (voice === undefined || voice === 'builtin') return;
+  if (voice === undefined || voice === 'builtin' || voice === 'default') return;
   if (typeof voice !== 'string' || !readLocalVoiceMetadata(language).some(item => item.id === voice)) {
     throw new TtsError('VALIDATION', 'This voice is not available for the selected language. Refresh the voice list and choose a saved reference.');
   }
@@ -371,9 +371,27 @@ export async function synthesizeChatterbox(
   if (presenterState.busy) throw new TtsError('NOT_READY', 'Wait for presenter generation to finish.');
   presenterState.speechRequests++;
   try {
-  const status = await getChatterboxStatus();
-  if (!status.online) throw new TtsError('CONNECTION_REFUSED', status.message || 'Chatterbox is offline.');
-  if (!status.ready) throw new TtsError('NOT_READY', status.error || status.message || 'Chatterbox is still loading.');
+  let status = await getChatterboxStatus();
+  if (!status.online) {
+    const started = await startChatterbox();
+    if (!started.success && started.state === 'error') {
+      throw new TtsError('CONNECTION_REFUSED', started.message || 'Chatterbox could not be started.');
+    }
+    status = await getChatterboxStatus();
+  }
+  if (!status.ready) {
+    const deadline = Date.now() + 90_000;
+    while (!status.ready && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 1000));
+      status = await getChatterboxStatus();
+      if (status.state === 'error') {
+        throw new TtsError('NOT_READY', status.error || 'Chatterbox model failed to load.');
+      }
+    }
+    if (!status.ready) {
+      throw new TtsError('NOT_READY', status.error || status.message || 'Chatterbox is still loading after 90 seconds.');
+    }
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CHATTERBOX_TIMEOUT_MS);
@@ -386,7 +404,7 @@ export async function synthesizeChatterbox(
       body: JSON.stringify({
         model: 'chatterbox-multilingual-v3',
         input: text,
-        voice: voice || 'builtin',
+        voice: (!voice || voice === 'default') ? 'builtin' : voice,
         // The engine keeps one shared preset directory, so the active account's
         // private reference is passed explicitly instead of being looked up there.
         ...(voicePath ? { voice_path: voicePath } : {}),
