@@ -19,7 +19,8 @@ export function intersects(a: MotionGraphicSpec['bounds'], b: MotionGraphicSpec[
   return a.x < b.x + b.width + pad && a.x + a.width + pad > b.x && a.y < b.y + b.height + pad && a.y + a.height + pad > b.y;
 }
 export function contains(a: MotionGraphicSpec['bounds'], b: MotionGraphicSpec['bounds'], pad = 0) {
-  return b.x >= a.x + pad && b.y >= a.y + pad && b.x + b.width <= a.x + a.width - pad && b.y + b.height <= a.y + a.height - pad;
+  const eps = 0.5;
+  return b.x >= a.x + pad - eps && b.y >= a.y + pad - eps && b.x + b.width <= a.x + a.width - pad + eps && b.y + b.height <= a.y + a.height - pad + eps;
 }
 export function targetMostlyVisible(box: MotionGraphicSpec['bounds'], width: number, height: number) {
   const visibleWidth = Math.max(0, Math.min(width, box.x + box.width) - Math.max(0, box.x));

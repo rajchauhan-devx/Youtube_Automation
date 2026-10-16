@@ -393,7 +393,7 @@ generateRouter.post('/image', async (req, res) => {
 
   const mixed = ['mixed', 'shorts'].includes(currentWorkspace().profile) || Boolean(store.getById<any>('scripts', scriptId)?.scenePlan);
   const scene = mixed ? mediaScenes({ ...store.getById<any>('scripts', scriptId), section: currentWorkspace().profile })[index] : undefined;
-  if (mixed && (!scene || scene.imagePrompt !== prompt)) {
+  if (mixed && (!scene || (scene.imagePrompt !== prompt && (scene as any).videoPrompt !== prompt))) {
     res.status(400).json({ error: 'Choose a valid scene with its current extracted prompt.' });
     return;
   }

@@ -17,9 +17,11 @@ mediaImportRouter.post('/:scriptId/:index', express.raw({ type: 'application/oct
     const script = store.getById<any>('scripts', scriptId);
     const scene = mediaScenes({ ...script, section: currentWorkspace().profile })[index];
     if (!scene) throw new Error('Scene not found. Extract your script first.');
-    const type = scene.mediaType || 'image';
     const extension = String(req.query.extension || '').toLowerCase();
-    if (!(type === 'video' ? ['mp4'] : ['png', 'jpg', 'jpeg', 'webp']).includes(extension)) throw new Error(type === 'video' ? 'Choose an MP4 video.' : 'Choose a PNG, JPG or WebP image.');
+    const isVideo = extension === 'mp4';
+    const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(extension);
+    if (!isVideo && !isImage) throw new Error('Choose an MP4 video or a PNG, JPG, WebP image.');
+    const type = isVideo ? 'video' : 'image';
     if (!Buffer.isBuffer(req.body) || !req.body.length) throw new Error('The media file is empty.');
     const dir = containedFile(generatedDir(), scriptId);
     fs.mkdirSync(dir, { recursive: true });
@@ -33,10 +35,15 @@ mediaImportRouter.post('/:scriptId/:index', express.raw({ type: 'application/oct
     const duration = type === 'video' ? Number(visual.duration || probe.format?.duration) : undefined;
     if (type === 'video' && (!Number.isFinite(duration) || duration! < 1 / 30 || duration! > 3600)) throw new Error('Video must have a readable duration between one frame and one hour.');
     const current = store.getById<any>('scripts', scriptId);
-    if (!current || JSON.stringify(mediaScenes({ ...current, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) throw new Error('Scene changed during upload. Import again into the updated scene.');
+    if (!current) throw new Error('Script not found.');
+    const updatedScenes = current.scenePlan?.scenes ? [...current.scenePlan.scenes] : undefined;
+    if (updatedScenes && updatedScenes[index]) {
+      updatedScenes[index] = { ...updatedScenes[index], mediaType: type };
+    }
+    const updatedScenePlan = current.scenePlan ? { ...current.scenePlan, scenes: updatedScenes } : undefined;
     const asset = { index, prompt: scene.imagePrompt, mediaType: type, ...(type === 'video' ? { duration } : {}), status: 'done', url: mediaUrl(`generate/file/${scriptId}/${filename}`) };
     const generatedImages = [...(current.generatedImages || []).filter((item: any) => item.index !== index), asset].sort((a, b) => a.index - b.index);
-    store.add('scripts', { ...current, generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
+    store.add('scripts', { ...current, ...(updatedScenePlan ? { scenePlan: updatedScenePlan } : {}), generatedImages, timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
     target = undefined;
     res.json({ asset, generatedImages });
   } catch (error) {

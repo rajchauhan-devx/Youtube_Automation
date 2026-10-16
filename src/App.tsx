@@ -861,7 +861,9 @@ export default function App() {
 
       for (let i = 0; i < scenesToRender.length; i++) {
         await checkPauseOrAbort();
-        const scenePrompt = scenesToRender[i].imagePrompt || imagePrompts[i] || 'cinematic scene visual';
+        const scenePrompt = ((scenesToRender[i] as any).mediaType === 'video' && (scenesToRender[i] as any).videoPrompt)
+          ? (scenesToRender[i] as any).videoPrompt
+          : (scenesToRender[i].imagePrompt || imagePrompts[i] || 'cinematic scene visual');
 
         setAutoPilotState((prev) => ({
           ...prev,
@@ -1047,7 +1049,15 @@ export default function App() {
         throw new Error('Narration text is empty. Asset extraction did not provide voiceover text.');
       }
 
-      if (section === 'shorts') {
+      freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+      if (freshRes.ok) {
+        currentScript = (await freshRes.json()) as Script;
+      }
+
+      const activeScenePlan = scenePlan || currentScript.scenePlan;
+      const selectedVoice = currentScript.voice || currentScript.generatedAudio?.[0]?.voice || 'builtin';
+
+      if (section === 'shorts' && !activeScenePlan) {
         const ttsRes = await fetch('/api/tts/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1055,6 +1065,7 @@ export default function App() {
             text: textToNarrate,
             language: 'en',
             scriptId,
+            voice: selectedVoice,
           }),
           signal: controller.signal,
         });
@@ -1067,7 +1078,7 @@ export default function App() {
         const audioEntry: GeneratedAudio = {
           narrationText: textToNarrate,
           language: 'en',
-          voice: ttsData.voice || 'builtin',
+          voice: ttsData.voice || selectedVoice,
           voiceName: 'Chatterbox Natural',
           url: ttsData.publicUrl,
           filename: ttsData.filename,
@@ -1081,7 +1092,7 @@ export default function App() {
           body: JSON.stringify({
             scriptId,
             language: 'en',
-            voice: 'builtin',
+            voice: selectedVoice,
           }),
           signal: controller.signal,
         });

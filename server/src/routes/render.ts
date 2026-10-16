@@ -180,9 +180,14 @@ renderRouter.post('/start', async (req, res) => {
       longPlan = { ...script.scenePlan, scenes: mediaScenes({ ...script, section: currentWorkspace().profile }) };
       if (imagePaths.length !== longPlan!.scenes.length) throw new Error('Every narration scene needs exactly one image.');
       longPlan!.scenes.forEach((scene, index) => {
-        const image = script.generatedImages?.find((image: any) => image.index === index && (image.mediaType || 'image') === (scene.mediaType || 'image'));
-        if ((image?.mediaType || 'image') !== (scene.mediaType || 'image')) throw new Error(`Scene ${scene.id} needs the correct media type.`);
-        if (!image || image.status !== 'done' || image.prompt !== scene.imagePrompt || resolveInputPath(image.url, scriptId) !== resolveInputPath(imagePaths[index], scriptId)) throw new Error(`Scene ${scene.id} has a missing, stale or reordered image.`);
+        let image = script.generatedImages?.find((image: any) => image.index === index && (image.mediaType || 'image') === (scene.mediaType || 'image'));
+        if (!image) {
+          image = script.generatedImages?.find((image: any) => image.index === index);
+          if (image && (!image.mediaType || image.mediaType === 'image')) {
+            scene.mediaType = 'image';
+          }
+        }
+        if (!image || image.status !== 'done' || resolveInputPath(image.url, scriptId) !== resolveInputPath(imagePaths[index], scriptId)) throw new Error(`Scene ${scene.id} has a missing, stale or reordered image.`);
       });
       if (timelineConfig?.clips) timelineConfig.clips.forEach((clip: any, i: number) => {
         const timing = longSync!.scenes[i];

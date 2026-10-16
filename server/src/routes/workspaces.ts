@@ -14,6 +14,8 @@ import { mediaImportRouter } from './media-import.js';
 import { presenterRouter } from './presenter.js';
 import { editingRouter } from './editing.js';
 
+import { flowRouter } from './flow.js';
+
 export const workspacesRouter = Router({ mergeParams: true });
 workspacesRouter.use((req, res, next) => {
   const { accountId, profile } = req.params;
@@ -25,6 +27,7 @@ workspacesRouter.use((req, res, next) => {
 workspacesRouter.use('/scripts', scriptsRouter);
 workspacesRouter.use('/generate', generateRouter);
 workspacesRouter.use('/media-import', mediaImportRouter);
+workspacesRouter.use('/flow', flowRouter);
 workspacesRouter.use('/render', renderRouter);
 workspacesRouter.use('/presenter', presenterRouter);
 workspacesRouter.use('/editing', editingRouter);

@@ -1,27 +1,27 @@
 [
   {
     "id": "usr_4d2be8eb-9be4-4e7a-a422-72f795c0315b",
-    "name": "MIxed",
+    "name": "Mixed Media",
     "prompts": [
       {
-        "id": "nb1789297077605_2",
-        "name": "Mixed media · 10-second videos",
+        "id": "nb_7a90ef61ccd1",
+        "name": "Mixed Media (Production V3)",
         "type": "Custom",
-        "content": "\n### ⚖️ MANDATORY 50/50 MEDIA SPLIT (50% VIDEO / 50% IMAGE)\nEvery episode must maintain an exact 50/50 split between static image scenes and moving video scenes across the entire duration.\nFollow an alternating rhythm throughout the timeline (Scene 1 MUST always be a video to hook the user):\n- Odd scenes (Scene 1, Scene 3, Scene 5, ...): MOTION VIDEO CLIP (<video_prompt[N]>)\n- Even scenes (Scene 2, Scene 4, Scene 6, ...): STATIC IMAGE (<image_prompt[N]>)\nEnsure exactly 50% of the scenes are designated as image assets and 50% as video assets.\n\n🕉️ RAMAYANA — ADI KAVYA\nLONG-FORM MIXED IMAGE + VIDEO MASTER PROMPT\nProduction Version 2.0 (Hybrid Dynamic-Tag Edition)\nThis system creates complete long-form Ramayana videos using a mixture of:\n\nAI-generated 10-second video clips\n\nAI-generated static images\n\nTwo-image 5-second + 5-second sequences\n\nPure Hindi voice-over\n\nEnvironmental sound design\n\nBackground music direction\n\nStandalone 16:9 Thumbnail\n\nYouTube packaging (Titles, Description, Chapters)\n\nComprehensive production timeline\n\n🏷️ THE THREE-TAG MASTER PROTOCOL\nThe pipeline uses three and only three functional tag families:\n\nNarration Tag: <script>...</script> — Houses the complete, raw, TTS-ready Devanagari Hindi audio narration in Section 3.\n\nAuto-Incrementing Visual Tags: Sequential visual prompts matching the exact timeline order across both static and moving formats:\n\n<image_prompt[N]>...</image_prompt[N]> for static frames.\n\n<video_prompt[N]>...</video_prompt[N]> for motion shots.\n\nChronological Index Rule: The index counter [N] increments chronologically across the entire video regardless of asset type: e.g., <video_prompt1>, <image_prompt2>, <video_prompt3>, <image_prompt4>. For two-image 5-second blocks, both sub-stills receive distinct sequential numbers (e.g., <image_prompt5>, <image_prompt6>).\n\nThumbnail Tag: Always locked strictly to <image_prompt0>...</image_prompt0> in Section 6. It represents an external promotional cover only and is NEVER placed inside the video editing timeline.\n\nThe existing CHARACTER BIBLE, LOCATION BIBLE, VISUAL STYLE, RELIGIOUS ACCURACY LAW, UNIVERSAL NEGATIVE PROMPT, and UNIVERSAL STYLE TAGS remain unchanged. Never weaken, shorten, simplify, or ignore those rules.\n\n1. INPUT\nThe user provides:\n\nPlaintext\nTopic:\nSource Content:\nDesired Duration: [optional]\nType: Story / Fact / Explanation / Character / Event\nIf Desired Duration is not provided:\nTARGET LONG-VIDEO DURATION = approximately 10 minutes (Preferred range: 8–12 minutes).\nDo not force the story to exactly ten minutes if doing so damages storytelling.\n\n2. SILENT STORY ANALYSIS\nBefore generating anything, silently determine:\n\nCore story and scriptural sequence.\n\nMain emotional theme and core feeling.\n\nMain characters and appearance at each stage.\n\nLocations, times of day, and environmental continuity.\n\nCostume, jewelry, and weapon continuity.\n\nEmotional progression and narrative hook.\n\nMajor revelations, midpoint escalation, and climax.\n\nResolution and final philosophical takeaway.\n\nBest moments requiring actual AI video vs. moments better served by static imagery.\n\nThumbnail concept.\n\nDo not expose this internal analysis.\n\n3. LONG-FORM STORY PRINCIPLE\nThis is NOT a stretched YouTube Short. A long-form video must feel like a complete documentary-style sacred story.\n\nUse this narrative progression:\n\nHOOK\n\nCONTEXT\n\nCHARACTER OR EVENT SETUP\n\nRISING STORY\n\nFIRST MAJOR DEVELOPMENT\n\nDEEPER EXPLANATION\n\nNEW REVELATION\n\nMIDPOINT RE-HOOK\n\nCONSEQUENCES\n\nEMOTIONAL OR DIVINE CLIMAX\n\nRESOLUTION\n\nMEANING / TAKEAWAY\n\nSHORT DEVOTIONAL ENDING\n\nDo not constantly repeat hooks. Do not manufacture fake mysteries every thirty seconds. Curiosity should emerge naturally from the sacred narrative.\n\n4. LONG-VIDEO HOOK\nThe opening 15–30 seconds must immediately establish: Emotion + Mystery + Stakes.\n\nThe first spoken sentence must be strong.\nDo NOT begin with:\n\n\"आज हम बात करेंगे\"\n\n\"आज की वीडियो में\"\n\n\"यह कहानी है\"\n\n\"रामायण के इस एपिसोड में\"\n\n\"स्वागत है\"\n\n\"चैनल को सब्सक्राइब करें\"\n\nStart directly with the most emotionally powerful part of the story. After establishing curiosity, move naturally into context.\n\n5. VOICE-OVER LANGUAGE\nNarration must be:\n\nSimple, poignant Hindi in Devanagari script only.\n\nEasy for ordinary Hindi-speaking viewers to follow.\n\nEmotionally resonant without sounding melodramatic or artificial.\n\nSacred, dignified, and respectful.\n\nNatural enough to sound like an authentic elder or temple storyteller.\n\nFree of unnecessarily difficult Sanskrit vocabulary when an authentic simpler Hindi word exists. Sacred terms, names, and mantras must remain accurate.\n\n6. CLEAN VOICE SCRIPT LAW\nThe FINAL VOICE SCRIPT must be completely clean.\n\nABSOLUTELY DO NOT PUT:\n\n(break), [pause], [slow], [dramatic], [whisper], [emotion]\n\nTimestamps\n\nScene numbers or chapter headings\n\nCamera instructions\n\nImage numbers or video numbers\n\nEditing instructions or sound-effect cues\n\nFormatting symbols, asterisks, or markdown inside the narration\n\nRepeated dots (\"...\") or artificial pause dashes (\"—\")\n\nUse ordinary Hindi punctuation naturally. The output must be pure text that can be copied directly into ElevenLabs or other TTS systems without manual cleaning.\n\n7. TEN-SECOND TIMELINE LAW\nThe complete long video is divided into standard 10-second production blocks. Every timeline block must use ONE of these three formats:\n\nFORMAT A — ONE VIDEO\nOne AI-generated video clip (Duration: 10 seconds).\n\nNarration target: approximately 18–20 Hindi words.\n\nTag: <video_prompt[N]>\n\nUse when visible motion significantly improves the story.\n\nFORMAT B — ONE IMAGE\nOne static image on screen for 10 seconds with subtle digital editing motion (push-in, pan, particles).\n\nNarration target: approximately 18–20 Hindi words.\n\nTag: <image_prompt[N]>\n\nFORMAT C — TWO IMAGES\nIMAGE A: 5 seconds (Narration: approximately 9–10 Hindi words) → Tag: <image_prompt[N]>\n\nIMAGE B: 5 seconds (Narration: approximately 9–10 Hindi words) → Tag: <image_prompt[N+1]>\n\nCombined narration: approximately 18–20 Hindi words.\n\nThe second image must visually advance the narration; do not repeat near-identical compositions.\n\n8. WORD-COUNT PACING\nNarration pacing is designed around approximately 18–20 Hindi words per 10 seconds:\n\n1 minute = 108–120 words\n\n5 minutes = 540–600 words\n\n8 minutes = 864–960 words\n\n10 minutes = 1080–1200 words\n\n12 minutes = 1296–1440 words\n\nThese are pacing targets to ensure natural breath boundaries, not rigid mathematical boundaries.\n\n9. MIXED-MEDIA SELECTION MATRIX\nDo NOT attempt to make every 10-second block an AI video clip.\n\nUse AI Video (<video_prompt[N]>):\n\nDynamic physical action (arrows releasing, battle clashes, marching armies, fire spreading).\n\nEnvironmental motion (ocean waves striking cliffs, storms gathering, rivers flowing).\n\nSignificant character action (drawing a bow, walking forward, falling to knees, turning gaze).\n\nDivine manifestations and climactic reveals.\n\nUse Static Images (<image_prompt[N]>):\n\nDeep emotional reflections, close-ups with intense grief or devotion.\n\nComplex architectural and environmental exposition.\n\nTheological explanations, historical context, symbolic setups.\n\nStill dialogue pauses and character introductions.\n\nTarget Ratio: roughly 30–40% video clips and 60–70% static image scenes.\n\n10. VISUAL CONSISTENCY & CONTINUITY LAW\nEvery visual prompt must be fully self-contained. Never write \"same as before,\" \"same clothes,\" or \"continue previous shot.\"\n\nRepeat full Character Bible appearance details verbatim in every prompt where that character appears:\n\nRama: Age 25–30, deep blue-dark complexion (\"shyama varna\" - non-negotiable, never fair), calm eyes, long arms reaching knees (\"ajanubahu\"), long black hair in ascetic jata knot, forest bark-cloth dhoti (or golden palace silk depending on era), carrying the divine bow.\n\nSita: Age 20–25, radiant golden complexion (\"suvarna varna\"), large expressive eyes, regal dignity, ochre forest cotton saree or worn pale saree in captivity, unadorned resilience.\n\nLakshmana: Age 22–27, fair wheatish complexion, sharp warrior jawline, athletic muscular frame, intense protective expression, armed with bow and quiver.\n\nHanuman: Powerful muscular Vanara frame, golden-orange fur, upright posture, sacred loincloth (kaupin), sacred thread (janeu), humble devotional eyes or colossal size (vishwaroopa) when specified.\n\nRavana: Age 40–50 appearance, dark bronze skin with crimson undertones, imposing majesty, ten heads in wide shots or dominant regal head in close-ups, royal black/crimson silk, heavy gold armor.\n\nTrack environmental and temporal continuity: time of day, lighting angle, weather, and era cannot jump erratically between consecutive blocks.\n\n11. CAMERA & COMPOSITION VARIETY\nRotate deliberately between shot sizes and angles:\n\nExtreme wide establishing shots\n\nLow-angle heroic compositions\n\nIntimate emotional close-ups\n\nOver-the-shoulder perspectives\n\nSilhouette and atmospheric wide shots\n\nKeep faces and critical props clear of the lower third where platform UI and captions display.\n\n12. DYNAMIC TAGGING PROTOCOL FOR VISUAL PROMPTS\nStatic Image Blocks:\nWrap every still image prompt in an incremented <image_prompt[N]>...</image_prompt[N]> tag:\n\nPlaintext\n<image_prompt1>\n#image 1\nASSET: IMAGE 001\nTIMELINE: 00:00–00:10\nDURATION: 10 seconds\nPURPOSE: Opening Hook\n\nPrompt:\n[70–140 words detailed self-contained static prompt describing subject, frozen action, setting, lighting, composition, and emotional mood.]\n\nCharacter Consistency:\n[Complete Character Bible descriptions for all visible recurring characters repeated verbatim.]\n\nLocation:\n[Complete relevant Location Bible information.]\n\nNegative Prompt:\n[Universal Negative Prompt + scene-specific mistakes to avoid.]\n\nStyle:\nultra realistic, cinematic photography, photorealistic skin and fabric, authentic ancient India, sacred epic atmosphere, volumetric lighting, cinematic dynamic range, realistic environment, detailed production design, 8K visual quality, absolutely no modern elements.\n</image_prompt1>\nVideo Motion Blocks:\nWrap every continuous video clip prompt in an incremented <video_prompt[N]>...</video_prompt[N]> tag:\n\nPlaintext\n<video_prompt2>\n#video 2\nASSET: VIDEO 002\nTIMELINE: 00:10–00:20\nDURATION: 10 seconds\nPURPOSE: Action Escalation\n\nCreate one continuous cinematic 10-second shot.\n\nCHARACTERS:\n[Complete Character Bible appearance repeated verbatim.]\n\nLOCATION:\n[Complete Location Bible description.]\n\nSTARTING FRAME:\n[Describe initial composition and character placement.]\n\nACTION:\n[90–150 words describing continuous physical progression across the 10 seconds.]\n\nENDING FRAME:\n[Describe where action and framing cleanly settle.]\n\nCAMERA:\n[One coherent restrained cinematic move: slow track, gentle push-in, or locked tripod.]\n\nLIGHTING & ATMOSPHERE:\n[Consistent lighting direction and atmospheric particles.]\n\nAUDIO:\nNo spoken dialogue, no narration, no intelligible human speech, and no vocals. Keep only natural environmental sound appropriate to the scene (wind, fire crackle, footsteps, distant bells).\n\nTEMPORAL CONSTRAINTS:\nNo scene cuts within clip, no face morphing, no costume drift, no disappearing props, no extra limbs, no jitter, no text, no lip-sync.\n</video_prompt2>\nTwo-Image Sequence Numbering:\nIf Block 003 uses Format C (two 5-second images), increment each image individually:\n\n<image_prompt3> (Asset: IMAGE 003A, Duration: 5s)\n\n<image_prompt4> (Asset: IMAGE 003B, Duration: 5s)\nThe subsequent block will then start at index 5.\n\n13. SCRIPT & NARRATION RULES\nMidpoint Re-Hook:\nAt approximately 45–60% of the timeline, introduce a natural narrative reversal or deeper revelation that shifts the stakes without artificial clickbait phrasing.\n\nSingle CTA Law:\nThe narrative must reach total emotional completion before the CTA. Provide only ONE short, warm closing line (maximum 3–5 seconds) such as:\n\nPlaintext\nजय श्री राम लिखकर हमारे साथ जुड़े रहिए।\nDo not append separate lines for liking, sharing, bell ringing, or commenting.\n\n14. THUMBNAIL PROTOCOL (ISOLATED ASSET)\nThe thumbnail is an external asset and MUST be wrapped strictly in <image_prompt0>...</image_prompt0>:\n\nIndex: #image 0\n\nFraming: 16:9 landscape.\n\nComposition: High contrast, strong asymmetric rule-of-thirds composition, emotional close-up with glowing rim light, clean negative space for typography.\n\nRule: This asset is NEVER included in the video timeline.\n\nPlaintext\n<image_prompt0>\n#image 0\nASSET: THUMBNAIL\n\nPrompt:\n[70–140 words landscape 16:9 thumbnail description. Extreme emotional close-up expressing core emotion, dramatic lighting, sharp subject separation, negative space for text.]\n\nCharacter Consistency:\n[Full Character Bible details repeated verbatim.]\n\nTHUMBNAIL TEXT:\n[2–5 Hindi words maximum, curiosity-inducing, bold Devanagari typography.]\n\nNegative Prompt:\nNo clutter, no tiny characters, no unreadable text, no modern elements, no cartoon style, no distorted anatomy.\n</image_prompt0>\n15. AUDIO & EDITING BLUEPRINT\nBackground Music (BGM):\nProvide one story-specific instrumental music generation prompt describing mood progression across the narrative arc. Must feature authentic Indian instrumentation (bansuri, veena, tanpura, pakhawaj) and strictly forbid vocals or choir chanting to protect voice-over clarity.\n\nSound & Editing Plan:\nMap subtle digital moves for static images (3–5% push-ins, parallax, atmospheric particle overlays) and indicate precise environmental audio cues for the sound designer.\n\n16. REQUIRED FINAL OUTPUT STRUCTURE\nAlways output the complete production package following these exact markdown sections:\n\nSECTION 1 — VIDEO OVERVIEW\nEpisode Title (in Hindi)\n\nTarget Duration\n\nCore Emotion\n\nMain Characters & Locations\n\nTotal Block Counts (Video clips, 10s images, 5s image pairs)\n\nSECTION 2 — STRUCTURED LONG-FORM SCRIPT\nConcise chapter breakdown outlining narrative development for production planning.\n\nSECTION 3 — FINAL CLEAN VOICE SCRIPT\nThe complete TTS-ready Hindi narration wrapped inside a single <script>...</script> tag. Pure Devanagari text only—zero timestamps, zero formatting, zero production markers.\n\nSECTION 4 — COMPLETE 10-SECOND PRODUCTION TIMELINE\nFull breakdown of consecutive 10-second blocks mapping timestamps, asset type, narration segment, and asset ID.\n\nSECTION 5 — ALL IMAGE + VIDEO GENERATION PROMPTS\nEvery visual generation prompt wrapped sequentially in its dynamic tag:\n\n<image_prompt1>, <video_prompt2>, <image_prompt3>, etc., maintaining continuous chronological ordering.\n\nSECTION 6 — THUMBNAIL\nThe standalone cover prompt enclosed in <image_prompt0>...</image_prompt0>.\n\nSECTION 7 — BACKGROUND MUSIC PROMPT\nSingle master instrumental prompt detailing emotional progression and instrument choices.\n\nSECTION 8 — SOUND + EDITING PLAN\nActionable instructions for video pacing, audio ducking, cuts, and image push-ins.\n\nSECTION 9 — YOUTUBE PACKAGE\n5 Title Options (identifying the single BEST title)\n\nSEO-optimized Hindi description\n\nTimeline chapter markers with timestamps\n\nTargeted hashtags\n\n17. FINAL PRODUCTION CHECKLIST\nSilently verify before returning the deliverable:\n\n[ ] Exactly THREE tag families are used: <script>, <image_prompt[N]>, and <video_prompt[N]>.\n\n[ ] Section 3 narration is wrapped in exactly one <script>...</script> block containing only clean Devanagari text.\n\n[ ] Thumbnail is enclosed in <image_prompt0>...</image_prompt0> and omitted from the timeline.\n\n[ ] Section 5 visual prompts increment sequentially (1, 2, 3, 4...) without gaps or resets regardless of whether an asset is an image or video.\n\n[ ] All image prompts are 70–140 words; all video prompts are 90–150 words describing one continuous achievable shot.\n\n[ ] Every recurring character has full Character Bible descriptions repeated verbatim.\n\n[ ] Video prompts explicitly enforce temporal constraints and prohibit dialogue/lip-sync.\n\n[ ] All sections are fully generated with no placeholder ellipses or abbreviated prompts."
+        "content": "### ⚖️ MANDATORY 50/50 MEDIA SPLIT (50% VIDEO / 50% IMAGE)\nEvery episode must maintain an exact 50/50 split between static image scenes and moving video scenes across the entire duration.\nFollow an alternating rhythm throughout the timeline (Scene 1 MUST always be a video to hook the user):\n- Odd scenes (Scene 1, Scene 3, Scene 5, ...): MOTION VIDEO CLIP (<video_prompt[N]>)\n- Even scenes (Scene 2, Scene 4, Scene 6, ...): STATIC IMAGE (<image_prompt[N]>)\nEnsure exactly 50% of the scenes are designated as image assets and 50% as video assets.\n\n## MANDATORY CHANNEL VISUAL STYLE-DNA (STRICT CHANNEL ISOLATION — AGAINST THE ODDS)\nEvery <image_prompt>, <video_prompt>, imagePrompt, and videoPrompt MUST incorporate this channel's locked Juggernaut XL LoRA aesthetic so local ComfyUI images and online Google Studio videos match 100% in style:\n- Active Channel LoRA: Analog Film XL v1 (Raw 35mm Documentary Photojournalism) (against_the_odds_custom_xl.safetensors, weight 0.8)\n- Mandatory Visual Style-DNA: Analog Film Style, raw 1970s 35mm Kodak documentary photojournalism, gritty analog film grain, subtle halation, weathered skin pores and frost/mud micro-textures, desaturated natural storm palette.\n- Never mix visual styles from other channels.\n."
       }
     ],
     "howItWorks": "",
-    "duration": 600,
-    "model": "openrouter/qwen/qwen3.8-27b:free",
+    "duration": 20,
+    "model": "xkiro/qwen/qwen3.6-27b:free",
     "locked": false,
     "enableSubtitles": false,
     "presenter": {
-      "enabled": true,
-      "avatarId": "avatar_007",
-      "style": "transparent",
+      "enabled": false,
+      "avatarId": "avatar_005",
+      "style": "card",
       "widthPercent": 24,
-      "bottomPercent": 0,
-      "marginPercent": 0,
+      "bottomPercent": 18,
+      "marginPercent": 2.5,
       "crop": {
         "x": 32,
         "y": 2,
@@ -221,14 +221,149 @@
     },
     "accountId": "default",
     "section": "mixed",
-    "status": "draft",
-    "lastUsed": "Never",
-    "aiResponse": "",
-    "extractedScript": "",
-    "narration": "",
-    "imagePrompts": [],
-    "generatedImages": [],
-    "generatedAudio": [],
-    "pipeline": []
+    "status": "active",
+    "lastUsed": "2026-10-16T08:51:45.387Z",
+    "aiResponse": "<script>\nIn the crushing blackness of the aphotic zone, light is not visibility—it is a lethal lure. Driven by chemiluminescence, these glowing traps promise only death. Welcome to the deep.\n</script>\n\n<image_prompt0>\nExtreme close-up macro shot of a bioluminescent deep-sea predator's eye and lure, raw 1970s 35mm Kodak documentary photojournalism style, gritty analog film grain, subtle halation around the electric cyan glow, desaturated natural storm palette, murky teal and deep charcoal tones, weathered micro-textures, high contrast chiaroscuro lighting, oppressive atmosphere, against_the_odds_custom_xl.safetensors aesthetic --ar 16:9\n</image_prompt0>\n\n<video_prompt1>\nSlow-motion underwater video clip of a translucent Atolla jellyfish pulsing rhythmically in total darkness, bioluminescent nodes along the bell rim glowing bright cyan, fluid undulating movement, handheld camera drift with slight focus breathing, visible marine snow particles dancing in the light beams, raw 1970s 35mm Kodak documentary aesthetic, gritty analog film grain, desaturated natural storm palette, deep charcoal background, eerie and hypnotic, against_the_odds_custom_xl.safetensors style --ar 16:9\n</video_prompt1>\n\n<image_prompt2>\nWide static shot of the deep ocean abyss, empty water column fading into pitch blackness, tiny distant specks of bioluminescence hinting at hidden dangers, oppressive and cold isolation, raw 1970s 35mm Kodak documentary photojournalism, heavy analog film grain, crushed blacks, subtle halation, desaturated natural storm palette, murky teal depths, high contrast, against_the_odds_custom_xl.safetensors aesthetic --ar 16:9\n</image_prompt2>",
+    "extractedScript": "In the crushing blackness of the aphotic zone, light is not visibility—it is a lethal lure. Driven by chemiluminescence, these glowing traps promise only death.\n\nWelcome to the deep.",
+    "narration": "In the crushing blackness of the aphotic zone, light is not visibility—it is a lethal lure. Driven by chemiluminescence, these glowing traps promise only death.\n\nWelcome to the deep.",
+    "imagePrompts": [
+      "Slow-motion underwater video clip of a translucent Atolla jellyfish pulsing rhythmically in total darkness, bioluminescent nodes along the bell rim glowing bright cyan, fluid undulating movement, handheld camera drift with slight focus breathing, visible marine snow particles dancing in the light beams, raw 1970s 35mm Kodak documentary aesthetic, gritty analog film grain, desaturated natural storm palette, deep charcoal background, eerie and hypnotic, against_the_odds_custom_xl.safetensors style --ar 16:9",
+      "Wide static shot of the deep ocean abyss, empty water column fading into pitch blackness, tiny distant specks of bioluminescence hinting at hidden dangers, oppressive and cold isolation, raw 1970s 35mm Kodak documentary photojournalism, heavy analog film grain, crushed blacks, subtle halation, desaturated natural storm palette, murky teal depths, high contrast, against_the_odds_custom_xl.safetensors aesthetic --ar 16:9"
+    ],
+    "generatedImages": [
+      {
+        "index": 0,
+        "prompt": "Slow-motion underwater video clip of a translucent Atolla jellyfish pulsing rhythmically in total darkness, bioluminescent nodes along the bell rim glowing bright cyan, fluid undulating movement, handheld camera drift with slight focus breathing, visible marine snow particles dancing in the light beams, raw 1970s 35mm Kodak documentary aesthetic, gritty analog film grain, desaturated natural storm palette, deep charcoal background, eerie and hypnotic, against_the_odds_custom_xl.safetensors style --ar 16:9",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/mixed/generate/file/usr_4d2be8eb-9be4-4e7a-a422-72f795c0315b/import_0_33bbb1f6-5fcf-41e1-9d67-3178cd00ae0e.mp4"
+      },
+      {
+        "index": 1,
+        "prompt": "Wide static shot of the deep ocean abyss, empty water column fading into pitch blackness, tiny distant specks of bioluminescence hinting at hidden dangers, oppressive and cold isolation, raw 1970s 35mm Kodak documentary photojournalism, heavy analog film grain, crushed blacks, subtle halation, desaturated natural storm palette, murky teal depths, high contrast, against_the_odds_custom_xl.safetensors aesthetic --ar 16:9",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/mixed/generate/file/usr_4d2be8eb-9be4-4e7a-a422-72f795c0315b/image-01-1792140829896.png",
+        "seed": 1719308536,
+        "elapsedMs": 7820
+      }
+    ],
+    "generatedAudio": [
+      {
+        "filename": "narration_en_d7aa7e6f-99c6-4bab-99b4-16faf38c47d1.wav",
+        "url": "/api/accounts/default/profiles/mixed/generate/file/usr_4d2be8eb-9be4-4e7a-a422-72f795c0315b/narration_en_d7aa7e6f-99c6-4bab-99b4-16faf38c47d1.wav",
+        "language": "en",
+        "voice": "builtin",
+        "sync": {
+          "version": 1,
+          "timingMode": "narration",
+          "planHash": "6082b1d4abbf02ea08edd81ef7a91c03448d67cefd578a7bfae06a4a77257231",
+          "sampleRate": 48000,
+          "totalSamples": 489600,
+          "scenes": [
+            {
+              "sceneId": "scene_001",
+              "startSample": 0,
+              "endSample": 416160
+            },
+            {
+              "sceneId": "scene_002",
+              "startSample": 416160,
+              "endSample": 489600
+            }
+          ]
+        },
+        "narrationText": "In the crushing blackness of the aphotic zone, light is not visibility—it is a lethal lure. Driven by chemiluminescence, these glowing traps promise only death.\n\nWelcome to the deep."
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "response",
+        "label": "Response",
+        "status": "done",
+        "summary": "Assets extracted in the shared scene format",
+        "inputLog": "Bioluminescent Ocean Predators",
+        "outputPreview": "In the crushing blackness of the aphotic zone, light is not visibility—it is a lethal lure. Driven by chemiluminescence,"
+      }
+    ],
+    "topicName": "Bioluminescent Ocean Predators",
+    "aiInstructions": "Generate 2 concise scenes: Scene 1 as an alternating moving video clip of glowing deep-sea jellyfish, Scene 2 as an image keyframe of deep ocean abyss.",
+    "researchData": "# Research Dossier: Bioluminescent Ocean Predators\n\n## 1. Verified Facts, Background & Key Data\n\n*   **Mechanism of Light:** Bioluminescence in marine predators is primarily a chemiluminescent reaction involving the molecule **luciferin** and the enzyme **luciferase**. In some species (e.g., anglerfish), light is produced by symbiotic bacteria (genus *Vibrio* or *Aliivibrio*) housed in specialized organs called **photophores**. In others (e.g., jellyfish, octopuses), it is autogenic (produced by the animal’s own cells).\n*   **Primary Function for Predators:** Unlike prey species that use light for counter-illumination camouflage, predators use bioluminescence for **aggressive mimicry** (luring prey, e.g., anglerfish esca) or **illumination** (spotlighting prey, e.g., viperfish, dragonfish). Some deep-sea cephalopods use it to stun or confuse prey.\n*   **Key Species Identified:**\n    *   **Atolla Jellyfish (*Atolla wyvillei*):** Known for its \"burglar alarm\" display—a rotating wheel of bright blue light used to startle predators or attract larger predators to eat its attacker. While technically a cnidarian, it acts as a visual anchor for \"glowing deep-sea life.\"\n    *   **Glowing Sucker Octopus (*Stauroteuthis syrtensis*):** One of the few bioluminescent octopuses. It uses photophores on its suckers to lure prey in the North Atlantic depths.\n    *   **Anglerfish (Suborder Ceratioidei):** The iconic deep-sea predator using a bioluminescent lure (esca) dangling from its head.\n*   **Environment:** The **Bathypelagic Zone** (1,000–4,000 meters depth). Characteristics: Total darkness (aphotic zone), high pressure, near-freezing temperatures (2–4°C). The only light source is bioluminescence, typically in the blue-green spectrum (470–490 nm) as these wavelengths travel furthest in seawater.\n\n## 2. Chronological Story Arc & Scene Beats (~20s)\n\n**Total Duration:** ~20 Seconds\n**Structure:** 2 Scenes (1 Video, 1 Image) per mandatory 50/50 split.\n\n*   **Scene 1 (0:00–0:10) [VIDEO]: The Lure in the Dark**\n    *   **Narrative Beat (Hook):** Establish the alien nature of the deep. Introduce the concept of \"living light\" as a weapon.\n    *   **Visual Action:** Alternating/moving clip of bioluminescent jellyfish (specifically resembling *Atolla* or generic deep-sea medusa) pulsing rhythmically. The movement should be slow, hypnotic, and eerie.\n    *   **Audio/VO Anchor:** \"In the crushing blackness of the abyss, light isn't just visibility... it's a trap.\"\n\n*   **Scene 2 (0:10–0:20) [IMAGE]: The Abyssal Void**\n    *   **Narrative Beat (Context/Resolution):** Reveal the scale and isolation of the environment where these predators hunt.\n    *   **Visual Action:** Static keyframe of the deep ocean abyss. Dark, oppressive, with faint, distant specks of bioluminescence hinting at hidden dangers.\n    *   **Audio/VO Anchor:** \"Here, every glow is a promise of death. Welcome to the deep.\"\n\n## 3. Visual & World-Building Canon\n\n**Channel Style-DNA:** Analog Film XL v1 (Raw 35mm Documentary Photojournalism)\n**Aesthetic Constraints:**\n*   **Film Stock:** Raw 1970s 35mm Kodak. High grain, low dynamic range in shadows (crushed blacks), subtle halation around bright light sources (bioluminescence).\n*   **Color Palette:** Desaturated natural storm palette. Dominant tones: Deep charcoal, murky teal, and electric cyan/blue (for the bioluminescence). No warm tones unless artificial (none here).\n*   **Texture:** Gritty analog film grain. Water particulate matter (\"marine snow\") should be visible as dust-like artifacts in the light beams.\n*   **Lighting:** Chiaroscuro. High contrast between the pitch-black background and the self-illuminated subjects. The light source must appear diegetic (coming from the organism), casting realistic, falloff shadows on surrounding water particles.\n\n**Specific Visual Directives:**\n*   **Scene 1 (Video):** Subject is a translucent, gelatinous jellyfish. Bell diameter approx. 10-20cm. Bioluminescent nodes along the tentacles or bell rim glowing bright cyan. Movement is fluid, undulating. Camera feel: Handheld underwater housing, slight drift, focus breathing.\n*   **Scene 2 (Image):** Wide shot of empty water column. Depth perception created by fading particles. No distinct central subject, but rather the *absence* of light, punctuated by tiny, distant bioluminescent specks. Mood: Oppressive, cold, isolated.\n\n## 4. Scriptwriter Directives\n\n*   **Tone:** Ominous, authoritative, documentary-style (think Werner Herzog meets Jacques Cousteau, but grittier).\n*   **Key Terminology to Weave In:** \"Aphotic zone,\" \"Chemiluminescence,\" \"Lure,\" \"Crushing pressure.\"\n*   **Fact Check:** Ensure the script does not imply the jellyfish *is* the predator in a traditional hunting sense if using *Atolla* (which uses light defensively), but rather frames the *environment* as predatory. Or, generalize \"predators\" to include the ecosystem's deadly nature. Given the short duration, generalizing the \"glow as a trap\" is factually acceptable for anglerfish/viperfish context, even if the visual is a jellyfish (used for atmospheric hook).\n*   **Constraint Checklist:**\n    *   Scene 1 MUST be `<video_prompt[1]>`.\n    *   Scene 2 MUST be `<image_prompt[2]>`.\n    *   Apply `against_the_odds_custom_xl.safetensors` style descriptors to both prompts.\n    *   Keep VO word count under 35 words to fit 20 seconds comfortably with pauses.",
+    "researchSources": [
+      {
+        "title": "Bioluminescence",
+        "url": "https://en.wikipedia.org/wiki/Bioluminescence",
+        "snippet": "Bioluminescence is the production of light by an organism as the result of a chemiluminescence reaction. It occurs in a wide variety of organisms, including marine vertebrates and invertebrates, terrestrial arthropods such as fireflies, some fungi, and microorganisms such as some bacteria and dinoflagellates. In some animals, the light is bacteriogenic, produced by symbiotic bacteria such as those from the genus Vibrio; in others, it is autogenic, produced by the animals themselves. Bioluminescence has evolved independently at least 94 times, first emerging in octocorals some 540 million years ago. In most cases, the principal chemical reaction in bioluminescence involves the reaction of a s"
+      },
+      {
+        "title": "Bioluminescent bacteria",
+        "url": "https://en.wikipedia.org/wiki/Bioluminescent_bacteria",
+        "snippet": "Bioluminescent bacteria are light-producing bacteria that are predominantly present in sea water, marine sediments, the surface of decomposing fish and in the gut of marine animals. While not as common, bacterial bioluminescence is also found in terrestrial and freshwater bacteria. Bioluminescent bacteria may be free-living (such as Vibrio harveyi) or in symbiosis with animals such as the Hawaiian Bobtail squid (Aliivibrio fischeri) or terrestrial nematodes (Photorhabdus luminescens). The host organisms provide bioluminescent bacteria a safe home and sufficient nutrition. In exchange, the hosts use the light produced by the bacteria for camouflage, prey and/or mate attraction. Bioluminescent"
+      },
+      {
+        "title": "Stauroteuthis syrtensis",
+        "url": "https://en.wikipedia.org/wiki/Stauroteuthis_syrtensis",
+        "snippet": "Stauroteuthis syrtensis, also known as the glowing sucker octopus or bioluminescent octopus, is a species of small pelagic octopus found at great depths in the north Atlantic Ocean. It is one of a very small number of octopuses to exhibit bioluminescence."
+      }
+    ],
+    "referenceFrames": {
+      "0": {
+        "index": 0,
+        "prompt": "Slow-motion underwater video clip of a translucent Atolla jellyfish pulsing rhythmically in total darkness, bioluminescent nodes along the bell rim glowing bright cyan, fluid undulating movement, handheld camera drift with slight focus breathing, visible marine snow particles dancing in the light beams, raw 1970s 35mm Kodak documentary aesthetic, gritty analog film grain, desaturated natural storm palette, deep charcoal background, eerie and hypnotic, against_the_odds_custom_xl.safetensors style --ar 16:9",
+        "url": "/api/accounts/default/profiles/mixed/generate/file/usr_4d2be8eb-9be4-4e7a-a422-72f795c0315b/image-00-1792140744907.png",
+        "seed": 1320322757,
+        "elapsedMs": 15358,
+        "createdAt": "2026-10-16T08:52:40.265Z"
+      },
+      "1": {
+        "index": 1,
+        "prompt": "Wide static shot of the deep ocean abyss, empty water column fading into pitch blackness, tiny distant specks of bioluminescence hinting at hidden dangers, oppressive and cold isolation, raw 1970s 35mm Kodak documentary photojournalism, heavy analog film grain, crushed blacks, subtle halation, desaturated natural storm palette, murky teal depths, high contrast, against_the_odds_custom_xl.safetensors aesthetic --ar 16:9",
+        "url": "/api/accounts/default/profiles/mixed/generate/file/usr_4d2be8eb-9be4-4e7a-a422-72f795c0315b/image-01-1792140829896.png",
+        "seed": 1719308536,
+        "elapsedMs": 7820,
+        "createdAt": "2026-10-16T08:53:57.717Z"
+      }
+    },
+    "editingProjectId": "3fa76be2-dc7e-4ce3-bb7f-4a3b18c38e93",
+    "scenePlan": {
+      "version": 1,
+      "title": "Generated Episode",
+      "thumbnailPrompt": "Extreme close-up macro shot of a bioluminescent deep-sea predator's eye and lure, raw 1970s 35mm Kodak documentary photojournalism style, gritty analog film grain, subtle halation around the electric cyan glow, desaturated natural storm palette, murky teal and deep charcoal tones, weathered micro-textures, high contrast chiaroscuro lighting, oppressive atmosphere, against_the_odds_custom_xl.safetensors aesthetic --ar 16:9",
+      "scenes": [
+        {
+          "id": "scene_001",
+          "chapter": "Scene 1",
+          "role": "story",
+          "narration": "In the crushing blackness of the aphotic zone, light is not visibility—it is a lethal lure. Driven by chemiluminescence, these glowing traps promise only death.",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "Slow-motion underwater video clip of a translucent Atolla jellyfish pulsing rhythmically in total darkness, bioluminescent nodes along the bell rim glowing bright cyan, fluid undulating movement, handheld camera drift with slight focus breathing, visible marine snow particles dancing in the light beams, raw 1970s 35mm Kodak documentary aesthetic, gritty analog film grain, desaturated natural storm palette, deep charcoal background, eerie and hypnotic, against_the_odds_custom_xl.safetensors style --ar 16:9",
+          "videoPrompt": "Slow-motion underwater video clip of a translucent Atolla jellyfish pulsing rhythmically in total darkness, bioluminescent nodes along the bell rim glowing bright cyan, fluid undulating movement, handheld camera drift with slight focus breathing, visible marine snow particles dancing in the light beams, raw 1970s 35mm Kodak documentary aesthetic, gritty analog film grain, desaturated natural storm palette, deep charcoal background, eerie and hypnotic, against_the_odds_custom_xl.safetensors style --ar 16:9"
+        },
+        {
+          "id": "scene_002",
+          "chapter": "Scene 2",
+          "role": "story",
+          "narration": "Welcome to the deep.",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "Wide static shot of the deep ocean abyss, empty water column fading into pitch blackness, tiny distant specks of bioluminescence hinting at hidden dangers, oppressive and cold isolation, raw 1970s 35mm Kodak documentary photojournalism, heavy analog film grain, crushed blacks, subtle halation, desaturated natural storm palette, murky teal depths, high contrast, against_the_odds_custom_xl.safetensors aesthetic --ar 16:9"
+        }
+      ]
+    },
+    "sceneAnalysis": {
+      "transitions": [
+        "none",
+        "none"
+      ],
+      "effects": [
+        "zoom-in",
+        "zoom-in"
+      ],
+      "timings": [],
+      "mood": "epic",
+      "colorGrade": "warm-vintage"
+    }
   }
 ]

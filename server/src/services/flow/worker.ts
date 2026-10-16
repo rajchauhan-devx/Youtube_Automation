@@ -365,7 +365,14 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     input.onStage('Pasting scene prompt into Google Flow', 35);
     input.signal.throwIfAborted();
     try {
-      await composer.click();
+      if (await page.locator('.cdk-overlay-backdrop').isVisible().catch(() => false)) {
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(400);
+      }
+      await composer.click({ force: true }).catch(async () => {
+        await page.keyboard.press('Escape').catch(() => {});
+        await composer.click();
+      });
       const promptToUse = (input.prompt || input.promptWrapped || '').trim();
       await composer.fill(promptToUse);
       await page.waitForTimeout(800);
@@ -379,8 +386,15 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     input.onStage('Submitting generation to Google Flow', 45);
     input.signal.throwIfAborted();
     try {
+      if (await page.locator('.cdk-overlay-backdrop').isVisible().catch(() => false)) {
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(400);
+      }
       const startBtn = page.locator('button[aria-label="Start generation"], button.generate-icon-button, button[type="submit"]:has(mat-icon:has-text("arrow_forward"))').first();
-      await startBtn.click();
+      await startBtn.click({ force: true }).catch(async () => {
+        await page.keyboard.press('Escape').catch(() => {});
+        await startBtn.click();
+      });
       await page.waitForTimeout(3000);
     } catch (error) {
       await shot(page, dir, 'generate-failed');

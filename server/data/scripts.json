@@ -896,5 +896,123 @@
         "ramrajya in life"
       ]
     }
+  },
+  {
+    "id": "test_e2e_video",
+    "name": "E2E Video Test",
+    "topicName": "Deep Ocean Secrets",
+    "status": "active",
+    "section": "shorts",
+    "narration": "A remarkable discovery in the deep ocean.\n\nAncient ruins glowing beneath the waves.",
+    "scenePlan": {
+      "version": 1,
+      "title": "Deep Ocean Secrets",
+      "thumbnailPrompt": "A glowing submarine in the deep blue ocean, cinematic lighting, 4k",
+      "scenes": [
+        {
+          "id": "scene_001",
+          "chapter": "Hook",
+          "role": "story",
+          "narration": "A remarkable discovery in the deep ocean.",
+          "mediaType": "image",
+          "duration": 4,
+          "imagePrompt": "A glowing submarine in the deep blue ocean, cinematic lighting, 4k"
+        },
+        {
+          "id": "scene_002",
+          "chapter": "Climax",
+          "role": "story",
+          "narration": "Ancient ruins glowing beneath the waves.",
+          "mediaType": "image",
+          "duration": 4,
+          "imagePrompt": "Ancient sunken city glowing with mysterious teal light, cinematic"
+        }
+      ]
+    },
+    "accountId": "default",
+    "generatedImages": [
+      {
+        "index": 0,
+        "prompt": "A glowing submarine in the deep blue ocean, cinematic lighting, 4k",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/generate/file/test_e2e_video/image-00-1792058148267.png",
+        "seed": 1633645147,
+        "elapsedMs": 7955
+      },
+      {
+        "index": 1,
+        "prompt": "Ancient sunken city glowing with mysterious teal light, cinematic",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/generate/file/test_e2e_video/image-01-1792058156234.png",
+        "seed": 1947365019,
+        "elapsedMs": 7173
+      }
+    ],
+    "referenceFrames": {
+      "0": {
+        "index": 0,
+        "prompt": "A glowing submarine in the deep blue ocean, cinematic lighting, 4k",
+        "url": "/api/generate/file/test_e2e_video/image-00-1792058148267.png",
+        "seed": 1633645147,
+        "elapsedMs": 7955,
+        "createdAt": "2026-10-15T09:55:56.224Z"
+      },
+      "1": {
+        "index": 1,
+        "prompt": "Ancient sunken city glowing with mysterious teal light, cinematic",
+        "url": "/api/generate/file/test_e2e_video/image-01-1792058156234.png",
+        "seed": 1947365019,
+        "elapsedMs": 7173,
+        "createdAt": "2026-10-15T09:56:03.408Z"
+      }
+    },
+    "generatedAudio": [
+      {
+        "filename": "narration_en_751530d4-c7f7-4ba6-bea2-2d223de53581.wav",
+        "url": "/api/generate/file/test_e2e_video/narration_en_751530d4-c7f7-4ba6-bea2-2d223de53581.wav",
+        "language": "en",
+        "voice": "builtin",
+        "sync": {
+          "version": 1,
+          "timingMode": "narration",
+          "planHash": "078d28fb60ecb2782a51d9e21afe1b1360b8ed8256950139d77e55aebbb6a051",
+          "sampleRate": 48000,
+          "totalSamples": 232320,
+          "scenes": [
+            {
+              "sceneId": "scene_001",
+              "startSample": 0,
+              "endSample": 117600
+            },
+            {
+              "sceneId": "scene_002",
+              "startSample": 117600,
+              "endSample": 232320
+            }
+          ]
+        },
+        "narrationText": "A remarkable discovery in the deep ocean.\n\nAncient ruins glowing beneath the waves."
+      }
+    ],
+    "extractedScript": "A remarkable discovery in the deep ocean.\n\nAncient ruins glowing beneath the waves.",
+    "editingProjectId": "4fdb6046-8900-4b55-a9e5-3791df1eea85",
+    "presenter": {
+      "enabled": false,
+      "avatarId": "avatar_005",
+      "style": "card",
+      "widthPercent": 24,
+      "bottomPercent": 18,
+      "marginPercent": 2.5,
+      "crop": {
+        "x": 32,
+        "y": 2,
+        "width": 40,
+        "height": 67
+      },
+      "silenceGate": true,
+      "silenceThresholdDb": -40
+    }
   }
 ]
