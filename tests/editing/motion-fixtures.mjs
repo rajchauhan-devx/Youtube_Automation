@@ -6,6 +6,8 @@ export async function fixture(theme = 'museum', portrait = false, empty = false,
   const base = await legacyFixture(theme, portrait, true);
   const p = motionProject(nextRevision(base));
   p.settings.aiModel = 'gemini-fixture';
+  p.settings.documentary = false;
+  p.settings.visualReview = false;
   if (!empty) {
     const title = theme === 'science' ? 'पानी का परिवर्तन' : 'Bronze statue';
     const quote = theme === 'science' ? 'पानी गर्म होता है।' : 'a bronze statue and its hand';

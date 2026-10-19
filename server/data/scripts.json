@@ -183,7 +183,94 @@
         "elapsedMs": 2877
       }
     ],
-    "generatedAudio": [],
+    "generatedAudio": [
+      {
+        "filename": "narration_hi_7f41c48b-662e-4b66-9944-ae2110cda1d5.wav",
+        "url": "/api/generate/file/usr_1787934167716/narration_hi_7f41c48b-662e-4b66-9944-ae2110cda1d5.wav",
+        "language": "hi",
+        "voice": "builtin",
+        "sync": {
+          "version": 1,
+          "timingMode": "narration",
+          "planHash": "f3b5485b594b76cd716335f14760ff532b67ff072b8089e5babcbc6052c4462f",
+          "sampleRate": 48000,
+          "totalSamples": 1848000,
+          "scenes": [
+            {
+              "sceneId": "scene_001",
+              "startSample": 0,
+              "endSample": 212640
+            },
+            {
+              "sceneId": "scene_002",
+              "startSample": 212640,
+              "endSample": 348480
+            },
+            {
+              "sceneId": "scene_003",
+              "startSample": 348480,
+              "endSample": 417120
+            },
+            {
+              "sceneId": "scene_004",
+              "startSample": 417120,
+              "endSample": 569280
+            },
+            {
+              "sceneId": "scene_005",
+              "startSample": 569280,
+              "endSample": 717600
+            },
+            {
+              "sceneId": "scene_006",
+              "startSample": 717600,
+              "endSample": 864960
+            },
+            {
+              "sceneId": "scene_007",
+              "startSample": 864960,
+              "endSample": 966240
+            },
+            {
+              "sceneId": "scene_008",
+              "startSample": 966240,
+              "endSample": 1094400
+            },
+            {
+              "sceneId": "scene_009",
+              "startSample": 1094400,
+              "endSample": 1211040
+            },
+            {
+              "sceneId": "scene_010",
+              "startSample": 1211040,
+              "endSample": 1356480
+            },
+            {
+              "sceneId": "scene_011",
+              "startSample": 1356480,
+              "endSample": 1485600
+            },
+            {
+              "sceneId": "scene_012",
+              "startSample": 1485600,
+              "endSample": 1597440
+            },
+            {
+              "sceneId": "scene_013",
+              "startSample": 1597440,
+              "endSample": 1792800
+            },
+            {
+              "sceneId": "scene_014",
+              "startSample": 1792800,
+              "endSample": 1848000
+            }
+          ]
+        },
+        "narrationText": "ऋत का वह शाश्वत नियम — ब्रह्मांड की चाल और सत्य का वह अदृश्य धागा,\n\nजो सृष्टि के कण-कण को अनुशासन में बांधता है।\n\nप्राचीन वैदिक काल में,\n\nऋत वह ब्रह्मांडीय व्यवस्था थी जो सूर्य के उदय होने,\n\nऋतुओं के बदलने और नदियों के बहने को नियंत्रित करती थी।\n\nयही ऋत आगे चलकर मानव जीवन और नैतिकता\n\nके रूप में 'धर्म' के नाम से जाना गया।\n\nकिंतु, क्या धर्म केवल कुछ नियमों का नाम है?\n\nया यह उस परम कर्तव्य का पालन है जो\n\nहर परिस्थिति में न्याय और संतुलन स्थापित करता है?\n\nवैदिक ऋषियों ने सिखाया कि धर्म वह आधार है\n\nजो इस संपूर्ण जगत को थामे हुए है —\n\nसत्य, करुणा और कर्तव्य का ऐसा संगम जो कभी नष्ट नहीं होता।\n\nजय श्री राम 🙏"
+      }
+    ],
     "pipeline": [
       {
         "id": "response",

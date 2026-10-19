@@ -69,6 +69,21 @@ test('legacy edits preserve the saved graphics; unrelated or stale inputs are re
   assert.throws(() => savedGraphicsForRender('other-script', 'tone.wav', ['image.png'], resolution), /another script/);
 });
 
+test('legacy export blocks a required image-led revision with only labels or all images hidden', () => {
+  const original = current(p.id);
+  const textOnly = nextRevision(original);
+  textOnly.documentaryRequirement = { version: 1 };
+  publish(textOnly, original.revisionId);
+  assert.throws(snapshot, /no enabled image compositions/);
+  const empty = nextRevision(textOnly);
+  empty.artifacts.forEach(a => { a.enabled = false; });
+  publish(empty, textOnly.revisionId);
+  assert.throws(snapshot, /no enabled image compositions/);
+  const restored = nextRevision(original);
+  publish(restored, empty.revisionId);
+  p = restored;
+});
+
 test('transparent overlay keeps footage effects, preserves graphics colors and copies the final audio mix', async () => {
   const before = current(p.id);
   const result = await renderVideo({ ...options, colorGrade: 'dramatic-noir', enableVignette: true });
@@ -213,7 +228,7 @@ test('Start Video Generation publishes the combined MP4 and graphics revisions i
 });
 
 test.after(() => {
-  assert.equal(path.dirname(path.resolve(temp)), fs.realpathSync(os.tmpdir()));
+  assert.equal(fs.realpathSync(path.dirname(path.resolve(temp))), fs.realpathSync(os.tmpdir()));
   assert.ok(path.basename(temp).startsWith('tubeflow-legacy-graphics-'));
   fs.rmSync(temp, { recursive: true, force: true });
 });

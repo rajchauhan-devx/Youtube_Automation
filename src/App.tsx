@@ -43,6 +43,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AutoPilotModal } from './components/autopilot/AutoPilotModal';
 import type { AutoPilotState, AutoPilotStage } from './services/autoPilotTypes';
 import { editingRequest, type EditingPayload } from './services/editingApi';
+import { executeSupervisedStage, runPreflightSupervision } from './services/supervisor';
 
 const TABS: { id: Tab; label: string; icon: typeof ScrollText; step: string }[] = [
   { id: 'scripts', label: 'Scripts', icon: ScrollText, step: '01' },
@@ -760,137 +761,164 @@ export default function App() {
       }
     }
 
+    const supervisorCtx = {
+      scriptId,
+      section,
+      fetch,
+      addLog: addAutoPilotLog,
+      setStatus: (message: string) => setAutoPilotState((prev) => ({ ...prev, statusMessage: message })),
+      patchScript: patchScriptState,
+      persistScript: async (id: string, patch: any) => {
+        await persistScript(id, patch);
+      },
+      checkPauseOrAbort,
+    };
+
     try {
+      // -------------------------------------------------------------
+      // PRE-FLIGHT AUTONOMOUS SUPERVISION: Storage & Voice Buffers
+      // -------------------------------------------------------------
+      await runPreflightSupervision(
+        fetch,
+        addAutoPilotLog,
+        (msg) => setAutoPilotState((prev) => ({ ...prev, statusMessage: msg }))
+      );
+
       // -------------------------------------------------------------
       // STAGE 1: Script Research & Generation
       // -------------------------------------------------------------
-      setTab('preview');
-      addAutoPilotLog('research_script', 'Synthesizing live research & streaming script narrative with Google Gemini...', 'info');
-      await generateScript(initialScript, topic, instructions);
-      await checkPauseOrAbort();
+      let freshRes: Response;
+      let currentScript: Script;
 
-      // Fetch freshly saved script state from backend
-      let freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-      let currentScript = (await freshRes.json()) as Script;
-      if (!currentScript.aiResponse?.trim()) {
-        throw new Error('Script generation finished without response content.');
-      }
+      await executeSupervisedStage('research_script', async () => {
+        setTab('preview');
+        addAutoPilotLog('research_script', 'Synthesizing live research & streaming script narrative with Google Gemini...', 'info');
+        await generateScript(initialScript, topic, instructions);
+        await checkPauseOrAbort();
 
-      addAutoPilotLog('research_script', `Script generated successfully (${currentScript.aiResponse.length} characters).`, 'success');
-      setAutoPilotState((prev) => ({
-        ...prev,
-        stage: 'extract_assets',
-        stageIndex: 1,
-        progressPercent: 22,
-        statusMessage: 'Gemini Co-Pilot: Extracting scenes, visual prompts & voice script...',
-      }));
+        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+        currentScript = (await freshRes.json()) as Script;
+        if (!currentScript.aiResponse?.trim()) {
+          throw new Error('Script generation finished without response content.');
+        }
+
+        addAutoPilotLog('research_script', `Script generated successfully (${currentScript.aiResponse.length} characters).`, 'success');
+        setAutoPilotState((prev) => ({
+          ...prev,
+          stage: 'extract_assets',
+          stageIndex: 1,
+          progressPercent: 22,
+          statusMessage: 'Gemini Co-Pilot: Extracting scenes, visual prompts & voice script...',
+        }));
+      }, supervisorCtx);
 
       // -------------------------------------------------------------
       // STAGE 2: Scene Asset Extraction
       // -------------------------------------------------------------
-      setTab('assets');
-      addAutoPilotLog('extract_assets', '[GEMINI] Parsing structured scene plan, visual descriptions & timing...', 'gemini');
-      await checkPauseOrAbort();
+      let scenePlan: any;
+      let imagePrompts: string[] = [];
+      let narration = '';
+      let extractedScript = '';
+      let sceneCount = 1;
 
-      const template = currentScript.prompts
-        ?.filter((p) => p.content.trim())
-        .map((p) => p.content)
-        .join('\n\n') || currentScript.howItWorks || '';
+      await executeSupervisedStage('extract_assets', async () => {
+        setTab('assets');
+        addAutoPilotLog('extract_assets', '[GEMINI] Parsing structured scene plan, visual descriptions & timing...', 'gemini');
+        await checkPauseOrAbort();
 
-      const extractResult = await apiPost(
-        '/api/llm/extract',
-        { rawText: currentScript.aiResponse, useTimelineNarration: false, template },
-        getApiKey(),
-        fetch
-      );
+        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+        currentScript = (await freshRes.json()) as Script;
 
-      const scenePlan = extractResult.scenePlan;
-      const imagePrompts: string[] = extractResult.imagePrompts || [];
-      const narration: string = extractResult.ttsText || '';
-      const extractedScript: string = extractResult.script || '';
-      const sceneAnalysis = {
-        transitions: imagePrompts.map(() => 'none'),
-        effects: imagePrompts.map(() => 'zoom-in'),
-        timings: [],
-        mood: 'epic',
-        colorGrade: 'warm-vintage',
-      };
+        const template = currentScript.prompts
+          ?.filter((p) => p.content.trim())
+          .map((p) => p.content)
+          .join('\n\n') || currentScript.howItWorks || '';
 
-      const extractedPatch: Partial<Script> = {
-        extractedScript,
-        imagePrompts,
-        narration,
-        scenePlan,
-        sceneAnalysis,
-        pipeline: [
-          {
-            id: 'response',
-            label: 'Response',
-            status: 'done' as const,
-            summary: 'Assets extracted in the shared scene format',
-            inputLog: topic,
-            outputPreview: extractedScript.slice(0, 120),
-          },
-        ],
-      };
-      patchScriptState(scriptId, extractedPatch);
-      await persistScript(scriptId, extractedPatch);
-      await checkPauseOrAbort();
+        const extractResult = await apiPost(
+          '/api/llm/extract',
+          { rawText: currentScript.aiResponse, useTimelineNarration: false, template },
+          getApiKey(),
+          fetch
+        );
 
-      const sceneCount = scenePlan?.scenes?.length || imagePrompts.length || 1;
-      addAutoPilotLog('extract_assets', `Extracted ${sceneCount} production scenes with individual prompts & voice text.`, 'success');
-      setAutoPilotState((prev) => ({
-        ...prev,
-        stage: 'generate_images',
-        stageIndex: 2,
-        progressPercent: 35,
-        sceneTotal: sceneCount,
-        sceneCurrent: 0,
-        statusMessage: `Gemini Co-Pilot: Generating ${sceneCount} visuals via Google Cloud...`,
-      }));
+        scenePlan = extractResult.scenePlan;
+        imagePrompts = extractResult.imagePrompts || [];
+        narration = extractResult.ttsText || '';
+        extractedScript = extractResult.script || '';
+        const sceneAnalysis = {
+          transitions: imagePrompts.map(() => 'none'),
+          effects: imagePrompts.map(() => 'zoom-in'),
+          timings: [],
+          mood: 'epic',
+          colorGrade: 'warm-vintage',
+        };
+
+        const extractedPatch: Partial<Script> = {
+          extractedScript,
+          imagePrompts,
+          narration,
+          scenePlan,
+          sceneAnalysis,
+          pipeline: [
+            {
+              id: 'response',
+              label: 'Response',
+              status: 'done' as const,
+              summary: 'Assets extracted in the shared scene format',
+              inputLog: topic,
+              outputPreview: extractedScript.slice(0, 120),
+            },
+          ],
+        };
+        patchScriptState(scriptId, extractedPatch);
+        await persistScript(scriptId, extractedPatch);
+        await checkPauseOrAbort();
+
+        sceneCount = scenePlan?.scenes?.length || imagePrompts.length || 1;
+        addAutoPilotLog('extract_assets', `Extracted ${sceneCount} production scenes with individual prompts & voice text.`, 'success');
+        setAutoPilotState((prev) => ({
+          ...prev,
+          stage: 'generate_images',
+          stageIndex: 2,
+          progressPercent: 35,
+          sceneTotal: sceneCount,
+          sceneCurrent: 0,
+          statusMessage: `Gemini Co-Pilot: Generating ${sceneCount} visuals via Google Cloud...`,
+        }));
+      }, supervisorCtx);
 
       // -------------------------------------------------------------
       // STAGE 3: Visual Generation via Google Cloud
       // -------------------------------------------------------------
-      setTab('generation');
-      addAutoPilotLog('generate_images', `[GOOGLE CLOUD] Directing image generation for ${sceneCount} scene keyframes...`, 'gemini');
+      await executeSupervisedStage('generate_images', async () => {
+        setTab('generation');
+        addAutoPilotLog('generate_images', `[GOOGLE CLOUD] Directing image generation for ${sceneCount} scene keyframes...`, 'gemini');
 
-      const scenesToRender = scenePlan?.scenes?.length
-        ? scenePlan.scenes
-        : imagePrompts.map((p) => ({ imagePrompt: p }));
+        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+        currentScript = (await freshRes.json()) as Script;
 
-      for (let i = 0; i < scenesToRender.length; i++) {
-        await checkPauseOrAbort();
-        const scenePrompt = ((scenesToRender[i] as any).mediaType === 'video' && (scenesToRender[i] as any).videoPrompt)
-          ? (scenesToRender[i] as any).videoPrompt
-          : (scenesToRender[i].imagePrompt || imagePrompts[i] || 'cinematic scene visual');
+        const scenesToRender = (currentScript.scenePlan?.scenes?.length)
+          ? currentScript.scenePlan.scenes
+          : (scenePlan?.scenes?.length
+              ? scenePlan.scenes
+              : imagePrompts.map((p) => ({ imagePrompt: p })));
 
-        setAutoPilotState((prev) => ({
-          ...prev,
-          sceneCurrent: i + 1,
-          progressPercent: 35 + ((i + 1) / scenesToRender.length) * 30, // 35% -> 65%
-          statusMessage: `Google Cloud: Rendering scene ${i + 1} of ${scenesToRender.length}...`,
-        }));
+        for (let i = 0; i < scenesToRender.length; i++) {
+          await checkPauseOrAbort();
+          const scenePrompt = ((scenesToRender[i] as any).mediaType === 'video' && (scenesToRender[i] as any).videoPrompt)
+            ? (scenesToRender[i] as any).videoPrompt
+            : (scenesToRender[i].imagePrompt || imagePrompts[i] || 'cinematic scene visual');
 
-        addAutoPilotLog('generate_images', `Rendering scene ${i + 1}/${scenesToRender.length}: "${scenePrompt.slice(0, 50)}..."`, 'info');
+          setAutoPilotState((prev) => ({
+            ...prev,
+            sceneCurrent: i + 1,
+            progressPercent: 35 + ((i + 1) / scenesToRender.length) * 30, // 35% -> 65%
+            statusMessage: `Google Cloud: Rendering scene ${i + 1} of ${scenesToRender.length}...`,
+          }));
 
-        let genRes = await fetch('/api/generate/image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            scriptId,
-            index: i,
-            prompt: scenePrompt,
-            preset: 'standard',
-            provider: 'google',
-          }),
-          signal: controller.signal,
-        });
+          addAutoPilotLog('generate_images', `Rendering scene ${i + 1}/${scenesToRender.length}: "${scenePrompt.slice(0, 50)}..."`, 'info');
 
-        // Fallback to cloudflare or local if google failed
-        if (!genRes.ok) {
-          addAutoPilotLog('generate_images', `Scene ${i + 1}: Google Cloud reported ${genRes.status}, switching to Cloudflare/Local fallback...`, 'warn');
-          genRes = await fetch('/api/generate/image', {
+          let genRes = await fetch('/api/generate/image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -898,363 +926,407 @@ export default function App() {
               index: i,
               prompt: scenePrompt,
               preset: 'standard',
-              provider: 'cloudflare',
+              provider: 'google',
             }),
             signal: controller.signal,
           });
-        }
 
-        if (genRes.ok) {
-          const genJson = await genRes.json();
-          if (genJson.generatedImages) {
-            patchScriptState(scriptId, { generatedImages: genJson.generatedImages });
-            await persistScript(scriptId, { generatedImages: genJson.generatedImages });
+          // Fallback to cloudflare or local if google failed
+          if (!genRes.ok) {
+            addAutoPilotLog('generate_images', `Scene ${i + 1}: Google Cloud reported ${genRes.status}, switching to Cloudflare/Local fallback...`, 'warn');
+            genRes = await fetch('/api/generate/image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                scriptId,
+                index: i,
+                prompt: scenePrompt,
+                preset: 'standard',
+                provider: 'cloudflare',
+              }),
+              signal: controller.signal,
+            });
           }
-          addAutoPilotLog('generate_images', `Scene ${i + 1} keyframe rendered & saved.`, 'success');
-        } else {
-          const errText = await genRes.text().catch(() => '');
-          addAutoPilotLog('generate_images', `Scene ${i + 1} note: ${errText.slice(0, 100)}`, 'warn');
-        }
 
-        // If this scene is a video scene (mediaType === 'video' or in mixed section):
-        const isVideoScene = (scenesToRender[i] as any).mediaType === 'video' || (section === 'mixed' && i % 2 === 0);
-        if (isVideoScene) {
-          try {
-            setAutoPilotState((prev) => ({
-              ...prev,
-              statusMessage: `Google Flow: Checking AI video worker for Scene ${i + 1}...`,
-            }));
-            const flowStatusRes = await fetch('/api/flow/status');
-            const flowStatusData = flowStatusRes.ok ? await flowStatusRes.json() : null;
+          if (genRes.ok) {
+            const genJson = await genRes.json();
+            if (genJson.generatedImages) {
+              patchScriptState(scriptId, { generatedImages: genJson.generatedImages });
+              await persistScript(scriptId, { generatedImages: genJson.generatedImages });
+            }
+            addAutoPilotLog('generate_images', `Scene ${i + 1} keyframe rendered & saved.`, 'success');
+          } else {
+            const errText = await genRes.text().catch(() => '');
+            addAutoPilotLog('generate_images', `Scene ${i + 1} note: ${errText.slice(0, 100)}`, 'warn');
+          }
 
-            if (flowStatusData?.profileReady && (flowStatusData?.creditsRemaining ?? 0) >= 12) {
-              addAutoPilotLog('generate_images', `[FLOW] Generating video for Scene ${i + 1} via Veo 3.1...`, 'gemini');
+          // If this scene is a video scene (mediaType === 'video' or in mixed section):
+          const isVideoScene = (scenesToRender[i] as any).mediaType === 'video' || (section === 'mixed' && i % 2 === 0);
+          if (isVideoScene) {
+            try {
               setAutoPilotState((prev) => ({
                 ...prev,
-                statusMessage: `Google Flow: Rendering Scene ${i + 1} video with Veo 3.1...`,
+                statusMessage: `Google Flow: Checking AI video worker for Scene ${i + 1}...`,
               }));
-              const videoPrompt = (scenesToRender[i] as any).videoPrompt || scenePrompt;
-              const aspect = section === 'shorts' ? 'portrait' : 'landscape';
-              const flowJobRes = await fetch('/api/flow/jobs', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  scriptId,
-                  sceneIndex: i,
-                  prompt: videoPrompt,
-                  model: 'veo-3.1-fast',
-                  aspect,
-                  duration: 8,
-                  resolution: '720p',
-                  dryRun: false,
-                }),
-                signal: controller.signal,
-              });
+              const flowStatusRes = await fetch('/api/flow/status');
+              const flowStatusData = flowStatusRes.ok ? await flowStatusRes.json() : null;
 
-              if (flowJobRes.ok) {
-                const flowJobData = await flowJobRes.json();
-                let jobResult = flowJobData;
-                while (jobResult.state === 'queued' || jobResult.state === 'running') {
-                  await new Promise((r) => setTimeout(r, 3000));
-                  await checkPauseOrAbort();
-                  const pollRes = await fetch(`/api/flow/jobs/${jobResult.id}`);
-                  if (pollRes.ok) {
-                    jobResult = await pollRes.json();
-                    setAutoPilotState((prev) => ({
-                      ...prev,
-                      statusMessage: `Google Flow: Generating Scene ${i + 1} video (${jobResult.stage || 'generating'} ${jobResult.progress || 0}%)...`,
-                    }));
-                  }
-                }
+              if (flowStatusData?.profileReady && (flowStatusData?.creditsRemaining ?? 0) >= 12) {
+                addAutoPilotLog('generate_images', `[FLOW] Generating video for Scene ${i + 1} via Veo 3.1...`, 'gemini');
+                setAutoPilotState((prev) => ({
+                  ...prev,
+                  statusMessage: `Google Flow: Rendering Scene ${i + 1} video with Veo 3.1...`,
+                }));
+                const videoPrompt = (scenesToRender[i] as any).videoPrompt || scenePrompt;
+                const aspect = section === 'shorts' ? 'portrait' : 'landscape';
+                const flowJobRes = await fetch('/api/flow/jobs', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    scriptId,
+                    sceneIndex: i,
+                    prompt: videoPrompt,
+                    model: 'veo-3.1-fast',
+                    aspect,
+                    duration: 8,
+                    resolution: '720p',
+                    dryRun: false,
+                  }),
+                  signal: controller.signal,
+                });
 
-                if (jobResult.state === 'done' && jobResult.result?.downloadId) {
-                  const dl = await fetch(`/api/flow/downloads/${jobResult.result.downloadId}`);
-                  if (dl.ok) {
-                    const videoBlob = await dl.blob();
-                    const importRes = await fetch(`/api/media-import/${encodeURIComponent(scriptId)}/${i}?extension=mp4`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/octet-stream' },
-                      body: videoBlob,
-                    });
-                    if (importRes.ok) {
-                      const importJson = await importRes.json();
-                      if (importJson.generatedImages) {
-                        patchScriptState(scriptId, { generatedImages: importJson.generatedImages });
-                        await persistScript(scriptId, { generatedImages: importJson.generatedImages });
-                      }
-                      addAutoPilotLog('generate_images', `Scene ${i + 1} full video motion rendered & imported!`, 'success');
+                if (flowJobRes.ok) {
+                  const flowJobData = await flowJobRes.json();
+                  let jobResult = flowJobData;
+                  while (jobResult.state === 'queued' || jobResult.state === 'running') {
+                    await new Promise((r) => setTimeout(r, 3000));
+                    await checkPauseOrAbort();
+                    const pollRes = await fetch(`/api/flow/jobs/${jobResult.id}`);
+                    if (pollRes.ok) {
+                      jobResult = await pollRes.json();
+                      setAutoPilotState((prev) => ({
+                        ...prev,
+                        statusMessage: `Google Flow: Generating Scene ${i + 1} video (${jobResult.stage || 'generating'} ${jobResult.progress || 0}%)...`,
+                      }));
                     }
                   }
-                } else if (jobResult.state === 'error') {
-                  addAutoPilotLog('generate_images', `Flow video note for Scene ${i + 1}: ${jobResult.error || 'Flow error, kept reference frame'}`, 'warn');
+
+                  if (jobResult.state === 'done' && jobResult.result?.downloadId) {
+                    const dl = await fetch(`/api/flow/downloads/${jobResult.result.downloadId}`);
+                    if (dl.ok) {
+                      const videoBlob = await dl.blob();
+                      const importRes = await fetch(`/api/media-import/${encodeURIComponent(scriptId)}/${i}?extension=mp4`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/octet-stream' },
+                        body: videoBlob,
+                      });
+                      if (importRes.ok) {
+                        const importJson = await importRes.json();
+                        if (importJson.generatedImages) {
+                          patchScriptState(scriptId, { generatedImages: importJson.generatedImages });
+                          await persistScript(scriptId, { generatedImages: importJson.generatedImages });
+                        }
+                        addAutoPilotLog('generate_images', `Scene ${i + 1} full video motion rendered & imported!`, 'success');
+                      }
+                    }
+                  } else if (jobResult.state === 'error') {
+                    addAutoPilotLog('generate_images', `Flow video note for Scene ${i + 1}: ${jobResult.error || 'Flow error, kept reference frame'}`, 'warn');
+                  }
                 }
+              } else {
+                addAutoPilotLog('generate_images', `Scene ${i + 1}: Flow video worker not available or credits low. Using reference keyframe.`, 'info');
               }
-            } else {
-              addAutoPilotLog('generate_images', `Scene ${i + 1}: Flow video worker not available or credits low. Using reference keyframe.`, 'info');
+            } catch (videoErr) {
+              addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${videoErr instanceof Error ? videoErr.message : 'Kept reference keyframe'}`, 'warn');
             }
-          } catch (videoErr) {
-            addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${videoErr instanceof Error ? videoErr.message : 'Kept reference keyframe'}`, 'warn');
           }
         }
-      }
 
-      addAutoPilotLog('generate_images', 'All visual keyframes completed and synced.', 'success');
-      setAutoPilotState((prev) => ({
-        ...prev,
-        stage: 'generate_audio',
-        stageIndex: 3,
-        progressPercent: 68,
-        statusMessage: 'Gemini Co-Pilot: Synthesizing voiceover narration with acoustic sync...',
-      }));
+        // Reconcile scene plan media types with actual generated assets to prevent compositor validation mismatch
+        const latestScriptRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+        if (latestScriptRes.ok) {
+          const latest = await latestScriptRes.json();
+          if (latest.scenePlan?.scenes && latest.generatedImages) {
+            let planChanged = false;
+            latest.scenePlan.scenes.forEach((sc: any, idx: number) => {
+              const asset = latest.generatedImages.find((g: any) => g.index === idx);
+              if (asset) {
+                const actual = asset.mediaType || (asset.url && asset.url.endsWith('.mp4') ? 'video' : 'image');
+                if (sc.mediaType !== actual) {
+                  sc.mediaType = actual;
+                  planChanged = true;
+                }
+              }
+            });
+            if (planChanged) {
+              patchScriptState(scriptId, { scenePlan: latest.scenePlan });
+              await persistScript(scriptId, { scenePlan: latest.scenePlan });
+            }
+          }
+        }
+
+        addAutoPilotLog('generate_images', 'All visual keyframes completed and synced.', 'success');
+        setAutoPilotState((prev) => ({
+          ...prev,
+          stage: 'generate_audio',
+          stageIndex: 3,
+          progressPercent: 68,
+          statusMessage: 'Gemini Co-Pilot: Synthesizing voiceover narration with acoustic sync...',
+        }));
+      }, supervisorCtx);
 
       // -------------------------------------------------------------
       // STAGE 4: Voiceover Narration Synthesis
       // -------------------------------------------------------------
-      setTab('generation');
-      addAutoPilotLog('generate_audio', '[TTS] Initializing acoustic voiceover with word-level timing...', 'gemini');
-      await checkPauseOrAbort();
+      await executeSupervisedStage('generate_audio', async () => {
+        setTab('generation');
+        addAutoPilotLog('generate_audio', '[TTS] Initializing acoustic voiceover with word-level timing...', 'gemini');
+        await checkPauseOrAbort();
 
-      // Ensure Chatterbox is online & warmed up before sending synthesis requests
-      try {
-        let ttsStatusRes = await fetch('/api/tts/status');
-        let ttsStatus = ttsStatusRes.ok ? await ttsStatusRes.json() : null;
-        if (!ttsStatus?.online) {
-          addAutoPilotLog('generate_audio', 'Warming up Chatterbox neural TTS engine...', 'info');
-          setAutoPilotState((prev) => ({
-            ...prev,
-            statusMessage: 'Starting Chatterbox neural voice engine...',
-          }));
-          await fetch('/api/tts/start', { method: 'POST' }).catch(() => {});
-        }
-
-        let waitCount = 0;
-        while (waitCount < 45) {
-          ttsStatusRes = await fetch('/api/tts/status');
-          ttsStatus = ttsStatusRes.ok ? await ttsStatusRes.json() : null;
-          if (ttsStatus?.ready) break;
-          setAutoPilotState((prev) => ({
-            ...prev,
-            statusMessage: `Loading Chatterbox neural voice model (${waitCount * 2}s)...`,
-          }));
-          await new Promise((r) => setTimeout(r, 2000));
-          await checkPauseOrAbort();
-          waitCount++;
-        }
-      } catch (ttsErr) {
-        console.warn('TTS status check note:', ttsErr);
-      }
-
-      const textToNarrate = narration || extractedScript;
-      if (!textToNarrate.trim()) {
-        throw new Error('Narration text is empty. Asset extraction did not provide voiceover text.');
-      }
-
-      freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-      if (freshRes.ok) {
+        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
         currentScript = (await freshRes.json()) as Script;
-      }
 
-      const activeScenePlan = scenePlan || currentScript.scenePlan;
-      const selectedVoice = currentScript.voice || currentScript.generatedAudio?.[0]?.voice || 'builtin';
+        const activeScenePlan = scenePlan || currentScript.scenePlan;
+        const selectedVoice = currentScript.generatedAudio?.[0]?.voice || 'builtin';
+        const textToNarrate = narration || currentScript.narration || extractedScript || currentScript.extractedScript;
 
-      if (section === 'shorts' && !activeScenePlan) {
-        const ttsRes = await fetch('/api/tts/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            text: textToNarrate,
-            language: 'en',
-            scriptId,
-            voice: selectedVoice,
-          }),
-          signal: controller.signal,
-        });
-
-        if (!ttsRes.ok) {
-          const ttsErr = await ttsRes.json().catch(() => ({}));
-          throw new Error(ttsErr.error || 'Voice narration synthesis failed');
-        }
-        const ttsData = await ttsRes.json();
-        const audioEntry: GeneratedAudio = {
-          narrationText: textToNarrate,
-          language: 'en',
-          voice: ttsData.voice || selectedVoice,
-          voiceName: 'Chatterbox Natural',
-          url: ttsData.publicUrl,
-          filename: ttsData.filename,
-        };
-        patchScriptState(scriptId, { narration: textToNarrate, generatedAudio: [audioEntry] });
-        await persistScript(scriptId, { narration: textToNarrate, generatedAudio: [audioEntry] });
-      } else {
-        const longRes = await fetch('/api/tts/long/start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            scriptId,
-            language: 'en',
-            voice: selectedVoice,
-          }),
-          signal: controller.signal,
-        });
-
-        if (!longRes.ok) {
-          const longErr = await longRes.json().catch(() => ({}));
-          throw new Error(longErr.error || 'Long video narration start failed');
+        if (!textToNarrate?.trim()) {
+          throw new Error('Narration text is empty. Asset extraction did not provide voiceover text.');
         }
 
-        let longDone = false;
-        while (!longDone && !controller.signal.aborted) {
-          await new Promise((r) => setTimeout(r, 1500));
-          await checkPauseOrAbort();
-          const pollRes = await fetch(`/api/tts/long/status/${scriptId}`);
-          if (pollRes.ok) {
-            const pollData = await pollRes.json();
-            if (pollData.status === 'done') {
-              longDone = true;
-              if (pollData.result) {
-                patchScriptState(scriptId, { generatedAudio: [pollData.result] });
-                await persistScript(scriptId, { generatedAudio: [pollData.result] });
+        const hasHindi = /[\u0900-\u097F]/.test(textToNarrate);
+        const languageToUse = hasHindi ? 'hi' : (currentScript.generatedAudio?.[0]?.language || 'en');
+
+        if (section === 'shorts' && !activeScenePlan) {
+          const ttsRes = await fetch('/api/tts/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text: textToNarrate,
+              language: languageToUse,
+              scriptId,
+              voice: selectedVoice,
+            }),
+            signal: controller.signal,
+          });
+
+          if (!ttsRes.ok) {
+            const ttsErr = await ttsRes.json().catch(() => ({}));
+            throw new Error(ttsErr.error || 'Voice narration synthesis failed');
+          }
+          const ttsData = await ttsRes.json();
+          const audioEntry: GeneratedAudio = {
+            narrationText: textToNarrate,
+            language: languageToUse,
+            voice: ttsData.voice || selectedVoice,
+            voiceName: 'Chatterbox Natural',
+            url: ttsData.publicUrl,
+            filename: ttsData.filename,
+          };
+          patchScriptState(scriptId, { narration: textToNarrate, generatedAudio: [audioEntry] });
+          await persistScript(scriptId, { narration: textToNarrate, generatedAudio: [audioEntry] });
+        } else {
+          const longRes = await fetch('/api/tts/long/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              scriptId,
+              language: languageToUse,
+              voice: selectedVoice,
+            }),
+            signal: controller.signal,
+          });
+
+          if (!longRes.ok) {
+            const longErr = await longRes.json().catch(() => ({}));
+            throw new Error(longErr.error || 'Long video narration start failed');
+          }
+
+          let longDone = false;
+          while (!longDone && !controller.signal.aborted) {
+            await new Promise((r) => setTimeout(r, 1500));
+            await checkPauseOrAbort();
+            const pollRes = await fetch(`/api/tts/long/status/${scriptId}`);
+            if (pollRes.ok) {
+              const pollData = await pollRes.json();
+              if (pollData.status === 'done') {
+                longDone = true;
+                if (pollData.result) {
+                  patchScriptState(scriptId, { generatedAudio: [pollData.result] });
+                  await persistScript(scriptId, { generatedAudio: [pollData.result] });
+                }
+              } else if (pollData.status === 'error') {
+                throw new Error(pollData.error || 'Narration synthesis failed');
               }
-            } else if (pollData.status === 'error') {
-              throw new Error(pollData.error || 'Narration synthesis failed');
             }
           }
         }
-      }
 
-      addAutoPilotLog('generate_audio', 'Voiceover audio rendered and mapped to timeline.', 'success');
-      setAutoPilotState((prev) => ({
-        ...prev,
-        stage: 'plan_motion',
-        stageIndex: 4,
-        progressPercent: 80,
-        statusMessage: 'Gemini Supervisor: Generating kinetic motion captions...',
-      }));
+        addAutoPilotLog('generate_audio', 'Voiceover audio rendered and mapped to timeline.', 'success');
+        setAutoPilotState((prev) => ({
+          ...prev,
+          stage: 'plan_motion',
+          stageIndex: 4,
+          progressPercent: 80,
+          statusMessage: 'Planning documentary images and placement review...',
+        }));
+      }, supervisorCtx);
 
       // -------------------------------------------------------------
-      // STAGE 5: Motion Captions Planning (Skip Artifacts)
+      // STAGE 5: Documentary composition and rendered vision review
       // -------------------------------------------------------------
-      setTab('review');
-      addAutoPilotLog('plan_motion', '[GEMINI] Directing Remotion kinetic motion captions & acoustic word alignment...', 'gemini');
-      await checkPauseOrAbort();
+      await executeSupervisedStage('plan_motion', async () => {
+        setTab('review');
+        addAutoPilotLog('plan_motion', 'Directing image compositions, detail highlights and rendered placement review...', 'gemini');
+        await checkPauseOrAbort();
 
-      freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-      currentScript = (await freshRes.json()) as Script;
+        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+        currentScript = (await freshRes.json()) as Script;
 
-      const audioFilename = currentScript.generatedAudio?.[0]?.filename;
-      const readyImageIndexes = (currentScript.generatedImages || [])
-        .filter((img) => img.url)
-        .map((img) => img.index);
+        const audioFilename = currentScript.generatedAudio?.[0]?.filename;
+        const readyImageIndexes = (currentScript.generatedImages || [])
+          .filter((img) => img.url)
+          .map((img) => img.index);
 
-      if (audioFilename && readyImageIndexes.length) {
-        try {
-          const projectInputs = {
-            scriptId,
-            audioFilename,
-            language: currentScript.generatedAudio?.[0]?.language || 'en',
-            imageIndexes: readyImageIndexes,
-            aspect: section === 'shorts' ? '9:16' : '16:9',
-            fps: 60,
-            settings: { stylePreference: '', density: 'subtle', maxGeneratedAssets: 0, maxProviderCalls: 40 },
-          };
-          const created = await editingRequest<EditingPayload>(fetch, '/projects', projectInputs);
-          if (created?.project?.id) {
-            patchScriptState(scriptId, { editingProjectId: created.project.id });
-            await persistScript(scriptId, { editingProjectId: created.project.id });
-            await editingRequest<EditingPayload>(
-              fetch,
-              `/projects/${created.project.id}/captions`,
-              { expectedRevisionId: created.project.revisionId }
-            );
-            addAutoPilotLog('plan_motion', 'Kinetic captions generated and synchronized.', 'success');
+        if (audioFilename && readyImageIndexes.length) {
+          try {
+            const projectInputs = {
+              scriptId,
+              audioFilename,
+              language: currentScript.generatedAudio?.[0]?.language || 'en',
+              imageIndexes: readyImageIndexes,
+              aspect: section === 'shorts' ? '9:16' : '16:9',
+              fps: 30,
+              settings: { stylePreference: 'Use image-led documentary storytelling with related source images and verified details.', density: 'balanced', documentary: true, treatment: 'auto', visualReview: true, maxGeneratedAssets: 0, maxProviderCalls: 40 },
+            };
+            const created = await editingRequest<EditingPayload>(fetch, '/projects', projectInputs);
+            if (created?.project?.id) {
+              patchScriptState(scriptId, { editingProjectId: created.project.id });
+              await persistScript(scriptId, { editingProjectId: created.project.id });
+              const started = await editingRequest<{ jobId: string }>(fetch, `/projects/${created.project.id}/generate`,
+                { expectedRevisionId: created.project.revisionId }, 'POST', controller.signal);
+              let visualsComplete = false;
+              try {
+                while (!visualsComplete) {
+                  await checkPauseOrAbort();
+                  const visualJob = await editingRequest<{ state: string; stage: string; error?: string }>(fetch,
+                    `/jobs/${started.jobId}`, undefined, 'GET', controller.signal);
+                  if (['succeeded', 'partial'].includes(visualJob.state)) {
+                    visualsComplete = true;
+                    if (visualJob.state === 'partial') addAutoPilotLog('plan_motion', 'Some optional visuals were skipped or need review; generation notes are available in Artifacts.', 'warn');
+                  } else if (['failed', 'needs_configuration', 'interrupted', 'cancelled'].includes(visualJob.state)) {
+                    throw new Error(visualJob.error || `Documentary visuals ${visualJob.state}`);
+                  } else {
+                    setAutoPilotState(prev => ({ ...prev, statusMessage: visualJob.stage }));
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                  }
+                }
+              } finally {
+                if (!visualsComplete) await editingRequest(fetch, `/jobs/${started.jobId}/cancel`, {}).catch(() => {});
+              }
+              const directed = await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}`);
+              const imageCompositions = directed.project.artifacts.filter(a => a.enabled && a.graphic?.kind === 'composition').length;
+              if (!imageCompositions) throw new Error('Documentary generation returned no image compositions. Text-only completion is blocked.');
+              if (currentScript.enableSubtitles === true) {
+                await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}/captions`,
+                  { expectedRevisionId: directed.project.revisionId });
+              }
+              addAutoPilotLog('plan_motion', `${imageCompositions} image compositions prepared${currentScript.enableSubtitles === true ? ' with captions' : ''}.`, 'success');
+            }
+          } catch (projErr) {
+            throw projErr;
           }
-        } catch (projErr) {
-          addAutoPilotLog('plan_motion', `Motion planner note: ${projErr instanceof Error ? projErr.message : 'Continuing directly to render'}`, 'warn');
         }
-      }
 
-      setAutoPilotState((prev) => ({
-        ...prev,
-        stage: 'render_video',
-        stageIndex: 5,
-        progressPercent: 88,
-        statusMessage: 'Gemini Supervisor: Compiling final 1080p MP4 video...',
-      }));
+        setAutoPilotState((prev) => ({
+          ...prev,
+          stage: 'render_video',
+          stageIndex: 5,
+          progressPercent: 88,
+          statusMessage: 'Gemini Supervisor: Compiling final 1080p MP4 video...',
+        }));
+      }, supervisorCtx);
 
       // -------------------------------------------------------------
       // STAGE 6: Video Rendering
       // -------------------------------------------------------------
-      setTab('review');
-      addAutoPilotLog('render_video', '[RENDER] Launching video rendering engine for high-definition MP4...', 'gemini');
-      await checkPauseOrAbort();
-
-      freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-      currentScript = (await freshRes.json()) as Script;
-
-      const sortedAssets = [...(currentScript.generatedImages || [])]
-        .filter((img) => img.url)
-        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-      const imagePaths = sortedAssets.map((img) => {
-        const parts = (img.url || '').split('/');
-        return parts[parts.length - 1];
-      });
-      const audioUrl = currentScript.generatedAudio?.[0]?.url || '';
-      const audioParts = audioUrl.split('/');
-      const audioPath = audioParts[audioParts.length - 1];
-
-      const renderStartRes = await fetch('/api/render/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          scriptId,
-          imagePaths,
-          audioPath,
-          presenter: { enabled: false },
-          narration: currentScript.narration || '',
-          duration: currentScript.duration || 30,
-          resolution: section === 'shorts' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 },
-          zoomFactor: 1.15,
-          transitionDuration: 0.5,
-          sceneAnalysis: currentScript.sceneAnalysis,
-          enableSubtitles: true,
-          bgmTrack: 'epic',
-          bgmVolume: 0.15,
-          ttsVolume: 1.0,
-          colorGrade: 'teal-orange',
-          enableVignette: false,
-          enableSfx: false,
-        }),
-        signal: controller.signal,
-      });
-
-      if (!renderStartRes.ok) {
-        const renderErr = await renderStartRes.json().catch(() => ({}));
-        throw new Error(renderErr.error || 'Failed to start video rendering');
-      }
-
-      let renderFinished = false;
       let finalVideoUrl: string | null = null;
-      while (!renderFinished && !controller.signal.aborted) {
-        await new Promise((r) => setTimeout(r, 1000));
+
+      await executeSupervisedStage('render_video', async () => {
+        setTab('review');
+        addAutoPilotLog('render_video', '[RENDER] Launching video rendering engine for high-definition MP4...', 'gemini');
         await checkPauseOrAbort();
-        const statusRes = await fetch(`/api/render/status/${scriptId}`);
-        if (statusRes.ok) {
-          const statusData = await statusRes.json();
-          if (statusData.status === 'running') {
-            const pct = typeof statusData.progress === 'number' ? statusData.progress : 50;
-            setAutoPilotState((prev) => ({
-              ...prev,
-              progressPercent: 88 + (pct / 100) * 11, // 88% -> 99%
-              statusMessage: statusData.message || `Rendering video composition (${Math.round(pct)}%)...`,
-            }));
-          } else if (statusData.status === 'done' && statusData.videos?.length > 0) {
-            renderFinished = true;
-            finalVideoUrl = statusData.videos[0].url;
-          } else if (statusData.status === 'error') {
-            throw new Error(statusData.error || 'Video rendering failed');
+
+        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
+        currentScript = (await freshRes.json()) as Script;
+
+        const sortedAssets = [...(currentScript.generatedImages || [])]
+          .filter((img) => img.url)
+          .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+        const imagePaths = sortedAssets.map((img) => {
+          const parts = (img.url || '').split('/');
+          return parts[parts.length - 1];
+        });
+        const audioUrl = currentScript.generatedAudio?.[0]?.url || '';
+        const audioParts = audioUrl.split('/');
+        const audioPath = audioParts[audioParts.length - 1];
+
+        // Pre-flight cleanup before starting compositor to ensure adequate disk buffer
+        await fetch('/api/supervisor/cleanup', { method: 'POST' }).catch(() => {});
+
+        const renderStartRes = await fetch('/api/render/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scriptId,
+            imagePaths,
+            audioPath,
+            presenter: { enabled: false },
+            narration: currentScript.narration || '',
+            duration: currentScript.duration || 30,
+            resolution: section === 'shorts' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 },
+            zoomFactor: 1.15,
+            transitionDuration: 0.5,
+            sceneAnalysis: currentScript.sceneAnalysis,
+            enableSubtitles: currentScript.enableSubtitles === true,
+            bgmTrack: 'epic',
+            bgmVolume: 0.15,
+            ttsVolume: 1.0,
+            colorGrade: 'teal-orange',
+            enableVignette: false,
+            enableSfx: false,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!renderStartRes.ok) {
+          const renderErr = await renderStartRes.json().catch(() => ({}));
+          throw new Error(renderErr.error || 'Failed to start video rendering');
+        }
+
+        let renderFinished = false;
+        while (!renderFinished && !controller.signal.aborted) {
+          await new Promise((r) => setTimeout(r, 1000));
+          await checkPauseOrAbort();
+          const statusRes = await fetch(`/api/render/status/${scriptId}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            if (statusData.status === 'running') {
+              const pct = typeof statusData.progress === 'number' ? statusData.progress : 50;
+              setAutoPilotState((prev) => ({
+                ...prev,
+                progressPercent: 88 + (pct / 100) * 11, // 88% -> 99%
+                statusMessage: statusData.message || `Rendering video composition (${Math.round(pct)}%)...`,
+              }));
+            } else if (statusData.status === 'done' && statusData.videos?.length > 0) {
+              renderFinished = true;
+              finalVideoUrl = statusData.videos[0].url;
+            } else if (statusData.status === 'error') {
+              throw new Error(statusData.error || 'Video rendering failed');
+            }
           }
         }
-      }
+      }, supervisorCtx);
 
       // -------------------------------------------------------------
       // COMPLETION

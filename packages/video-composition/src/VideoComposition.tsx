@@ -79,7 +79,7 @@ export function ArtifactsOverlay({ project, assets, legacyCameras }: Composition
       const sourceTransform = legacyCameras?.[scene.id] ? legacySourceMatrix(legacyCameras[scene.id], frame / project.inputs.fps, project.inputs, { width: source.width!, height: source.height! }) : undefined;
       return <AbsoluteFill key={scene.id}>
         {project.artifacts.filter(a => a.graphic && a.enabled && a.sceneId === scene.id && frame >= a.startFrame && frame < a.endFrame)
-          .map(a => <MotionGraphicRenderer key={a.id} artifact={a} project={project} frame={frame} source={{ width: source.width!, height: source.height! }} sourceTransform={sourceTransform} />)}
+          .map(a => <MotionGraphicRenderer key={a.id} artifact={a} project={project} frame={frame} assets={assets} source={{ width: source.width!, height: source.height! }} sourceTransform={sourceTransform} />)}
       </AbsoluteFill>;
     })}
   </AbsoluteFill>;
@@ -129,7 +129,7 @@ export function VideoComposition({ project, assets }: CompositionProps) {
               }}
             />}
             {fontsReady && project.artifacts.filter(a => a.graphic && a.enabled && a.sceneId === scene.id && frame >= a.startFrame && frame < a.endFrame)
-              .map(a => <MotionGraphicRenderer key={a.id} artifact={a} project={project} frame={frame} source={{ width: asset.record.width!, height: asset.record.height! }} />)}
+              .map(a => <MotionGraphicRenderer key={a.id} artifact={a} project={project} frame={frame} assets={assets} source={{ width: asset.record.width!, height: asset.record.height! }} />)}
           </AbsoluteFill>
         );
       })}

@@ -20,6 +20,8 @@
     "test:editing:render": "npm run build --prefix server && node tests/editing/render-smoke.mjs",
     "test:editing:browser": "npm run build && npm run build --prefix server && node tests/editing/browser-smoke.mjs",
     "test:editing:live": "npm run build --prefix server && node tests/editing/live-smoke.mjs",
+    "test:documentary:render": "npm run build --prefix server && node tests/editing/documentary-render.mjs",
+    "test:documentary:live": "npm run build --prefix server && node tests/editing/documentary-live.mjs",
     "test": "npm run build --prefix server && node --test server/tests/*.test.mjs",
     "flow:login": "npm run flow:login --prefix server",
     "build:all": "npm run typecheck && npm run build && npm run build --prefix server",

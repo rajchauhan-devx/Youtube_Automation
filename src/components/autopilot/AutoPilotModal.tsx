@@ -395,45 +395,50 @@ export function AutoPilotModal({
             <div className="thin-scrollbar flex-1 overflow-y-auto rounded-xl border border-borderSoft bg-black/70 p-3 font-mono text-[11px] leading-relaxed shadow-inner">
               <div className="space-y-2">
                 {state.logs.map((log) => {
+                  const isSupervisor = log.message.includes('[SUPERVISOR]');
                   const isGemini = log.type === 'gemini';
                   const isSuccess = log.type === 'success';
                   const isError = log.type === 'error';
                   const isWarn = log.type === 'warn';
 
                   return (
-                    <div key={log.id} className="flex items-start gap-2">
+                    <div key={log.id} className={`flex items-start gap-2 rounded px-1.5 py-0.5 transition ${isSupervisor ? 'bg-indigo-950/40 border border-indigo-500/20' : ''}`}>
                       <span className="text-[10px] text-muted/60 shrink-0 select-none">
                         {log.timestamp}
                       </span>
                       <span
                         className={`rounded px-1 text-[9px] font-bold uppercase shrink-0 ${
-                          isGemini
-                            ? 'bg-accent/20 text-accent'
-                            : isSuccess
-                              ? 'bg-emerald-500/20 text-emerald-400'
-                              : isError
-                                ? 'bg-rose-500/20 text-rose-400'
-                                : isWarn
-                                  ? 'bg-amber-500/20 text-amber-400'
-                                  : 'bg-white/10 text-gray-300'
+                          isSupervisor
+                            ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/40'
+                            : isGemini
+                              ? 'bg-accent/20 text-accent'
+                              : isSuccess
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : isError
+                                  ? 'bg-rose-500/20 text-rose-400'
+                                  : isWarn
+                                    ? 'bg-amber-500/20 text-amber-400'
+                                    : 'bg-white/10 text-gray-300'
                         }`}
                       >
-                        {log.type}
+                        {isSupervisor ? 'SUPERVISOR' : log.type}
                       </span>
                       <span
                         className={`break-words ${
-                          isGemini
-                            ? 'text-accent font-medium'
-                            : isSuccess
-                              ? 'text-emerald-300'
-                              : isError
-                                ? 'text-rose-300 font-bold'
-                                : isWarn
-                                  ? 'text-amber-300'
-                                  : 'text-gray-300'
+                          isSupervisor
+                            ? 'text-indigo-200 font-medium'
+                            : isGemini
+                              ? 'text-accent font-medium'
+                              : isSuccess
+                                ? 'text-emerald-300'
+                                : isError
+                                  ? 'text-rose-300 font-bold'
+                                  : isWarn
+                                    ? 'text-amber-300'
+                                    : 'text-gray-300'
                         }`}
                       >
-                        {log.message}
+                        {isSupervisor ? log.message.replace(/\[SUPERVISOR\]\s*/, '') : log.message}
                       </span>
                     </div>
                   );

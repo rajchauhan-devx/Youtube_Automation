@@ -3,8 +3,9 @@ import { AbsoluteFill, continueRender, delayRender, interpolate, spring } from '
 import type { ArtifactComposition, EditingProject } from '@tubeflow/editing-contracts';
 import { cardBounds, targetMostlyVisible, targetOnScreen } from './graphics.js';
 import type { Matrix } from './math.js';
+import { DocumentaryComposition, type DocumentaryAssets } from './DocumentaryComposition.js';
 
-type Props = { project: EditingProject; artifact: ArtifactComposition; frame: number; source: { width: number; height: number }; sourceTransform?: Matrix };
+type Props = { project: EditingProject; artifact: ArtifactComposition; frame: number; source: { width: number; height: number }; sourceTransform?: Matrix; assets?: DocumentaryAssets };
 function Text({ text, size, height, family, color = '#ffffff', weight = 700 }: { text: string; size: number; height: number; family: string; color?: string; weight?: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const [handle] = useState(() => delayRender('Fit motion graphic typography'));
@@ -126,6 +127,10 @@ export function ObjectSpotlight(props: Props) {
 export function MotionGraphicRenderer(props: Props) {
   const graphic = props.artifact.graphic;
   if (!graphic) return null;
+  if (graphic.kind === 'composition') {
+    if (!props.assets) throw new Error('Documentary layers require registered assets');
+    return <DocumentaryComposition {...props} assets={props.assets} />;
+  }
   if (graphic.kind === 'title') return <CinematicTitle {...props} />;
   if (graphic.kind === 'lower-third') return <CharacterLowerThird {...props} />;
   if (graphic.kind === 'badge') return <LocationBadge {...props} />;

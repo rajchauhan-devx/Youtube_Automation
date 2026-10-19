@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SCHEMA_VERSION = 1;
-export const RENDERER_VERSION = "2.0.0";
+export const RENDERER_VERSION = "4.0.0";
 export const Id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 export const UUID = z.uuid();
 export const Hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -231,18 +231,40 @@ export const Node = z.discriminatedUnion("kind", [
     assetId: Id,
   }),
 ]);
+// Explicitly versioned; retired free-form nodes remain hidden on old projects.
+export const DocumentaryComposition = z.strictObject({
+  version: z.literal(1),
+  treatment: z.enum(['archival', 'cinematic', 'map']),
+  layout: z.enum(['inset', 'cutaway']).optional(),
+  layers: z.array(z.strictObject({
+    id: Id,
+    assetId: Id,
+    bounds: Crop, // normalized inside the graphic's image stage
+    crop: Crop.optional(),
+    fit: z.enum(['contain', 'cover']),
+    motion: z.enum(['hold', 'push-in', 'drift-left', 'drift-right']),
+    delay: z.number().min(0).max(0.5), // fraction of artifact duration
+    rotation: z.number().min(-6).max(6),
+  })).min(1).max(4),
+  emphasis: z.enum(['none', 'focus', 'marker']),
+});
+export type DocumentarySpec = z.infer<typeof DocumentaryComposition>;
 export const MotionGraphic = z.strictObject({
-  kind: z.enum(["title", "lower-third", "badge", "spotlight", "caption", "route", "counter", "frame", "diagram"]),
+  kind: z.enum(["title", "lower-third", "badge", "spotlight", "caption", "route", "counter", "frame", "diagram", "composition"]),
   title: z.string().trim().min(1).max(64),
   detail: z.string().trim().max(120),
   bounds: Rect,
+  composition: DocumentaryComposition.optional(),
   target: z.strictObject({
     label: z.string().trim().min(1).max(120),
     region: Crop,
     evidence: z.string().max(1000),
     verified: z.literal(true),
   }).optional(),
-}).refine(g => g.kind !== "spotlight" || !!g.target, "A spotlight needs a verified target");
+}).refine(g => g.kind !== "spotlight" || !!g.target, "A spotlight needs a verified target")
+  .refine(g => (g.kind === 'composition') === !!g.composition, 'Only documentary compositions carry image layers')
+  .refine(g => !g.composition || g.composition.emphasis === 'none' || !!g.target, 'Source emphasis needs a verified target')
+  .refine(g => g.composition?.layout !== 'cutaway' || g.composition.emphasis === 'none', 'A cutaway cannot highlight its hidden background');
 export type MotionGraphicSpec = z.infer<typeof MotionGraphic>;
 
 export const Artifact = z.strictObject({
@@ -258,6 +280,12 @@ export const Artifact = z.strictObject({
   assetRequestIds: z.array(Id).max(20),
   revisionInstruction: z.string().max(2000).optional(),
   graphic: MotionGraphic.optional(),
+  visualReview: z.strictObject({
+    status: z.enum(['pending', 'passed', 'unavailable', 'rejected']),
+    attempts: z.number().int().min(0).max(2),
+    frames: z.array(Frame).max(16),
+    reason: z.string().max(2000),
+  }).optional(),
 });
 export const Style = z.strictObject({
   id: Id,
@@ -445,6 +473,9 @@ export const Settings = z.strictObject({
   maxProviderCalls: z.number().int().min(1).max(2000),
   maxGeneratedAssets: z.number().int().min(0).max(20),
   aiModel: z.string().max(150).optional(),
+  documentary: z.boolean().default(true),
+  treatment: z.enum(['auto', 'archival', 'cinematic', 'map']).default('auto'),
+  visualReview: z.boolean().default(true),
 });
 export const Project = z.strictObject({
   id: UUID,
@@ -462,6 +493,7 @@ export const Project = z.strictObject({
   ]),
   inputs: Snapshot,
   settings: Settings,
+  documentaryRequirement: z.strictObject({ version: z.literal(1) }).optional(),
   style: Style,
   alignment: Alignment,
   scenes: z.array(Scene).min(1).max(160),
@@ -481,7 +513,7 @@ export const Job = z.strictObject({
   id: UUID,
   projectId: UUID,
   revisionId: UUID,
-  operation: z.enum(["generate", "revise", "render"]),
+  operation: z.enum(["generate", "revise", "render", "review"]),
   inputHash: Hash,
   idempotencyKey: z.string().min(1).max(128),
   state: z.enum([
@@ -543,6 +575,12 @@ export const RenderManifest = z.strictObject({
   durationMs: z.number().min(0),
 });
 export type EditingProject = z.infer<typeof Project>;
+/** New image-led generations may never silently export as captions/labels only. */
+export function assertDocumentaryVisuals(project: EditingProject) {
+  if (!project.documentaryRequirement) return;
+  if (!project.artifacts.some(a => a.enabled && a.graphic?.kind === 'composition' && a.graphic.composition?.layers.length))
+    throw new Error('Image-led documentary generation produced no enabled image compositions. Review the skipped visuals or regenerate; text-only export is blocked.');
+}
 /** Read old revisions without displaying retired captions, stickers or generated assets.
  * Saved revisions remain intact; new revisions and exports use only the native graphics. */
 export function motionProject(input: EditingProject): EditingProject {
@@ -551,7 +589,8 @@ export function motionProject(input: EditingProject): EditingProject {
   p.analyses = [];
   p.scenes.forEach(s => { delete s.analysisId; });
   p.style.textureAssetIds = [];
-  p.assetIds = [...new Set([p.inputs.audioAssetId, ...p.inputs.imageAssets.map(a => a.assetId), ...p.style.fontAssetIds])];
+  p.assetIds = [...new Set([p.inputs.audioAssetId, ...p.inputs.imageAssets.map(a => a.assetId), ...p.style.fontAssetIds,
+    ...p.artifacts.flatMap(a => a.graphic?.composition?.layers.map(layer => layer.assetId) || [])])];
   p.sceneOutcomes = p.sceneOutcomes?.map(s => ({ ...s, artifactIds: s.artifactIds.filter(id => p.artifacts.some(a => a.id === id)) }));
   return p;
 }
@@ -573,7 +612,7 @@ export const durationFrames = (seconds: number, fps: number) =>
 export const capabilities = {
   schemaVersion: 1,
   rendererVersion: RENDERER_VERSION,
-  primitives: ["CinematicTitle", "CharacterLowerThird", "LocationBadge", "ObjectSpotlight", "MotionCaption", "RouteLine", "DateCounter", "ArchivalFrame", "DiagramCallout"],
+  primitives: ["CinematicTitle", "CharacterLowerThird", "LocationBadge", "ObjectSpotlight", "MotionCaption", "RouteLine", "DateCounter", "ArchivalFrame", "DiagramCallout", "DocumentaryComposition"],
   coordinates:
     "design pixels; source anchors/crops normalized; keyframes artifact-local",
   limits: {
@@ -711,7 +750,13 @@ export function validateProject(value: unknown): EditingProject {
       if (b.x < 0 || b.y < 0 || b.x + b.width > p.inputs.width || b.y + b.height > p.inputs.height)
         fail("Motion graphic exceeds the output canvas");
       if (a.nodes.length) fail("Motion graphics cannot include legacy composition nodes");
+      if (a.graphic.composition) {
+        unique(a.graphic.composition.layers.map(layer => layer.id), 'documentary layer ID');
+        a.graphic.composition.layers.forEach(layer => asset(layer.assetId));
+      }
     }
+    if (a.visualReview?.frames.some(frame => frame < a.startFrame || frame >= a.endFrame))
+      fail('Visual review frame is outside its artifact');
     if (a.nodes.some((n) => n.kind === "text") && !a.narrativeRefs.length)
       fail("Text requires supplied narrative references");
     unique(

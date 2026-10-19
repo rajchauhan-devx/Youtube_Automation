@@ -13,6 +13,7 @@ import {
 import {
   validateProject,
   motionProject,
+  assertDocumentaryVisuals,
   RENDERER_VERSION,
   RenderManifest,
   type EditingProject,
@@ -53,6 +54,7 @@ export async function renderSession(
 ) {
   project = motionProject(project);
   validateProject(project);
+  assertDocumentaryVisuals(project);
   signal.throwIfAborted();
   const audioRecord = assetRecord(project.inputs.audioAssetId);
   if (
@@ -74,6 +76,11 @@ export async function renderSession(
     if (assetRecord(id).mime !== "font/woff2")
       throw new Error("Approved font asset has the wrong media type");
   for (const artifact of project.artifacts) {
+    for (const layer of artifact.graphic?.composition?.layers || []) {
+      const record = assetRecord(layer.assetId);
+      if (!record.mime.startsWith('image/') || !record.width || !record.height)
+        throw new Error(`Documentary layer ${layer.id} requires a registered still image`);
+    }
     const scene = project.scenes.find(s => s.id === artifact.sceneId)!;
     const source = assetRecord(scene.assetId);
     const issues = graphicIssues(project, artifact, { width: source.width!, height: source.height! });
@@ -176,7 +183,10 @@ export async function exportGraphicsOverlay(
       outputLocation: output, concurrency: config.renderConcurrency, timeoutInMilliseconds: 60000,
       ffmpegOverride: ({ args }) => {
         const idx = args.indexOf('libvpx');
-        if (idx >= 0) args.splice(idx + 1, 0, '-deadline', 'realtime', '-cpu-used', '6', '-threads', '8');
+        // libvpx otherwise defaults to a tiny target bitrate, destroying detailed
+        // photographs even though Remotion already requests a high-quality CRF.
+        const imageBitrate = Math.max(1000000, Math.round(project.inputs.width * project.inputs.height * project.inputs.fps / 4));
+        if (idx >= 0) args.splice(idx + 1, 0, '-b:v', String(imageBitrate), '-deadline', 'realtime', '-cpu-used', '6', '-threads', '8');
         return args;
       },
       onProgress: p => progress(p.renderedFrames, project.inputs.durationFrames),
@@ -193,12 +203,15 @@ export async function previewFrames(
   signal: AbortSignal,
   artifactId?: string,
 ) {
+  const artifacts = project.artifacts.filter(a => a.enabled && (!artifactId || a.id === artifactId));
+  const scenes = artifactId ? project.scenes.filter(s => artifacts.some(a => a.sceneId === s.id)) : project.scenes;
   const frames = [
       ...new Set([
         0,
         project.inputs.durationFrames - 1,
-        ...project.artifacts.filter((a) => a.enabled).flatMap(sampleFrames),
-        ...project.scenes.flatMap((s) => [s.startFrame, s.endFrame - 1]),
+        ...artifacts.flatMap(a => [...sampleFrames(a), ...(a.graphic?.composition?.layers.map(layer =>
+          Math.min(a.endFrame - 1, a.startFrame + Math.round((a.endFrame - a.startFrame) * layer.delay + project.inputs.fps * 0.5))) || [])]),
+        ...scenes.flatMap((s) => [s.startFrame, s.endFrame - 1]),
       ]),
     ].filter(frame => !artifactId || project.artifacts.some(a => a.id === artifactId && frame >= a.startFrame && frame < a.endFrame)).sort((a, b) => a - b),
     dir = path.join(projectDir(project.id), "previews", project.revisionId);

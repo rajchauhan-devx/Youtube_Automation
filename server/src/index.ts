@@ -19,6 +19,8 @@ import { editingRouter } from './routes/editing.js';
 import { editingConfig } from './services/editing/config.js';
 import { acquireSchedulerLock } from './services/editing/repository.js';
 
+import { supervisorRouter } from './routes/supervisor.js';
+
 const app = express();
 editingConfig();
 acquireSchedulerLock();
@@ -53,6 +55,7 @@ app.use('/api/presenter', presenterRouter);
 app.use('/api/setup', setupRouter);
 app.use('/api/flow', flowRouter);
 app.use('/api/editing', editingRouter);
+app.use('/api/supervisor', supervisorRouter);
 app.use('/api/youtube', youtubeRouter);
 app.use('/api/facebook', facebookRouter);
 app.use('/api/instagram', instagramRouter);

@@ -1,7 +1,7 @@
 import type { ArtifactComposition, EditingProject, MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { cardBounds } from '@tubeflow/video-composition';
 
-type Kind = Exclude<MotionGraphicSpec['kind'], 'caption'>;
+type Kind = Exclude<MotionGraphicSpec['kind'], 'caption' | 'composition'>;
 export type StyleTestSample = { kind: Kind; frame: number };
 
 /** A local preview of all four renderers. Nothing from this project is saved or exported. */

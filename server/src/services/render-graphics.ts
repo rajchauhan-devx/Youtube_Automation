@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { motionProject, type EditingProject } from '@tubeflow/editing-contracts';
+import { motionProject, assertDocumentaryVisuals, RENDERER_VERSION, type EditingProject } from '@tubeflow/editing-contracts';
 import { legacyMotion, legacySourceMatrix, targetOnScreen, targetMostlyVisible, intersects, type LegacyCamera } from '@tubeflow/video-composition';
 import { current, hash, objectHash, assetRecord } from './editing/repository.js';
 import { scriptFingerprint } from './editing/projects.js';
@@ -18,7 +18,7 @@ export function graphicsRenderRevision(script: { editingProjectId?: string }) {
   try {
     const project = motionProject(current(script.editingProjectId));
     if (!project.artifacts.some(artifact => artifact.enabled)) return undefined;
-    return { version: 1, projectId: project.id, revisionId: project.revisionId, hash: objectHash(project) };
+    return { version: 1, rendererVersion: RENDERER_VERSION, projectId: project.id, revisionId: project.revisionId, hash: objectHash(project) };
   } catch {
     // Never advertise an older graphics render as current when its project is unavailable.
     return { version: 1, projectId: script.editingProjectId, unavailable: true };
@@ -32,6 +32,7 @@ export function savedGraphicsForRender(
   if (!script?.editingProjectId) return undefined;
   const project = motionProject(current(script.editingProjectId));
   if (project.scriptId !== scriptId) throw new Error('The saved motion graphics belong to another script. Generate graphics for this script.');
+  assertDocumentaryVisuals(project);
   if (!project.artifacts.some(artifact => artifact.enabled)) return undefined;
   if (!['ready', 'partial'].includes(project.status)) throw new Error('Finish generating motion graphics in Artifacts before rendering.');
   if (project.inputs.scriptHash !== scriptFingerprint(script)) throw new Error('The saved motion graphics use older media or narration. Generate a new revision in Artifacts before rendering.');
@@ -71,12 +72,14 @@ export function graphicsCameras(project: EditingProject, options: RenderOptions,
     const camera: LegacyCamera = { startFrame: timing.startFrame, frames: timing.frames, framing: editing?.framing || 'contain', ...motion };
     cameras[scene.id] = camera;
     const source = assetRecord(scene.assetId);
-    for (const artifact of project.artifacts.filter(a => a.enabled && a.sceneId === scene.id && a.graphic?.kind === 'spotlight')) {
+    for (const artifact of project.artifacts.filter(a => a.enabled && a.sceneId === scene.id &&
+      (a.graphic?.kind === 'spotlight' || a.graphic?.kind === 'composition'))) {
       const tolerance = 1 / project.inputs.fps + 1 / FPS;
       if (artifact.startFrame / project.inputs.fps < timing.startFrame / FPS - tolerance || artifact.endFrame / project.inputs.fps > timing.endFrame / FPS + tolerance) {
         throw new Error('Scene timing moved a spotlight away from its original media. Adjust its timing in Artifacts before rendering.');
       }
       for (let frame = artifact.startFrame; frame < artifact.endFrame; frame++) {
+        if (artifact.graphic?.composition?.emphasis === 'none') break;
         const dimensions = { width: source.width!, height: source.height! };
         const box = targetOnScreen(project, artifact, frame, dimensions, legacySourceMatrix(camera, frame / project.inputs.fps, project.inputs, dimensions));
         if (!box || !targetMostlyVisible(box, project.inputs.width, project.inputs.height) || intersects(artifact.graphic!.bounds, box, project.inputs.width * 0.018)) {

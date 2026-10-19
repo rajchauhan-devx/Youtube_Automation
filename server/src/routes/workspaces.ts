@@ -15,6 +15,7 @@ import { presenterRouter } from './presenter.js';
 import { editingRouter } from './editing.js';
 
 import { flowRouter } from './flow.js';
+import { supervisorRouter } from './supervisor.js';
 
 export const workspacesRouter = Router({ mergeParams: true });
 workspacesRouter.use((req, res, next) => {
@@ -36,3 +37,4 @@ workspacesRouter.use('/youtube', youtubeRouter);
 workspacesRouter.use('/facebook', facebookRouter);
 workspacesRouter.use('/instagram', instagramRouter);
 workspacesRouter.use('/llm', llmRouter);
+workspacesRouter.use('/supervisor', supervisorRouter);

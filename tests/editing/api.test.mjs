@@ -68,6 +68,13 @@ const request = (route, body, method = "POST", headers = {}) =>
     headers: { "Content-Type": "application/json", ...headers },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+test('capabilities advertise layered visuals and rendered-frame review', async () => {
+  const response = await request('/capabilities', undefined, 'GET');
+  const capabilities = await response.json();
+  assert.equal(capabilities.documentaryLayers, true);
+  assert.equal(capabilities.renderedVisionReview, true);
+  assert.deepEqual(capabilities.documentaryTreatments, ['archival', 'cinematic', 'map']);
+});
 const body = {
   scriptId: p.scriptId,
   audioFilename: "voice.wav",
@@ -221,4 +228,18 @@ test("retired simple-caption endpoint cannot create subtitle artifacts", async (
   assert.equal(after.currentRevisionId, before.currentRevisionId);
   assert.deepEqual(after.project.artifacts, before.project.artifacts);
   assert.equal(after.jobs.length, before.jobs.length);
+});
+
+test('manual layout edits invalidate accepted review and stale review requests conflict', async () => {
+  const { nextRevision, publish } = await import('../../server/dist/services/editing/repository.js');
+  const source = await fixture();
+  const accepted = nextRevision(source);
+  accepted.artifacts[0].visualReview = { status: 'passed', attempts: 1, frames: [18, 36, 55], reason: 'Fixture review' };
+  publish(accepted, source.revisionId);
+  const changed = await request(`/projects/${accepted.id}/artifacts/${accepted.artifacts[0].id}`,
+    { expectedRevisionId: accepted.revisionId, startFrame: 1 }, 'PATCH');
+  assert.equal(changed.status, 200);
+  const result = await changed.json();
+  assert.equal(result.project.artifacts[0].visualReview, undefined);
+  assert.equal((await request(`/projects/${accepted.id}/review`, { expectedRevisionId: accepted.revisionId })).status, 409);
 });

@@ -15,7 +15,9 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   const [model, setModel] = useState('');
   const state = useEditingProject(script?.id, script?.editingProjectId, model || undefined);
   const { data, fetch } = state, { profile } = useWorkspaceApi();
-  const [audio, setAudio] = useState(''), [style, setStyle] = useState(''), [density, setDensity] = useState<'subtle' | 'balanced' | 'expressive'>('subtle');
+  const [audio, setAudio] = useState(''), [style, setStyle] = useState(''), [density, setDensity] = useState<'subtle' | 'balanced' | 'expressive'>('balanced');
+  const [documentary, setDocumentary] = useState(true), [visualReview, setVisualReview] = useState(true);
+  const [treatment, setTreatment] = useState<'auto' | 'archival' | 'cinematic' | 'map'>('auto');
   const [fps, setFps] = useState(60), [busy, setBusy] = useState(false), [frame, setFrame] = useState(0), [selected, setSelected] = useState('');
   const [showStyleTest, setShowStyleTest] = useState(false);
   const player = useRef<PlayerRef>(null), p = data?.project;
@@ -34,7 +36,12 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   useEffect(() => {
     if (p?.settings.aiModel && GEMINI_MODELS.some(item => item.id === p.settings.aiModel))
       setModel(p.settings.aiModel);
-  }, [p?.revisionId, p?.settings.aiModel]);
+    if (p) {
+      setDocumentary(p.settings.documentary ?? true);
+      setVisualReview(p.settings.visualReview ?? true);
+      setTreatment(p.settings.treatment ?? 'auto');
+    }
+  }, [p]);
   useEffect(() => { if (p?.inputs.fps) setFps(p.inputs.fps); }, [p?.id, p?.inputs.fps]);
   useEffect(() => { setAudio(script?.generatedAudio?.[0]?.filename || ''); }, [script?.id]);
   useEffect(() => { setShowStyleTest(false); setFrame(0); }, [p?.revisionId]);
@@ -62,7 +69,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
       const inputs = { scriptId: script.id, audioFilename: audio, language: narration.language,
         imageIndexes: (script.generatedImages || []).filter(i => i.status === 'done' && i.url).map(i => i.index),
         aspect: profile === 'shorts' ? '9:16' : '16:9', fps,
-        settings: { stylePreference: style, density, maxProviderCalls: 40, maxGeneratedAssets: 0, ...(model ? { aiModel: model } : {}) } };
+        settings: { stylePreference: style, density, documentary, treatment, visualReview, maxProviderCalls: 40, maxGeneratedAssets: 0, ...(model ? { aiModel: model } : {}) } };
       const reuse = mode === 'captions' && p && data && !data.stale && p.revisionId === data.currentRevisionId &&
         p.inputs.audioFilename === audio && p.inputs.fps === fps && p.inputs.width === (profile === 'shorts' ? 1080 : 1920) &&
         p.inputs.imageAssets.map(i => i.promptIndex).join(',') === inputs.imageIndexes.join(',');
@@ -84,7 +91,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
     <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-surface to-surface2 p-6 shadow-card backdrop-blur-md">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Motion Studio</p>
       <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">{editor ? 'Preview & Export' : 'Motion Artifacts'}</h2>
-      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">Story-matched graphics for important moments, plus optional animated narration captions.</p>
+      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">Image-led documentary compositions, verified detail highlights, and rendered placement review.</p>
       <div className="mt-4 flex flex-wrap gap-2">{Object.values(graphicNames).map(name => <span key={name} className="rounded-lg border border-border bg-surface2/60 px-3 py-1 text-xs font-medium text-gray-300">{name}</span>)}</div>
     </div>
     {state.error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-950/30 p-3.5 text-sm text-red-200">{state.error}</div>}
@@ -100,7 +107,14 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         <option value="subtle">Subtle · fewer narrative beats</option><option value="balanced">Balanced</option><option value="expressive">Expressive · more emphasis</option>
       </select></label>
       <label className="text-xs font-semibold text-gray-300">Frame rate<select className={input} value={fps} onChange={e => setFps(Number(e.target.value))}><option value={60}>60 fps · smooth motion</option><option value={30}>30 fps · faster export</option></select></label>
-      <label className="text-xs font-semibold text-gray-300 md:col-span-2">Direction <span className="text-faint font-normal">(optional)</span><input className={input} value={style} maxLength={2000} onChange={e => setStyle(e.target.value)} placeholder="Emphasize character introductions and important objects" /></label>
+      <label className="text-xs font-semibold text-gray-300">Visual treatment<select aria-label="Documentary treatment" className={input} value={treatment} onChange={e => setTreatment(e.target.value as typeof treatment)} disabled={!documentary}>
+        <option value="auto">Automatic · combine treatments</option><option value="archival">Archival collage</option><option value="cinematic">Cinematic images</option><option value="map">Map focus · requires a source map</option>
+      </select></label>
+      <div className="space-y-3 self-center text-xs text-gray-300">
+        <label className="flex items-center gap-2"><input aria-label="Image-led documentary visuals" type="checkbox" checked={documentary} onChange={e => setDocumentary(e.target.checked)} />Image-led documentary visuals</label>
+        <label className="flex items-center gap-2"><input aria-label="Review rendered placement" type="checkbox" checked={visualReview} onChange={e => setVisualReview(e.target.checked)} />AI checks rendered placement and repairs layout</label>
+      </div>
+      <label className="text-xs font-semibold text-gray-300 md:col-span-2">Direction <span className="text-faint font-normal">(optional)</span><input className={input} value={style} maxLength={2000} onChange={e => setStyle(e.target.value)} placeholder="Layer related photographs; magnify details and highlight source passages" /></label>
       {!!state.capabilities?.missing.length && <div className="text-xs text-amber-300 md:col-span-2">{state.capabilities.missing.join(' ')}</div>}
       <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-2">
         <button className={button} disabled={busy || !!job || !state.capabilities?.ready || !audio || !script.generatedImages?.length} onClick={() => void generate('graphics')}>Generate Motion Graphics</button>
@@ -111,7 +125,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
           state.setSelectedRevision(''); state.setData(next); setSelected(''); setFrame(0);
         })}>Clear Graphics</button>}
       </div>
-      <p className="text-[11px] leading-relaxed text-muted md:col-span-2">Documentary rule: most scenes stay clean. Graphics appear only where they add evidence or orientation. Motion captions replace burned-in subtitles for a revision — never enable both on the same export. Review the preview before export.</p>
+      <p className="text-[11px] leading-relaxed text-muted md:col-span-2">The AI reuses your scene images for collages and detail inserts. Map focus needs an actual map image. Placement review samples rendered frames; review the full motion before export.</p>
     </div>}
     {!!data?.legacyArtifactCount && <p className="rounded-lg border border-amber-800 p-3 text-sm text-amber-200">This saved revision contains {data.legacyArtifactCount} retired graphics. They are hidden from preview and new exports. Generate motion graphics to replace them; original media and revision history remain available.</p>}
     {job && <div role="status" className="flex items-center justify-between rounded-lg border border-amber-700/50 p-3 text-sm"><span>{job.stage}{job.total ? ` · ${job.completed}/${job.total}` : ''}</span><button className="text-red-300" disabled={job.state === 'cancel_requested'} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${job.id}/cancel`, {}); await state.refresh(); })}>{job.state === 'cancel_requested' ? 'Cancelling…' : 'Cancel'}</button></div>}
@@ -133,7 +147,9 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
           <div className="relative h-7">{previewProject?.artifacts.filter(a => a.graphic?.kind !== 'caption').map(a => <button title={a.intent} key={a.id} className={`absolute h-7 truncate rounded px-1 text-xs ${a.enabled ? 'bg-amber-700' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames}%` }} onClick={() => { setSelected(a.id); player.current?.seekTo(a.startFrame); }}>{a.graphic?.title}</button>)}</div>
           {previewProject?.artifacts.some(a => a.graphic?.kind === 'caption') && <div aria-label="Motion captions timeline" className="relative h-5">{previewProject.artifacts.filter(a => a.graphic?.kind === 'caption').map(a => <button aria-label={`Caption: ${a.graphic?.title}`} title={a.graphic?.title} key={a.id} className={`absolute h-5 rounded ${a.enabled ? 'bg-sky-600' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${Math.max(0.2, 100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames)}%` }} onClick={() => player.current?.seekTo(a.startFrame)} />)}</div>}
         </div>
-        <div className="flex flex-wrap items-center gap-3"><button className={button} disabled={!ready || busy || !!job} onClick={() => void act(async () => { await editingRequest(fetch, `/projects/${p.id}/render`, { revisionId: p.revisionId }); await state.refresh(); })}>Export MP4</button>{download?.outputUrl && <a href={download.outputUrl} download className="text-sm text-amber-300 underline">Download MP4</a>}</div>
+        <div className="flex flex-wrap items-center gap-3"><button className={button} disabled={!ready || busy || !!job} onClick={() => void act(async () => { await editingRequest(fetch, `/projects/${p.id}/render`, { revisionId: p.revisionId }); await state.refresh(); })}>Export MP4</button>
+          <button className="text-sm text-sky-300 disabled:opacity-40" disabled={!editable || !state.capabilities?.ready || !p.artifacts.some(a => a.enabled && a.graphic?.kind !== 'caption')} onClick={() => void act(async () => { await editingRequest(fetch, `/projects/${p.id}/review`, { expectedRevisionId: p.revisionId }); await state.refresh(); })}>Review placement</button>
+          {download?.outputUrl && <a href={download.outputUrl} download className="text-sm text-amber-300 underline">Download MP4</a>}</div>
         <p className="text-xs text-gray-500">Preview and export use the same graphics, scene media and narration.</p>
       </div>
       <div className="space-y-4">
@@ -144,7 +160,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
           {p.artifacts.filter(a => a.sceneId === scene.id && a.graphic?.kind !== 'caption').map(a => <GraphicCard key={`${p.revisionId}-${a.id}`} artifact={a} fps={p.inputs.fps} width={p.inputs.width} height={p.inputs.height} busy={!editable} selected={selected === a.id}
             onSelect={() => { setSelected(a.id); player.current?.seekTo(Math.min(a.endFrame - 1, a.startFrame + Math.round(p.inputs.fps * 0.9))); }}
             onSave={patch => act(async () => { state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/artifacts/${a.id}`, { expectedRevisionId: p.revisionId, ...patch }, 'PATCH')); })}
-            onRegenerate={() => act(async () => { await editingRequest(fetch, `/projects/${p.id}/artifacts/${a.id}/revise`, { expectedRevisionId: p.revisionId, instruction: 'Reconsider this graphic for the same scene. Preserve its supported meaning and verify any spotlight against the actual image.' }); await state.refresh(); })} />)}
+            onRegenerate={instruction => act(async () => { await editingRequest(fetch, `/projects/${p.id}/artifacts/${a.id}/revise`, { expectedRevisionId: p.revisionId, instruction: instruction.trim() || 'Reconsider this graphic for the same scene. Preserve its supported meaning and verify any target against the actual image.' }); await state.refresh(); })} />)}
           {p.artifacts.some(a => a.sceneId === scene.id && a.graphic?.kind === 'caption') && <p className="text-xs text-sky-300">{p.artifacts.filter(a => a.sceneId === scene.id && a.graphic?.kind === 'caption').length} motion captions</p>}
         </section>)}
       </div>
@@ -154,18 +170,24 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
 }
 
 type GraphicPatch = { enabled?: boolean; graphic?: MotionGraphicSpec; startFrame?: number; endFrame?: number };
-function GraphicCard({ artifact: a, fps, width, height, busy, selected, onSelect, onSave, onRegenerate }: { artifact: ArtifactComposition; fps: number; width: number; height: number; busy: boolean; selected: boolean; onSelect: () => void; onSave: (patch: GraphicPatch) => Promise<unknown>; onRegenerate: () => Promise<unknown> }) {
+function GraphicCard({ artifact: a, fps, width, height, busy, selected, onSelect, onSave, onRegenerate }: { artifact: ArtifactComposition; fps: number; width: number; height: number; busy: boolean; selected: boolean; onSelect: () => void; onSave: (patch: GraphicPatch) => Promise<unknown>; onRegenerate: (instruction: string) => Promise<unknown> }) {
   const [graphic, setGraphic] = useState(a.graphic!), [start, setStart] = useState(a.startFrame / fps), [end, setEnd] = useState(a.endFrame / fps);
+  const [instruction, setInstruction] = useState('');
   const dirty = JSON.stringify(graphic) !== JSON.stringify(a.graphic) || Math.round(start * fps) !== a.startFrame || Math.round(end * fps) !== a.endFrame;
   const position = ['top', 'bottom', 'right', 'center'].find(value => JSON.stringify(cardBounds(graphic.kind, width, height, value)) === JSON.stringify(graphic.bounds)) || 'custom';
   return <div className={`space-y-3 rounded-xl border p-4 ${selected ? 'border-amber-400/70' : 'border-border'} bg-surface`}>
     <button className="text-left" onClick={onSelect}><span className="text-[11px] uppercase tracking-wider text-amber-300">{graphicNames[graphic.kind]}</span><span className="mt-1 block text-sm font-semibold">{a.graphic!.title}</span></button>
     <p className="text-xs text-gray-500">{(a.startFrame / fps).toFixed(1)}–{(a.endFrame / fps).toFixed(1)} s · {a.enabled ? 'Visible' : 'Hidden'}</p>
-    <label className="block text-xs text-gray-400">Title<input aria-label="Graphic title" className={input} maxLength={64} value={graphic.title} disabled={busy} onChange={e => setGraphic({ ...graphic, title: e.target.value })} /></label>
-    <label className="block text-xs text-gray-400">Detail<textarea aria-label="Graphic detail" className={input} rows={2} maxLength={120} value={graphic.detail} disabled={busy} onChange={e => setGraphic({ ...graphic, detail: e.target.value })} /></label>
+    <p className={`text-xs ${a.visualReview?.status === 'passed' ? 'text-emerald-300' : 'text-amber-200'}`} title={a.visualReview?.reason}>
+      {a.visualReview?.status === 'passed' ? `Placement checked · ${a.visualReview.frames.length} frames` : a.visualReview?.status === 'rejected' ? 'Placement rejected · hidden' : 'Placement has not passed review'}
+    </p>
+    {graphic.composition && <p className="text-xs text-gray-400">{graphic.composition.treatment} · {graphic.composition.layers.length} image layers</p>}
+    <label className="block text-xs text-gray-400">{graphic.composition ? 'Shot name' : 'Title'}<input aria-label="Graphic title" className={input} maxLength={64} value={graphic.title} disabled={busy} onChange={e => setGraphic({ ...graphic, title: e.target.value })} /></label>
+    <label className="block text-xs text-gray-400">{graphic.composition ? 'Editor note' : 'Detail'}<textarea aria-label="Graphic detail" className={input} rows={2} maxLength={120} value={graphic.detail} disabled={busy} onChange={e => setGraphic({ ...graphic, detail: e.target.value })} /></label>
     <div className="grid grid-cols-2 gap-2"><label className="text-xs text-gray-400">Start (seconds)<input aria-label="Graphic start" className={input} type="number" min={0} step={0.1} value={start} disabled={busy} onChange={e => setStart(Number(e.target.value))} /></label><label className="text-xs text-gray-400">End (seconds)<input aria-label="Graphic end" className={input} type="number" min={0} step={0.1} value={end} disabled={busy} onChange={e => setEnd(Number(e.target.value))} /></label></div>
     <label className="block text-xs text-gray-400">Graphic position<select aria-label="Graphic position" className={input} value={position} disabled={busy} onChange={e => setGraphic({ ...graphic, bounds: cardBounds(graphic.kind, width, height, e.target.value) })}><option value="custom" disabled>Custom position</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="right">Right</option><option value="center">Center</option></select></label>
     {graphic.target && <p className="text-xs text-gray-400">Target: {graphic.target.label}</p>}
-    <div className="flex flex-wrap gap-3 text-xs"><button className="text-amber-300 disabled:opacity-40" disabled={busy || !dirty || !graphic.title.trim() || end <= start} onClick={() => void onSave({ graphic, startFrame: Math.round(start * fps), endFrame: Math.round(end * fps) })}>Save changes</button><button className="text-gray-300 disabled:opacity-40" disabled={busy} onClick={() => void onSave({ enabled: !a.enabled })}>{a.enabled ? 'Hide' : 'Show'}</button><button className="text-gray-300 disabled:opacity-40" disabled={busy} onClick={() => void onRegenerate()}>Regenerate</button><button className="text-gray-300" onClick={onSelect}>Preview</button></div>
+    <label className="block text-xs text-gray-400">Revision direction<input aria-label="Graphic revision direction" className={input} maxLength={2000} disabled={busy} value={instruction} onChange={e => setInstruction(e.target.value)} placeholder="Move the detail inset higher; use gentler motion" /></label>
+    <div className="flex flex-wrap gap-3 text-xs"><button className="text-amber-300 disabled:opacity-40" disabled={busy || !dirty || !graphic.title.trim() || end <= start} onClick={() => void onSave({ graphic, startFrame: Math.round(start * fps), endFrame: Math.round(end * fps) })}>Save changes</button><button className="text-gray-300 disabled:opacity-40" disabled={busy} onClick={() => void onSave({ enabled: !a.enabled })}>{a.enabled ? 'Hide' : 'Show'}</button><button className="text-gray-300 disabled:opacity-40" disabled={busy} onClick={() => void onRegenerate(instruction)}>Regenerate</button><button className="text-gray-300" onClick={onSelect}>Preview</button></div>
   </div>;
 }

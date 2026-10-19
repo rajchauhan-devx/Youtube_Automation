@@ -62,13 +62,13 @@ export const AUTO_PILOT_STAGES: {
   {
     id: 'generate_audio',
     label: 'Voice Narration',
-    description: 'Synthesizes neural voiceover audio with word-level acoustic synchronization',
+    description: 'Synthesizes narration with measured scene timing',
     stepNumber: 4,
   },
   {
     id: 'plan_motion',
-    label: 'Motion Captions',
-    description: 'Generates synchronized kinetic typography captions without heavy graphic overlays',
+    label: 'Documentary Visuals',
+    description: 'Composes image inserts and detail highlights, then reviews rendered placement',
     stepNumber: 5,
   },
   {

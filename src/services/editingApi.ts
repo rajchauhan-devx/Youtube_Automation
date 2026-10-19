@@ -25,6 +25,8 @@ export interface EditingCapabilities {
   grounding: boolean;
   artifactGeneration: boolean;
   modelsVerified: boolean;
+  renderedVisionReview?: boolean;
+  documentaryLayers?: boolean;
   provider?: string;
   models?: { planner: string; vision: string; review: string };
 }

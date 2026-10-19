@@ -69,7 +69,11 @@ try {
     waitUntil: "networkidle0",
   });
   await page.waitForSelector('[aria-label="Timeline playhead"]');
-  assert.match(await page.$eval('body', el => el.textContent), /Clear graphics/);
+  assert.match(await page.$eval('body', el => el.textContent), /Clear graphics/i);
+  assert.equal(await page.$eval('[aria-label="Image-led documentary visuals"]', el => el.checked), true);
+  assert.equal(await page.$eval('[aria-label="Review rendered placement"]', el => el.checked), true);
+  assert.deepEqual(await page.$$eval('[aria-label="Documentary treatment"] option', options => options.map(option => option.value)), ['auto', 'archival', 'cinematic', 'map']);
+  assert.match(await page.$eval('body', el => el.textContent), /Placement has not passed review/);
   const modelChoices = await page.$$eval('[aria-label="Visual editing AI model"] option', options => options.map(option => option.value));
   assert.ok(modelChoices.some(model => model.startsWith('gemini-')), 'Missing Gemini vision model choice');
   await page.waitForSelector("[data-editing-text]");
@@ -103,7 +107,7 @@ try {
   const clickText = async (text) => {
     const handles = await page.$$("button");
     for (const button of handles)
-      if ((await button.evaluate((el) => el.textContent)).trim() === text) {
+      if ((await button.evaluate((el) => el.textContent)).trim().endsWith(text) && await button.isVisible()) {
         await button.click();
         return;
       }
@@ -127,7 +131,7 @@ try {
   await page.waitForSelector('[aria-label="Timeline playhead"]');
   assert.match(
     await page.$eval("body", (el) => el.textContent),
-    /Preview & export/,
+    /Preview & export/i,
   );
   assert.deepEqual(errors, []);
   console.log(

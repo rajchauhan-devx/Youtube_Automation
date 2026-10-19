@@ -88,8 +88,8 @@ function payload(saved: EditingProject) {
         while (ancestor) {
           if (
             JSON.stringify(
-              ancestor.artifacts.find((a) => a.id === artifact.id)?.nodes,
-            ) !== JSON.stringify(artifact.nodes)
+              ancestor.artifacts.find((a) => a.id === artifact.id),
+            ) !== JSON.stringify(artifact) || JSON.stringify(ancestor.scenes) !== JSON.stringify(p.scenes)
           )
             break;
           if (
@@ -157,7 +157,8 @@ editingRouter.get(
     res.json({ ...capabilities, ready: missing.length === 0, missing,
       provider: 'Gemini', models: { planner: model, vision: model, review: model }, modelsVerified: false,
       alignment: 'Saved narration scene timing; estimated timing when unavailable', grounding: true,
-      artifactGeneration: false, renderer: 'remotion', graphics: Object.keys(graphicNames),
+      artifactGeneration: false, renderedVisionReview: true, documentaryLayers: true,
+      documentaryTreatments: ['archival', 'cinematic', 'map'], renderer: 'remotion', graphics: Object.keys(graphicNames),
       limits: { maxProviderCalls: c.maxCalls, maxGeneratedAssets: 0 } });
   }),
 );
@@ -319,13 +320,19 @@ editingRouter.patch(
     if (change.enabled !== undefined) artifact.enabled = change.enabled;
     if (change.graphic) {
       // A text/layout edit cannot forge or replace the model-verified target.
-      if (JSON.stringify(change.graphic.target) !== JSON.stringify(artifact.graphic.target) || change.graphic.kind !== artifact.graphic.kind)
+      if (JSON.stringify(change.graphic.target) !== JSON.stringify(artifact.graphic.target) || change.graphic.kind !== artifact.graphic.kind ||
+        JSON.stringify(change.graphic.composition) !== JSON.stringify(artifact.graphic.composition))
         throw new EditingError('INVALID_TARGET', 'Regenerate the spotlight to change its target.');
       artifact.graphic = change.graphic;
       artifact.intent = `${graphicNames[change.graphic.kind]}: ${change.graphic.title}`;
     }
     if (change.startFrame !== undefined) artifact.startFrame = change.startFrame;
     if (change.endFrame !== undefined) artifact.endFrame = change.endFrame;
+    if (change.graphic || change.startFrame !== undefined || change.endFrame !== undefined ||
+      (change.enabled === true && artifact.visualReview?.status === 'rejected')) {
+      delete artifact.visualReview;
+      next.diagnostics = next.diagnostics.filter(d => d.artifactId !== artifact.id || !d.code.startsWith('VISUAL_REVIEW_'));
+    }
     const scene = next.scenes.find(s => s.id === artifact.sceneId)!;
     const source = assetRecord(scene.assetId);
     const issues = graphicIssues(next, artifact, { width: source.width!, height: source.height! });
@@ -352,6 +359,18 @@ editingRouter.post(
       artifactId: req.params.artifactId,
       instruction: body.instruction,
     });
+    res.status(202).json({ jobId: job.id, revisionId: p.revisionId });
+  }),
+);
+editingRouter.post(
+  "/projects/:projectId/review",
+  route((req, res) => {
+    const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
+    const p = current(req.params.projectId);
+    expected(p, body.expectedRevisionId);
+    if (!p.artifacts.some(a => a.enabled && a.graphic && a.graphic.kind !== 'caption'))
+      throw new EditingError('NOT_READY', 'Enable a graphic or image composition before reviewing placement.');
+    const job = enqueue(p, 'review', key(req), credential(req));
     res.status(202).json({ jobId: job.id, revisionId: p.revisionId });
   }),
 );

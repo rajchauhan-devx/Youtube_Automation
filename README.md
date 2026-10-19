@@ -16,6 +16,7 @@ does not include ComfyUI, model weights, or the separate custom MuseTalk-Demo ap
 AI-directed visual editing is available under **Artifacts** with a shared preview/MP4
 renderer and an explicit enhanced mode in **Timeline & Render**. Legacy **Start Video Generation** also includes saved, enabled Artifacts graphics over the edited footage. See
 [setup, configuration and qualification status](docs/AI_VIDEO_EDITING_SETUP.md).
+Image-led documentary editing adds overlapping source images, verified detail insets and source highlights, with archival/cinematic/map treatments. Rendered placement review sends actual preview frames back to the vision model for bounded layout correction; cards show passed, rejected, or incomplete review. Autopilot prepares these visuals before export.
 
 AI presenter: enable **Timeline & Render → AI Presenter** to add a chest-up,
 lip-synced character to the bottom-right of your video. The app starts the worker
