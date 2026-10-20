@@ -1,5 +1,7 @@
 # Documentary visuals and motion graphics
 
+For the current directed-sequence renderer, separate illustration assets, actual motion review, and its limits, see [Editorial motion design](EDITORIAL_MOTION_DESIGN.md). The image-led composition section below describes the earlier source-image workflow, retained for archival/detail shots.
+
 ## Image-led visuals and rendered placement review
 
 Artifacts now supports versioned documentary image compositions alongside the existing titles and captions. Enable **Image-led documentary visuals**, choose **Automatic**, **Archival collage**, **Cinematic images**, or **Map focus**, then **Generate Motion Graphics**. Automatic can combine treatments across scenes. Source media and narration must already be ready.

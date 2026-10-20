@@ -70,15 +70,19 @@ if (process.env.MIXED_IMAGE_BROWSER_TEST === '1') {
   app.post('/test-fail-next', (_req, res) => { failNext = true; res.json({ ok: true }); });
   app.post('/test-close', (_req, res) => { res.json({ ok: true }); setImmediate(() => void cleanup()); });
 } else {
-  test('mixed image generation preserves imports, scene indices, and failures; rejects videos and stale scenes', async () => {
+  test('mixed keyframe generation preserves imports, scene indices, and failures; rejects stale scenes', async () => {
     try {
       const uploadedImage = await upload(0, png, 'png');
       assert.equal(uploadedImage.status, 200, JSON.stringify(await uploadedImage.json()));
       const uploadedVideo = await upload(1, video, 'mp4');
       assert.equal(uploadedVideo.status, 200, JSON.stringify(await uploadedVideo.json()));
       const imported = read().generatedImages;
-      for (const [index, prompt] of [[1, scenes[1].imagePrompt], [9, 'missing'], [2, 'outdated prompt']]) assert.equal((await generate(index, prompt)).status, 400);
+      for (const [index, prompt] of [[9, 'missing'], [2, 'outdated prompt']]) assert.equal((await generate(index, prompt)).status, 400);
       assert.equal(requests.length, 0, 'invalid scenes never reach the image model');
+      const keyframe = await generate(1);
+      assert.equal(keyframe.status, 200, await keyframe.text());
+      assert.deepEqual(read().generatedImages, imported, 'a video keyframe preserves imported media');
+      assert.equal(read().referenceFrames[1].prompt, scenes[1].imagePrompt);
       let response = await generate(2, scenes[2].imagePrompt, { stylePreset: 'cinematic', enableQualityBooster: true, enableNegativeGuardrails: true });
       assert.equal(response.status, 200);
       assert.equal(requests.at(-1).prompt['6'].inputs.text, scenes[2].imagePrompt, 'legacy options cannot add style instructions to the queued prompt');

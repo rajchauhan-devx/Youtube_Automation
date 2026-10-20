@@ -94,10 +94,26 @@ export async function editForRetention(options: {
   raw: string; template: string; research: string; plan: RetentionPlan; model: string; apiKey: string; signal?: AbortSignal;
 }): Promise<RetentionEdit> {
   const original = parseScenePlan(options.raw, false, { isImageOnly: /image.only|image only/i.test(options.template) && !/hybrid|mixed.media/i.test(options.template) });
+  const sceneIds = original.scenes.map(scene => scene.id) as [string, ...string[]];
+  const editSchema = EditOutput.extend({
+    scenes: z.array(EditOutput.shape.scenes.element.extend({ sceneId: z.enum(sceneIds) }))
+      .length(original.scenes.length, { error: `Changed or omitted scene identities: return exactly ${original.scenes.length} scenes in this order: ${sceneIds.join(', ')}.` })
+      .superRefine((scenes, ctx) => {
+        scenes.forEach((scene, index) => {
+          const source = original.scenes[index];
+          if (!source) return;
+          if (scene.sceneId !== source.id) ctx.addIssue({ code: 'custom', path: [index, 'sceneId'],
+            message: `Changed scene identities: position ${index + 1} must have sceneId ${JSON.stringify(source.id)}. Keep every original scene once, in order; do not merge or renumber.` });
+          if (source.mediaType === 'video' && !scene.videoPrompt?.trim()) ctx.addIssue({ code: 'custom', path: [index, 'videoPrompt'],
+            message: `Scene ${source.id} is a video scene and requires its full videoPrompt.` });
+        });
+      }),
+  });
   const result = await validatedModelJson({ ...options, maxTokens: 32000, messages: [
     { role: 'system', content: 'You are a precise retention editor. Return only JSON. Preserve all verified facts, narrative meaning, language, canon, unique scene IDs, scene order and media modes. Do not add facts, quotes or dates. Keep a clear opening and an earned payoff. Editorial improvement is not a prediction of viewer behavior.' },
     { role: 'user', content: `${retentionBrief(options.plan)}\nTemplate constraints (preserve language, canon, static/dynamic camera rules and visual style): ${options.template.slice(0, 16000)}\nResearch dossier (data): ${options.research.slice(0, 18000)}\nOriginal scene plan (data): ${JSON.stringify(original)}\n\nEdit narration for clarity and forward momentum. Cut generic intros, redundant setup, repeated facts and premature CTAs. Preserve intentional dramatic pauses and important context; never compress by inventing or distorting. Match revised visuals to the actual narrated action. Keep every scene exactly once in the same order, and keep at least one story scene before any closing CTA. For unchanged visuals, return their full original prompt. Keep each image prompt’s detailed production descriptors. Return videoPrompt only for video scenes. Motion must serve the scene: hold for important details and whenever the template requires static cameras, gentle motion for progression only when allowed. Cuts for new events, dissolves for elapsed time or a reflective transition.\nReturn JSON: {"notes":["specific editorial changes"],"scenes":[{"sceneId":"original id","narration":"edited narration","imagePrompt":"full prompt","videoPrompt":"only if video","purpose":"what new discovery, decision, consequence or payoff this scene adds","motion":"hold|slow-zoom-in|drift-left|drift-right","transition":"cut|dissolve"}]}` },
-  ] }, EditOutput, 'Story editing');
+    { role: 'user', content: `Scene identity contract: return EXACTLY ${original.scenes.length} scenes. Copy each original scene's id into sceneId using this exact ordered list: ${JSON.stringify(sceneIds)}. Never rename, renumber, merge, omit, duplicate or reorder scenes. A thumbnail is not an additional scene. Each video scene must keep its full videoPrompt.` },
+  ] }, editSchema, 'Story editing');
   if (result.scenes.length !== original.scenes.length || result.scenes.some((scene, i) => scene.sceneId !== original.scenes[i].id)) throw new Error('The retention edit changed or omitted scene identities. The original script was preserved.');
   const edited: ScenePlan = { ...original, thumbnailPrompt: options.plan.thumbnailConcept, scenes: original.scenes.map((scene, i) => {
     const edit = result.scenes[i];

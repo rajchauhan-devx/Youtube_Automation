@@ -3,7 +3,7 @@ import { normalizeScenePlanResponse } from '../services/scene-plan-format.js';
 import { currentWorkspace } from '../services/workspace.js';
 import { Router } from 'express';
 import { isImageOnlyTemplate, parseScenePlan, spokenText, validateScenePlan } from '../services/scene-plan.js';
-import { chat, formatGeminiModel } from '../services/gemini.js';
+import { chat, formatGeminiModel, getGeminiApiKey, geminiRequestTarget } from '../services/gemini.js';
 import { generateLongScenePlan, longGenerationDuration } from '../services/long-script-generation.js';
 import { repairVisualPrompts } from '../services/visual-prompt-repair.js';
 import { store } from '../services/store.js';
@@ -92,11 +92,7 @@ llmRouter.post('/editing-plan', async (req, res) => {
 });
 
 function getApiKey(req: any): string {
-  return (
-    (req.headers['x-api-key'] as string) ||
-    process.env.GEMINI_API_KEY ||
-    ''
-  );
+  return getGeminiApiKey(req.get('x-api-key'));
 }
 
 llmRouter.post('/chat', async (req, res) => {
@@ -441,13 +437,20 @@ llmRouter.post('/chat/stream', async (req, res) => {
       };
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${formattedModel}:streamGenerateContent?alt=sse&key=${apiKey}`;
+    let activeModel = formattedModel;
+    const streamFallbackList = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite', 'gemini-2.5-flash'].filter(m => m !== formattedModel);
+    let streamFallbackIndex = 0;
 
     let response!: Response;
     for (let attempt = 0; attempt < 4; attempt++) {
       controller.signal.throwIfAborted();
-      response = await fetch(url, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+      if (attempt > 0 && response && [429, 500, 502, 503].includes(response.status) && streamFallbackIndex < streamFallbackList.length) {
+        activeModel = streamFallbackList[streamFallbackIndex++];
+        console.warn(`[/llm/chat/stream] Model returned ${response.status} (overloaded). Switching to low-traffic stream model: ${activeModel}`);
+      }
+      const target = await geminiRequestTarget(activeModel, 'streamGenerateContent', apiKey || '');
+      response = await fetch(target.url, {
+        method: 'POST', headers: target.headers,
         body: JSON.stringify(payload), signal: controller.signal,
       });
       if (response.ok) break;
@@ -458,7 +461,7 @@ llmRouter.post('/chat/stream', async (req, res) => {
         res.end(); return;
       }
       const retrySeconds = Number(detail.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/)?.[1]);
-      const waitMs = Math.min(60000, retrySeconds ? (retrySeconds + 1) * 1000 : 3000 * 2 ** attempt);
+      const waitMs = Math.min(60000, retrySeconds ? (retrySeconds + 1) * 1000 : 2000 * 2 ** attempt);
       await new Promise<void>((resolve, reject) => {
         const abort = () => { clearTimeout(timer); reject(controller.signal.reason); };
         const timer = setTimeout(() => { controller.signal.removeEventListener('abort', abort); resolve(); }, waitMs);

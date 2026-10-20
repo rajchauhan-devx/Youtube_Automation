@@ -1,12 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { motionProject, assertDocumentaryVisuals, RENDERER_VERSION, type EditingProject } from '@tubeflow/editing-contracts';
+import { motionProject, assertDocumentaryVisuals, assertGraphicsReviewed, RENDERER_VERSION, type EditingProject } from '@tubeflow/editing-contracts';
 import { legacyMotion, legacySourceMatrix, targetOnScreen, targetMostlyVisible, intersects, type LegacyCamera } from '@tubeflow/video-composition';
-import { current, hash, objectHash, assetRecord } from './editing/repository.js';
+import { current, hash, objectHash, assetRecord, projectDir } from './editing/repository.js';
 import { scriptFingerprint } from './editing/projects.js';
 import { renderInWorker } from './editing/renderWorker.js';
-import { resolveInputPath, type RenderResult, type RenderOptions } from './video.js';
+import { resolveInputPath, canUseNvenc, videoEncoderFlags, type RenderResult, type RenderOptions } from './video.js';
 import { autoEditPlan } from './auto-edit.js';
 import { planTimeline, FPS } from './timeline.js';
 import type { ScenePlan, NarrationSync } from './scene-plan.js';
@@ -18,7 +18,8 @@ export function graphicsRenderRevision(script: { editingProjectId?: string }) {
   try {
     const project = motionProject(current(script.editingProjectId));
     if (!project.artifacts.some(artifact => artifact.enabled)) return undefined;
-    return { version: 1, rendererVersion: RENDERER_VERSION, projectId: project.id, revisionId: project.revisionId, hash: objectHash(project) };
+    const rendererVersion = RENDERER_VERSION;
+    return { version: 1, rendererVersion, projectId: project.id, revisionId: project.revisionId, hash: objectHash(project) };
   } catch {
     // Never advertise an older graphics render as current when its project is unavailable.
     return { version: 1, projectId: script.editingProjectId, unavailable: true };
@@ -33,6 +34,7 @@ export function savedGraphicsForRender(
   const project = motionProject(current(script.editingProjectId));
   if (project.scriptId !== scriptId) throw new Error('The saved motion graphics belong to another script. Generate graphics for this script.');
   assertDocumentaryVisuals(project);
+  assertGraphicsReviewed(project);
   if (!project.artifacts.some(artifact => artifact.enabled)) return undefined;
   if (!['ready', 'partial'].includes(project.status)) throw new Error('Finish generating motion graphics in Artifacts before rendering.');
   if (project.inputs.scriptHash !== scriptFingerprint(script)) throw new Error('The saved motion graphics use older media or narration. Generate a new revision in Artifacts before rendering.');
@@ -96,24 +98,35 @@ export async function compositeSavedGraphics(
   result: RenderResult, project: EditingProject, signal: AbortSignal,
   progress: (stage: string, percent: number) => void,
   legacyCameras?: Record<string, LegacyCamera>,
+  finalCaptionPath?: string,
 ) {
   if (Math.abs(result.duration - project.inputs.durationFrames / project.inputs.fps) > 2 / project.inputs.fps) throw new Error('Motion graphics timing differs from the narration. Generate graphics again before rendering.');
   signal.throwIfAborted();
   const outputDir = path.resolve(path.dirname(result.outputPath));
   const work = fs.mkdtempSync(path.join(outputDir, 'graphics-'));
-  const overlay = path.join(work, 'overlay.webm');
+  const cache = path.join(projectDir(project.id), 'overlay-cache');
+  fs.mkdirSync(cache, { recursive: true });
+  const cacheKey = objectHash({ project, legacyCameras, rendererVersion: RENDERER_VERSION, captionLayerVersion: 2 });
+  const overlay = path.join(cache, `${cacheKey}.webm`);
   const combined = path.join(work, 'combined.partial.mp4');
   try {
-    progress('Rendering saved motion graphics', 66);
-    await renderInWorker(project, randomUUID(), signal, (done, total) => progress('Rendering saved motion graphics', 66 + Math.round(28 * done / Math.max(1, total))), overlay, legacyCameras);
-    signal.throwIfAborted();
+    if (!fs.existsSync(overlay)) {
+      progress('Rendering saved motion graphics', 66);
+      const pending = path.join(cache, `${cacheKey}-${randomUUID()}.partial.webm`);
+      try {
+        await renderInWorker(project, randomUUID(), signal, (done, total) => progress('Rendering saved motion graphics', 66 + Math.round(28 * done / Math.max(1, total))), pending, legacyCameras);
+        signal.throwIfAborted(); fs.renameSync(pending, overlay);
+      } finally { fs.rmSync(pending, { force: true }); }
+    } else progress('Reusing saved motion graphics', 94);
+    if (signal.aborted) throw new Error('Cancelled');
     progress('Combining video and motion graphics', 95);
+    if (finalCaptionPath) fs.copyFileSync(finalCaptionPath, path.join(work, 'captions.ass'));
     await runMedia('ffmpeg', [
       '-v', 'error', '-y', '-reinit_filter', '0', '-i', result.outputPath, '-c:v', 'libvpx', '-i', overlay,
-      '-filter_complex', '[0:v]setpts=PTS-STARTPTS[base];[1:v]setpts=PTS-STARTPTS[graphics];[base][graphics]overlay=eof_action=pass:repeatlast=0:format=auto,format=yuv420p[v]',
-      '-map', '[v]', '-map', '0:a', '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-c:a', 'copy',
+      '-filter_complex', savedGraphicsFilter(Boolean(finalCaptionPath)),
+      '-map', '[v]', '-map', '0:a', ...videoEncoderFlags(await canUseNvenc(), 18), '-c:a', 'copy',
       '-t', String(result.duration), '-movflags', '+faststart', combined,
-    ], signal);
+    ], signal, work);
     signal.throwIfAborted();
     const probe = JSON.parse(await runMedia('ffprobe', ['-v', 'error', '-show_streams', '-of', 'json', combined], signal));
     for (const type of ['video', 'audio']) {
@@ -131,4 +144,8 @@ export async function compositeSavedGraphics(
       fs.rmSync(work, { recursive: true, force: true });
     }
   }
+}
+
+export function savedGraphicsFilter(captions: boolean) {
+  return `[0:v]setpts=PTS-STARTPTS[base];[1:v]setpts=PTS-STARTPTS[graphics];[base][graphics]overlay=eof_action=pass:repeatlast=0:format=auto${captions ? ',ass=captions.ass:shaping=complex' : ''},format=yuv420p[v]`;
 }

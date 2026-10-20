@@ -22,6 +22,9 @@ export interface AutoPilotLog {
 }
 
 export interface AutoPilotState {
+  scopeKey?: string;
+  instructions?: string;
+  retentionBrief?: string;
   isActive: boolean;
   isPaused: boolean;
   isMinimized: boolean;

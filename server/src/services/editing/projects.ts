@@ -211,7 +211,7 @@ async function createProjectSnapshot(value: unknown, publishNew = true) {
         request.settings.maxProviderCalls,
         editingConfig().maxCalls,
       ),
-      maxGeneratedAssets: 0,
+      maxGeneratedAssets: Math.min(request.settings.maxGeneratedAssets, 4),
     },
     style: {
       id: "story-style",

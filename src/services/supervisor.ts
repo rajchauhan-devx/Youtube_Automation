@@ -79,6 +79,19 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
 
   await ctx.checkPauseOrAbort();
 
+  // A scene edit can race with a queued keyframe request. Reload the actual
+  // prerequisites before the stage retries, without asking an LLM to guess.
+  if (ctx.stage === 'generate_images' && /Choose a valid scene with its current extracted prompt|Scene changed during (?:reference frame )?generation/i.test(errMsg)) {
+    const response = await ctx.fetch(`/api/scripts/${encodeURIComponent(ctx.scriptId)}`);
+    if (!response.ok) return { healed: false, error: 'Could not reload the current scenes for image recovery.' };
+    const script = await response.json();
+    if (!script.scenePlan?.scenes?.length && !script.imagePrompts?.length)
+      return { healed: false, error: 'The saved production has no extracted visual prompts.' };
+    ctx.patchScript(ctx.scriptId, script);
+    ctx.addLog(ctx.stage, '[SUPERVISOR] Reloaded the saved scenes and prompts. Retrying missing visuals with the current production state.', 'info');
+    return { healed: true, actionTaken: 'Reloaded current scene prompts and saved visuals' };
+  }
+
   // -------------------------------------------------------------------------
   // HEALING RULE 1: Synchronized Acoustic Narration Missing or Outdated
   // -------------------------------------------------------------------------
@@ -284,7 +297,48 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
   }
 
   // -------------------------------------------------------------------------
-  // HEALING RULE 6: Cognitive LLM Diagnostic Fallback for Unforeseen Issues
+  // HEALING RULE 6: Model Overloaded or Rate Limited (HTTP 503, 429, UNAVAILABLE)
+  // -------------------------------------------------------------------------
+  if (/503|overloaded|temporarily overloaded|model is busy|UNAVAILABLE|rate limit|quota|429/i.test(errMsg)) {
+    const fallbackList = ['gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite'];
+    const currentModel = ctx.autoPilotSettings?.graphics?.model || 'gemini-3.1-flash-lite';
+    const nextModel = fallbackList.find(m => m !== currentModel) || 'gemini-3.5-flash-lite';
+    ctx.addLog(ctx.stage, `[SUPERVISOR] 🛠️ Healing Action: Model overloaded (HTTP 503/429). Switching pipeline AI model to low-traffic model (${nextModel})...`, 'gemini');
+    ctx.setStatus(`Gemini Supervisor: Switching to low-traffic model (${nextModel})...`);
+
+    try {
+      if (ctx.autoPilotSettings?.graphics) {
+        ctx.autoPilotSettings.graphics.model = nextModel;
+      }
+      ctx.patchScript(ctx.scriptId, { model: nextModel });
+      await ctx.persistScript(ctx.scriptId, { model: nextModel });
+      ctx.addLog(ctx.stage, `[SUPERVISOR] ✅ Pipeline AI model switched to ${nextModel}. Retrying stage...`, 'success');
+      await new Promise((r) => setTimeout(r, 1000));
+      return { healed: true, actionTaken: `Switched model to ${nextModel}` };
+    } catch (healErr) {
+      console.error('[Supervisor] Model switch healing failed:', healErr);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // HEALING RULE 7: Connection Interruption or Stale JSON Body
+  // -------------------------------------------------------------------------
+  if (/Unexpected end of JSON input|Failed to execute 'json'|ECONNREFUSED|Failed to fetch|NetworkError/i.test(errMsg)) {
+    ctx.addLog(ctx.stage, '[SUPERVISOR] 🛠️ Healing Action: Backend connection temporarily interrupted. Waiting for server to stabilize...', 'gemini');
+    ctx.setStatus('Gemini Supervisor: Re-establishing backend connection...');
+    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      const health = await ctx.fetch('/api/supervisor/health');
+      if (health.ok) {
+        ctx.addLog(ctx.stage, '[SUPERVISOR] ✅ Backend server is online and healthy. Resuming stage...', 'success');
+        return { healed: true, actionTaken: 'Backend connection restored' };
+      }
+    } catch {}
+    return { healed: true, actionTaken: 'Re-synchronized server state' };
+  }
+
+  // -------------------------------------------------------------------------
+  // HEALING RULE 8: Cognitive LLM Diagnostic Fallback for Unforeseen Issues
   // -------------------------------------------------------------------------
   try {
     ctx.addLog(ctx.stage, '[SUPERVISOR] 🤖 Consulting Gemini LLM Supervisor for cognitive diagnostic analysis...', 'info');
@@ -315,6 +369,9 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
       }
       if (diagData.recoveryAction === 'restart_tts') {
         return diagnoseAndHealError({ ...ctx, error: 'Chatterbox model loading' });
+      }
+      if (diagData.recoveryAction === 'switch_to_low_traffic_model') {
+        return diagnoseAndHealError({ ...ctx, error: '503 The selected model is temporarily overloaded' });
       }
       // If general retry recommended
       return { healed: true, actionTaken: `Cognitive healing: ${diagData.details || 'Retry after state synchronization'}` };

@@ -20,8 +20,12 @@ export function getAdcFilePath(): string {
   if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     return path.resolve(process.env.GOOGLE_APPLICATION_CREDENTIALS);
   }
-  const configHome = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config');
-  return path.join(configHome, 'gcloud', 'application_default_credentials.json');
+  const configDir = process.env.CLOUDSDK_CONFIG || (
+    process.platform === 'win32' && process.env.APPDATA
+      ? path.join(process.env.APPDATA, 'gcloud')
+      : path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'gcloud')
+  );
+  return path.join(configDir, 'application_default_credentials.json');
 }
 
 export function isAdcConfigured(): boolean {

@@ -11,6 +11,8 @@ export function renderRevision(scriptId: string): string | undefined {
     presenter: script.presenter,
     autoPilotSettings: script.autoPilotSettings,
     graphics: graphicsRenderRevision(script),
+    graphicsCompositeVersion: script.editingProjectId ? 3 : undefined,
+    captionShapingVersion: 1,
     enableSubtitles: script.enableSubtitles,
     retention: script.retentionPlan ? { directions: script.retentionEdit?.sceneDirections, polishAudio: true } : undefined,
     presenterLayoutVersion: script.presenter?.enabled ? 2 : undefined,

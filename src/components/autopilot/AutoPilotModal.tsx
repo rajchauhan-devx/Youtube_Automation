@@ -98,7 +98,7 @@ export function AutoPilotModal({
       <div className="studio-card flex h-[92vh] max-h-[840px] w-full max-w-5xl flex-col overflow-hidden border-borderSoft shadow-2xl">
         {/* Top Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-borderSoft bg-surface/90 px-5 py-4">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/30 bg-accent/15 text-accent shadow-glow">
               <Sparkles className="h-5 w-5" />
             </div>
@@ -125,10 +125,10 @@ export function AutoPilotModal({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
             {state.stage === 'error' && onRetryProduction && (
               <button type="button" onClick={onRetryProduction} className="studio-btn-ghost !px-3 !py-1.5 text-xs">
-                <Play className="h-3.5 w-3.5" /> Continue Production
+                <Play className="h-3.5 w-3.5" /> Resume
               </button>
             )}
             {state.stage !== 'completed' && state.stage !== 'error' && (
@@ -206,7 +206,7 @@ export function AutoPilotModal({
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold leading-tight">{s.label}</p>
                     <p className="truncate text-[10px] text-muted">
-                      {isPast ? 'Done' : isCurrent ? 'Working…' : 'Waiting'}
+                      {isPast ? 'Done' : state.stage === 'error' && idx === state.stageIndex ? 'Needs attention' : isCurrent ? 'Working…' : 'Waiting'}
                     </p>
                   </div>
                 </div>
@@ -216,15 +216,18 @@ export function AutoPilotModal({
 
           {/* Progress bar */}
           <div className="mt-3.5 space-y-1.5">
+            {state.stage === 'error' && onRetryProduction && (
+              <p className="text-xs text-amber-200">Your progress is saved. Resolve the issue, then select Resume to retry this stage.</p>
+            )}
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium text-white flex items-center gap-2">
+              <span className="min-w-0 flex-1 font-medium text-white flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
                   <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 animate-ping ${state.stage === 'completed' ? 'bg-emerald-400' : 'bg-accent'}`} />
                   <span className={`relative inline-flex h-2 w-2 rounded-full ${state.stage === 'completed' ? 'bg-emerald-500' : 'bg-accent'}`} />
                 </span>
-                {state.statusMessage}
+                <span className="line-clamp-3 min-w-0 break-words">{state.statusMessage}</span>
               </span>
-              <span className="font-mono text-accent font-bold">{Math.round(state.progressPercent)}%</span>
+              <span className="shrink-0 font-mono text-accent font-bold">{Math.round(state.progressPercent)}%</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-white/5 border border-white/5">
               <div

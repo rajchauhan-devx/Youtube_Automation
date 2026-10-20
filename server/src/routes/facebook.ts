@@ -6,7 +6,7 @@ import { currentWorkspace, outputDir } from '../services/workspace.js';
 import { safeSegment, containedFile } from '../services/paths.js';
 import { store } from '../services/store.js';
 import { isCurrentRender } from '../services/render-revision.js';
-import { chat } from '../services/gemini.js';
+import { chat, getGeminiApiKey } from '../services/gemini.js';
 import {
   FACEBOOK_REDIRECT_URI,
   META_APP_ORIGIN,
@@ -31,7 +31,7 @@ import {
 export const facebookRouter = Router();
 
 function getApiKey(req: import('express').Request): string {
-  return req.get('x-api-key') || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '';
+  return getGeminiApiKey(req.get('x-api-key'));
 }
 
 // --- Connection status (mirrors /api/youtube/status) ---

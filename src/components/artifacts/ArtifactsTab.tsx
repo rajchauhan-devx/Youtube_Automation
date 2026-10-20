@@ -120,7 +120,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
       const inputs = { scriptId: script.id, audioFilename: audio, language: narration.language,
         imageIndexes: (script.generatedImages || []).filter(i => i.status === 'done' && i.url).map(i => i.index),
         aspect: profile === 'shorts' ? '9:16' : '16:9', fps,
-        settings: { stylePreference: style, density, documentary, treatment, visualReview, maxProviderCalls: 40, maxGeneratedAssets: 0, ...(model ? { aiModel: model } : {}) } };
+        settings: { stylePreference: style, density, documentary, treatment, visualReview, maxProviderCalls: 40, maxGeneratedAssets: 3, ...(model ? { aiModel: model } : {}) } };
       const reuse = mode === 'captions' && p && data && !data.stale && p.revisionId === data.currentRevisionId &&
         p.inputs.audioFilename === audio && p.inputs.fps === fps && p.inputs.width === (profile === 'shorts' ? 1080 : 1920) &&
         p.inputs.imageAssets.map(i => i.promptIndex).join(',') === inputs.imageIndexes.join(',');
@@ -142,7 +142,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
     <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-surface to-surface2 p-6 shadow-card backdrop-blur-md">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Motion Studio</p>
       <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">{editor ? 'Preview & Export' : 'Motion Artifacts'}</h2>
-      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">Image-led documentary compositions, verified detail highlights, and rendered placement review.</p>
+      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">Directed visual sequences, separate illustration assets, verified source details, and rendered motion review.</p>
       <div className="mt-4 flex flex-wrap gap-2">{Object.values(graphicNames).map(name => <span key={name} className="rounded-lg border border-border bg-surface2/60 px-3 py-1 text-xs font-medium text-gray-300">{name}</span>)}</div>
     </div>
     {state.error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-950/30 p-3.5 text-sm text-red-200">{state.error}</div>}
@@ -162,10 +162,10 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         <option value="auto">Automatic · combine treatments</option><option value="archival">Archival collage</option><option value="cinematic">Cinematic images</option><option value="map">Map focus · requires a source map</option>
       </select></label>
       <div className="space-y-3 self-center text-xs text-gray-300">
-        <label className="flex items-center gap-2"><input aria-label="Image-led documentary visuals" type="checkbox" checked={documentary} onChange={e => setDocumentary(e.target.checked)} />Image-led documentary visuals</label>
+        <label className="flex items-center gap-2"><input aria-label="Image-led documentary visuals" type="checkbox" checked={documentary} onChange={e => setDocumentary(e.target.checked)} />Directed visual sequences</label>
         <label className="flex items-center gap-2"><input aria-label="Review rendered placement" type="checkbox" checked={visualReview} onChange={e => setVisualReview(e.target.checked)} />AI checks rendered placement and repairs layout</label>
       </div>
-      <label className="text-xs font-semibold text-gray-300 md:col-span-2">Direction <span className="text-faint font-normal">(optional)</span><input className={input} value={style} maxLength={2000} onChange={e => setStyle(e.target.value)} placeholder="Layer related photographs; magnify details and highlight source passages" /></label>
+      <label className="text-xs font-semibold text-gray-300 md:col-span-2">Direction <span className="text-faint font-normal">(optional)</span><input className={input} value={style} maxLength={2000} onChange={e => setStyle(e.target.value)} placeholder="Keep footage full-bleed; explain scale and mechanisms with purposeful sequences" /></label>
       {!!state.capabilities?.missing.length && <div className="text-xs text-amber-300 md:col-span-2">{state.capabilities.missing.join(' ')}</div>}
       <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-2">
         <button className={button} disabled={hasDraft || busy || !!job || !state.capabilities?.ready || !audio || !script.generatedImages?.length} onClick={() => void generate('graphics')}>Generate Motion Graphics</button>
@@ -176,7 +176,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
           state.setSelectedRevision(''); state.setData(next); setSelected(''); setFrame(0);
         })}>Clear Graphics</button>}
       </div>
-      <p className="text-[11px] leading-relaxed text-muted md:col-span-2">The AI reuses your scene images for collages and detail inserts. Map focus needs an actual map image. Placement review samples rendered frames; review the full motion before export.</p>
+      <p className="text-[11px] leading-relaxed text-muted md:col-span-2">The director builds selected explanatory sequences and keeps ordinary footage clean. Up to three separate illustration assets can be generated with the configured image model. Text and timing stay editable; generated illustrations are labeled.</p>
     </div>}
     {!!data?.legacyArtifactCount && <p className="rounded-lg border border-amber-800 p-3 text-sm text-amber-200">This saved revision contains {data.legacyArtifactCount} retired graphics. They are hidden from preview and new exports. Generate motion graphics to replace them; original media and revision history remain available.</p>}
     {job && <div role="status" className="flex items-center justify-between rounded-lg border border-amber-700/50 p-3 text-sm"><span>{job.stage}{job.total ? ` · ${job.completed}/${job.total}` : ''}</span><button className="text-red-300" disabled={job.state === 'cancel_requested'} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${job.id}/cancel`, {}); await state.refresh(); })}>{job.state === 'cancel_requested' ? 'Cancelling…' : 'Cancel'}</button></div>}
@@ -238,6 +238,9 @@ type GraphicPatch = { enabled?: boolean; graphic?: MotionGraphicSpec; startFrame
 function GraphicCard({ artifact: a, value, sceneStart, sceneEnd, fps, width, height, busy, selected, onSelect, onChange, onSave, onRegenerate }: { artifact: ArtifactComposition; value: ArtifactComposition; sceneStart: number; sceneEnd: number; fps: number; width: number; height: number; busy: boolean; selected: boolean; onSelect: () => void; onChange: (value: ArtifactComposition) => void; onSave: (patch: GraphicPatch) => Promise<unknown>; onRegenerate: (instruction: string) => Promise<unknown> }) {
   const graphic = value.graphic!, start = value.startFrame / fps, end = value.endFrame / fps;
   const setGraphic = (next: MotionGraphicSpec) => onChange({ ...value, graphic: next });
+  const editorial = graphic.composition?.editorial;
+  const setEditorial = (patch: Partial<NonNullable<typeof editorial>>) => editorial && setGraphic({ ...graphic,
+    composition: { ...graphic.composition!, editorial: { ...editorial, ...patch } } });
   const [instruction, setInstruction] = useState('');
   const dirty = JSON.stringify(graphic) !== JSON.stringify(a.graphic) || Math.round(start * fps) !== a.startFrame || Math.round(end * fps) !== a.endFrame;
   const position = ['top', 'bottom', 'right', 'center'].find(value => JSON.stringify(cardBounds(graphic.kind, width, height, value)) === JSON.stringify(graphic.bounds)) || 'custom';
@@ -247,12 +250,22 @@ function GraphicCard({ artifact: a, value, sceneStart, sceneEnd, fps, width, hei
     <p className={`text-xs ${a.visualReview?.status === 'passed' ? 'text-emerald-300' : 'text-amber-200'}`} title={a.visualReview?.reason}>
       {a.visualReview?.status === 'passed' ? `Placement checked · ${a.visualReview.frames.length} frames` : a.visualReview?.status === 'rejected' ? 'Placement rejected · hidden' : 'Placement has not passed review'}
     </p>
-    {graphic.composition && <p className="text-xs text-gray-400">{graphic.composition.treatment} · {graphic.composition.layers.length} image layers</p>}
+    {graphic.composition && <p className="text-xs text-gray-400">{editorial ? `Directed ${editorial.template} sequence` : `${graphic.composition.treatment} · ${graphic.composition.layers.length} image layers`}</p>}
+    {editorial && <div className="space-y-3 rounded-lg border border-border p-3">
+      <label className="block text-xs text-gray-400">Headline<input aria-label="Sequence headline" className={input} maxLength={64} value={editorial.headline} disabled={busy} onChange={e => setEditorial({ headline: e.target.value })} /></label>
+      <label className="block text-xs text-gray-400">Context<input aria-label="Sequence context" className={input} maxLength={64} value={editorial.kicker} disabled={busy} onChange={e => setEditorial({ kicker: e.target.value })} /></label>
+      {editorial.facts.map((fact, i) => <div key={i} className="grid grid-cols-2 gap-2">
+        <label className="text-xs text-gray-400">Value {i + 1}<input aria-label={`Sequence value ${i + 1}`} className={input} maxLength={24} value={fact.value} disabled={busy} onChange={e => setEditorial({ facts: editorial.facts.map((f, n) => n === i ? { ...f, value: e.target.value } : f) })} /></label>
+        <label className="text-xs text-gray-400">Label {i + 1}<input aria-label={`Sequence label ${i + 1}`} className={input} maxLength={48} value={fact.label} disabled={busy} onChange={e => setEditorial({ facts: editorial.facts.map((f, n) => n === i ? { ...f, label: e.target.value } : f) })} /></label>
+      </div>)}
+      <label className="block text-xs text-gray-400">Illustration note<input aria-label="Sequence illustration note" className={input} maxLength={80} value={editorial.disclosure} disabled={busy} onChange={e => setEditorial({ disclosure: e.target.value })} /></label>
+      <p className="text-[11px] text-muted">Text is separate from image assets. Saving changes requires another rendered review.</p>
+    </div>}
     <label className="block text-xs text-gray-400">{graphic.composition ? 'Shot name' : 'Title'}<input aria-label="Graphic title" className={input} maxLength={64} value={graphic.title} disabled={busy} onChange={e => setGraphic({ ...graphic, title: e.target.value })} /></label>
     <label className="block text-xs text-gray-400">{graphic.composition ? 'Editor note' : 'Detail'}<textarea aria-label="Graphic detail" className={input} rows={2} maxLength={120} value={graphic.detail} disabled={busy} onChange={e => setGraphic({ ...graphic, detail: e.target.value })} /></label>
     <div className="grid grid-cols-2 gap-2"><label className="text-xs text-gray-400">Start (seconds)<input aria-label="Graphic start" className={input} type="number" min={sceneStart / fps} max={(value.endFrame - 1) / fps} step={1 / fps} value={Number(start.toFixed(3))} disabled={busy} onChange={e => onChange({ ...value, startFrame: Math.max(sceneStart, Math.min(value.endFrame - 1, Math.round(Number(e.target.value) * fps))) })} /></label><label className="text-xs text-gray-400">End (seconds)<input aria-label="Graphic end" className={input} type="number" min={(value.startFrame + 1) / fps} max={sceneEnd / fps} step={1 / fps} value={Number(end.toFixed(3))} disabled={busy} onChange={e => onChange({ ...value, endFrame: Math.min(sceneEnd, Math.max(value.startFrame + 1, Math.round(Number(e.target.value) * fps))) })} /></label></div>
-    <label className="block text-xs text-gray-400">Graphic position<select aria-label="Graphic position" className={input} value={position} disabled={busy} onChange={e => setGraphic({ ...graphic, bounds: cardBounds(graphic.kind, width, height, e.target.value) })}><option value="custom" disabled>Custom position</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="right">Right</option><option value="center">Center</option></select></label>
-    {graphic.composition && <div className="space-y-3 rounded-lg border border-border p-3">
+    {!editorial && !graphic.composition?.diagram && <label className="block text-xs text-gray-400">Graphic position<select aria-label="Graphic position" className={input} value={position} disabled={busy} onChange={e => setGraphic({ ...graphic, bounds: cardBounds(graphic.kind, width, height, e.target.value) })}><option value="custom" disabled>Custom position</option><option value="top">Top</option><option value="bottom">Bottom</option><option value="right">Right</option><option value="center">Center</option></select></label>}
+    {graphic.composition && !editorial && !graphic.composition.diagram && <div className="space-y-3 rounded-lg border border-border p-3">
       <p className="text-xs font-semibold text-sky-200">Image movement</p>
       {graphic.composition.layers.length === 2 && <div className="space-y-2"><label className="block text-xs text-gray-400">Image comparison<select aria-label="Image comparison" className={input} disabled={busy} value={graphic.composition.comparison?.mode || 'none'} onChange={event => {
         const comparison = event.target.value === 'none' ? undefined : { mode: event.target.value as 'split' | 'wipe', beforeLabel: 'Before', afterLabel: 'After' };

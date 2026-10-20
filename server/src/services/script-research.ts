@@ -1,4 +1,4 @@
-import { chat, formatGeminiModel, type ChatMessage } from './gemini.js';
+import { chat, formatGeminiModel, geminiRequestTarget, type ChatMessage } from './gemini.js';
 import { isLocalModel } from './local-models.js';
 import { streamLocal } from './ollama.js';
 import { isOpenCodeModel } from './opencode-models.js';
@@ -171,7 +171,7 @@ export async function runGeminiGroundedResearch(
     }
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const target = await geminiRequestTarget(model, 'generateContent', apiKey);
   const basePayload: Record<string, unknown> = {
     contents,
     ...(systemInstruction ? { system_instruction: { parts: [{ text: systemInstruction }] } } : {}),
@@ -183,9 +183,9 @@ export async function runGeminiGroundedResearch(
 
   // Try with Google Search grounding enabled first so Gemini can pull live web facts when supported.
   try {
-    const groundedRes = await fetch(url, {
+    const groundedRes = await fetch(target.url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: target.headers,
       body: JSON.stringify({ ...basePayload, tools: [{ google_search: {} }] }),
       signal,
     });

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "1fdc3020f85209577c94abf2f304d5f83265ba232c78f9561562cb445f8829b9",
+  "scriptId": "shorts_images_videos",
+  "videoFilename": "final_cab5f641-00ea-4e89-aae0-c2a280322817.mp4",
+  "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+  "pid": 7376,
+  "owner": "f4ce5733-ecbb-4677-b1b6-1cad6dae30bd",
+  "status": "completed",
+  "startedAt": "2026-10-20T04:47:21.848Z",
+  "updatedAt": "2026-10-20T04:47:37.078Z",
+  "result": {
+    "accountId": "default",
+    "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+    "success": true,
+    "topicHistorySaved": true,
+    "videoId": "uaSY6e7_EdA",
+    "videoUrl": "https://youtu.be/uaSY6e7_EdA",
+    "title": "The Mystery of Delhi's Rust-Proof Iron Pillar | Ancient Metallurgy",
+    "privacyStatus": "private",
+    "scheduled": false,
+    "uploadedAt": "2026-10-20T04:47:37.038Z"
+  }
+}

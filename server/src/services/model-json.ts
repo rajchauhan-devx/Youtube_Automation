@@ -1,4 +1,4 @@
-import { chat, type ChatMessage } from './gemini.js';
+import { chat, getGeminiApiKey, type ChatMessage } from './gemini.js';
 import { isLocalModel } from './local-models.js';
 import { isOpenCodeModel } from './opencode-models.js';
 import { streamLocal } from './ollama.js';
@@ -12,7 +12,7 @@ export function modelCredential(model: string, req: Request): string {
   const provider = reasoningProvider(model);
   return (provider === 'xkiro' ? process.env.XKIRO_API_KEY : provider === 'groq' ? process.env.GROQ_API_KEY
     : provider === 'openrouter' ? process.env.OPENROUTER_API_KEY : isOpenCodeModel(model) ? process.env.OPENCODE_API_KEY
-    : req.get('x-api-key') || process.env.GEMINI_API_KEY) || '';
+    : getGeminiApiKey(req.get('x-api-key'))) || '';
 }
 
 export async function modelJson(options: {

@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "owner": "c849eb1c-f425-4bcc-833f-3346a83a68ba",
+  "scriptId": "shorts_images_videos",
+  "status": "done",
+  "progress": 100,
+  "request": {
+    "scriptId": "shorts_images_videos",
+    "imagePaths": [
+      "import_0_e73506b7-0625-4523-bd5d-a80078bb7b90.mp4",
+      "image-01-1792506198902.png",
+      "import_2_6fc2eca0-7d30-41c8-9147-057df6ada65d.mp4",
+      "image-03-1792506325610.png",
+      "import_4_8d976743-20a0-4bb6-8a0b-af60cc1abf7f.mp4",
+      "image-05-1792506443950.png",
+      "import_6_bb4fba9b-2326-40cf-821f-c52b7a644000.mp4",
+      "image-07-1792506558020.png",
+      "import_8_2189bd29-6060-4113-9036-4f51cdef562a.mp4",
+      "image-09-1792506664145.png"
+    ],
+    "audioPath": "narration_hi_00d67f1b-59ae-4ca6-adad-88b34cd7d0d1.wav",
+    "narration": "बिना किसी आधुनिक क्रेन के, हज़ार साल पहले तंजावुर के मंदिर पर 80 टन का पत्थर कैसे पहुँचा?\n\n11वीं सदी में सम्राट राजा राजा चोल प्रथम ने बृहदीश्वर मंदिर के निर्माण का संकल्प लिया।\n\nमंदिर के 216 फीट ऊंचे शिखर के शीर्ष पर 80,000 किलो का विशालकाय ग्रेनाइट ब्लॉक स्थापित है।\n\nलेकिन चुनौती यह थी कि तंजावुर के आसपास 50 किलोमीटर तक ग्रेनाइट की कोई खदान ही नहीं थी।\n\nकारीगरों ने दूर से पत्थर तराशा, पर 80 टन के शिलाखंड को इतनी ऊंचाई तक चढ़ाना एक इंजीनियरिंग चमत्कार था।\n\nइसके हल के लिए सारपल्लम गांव से मंदिर के शिखर तक 6 किलोमीटर लंबा मिट्टी का रैंप तैयार किया गया।\n\nसैकड़ों प्रशिक्षित हाथियों, लकड़ी के रोलर्स और रस्सियों के सहारे इस भारी पत्थर को धीरे-धीरे ऊपर ढोला गया।\n\nइतना ही नहीं, पूरा मंदिर बिना सीमेंट या गारे के, केवल इंटरलॉकिंग पत्थरों की तकनीक से बनाया गया।\n\nइसी सटीक जोड़ तकनीक के कारण यह मंदिर एक हज़ार सालों से हर प्राकृतिक आपदा और भूकंप में अडिग खड़ा है।\n\nयह भव्य शिखर चोल स्थापत्य कला और प्राचीन भारतीय इंजीनियरिंग की अटूट क्षमता का अमर प्रतीक है।",
+    "duration": 60,
+    "resolution": {
+      "width": 1080,
+      "height": 1920
+    },
+    "zoomFactor": 1.08,
+    "transitionDuration": 0.2,
+    "sceneAnalysis": {
+      "transitions": [
+        "none",
+        "none",
+        "none",
+        "dissolve",
+        "none",
+        "none",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve"
+      ],
+      "effects": [
+        "slow-zoom-in",
+        "hold",
+        "slow-zoom-in",
+        "drift-left",
+        "drift-right",
+        "hold",
+        "slow-zoom-in",
+        "hold",
+        "slow-zoom-in",
+        "hold"
+      ],
+      "timings": [],
+      "mood": "cinematic",
+      "colorGrade": "warm-vintage"
+    },
+    "enableSubtitles": true,
+    "bgmTrack": "cinematic",
+    "bgmVolume": 0.1,
+    "ttsVolume": 1,
+    "colorGrade": "none",
+    "enableVignette": false,
+    "enableSfx": false,
+    "presenter": {
+      "enabled": false
+    }
+  },
+  "revision": "5aad3b41c4e7a6290afd50fbfb3486e3ba914586c69a789daf5adc796c535424",
+  "stage": "Combining video and motion graphics",
+  "updatedAt": "2026-10-20T17:28:31.342Z",
+  "outputFilename": "final_22437e62-d22d-4fff-97d8-f732a080dc3c.mp4"
+}

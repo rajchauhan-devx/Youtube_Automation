@@ -110,6 +110,13 @@ test('transparent overlay keeps footage effects, preserves graphics colors and c
   assert.equal(outputFiles().some(f => f.startsWith('graphics-') || f.endsWith('.partial.mp4')), false);
 });
 
+test('a completed overlay is reused when only the final composite changes', async () => {
+  const result = await renderVideo(options), stages = [];
+  await compositeSavedGraphics(result, snapshot(), new AbortController().signal, stage => stages.push(stage));
+  assert.ok(stages.includes('Reusing saved motion graphics'));
+  assert.ok(!stages.includes('Rendering saved motion graphics'));
+});
+
 test('cancelling graphics rendering leaves no temporary files or modified base video', async () => {
   const result = await renderVideo(options);
   const originalHash = hash(fs.readFileSync(result.outputPath));
@@ -225,6 +232,38 @@ test('Start Video Generation publishes the combined MP4 and graphics revisions i
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
   }
+});
+
+test('caption-only projects render the saved motion-caption overlay without duplicate legacy captions', async () => {
+  const next = nextRevision(p);
+  next.artifacts = next.artifacts.filter(a => a.graphic?.kind === 'caption');
+  assert.ok(next.artifacts.length);
+  next.artifacts.forEach(a => { a.enabled = true; }); next.status = 'ready';
+  publish(next, p.revisionId); p = next;
+  store.add('scripts', { ...script, editingProjectId: p.id });
+  const app = express(); app.use(express.json()); app.use('/api/render', renderRouter);
+  const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const response = await fetch(`${origin}/api/render/start`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...options, resolution: { width: 1080, height: 1920 }, enableSubtitles: true, narration: 'DO NOT BURN A DUPLICATE CAPTION' }) });
+    assert.equal(response.status, 200, await response.clone().text());
+    let status;
+    for (const end = Date.now() + 180000; Date.now() < end;) {
+      status = await (await fetch(`${origin}/api/render/status/${scriptId}`)).json();
+      if (status.status !== 'running') break;
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    assert.equal(status.status, 'done', JSON.stringify(status));
+    const frame = pixels(path.join(getOutputDir(scriptId), status.videos[0].filename), 1.5);
+    let caption = 0;
+    for (let y = 1550; y < 1800; y++) for (let x = 65; x < 1000; x++) {
+      const i = (y * 1080 + x) * 3;
+      if (frame[i] > 200 && frame[i + 1] > 200 && frame[i + 2] > 200) caption++;
+    }
+    assert.ok(caption > 500, 'caption-only output must include the saved native caption');
+    assert.equal(fs.readdirSync(media).some(f => f.endsWith('.ass')), false);
+  } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
 
 test.after(() => {

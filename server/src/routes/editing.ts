@@ -61,6 +61,8 @@ const compositionEvidence = (composition?: DocumentarySpec) => composition && ({
   version: composition.version, treatment: composition.treatment, layout: composition.layout, emphasis: composition.emphasis,
   layers: composition.layers.map(layer => ({ id: layer.id, assetId: layer.assetId, bounds: layer.bounds, crop: layer.crop,
     fit: layer.fit, delay: layer.delay, rotation: layer.rotation })),
+  editorial: composition.editorial && { template: composition.editorial.template, subjectAssetId: composition.editorial.subjectAssetId, direction: composition.editorial.direction },
+  diagram: composition.diagram && { sourceCrop: composition.diagram.sourceCrop, anchors: composition.diagram.labels.map(label => label.anchor) },
 });
 const route =
   (fn: (req: Request, res: Response) => Promise<unknown> | unknown) =>
@@ -169,7 +171,7 @@ editingRouter.get(
       alignment: 'Saved narration scene timing; estimated timing when unavailable', grounding: true,
       artifactGeneration: false, renderedVisionReview: true, documentaryLayers: true,
       documentaryTreatments: ['archival', 'cinematic', 'map'], renderer: 'remotion', graphics: Object.keys(graphicNames),
-      limits: { maxProviderCalls: c.maxCalls, maxGeneratedAssets: 0 } });
+      limits: { maxProviderCalls: c.maxCalls, maxGeneratedAssets: 4 } });
   }),
 );
 editingRouter.get('/styles', route((_req, res) => res.json({ styles: listMotionStyles() })));

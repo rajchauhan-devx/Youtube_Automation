@@ -52,13 +52,17 @@ function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountMo
 
   if (!isOpen) return null;
 
-  async function handleLaunchLogin() {
+  async function handleLaunchLogin(fresh = false) {
     setLaunching(true);
-    setMsg('Launching browser window…');
+    setMsg(fresh ? 'Launching clean browser window…' : 'Launching browser window…');
     try {
-      const res = await globalThis.fetch('/api/flow/launch-login', { method: 'POST' });
+      const res = await globalThis.fetch('/api/flow/launch-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fresh }),
+      });
       const data = await res.json() as { message?: string };
-      setMsg(data.message || 'Browser opened! Sign into your Google account, then close the browser.');
+      setMsg(data.message || (fresh ? 'Clean browser opened! Sign into your new Google account, then close the browser.' : 'Browser opened! Sign into your Google account, then close the browser.'));
       const poll = setInterval(() => {
         onUpdated();
       }, 3000);
@@ -137,15 +141,27 @@ function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountMo
           <p className="text-[11px] text-gray-400">
             Opens Microsoft Edge / Chrome. Sign into another Google account with Flow credits, then close the window.
           </p>
-          <button
-            type="button"
-            disabled={launching}
-            onClick={() => void handleLaunchLogin()}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-500 disabled:opacity-50 transition shadow-lg shadow-purple-900/30"
-          >
-            {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
-            Open Browser to Switch / Add Account
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              disabled={launching}
+              onClick={() => void handleLaunchLogin(false)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-purple-600 px-3 py-2 text-xs font-semibold text-white hover:bg-purple-500 disabled:opacity-50 transition shadow-lg shadow-purple-900/30"
+            >
+              {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+              Open Browser (Current Profile)
+            </button>
+            <button
+              type="button"
+              disabled={launching}
+              onClick={() => void handleLaunchLogin(true)}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-800 border border-purple-500/30 px-3 py-2 text-xs font-semibold text-purple-300 hover:bg-purple-950/40 disabled:opacity-50 transition"
+              title="Clears stored browser cookies for Google Flow so you can sign in to a different account freshly"
+            >
+              {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+              Switch Account (Fresh Clean Sign-in)
+            </button>
+          </div>
         </div>
 
         {/* Method 2: Manual email / balance update */}

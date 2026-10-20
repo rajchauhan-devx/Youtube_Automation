@@ -1,4 +1,27 @@
+import { getGoogleAuthToken } from './google-adc.js';
+
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+export async function geminiRequestTarget(model: string, operation: 'generateContent' | 'streamGenerateContent', apiKey: string) {
+  const streamQuery = operation === 'streamGenerateContent' ? 'alt=sse' : '';
+  if (process.env.GEMINI_USE_ADC === 'true') {
+    const auth = await getGoogleAuthToken();
+    if (!auth?.projectId) throw new Error('Gemini ADC mode requires valid Application Default Credentials with a Google Cloud project.');
+    return {
+      url: `https://aiplatform.googleapis.com/v1/projects/${encodeURIComponent(auth.projectId)}/locations/global/publishers/google/models/${model}:${operation}${streamQuery ? `?${streamQuery}` : ''}`,
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${auth.token}`, 'X-Goog-User-Project': auth.projectId } as Record<string, string>,
+    };
+  }
+  return {
+    url: `${GEMINI_BASE}/${model}:${operation}?${streamQuery ? `${streamQuery}&` : ''}key=${encodeURIComponent(apiKey)}`,
+    headers: { 'Content-Type': 'application/json' } as Record<string, string>,
+  };
+}
+
+export function getGeminiApiKey(requestKey?: string): string {
+  // Older clients send their saved OpenRouter key in this shared header.
+  return process.env.GEMINI_API_KEY?.trim() || requestKey?.trim() || '';
+}
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'model';
@@ -85,16 +108,32 @@ function buildGeminiPayload(req: ChatRequest) {
   return payload;
 }
 
+export const GEMINI_CHAT_FALLBACK_MODELS = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-flash-latest',
+  'gemini-3.1-flash-lite',
+];
+
 export async function chat(apiKey: string, req: ChatRequest): Promise<ChatResponse> {
   const model = formatGeminiModel(req.model);
   const payload = buildGeminiPayload(req);
+
+  const fallbackList = GEMINI_CHAT_FALLBACK_MODELS.filter(m => m !== model);
+  let activeModel = model;
+  let fallbackIndex = 0;
 
   let res: Response | undefined;
   let retryDelayMs = 0;
   for (let attempt = 0; attempt < 4; attempt++) {
     req.signal?.throwIfAborted();
     if (attempt > 0) {
-      const delay = retryDelayMs || (res?.status === 429 ? Math.min(30000, 3000 * Math.pow(2, attempt - 1)) : 1500 * Math.pow(2, attempt - 1));
+      if (res && [429, 500, 502, 503].includes(res.status) && fallbackIndex < fallbackList.length) {
+        const nextModel = fallbackList[fallbackIndex++];
+        console.warn(`[gemini:chat] Model ${activeModel} returned HTTP ${res.status}. Switching to lower-traffic model: ${nextModel}`);
+        activeModel = nextModel;
+      }
+      const delay = retryDelayMs || (res?.status === 429 ? Math.min(15000, 1500 * Math.pow(2, attempt - 1)) : 1000 * Math.pow(2, attempt - 1));
       await new Promise<void>((resolve, reject) => {
         const abort = () => { clearTimeout(timer); reject(req.signal?.reason); };
         const timer = setTimeout(() => { req.signal?.removeEventListener('abort', abort); resolve(); }, delay);
@@ -103,11 +142,11 @@ export async function chat(apiKey: string, req: ChatRequest): Promise<ChatRespon
       req.signal?.throwIfAborted();
     }
     try {
-      const activeModel = attempt >= 2 && res?.status === 503 ? 'gemini-3.5-flash-lite' : model;
-      const targetUrl = `${GEMINI_BASE}/${activeModel}:generateContent?key=${apiKey}`;
-      res = await fetch(targetUrl, {
+      const target = await geminiRequestTarget(activeModel, 'generateContent', apiKey);
+      req.signal?.throwIfAborted();
+      res = await fetch(target.url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: target.headers,
         body: JSON.stringify(payload),
         signal: req.signal,
       });
@@ -120,6 +159,11 @@ export async function chat(apiKey: string, req: ChatRequest): Promise<ChatRespon
         retryDelayMs = seconds ? Math.min(60000, (seconds + 1) * 1000) : 0;
       } else retryDelayMs = 0;
     } catch (err) {
+      if (fallbackIndex < fallbackList.length) {
+        const nextModel = fallbackList[fallbackIndex++];
+        console.warn(`[gemini:chat] Request on ${activeModel} failed. Switching to lower-traffic model: ${nextModel}`);
+        activeModel = nextModel;
+      }
       if (attempt === 3) throw err;
     }
   }

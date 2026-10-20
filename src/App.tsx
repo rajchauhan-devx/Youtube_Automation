@@ -38,10 +38,11 @@ import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { incompleteResponse, placeholderResponse } from '../server/src/services/generation-status';
 import { buildFreePrompt, FREE_CHAT_SYSTEM, freeChatSystem } from '../server/src/services/script-generation';
 import { apiPost, getApiKey } from './services/api.js';
+import { waitForRenderedReview } from './services/renderReview.js';
 import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AutoPilotModal } from './components/autopilot/AutoPilotModal';
-import type { AutoPilotState, AutoPilotStage } from './services/autoPilotTypes';
+import { AUTO_PILOT_STAGES, type AutoPilotState, type AutoPilotStage } from './services/autoPilotTypes';
 import { editingRequest, type EditingPayload } from './services/editingApi';
 import { AutoPilotSettingsSchema, defaultAutoPilotSettings, narrationOptions, type AutoPilotSettings } from '../server/src/services/autopilot-settings';
 import { executeSupervisedStage, runPreflightSupervision } from './services/supervisor';
@@ -87,6 +88,18 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
 ];
 
 const LS_KEY = 'tubeflow:v1';
+
+function savedProductionStage(script: Script): number {
+  if (!script.retentionPlan) return 0;
+  if (!script.aiResponse?.trim()) return 1;
+  if (!script.retentionEdit) return 2;
+  const count = script.scenePlan?.scenes.length || script.imagePrompts?.length || 0;
+  if (!count || !(script.narration || script.extractedScript)?.trim()) return 3;
+  if (Array.from({ length: count }, (_, index) => index).some(index =>
+    !script.generatedImages?.some(image => image.index === index && image.url && image.status === 'done'))) return 4;
+  if (!script.generatedAudio?.[0]?.url) return 5;
+  return 9;
+}
 
 interface PersistedUiState {
   channelId: string;
@@ -217,7 +230,7 @@ export default function App() {
     setAutoPilotState((prev) => ({
       ...prev,
       isActive: false,
-      stage: 'idle',
+      stage: prev.stage === 'error' ? 'error' : 'idle',
     }));
   }
 
@@ -236,6 +249,29 @@ export default function App() {
   const activeScope = useRef(scopeKey);
   activeScope.current = scopeKey;
   const scopeScripts = userScripts.filter(script => script.accountId === activeChannel.id && script.section === section);
+
+  useEffect(() => {
+    // A refresh interrupts the browser orchestrator, but its saved stages remain usable.
+    if (autoPilotAbortRef.current) return;
+    try {
+      const saved = readJson<AutoPilotState>(localStorage.getItem(`tubeflow:autopilot:${scopeKey}`));
+      if (!saved || saved.scopeKey !== scopeKey || !saved.scriptId || !Array.isArray(saved.logs) || !Number.isInteger(saved.stageIndex)
+        || saved.stageIndex < 0 || saved.stageIndex >= AUTO_PILOT_STAGES.length || saved.stage === 'completed') return;
+      setAutoPilotState({ ...saved, isActive: true, isPaused: false, isMinimized: false, stage: 'error',
+        statusMessage: saved.stage === 'error' ? saved.statusMessage : 'Production interrupted. Resume to continue from the saved stage.' });
+    } catch { /* Storage may be disabled in this browser. */ }
+  }, [scopeKey]);
+
+  useEffect(() => {
+    if (autoPilotState.scopeKey !== scopeKey || !autoPilotState.scriptId) return;
+    try {
+      const key = `tubeflow:autopilot:${scopeKey}`;
+      if (autoPilotState.stage === 'completed') localStorage.removeItem(key);
+      else if (autoPilotState.stage !== 'idle') localStorage.setItem(key, JSON.stringify({
+        ...autoPilotState, logs: autoPilotState.logs.slice(-200),
+      }));
+    } catch { /* The in-memory Resume button still works without storage. */ }
+  }, [autoPilotState, scopeKey]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -729,9 +765,8 @@ export default function App() {
     }
   }
 
-  async function runAutoPilotPipeline(initialScript: Script, topic: string, instructions: string, resumeProduction = false, resumeVideoUrl?: string | null) {
-    if (autoPilotAbortRef.current && autoPilotState.stage !== 'error') return;
-    autoPilotAbortRef.current?.abort();
+  async function runAutoPilotPipeline(initialScript: Script, topic: string, instructions: string, resumeFrom?: number, resumeVideoUrl?: string | null) {
+    if (autoPilotAbortRef.current) return;
     generationAbortRef.current?.abort();
     const controller = new AbortController();
     autoPilotAbortRef.current = controller;
@@ -739,22 +774,28 @@ export default function App() {
 
     const scriptId = initialScript.id;
     const runSettings = AutoPilotSettingsSchema.parse(initialScript.autoPilotSettings || defaultAutoPilotSettings(initialScript));
+    const resuming = resumeFrom !== undefined;
+    let startStage = resumeFrom ?? 0;
+    const originalInstructions = instructions;
     const imageEngine = { google: 'Google Cloud', cloudflare: 'Cloudflare', local: 'Local image model' }[runSettings.media.imageProvider];
     if (runSettings.voice.language !== 'auto') instructions += `\nNarration language selected for this run: ${runSettings.voice.language === 'hi' ? 'Hindi / Hinglish' : 'English'}. Write all spoken narration in this language.`;
     setSelectedScriptId(scriptId);
 
     setAutoPilotState({
+      scopeKey,
+      instructions: originalInstructions,
+      retentionBrief: resuming ? autoPilotState.retentionBrief : undefined,
       isActive: true,
       isPaused: false,
       isMinimized: false,
-      stage: resumeVideoUrl ? 'review_retention' : resumeProduction ? 'plan_motion' : 'plan_hooks',
-      stageIndex: resumeVideoUrl ? 8 : resumeProduction ? 6 : 0,
+      stage: AUTO_PILOT_STAGES[startStage].id,
+      stageIndex: startStage,
       totalStages: 10,
-      progressPercent: resumeVideoUrl ? 96 : resumeProduction ? 80 : 5,
-      statusMessage: resumeProduction ? 'Continuing with saved images and narration...' : topic.trim() ? 'Checking this topic against the profile notes...' : 'Researching a fresh topic for this profile...',
+      progressPercent: resuming ? autoPilotState.progressPercent : 5,
+      statusMessage: resuming ? 'Loading saved production progress...' : topic.trim() ? 'Checking this topic against the profile notes...' : 'Researching a fresh topic for this profile...',
       topic,
       scriptId,
-      logs: [],
+      logs: resuming ? autoPilotState.logs : [],
       renderedVideoUrl: resumeVideoUrl || null,
       error: null,
     });
@@ -763,6 +804,7 @@ export default function App() {
     addAutoPilotLog('research_script', `Target profile: ${section === 'shorts' ? '9:16 Vertical Short' : '16:9 Landscape Video'}`, 'info');
 
     async function checkPauseOrAbort() {
+      if (activeScope.current !== scopeKey) controller.abort();
       if (controller.signal.aborted) throw new DOMException('Aborted by user', 'AbortError');
       while (autoPilotPausedRef.current) {
         if (controller.signal.aborted) throw new DOMException('Aborted by user', 'AbortError');
@@ -778,60 +820,101 @@ export default function App() {
       setStatus: (message: string) => setAutoPilotState((prev) => ({ ...prev, statusMessage: message })),
       patchScript: patchScriptState,
       persistScript: async (id: string, patch: any) => {
-        await persistScript(id, patch);
+        if (!await persistScript(id, patch)) throw new Error('Could not save repaired production state.');
       },
       checkPauseOrAbort,
       autoPilotSettings: runSettings,
     };
 
+    let activeStage = AUTO_PILOT_STAGES[startStage].id;
+    function enterStage(stage: AutoPilotStage) {
+      activeStage = stage;
+      const stageIndex = AUTO_PILOT_STAGES.findIndex(item => item.id === stage);
+      setAutoPilotState(prev => ({ ...prev, stage, stageIndex }));
+    }
+    async function executeStage(stage: AutoPilotStage, work: () => Promise<void>, ctx: typeof supervisorCtx) {
+      if (AUTO_PILOT_STAGES.findIndex(item => item.id === stage) < startStage) return;
+      enterStage(stage);
+      await executeSupervisedStage(stage, work, ctx);
+    }
+
+    async function reloadCurrentScript(id: string, signal?: AbortSignal): Promise<Script> {
+      for (let i = 0; i < 4; i++) {
+        signal?.throwIfAborted();
+        try {
+          const res = await fetch(`/api/scripts/${encodeURIComponent(id)}`, { signal });
+          if (res.ok) {
+            const text = await res.text();
+            if (text.trim()) {
+              return JSON.parse(text) as Script;
+            }
+          }
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'AbortError') throw err;
+        }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      const fallbackRes = await fetch(`/api/scripts/${encodeURIComponent(id)}`, { signal });
+      if (!fallbackRes.ok) throw new Error(`Could not load script ${id} (HTTP ${fallbackRes.status})`);
+      const text = await fallbackRes.text();
+      return JSON.parse(text) as Script;
+    }
+
     try {
       let freshRes: Response;
-      let currentScript: Script;
-      let retention: { plan: NonNullable<Script['retentionPlan']>; brief: string };
-      if (resumeProduction) {
-        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`, { signal: controller.signal });
-        if (!freshRes.ok) throw new Error('Could not load the saved production.');
-        currentScript = await freshRes.json() as Script;
-        if (!currentScript.retentionPlan || !currentScript.generatedAudio?.[0]?.filename || !currentScript.generatedImages?.some(image => image.url))
-          throw new Error('Saved images, narration and a retention plan are required to continue production.');
-        if (currentScript.youtubeExport?.uploadedVideoId) throw new Error('This production has already been exported to YouTube.');
-        topic = currentScript.topicName || topic;
-        retention = { plan: currentScript.retentionPlan, brief: '' };
-        addAutoPilotLog('plan_motion', 'Reusing the saved topic, script, images and narration. Retrying the visual edit and final export.', 'info');
-      } else {
-      const memoryResponse = await fetch('/api/youtube/retention/sync', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', signal: controller.signal,
-      });
-      const memory = await memoryResponse.json();
-      addAutoPilotLog('plan_hooks', memory.message || 'Using saved profile performance observations.', memory.status === 'needs_connection' ? 'warn' : 'info');
-      await checkPauseOrAbort();
-      const topicResponse = await fetch('/api/llm/autopilot-topic', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', ...(getApiKey() ? { 'x-api-key': getApiKey() } : {}) },
-        body: JSON.stringify({ scriptId, topic: topic.trim(), instructions }), signal: controller.signal,
-      });
-      const selectedTopic = await topicResponse.json();
-      if (!topicResponse.ok || !selectedTopic.topic?.trim()) throw new Error(selectedTopic.error || 'Could not select a fresh topic');
-      await checkPauseOrAbort();
-      topic = selectedTopic.topic;
-      setAutoPilotState(prev => ({ ...prev, topic }));
-      addAutoPilotLog('research_script', `Selected: "${topic}". Checked ${selectedTopic.historyCount} previously exported topics. ${selectedTopic.reason || ''}`, 'success');
+      let currentScript = initialScript;
+      let retention!: { plan: NonNullable<Script['retentionPlan']>; brief: string };
+      if (resuming) {
+        currentScript = await reloadCurrentScript(scriptId, controller.signal);
+        if (startStage >= 2 && currentScript.youtubeExport?.uploadedVideoId) throw new Error('This production has already been exported to YouTube.');
+        topic = startStage >= 2 ? currentScript.topicName || topic : topic;
+        // Fall back only as far as a missing prerequisite requires.
+        startStage = Math.min(startStage, savedProductionStage(currentScript));
+        if (startStage >= 8 && !resumeVideoUrl) startStage = 7;
+        if (startStage >= 9 && currentScript.retentionReview?.status !== 'passed') startStage = 8;
+        if (currentScript.retentionPlan) retention = { plan: currentScript.retentionPlan, brief: autoPilotState.retentionBrief || `Viewer promise: ${currentScript.retentionPlan.viewerPromise}. Selected hook: ${currentScript.retentionPlan.hooks[currentScript.retentionPlan.selectedHookIndex].openingLine}` };
+        patchScriptState(scriptId, currentScript);
+        setAutoPilotState(prev => ({ ...prev, topic, renderedVideoUrl: startStage >= 8 ? resumeVideoUrl : null }));
+        enterStage(AUTO_PILOT_STAGES[startStage].id);
+        addAutoPilotLog(activeStage, `Resuming ${AUTO_PILOT_STAGES[startStage].label}. Completed stages and saved media will be reused.`, 'info');
+      }
+      if (startStage === 0) {
+        enterStage('plan_hooks');
+        const memoryResponse = await fetch('/api/youtube/retention/sync', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', signal: controller.signal,
+        });
+        const memory = await memoryResponse.json();
+        addAutoPilotLog('plan_hooks', memory.message || 'Using saved profile performance observations.', memory.status === 'needs_connection' ? 'warn' : 'info');
+        await checkPauseOrAbort();
+        const topicResponse = await fetch('/api/llm/autopilot-topic', {
+          method: 'POST', headers: { 'Content-Type': 'application/json', ...(getApiKey() ? { 'x-api-key': getApiKey() } : {}) },
+          body: JSON.stringify({ scriptId, topic: topic.trim(), instructions }), signal: controller.signal,
+        });
+        const selectedTopic = await topicResponse.json();
+        if (!topicResponse.ok || !selectedTopic.topic?.trim()) throw new Error(selectedTopic.error || 'Could not select a fresh topic');
+        await checkPauseOrAbort();
+        topic = selectedTopic.topic;
+        setAutoPilotState(prev => ({ ...prev, topic }));
+        addAutoPilotLog('research_script', `Selected: "${topic}". Checked ${selectedTopic.historyCount} previously exported topics. ${selectedTopic.reason || ''}`, 'success');
 
-      const youtubeStatus = await fetch('/api/youtube/status', { signal: controller.signal });
-      const connection = await youtubeStatus.json();
-      if (!youtubeStatus.ok || !connection.authenticated) throw new Error('Connect this profile’s YouTube account before running Auto-Pilot.');
-      await checkPauseOrAbort();
-      setAutoPilotState(prev => ({ ...prev, statusMessage: 'Comparing three opening hooks and planning the title/thumbnail promise...' }));
-      retention = await apiPost<{ plan: NonNullable<Script['retentionPlan']>; brief: string }>(
-        '/api/retention/plan', { scriptId, topic, instructions }, getApiKey(), fetch, controller.signal);
-      await checkPauseOrAbort();
-      patchScriptState(scriptId, { retentionPlan: retention.plan });
-      addAutoPilotLog('plan_hooks', `Selected hook ${retention.plan.selectedHookIndex + 1}/3: ${retention.plan.hooks[retention.plan.selectedHookIndex].openingLine}`, 'success');
-      addAutoPilotLog('plan_hooks', `Viewer promise: ${retention.plan.viewerPromise}`, 'info');
-      setAutoPilotState(prev => ({ ...prev, stage: 'research_script', stageIndex: 1, progressPercent: 10 }));
+        const youtubeStatus = await fetch('/api/youtube/status', { signal: controller.signal });
+        const connection = await youtubeStatus.json();
+        if (!youtubeStatus.ok || !connection.authenticated) throw new Error('Connect this profile’s YouTube account before running Auto-Pilot.');
+        await checkPauseOrAbort();
+        setAutoPilotState(prev => ({ ...prev, statusMessage: 'Comparing three opening hooks and planning the title/thumbnail promise...' }));
+        retention = await apiPost<{ plan: NonNullable<Script['retentionPlan']>; brief: string }>(
+          '/api/retention/plan', { scriptId, topic, instructions }, getApiKey(), fetch, controller.signal);
+        await checkPauseOrAbort();
+        patchScriptState(scriptId, { retentionPlan: retention.plan });
+        setAutoPilotState(prev => ({ ...prev, retentionBrief: retention.brief }));
+        addAutoPilotLog('plan_hooks', `Selected hook ${retention.plan.selectedHookIndex + 1}/3: ${retention.plan.hooks[retention.plan.selectedHookIndex].openingLine}`, 'success');
+        addAutoPilotLog('plan_hooks', `Viewer promise: ${retention.plan.viewerPromise}`, 'info');
+        setAutoPilotState(prev => ({ ...prev, stage: 'research_script', stageIndex: 1, progressPercent: 10 }));
+      }
       // -------------------------------------------------------------
       // PRE-FLIGHT AUTONOMOUS SUPERVISION: Storage & Voice Buffers
       // -------------------------------------------------------------
-      await runPreflightSupervision(
+      if (startStage <= 1) await runPreflightSupervision(
         fetch,
         addAutoPilotLog,
         (msg) => setAutoPilotState((prev) => ({ ...prev, statusMessage: msg })),
@@ -841,16 +924,18 @@ export default function App() {
       // -------------------------------------------------------------
       // STAGE 1: Script Research & Generation
       // -------------------------------------------------------------
-      await executeSupervisedStage('research_script', async () => {
+      await executeStage('research_script', async () => {
         setTab('preview');
         addAutoPilotLog('research_script', 'Synthesizing live research & streaming script narrative with Google Gemini...', 'info');
         await generateScript(initialScript, topic, instructions, retention);
         await checkPauseOrAbort();
 
-        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-        currentScript = (await freshRes.json()) as Script;
+        currentScript = await reloadCurrentScript(scriptId, controller.signal);
         if (!currentScript.aiResponse?.trim()) {
           throw new Error('Script generation finished without response content.');
+        }
+        if (currentScript.pipeline?.some(step => step.id === 'response' && step.status !== 'done')) {
+          throw new Error(currentScript.pipeline.find(step => step.id === 'response')?.outputPreview || 'Script generation did not finish. Resume to retry this stage.');
         }
 
         addAutoPilotLog('research_script', `Script generated successfully (${currentScript.aiResponse.length} characters).`, 'success');
@@ -863,30 +948,33 @@ export default function App() {
         }));
       }, supervisorCtx);
 
-      const editorial = await apiPost<{ edit: NonNullable<Script['retentionEdit']> }>(
-        '/api/retention/edit', { scriptId }, getApiKey(), fetch, controller.signal);
-      await checkPauseOrAbort();
-      patchScriptState(scriptId, { retentionEdit: editorial.edit });
-      for (const note of editorial.edit.notes) addAutoPilotLog('edit_retention', note, 'success');
-      setAutoPilotState(prev => ({ ...prev, stage: 'extract_assets', stageIndex: 3, progressPercent: 27,
-        statusMessage: 'Extracting the edited production scenes, visuals and narration...' }));
+      let editorial = { edit: currentScript.retentionEdit! };
+      if (startStage <= 2) {
+        enterStage('edit_retention');
+        editorial = await apiPost<{ edit: NonNullable<Script['retentionEdit']> }>(
+          '/api/retention/edit', { scriptId }, getApiKey(), fetch, controller.signal);
+        await checkPauseOrAbort();
+        patchScriptState(scriptId, { retentionEdit: editorial.edit });
+        for (const note of editorial.edit.notes) addAutoPilotLog('edit_retention', note, 'success');
+        setAutoPilotState(prev => ({ ...prev, stage: 'extract_assets', stageIndex: 3, progressPercent: 27,
+          statusMessage: 'Extracting the edited production scenes, visuals and narration...' }));
+      }
 
       // -------------------------------------------------------------
       // STAGE 2: Scene Asset Extraction
       // -------------------------------------------------------------
-      let scenePlan: any;
-      let imagePrompts: string[] = [];
-      let narration = '';
-      let extractedScript = '';
-      let sceneCount = 1;
+      let scenePlan = currentScript.scenePlan;
+      let imagePrompts: string[] = currentScript.imagePrompts || [];
+      let narration = currentScript.narration || '';
+      let extractedScript = currentScript.extractedScript || '';
+      let sceneCount = scenePlan?.scenes.length || imagePrompts.length || 1;
 
-      await executeSupervisedStage('extract_assets', async () => {
+      await executeStage('extract_assets', async () => {
         setTab('assets');
         addAutoPilotLog('extract_assets', '[GEMINI] Parsing structured scene plan, visual descriptions & timing...', 'gemini');
         await checkPauseOrAbort();
 
-        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-        currentScript = (await freshRes.json()) as Script;
+        currentScript = await reloadCurrentScript(scriptId, controller.signal);
 
         const template = currentScript.prompts
           ?.filter((p) => p.content.trim())
@@ -930,7 +1018,7 @@ export default function App() {
           ],
         };
         patchScriptState(scriptId, extractedPatch);
-        await persistScript(scriptId, extractedPatch);
+        if (!await persistScript(scriptId, extractedPatch)) throw new Error('Could not save extracted scenes. Retrying asset extraction.');
         await checkPauseOrAbort();
 
         sceneCount = scenePlan?.scenes?.length || imagePrompts.length || 1;
@@ -949,18 +1037,19 @@ export default function App() {
       // -------------------------------------------------------------
       // STAGE 3: Visual Generation via Google Cloud
       // -------------------------------------------------------------
-      await executeSupervisedStage('generate_images', async () => {
+      await executeStage('generate_images', async () => {
         setTab('generation');
         addAutoPilotLog('generate_images', `[${imageEngine}] Directing image generation for ${sceneCount} scene keyframes...`, 'gemini');
 
-        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-        currentScript = (await freshRes.json()) as Script;
+        currentScript = await reloadCurrentScript(scriptId, controller.signal);
 
         const scenesToRender = (currentScript.scenePlan?.scenes?.length)
           ? currentScript.scenePlan.scenes
           : (scenePlan?.scenes?.length
               ? scenePlan.scenes
               : imagePrompts.map((p) => ({ imagePrompt: p })));
+
+        let flowAvailableThisRun = true;
 
         for (let i = 0; i < scenesToRender.length; i++) {
           await checkPauseOrAbort();
@@ -975,34 +1064,49 @@ export default function App() {
 
           addAutoPilotLog('generate_images', `Rendering scene ${i + 1}/${scenesToRender.length}: "${scenePrompt.slice(0, 50)}..."`, 'info');
 
-          let genRes = await fetch('/api/generate/image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              scriptId,
-              index: i,
-              prompt: scenePrompt,
-              preset: runSettings.media.imageQuality,
-              provider: runSettings.media.imageProvider,
-              ...(runSettings.media.seedMode === 'fixed' ? { seed: runSettings.media.seed } : {}),
-            }),
-            signal: controller.signal,
-          });
+          const savedAsset = currentScript.generatedImages?.find(asset => asset.index === i && asset.status === 'done' && asset.url
+            && asset.prompt === (asset.mediaType === 'video' ? (scenesToRender[i] as any).videoPrompt || scenePrompt : scenePrompt));
+          const needsVideo = runSettings.media.flowEnabled && (scenesToRender[i] as any).mediaType === 'video';
+          if (savedAsset && (!needsVideo || savedAsset.mediaType === 'video')) {
+            addAutoPilotLog('generate_images', `Scene ${i + 1}: reusing the saved visual.`, 'info');
+            continue;
+          }
+          if (!savedAsset) {
+            const genRes = await fetch('/api/generate/image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                scriptId,
+                index: i,
+                prompt: scenePrompt,
+                preset: runSettings.media.imageQuality,
+                provider: runSettings.media.imageProvider,
+                ...(runSettings.media.seedMode === 'fixed' ? { seed: runSettings.media.seed } : {}),
+              }),
+              signal: controller.signal,
+            });
 
-          if (genRes.ok) {
-            const genJson = await genRes.json();
-            if (genJson.generatedImages) {
-              patchScriptState(scriptId, { generatedImages: genJson.generatedImages });
-              await persistScript(scriptId, { generatedImages: genJson.generatedImages });
+            if (genRes.ok) {
+              const genJson = await genRes.json();
+              // Shorts returns the asset URL; other profiles return the updated list.
+              const generatedImages = genJson.generatedImages || (genJson.url ? [
+                ...(currentScript.generatedImages || []).filter(asset => asset.index !== i),
+                { index: i, prompt: scenePrompt, status: 'done' as const, mediaType: 'image' as const,
+                  url: genJson.url, seed: genJson.seed, elapsedMs: genJson.elapsedMs },
+              ].sort((a, b) => a.index - b.index) : null);
+              if (!generatedImages) throw new Error(`Scene ${i + 1} generation returned no saved image.`);
+              currentScript.generatedImages = generatedImages;
+              patchScriptState(scriptId, { generatedImages });
+              if (!await persistScript(scriptId, { generatedImages })) throw new Error('Could not save generated visuals. Check the server connection before resuming.');
+              addAutoPilotLog('generate_images', `Scene ${i + 1} keyframe rendered & saved.`, 'success');
+            } else {
+              const errText = await genRes.text().catch(() => '');
+              throw new Error(`Scene ${i + 1} image generation failed: ${errText.slice(0, 250)}`);
             }
-            addAutoPilotLog('generate_images', `Scene ${i + 1} keyframe rendered & saved.`, 'success');
-          } else {
-            const errText = await genRes.text().catch(() => '');
-            throw new Error(`Scene ${i + 1} image generation failed: ${errText.slice(0, 250)}`);
           }
 
           // If this scene is a video scene (mediaType === 'video' or in mixed section):
-          const isVideoScene = runSettings.media.flowEnabled && (scenesToRender[i] as any).mediaType === 'video';
+          const isVideoScene = flowAvailableThisRun && runSettings.media.flowEnabled && (scenesToRender[i] as any).mediaType === 'video';
           if (isVideoScene) {
             try {
               setAutoPilotState((prev) => ({
@@ -1071,14 +1175,14 @@ export default function App() {
                       }
                     }
                   } else if (jobResult.state === 'error') {
-                    addAutoPilotLog('generate_images', `Flow video note for Scene ${i + 1}: ${jobResult.error || 'Flow error, kept reference frame'}`, 'warn');
+                    flowAvailableThisRun = false; addAutoPilotLog('generate_images', `Flow video note for Scene ${i + 1}: ${jobResult.error || 'Flow error'}. Using reference keyframes for subsequent video scenes.`, 'warn');
                   }
                 }
               } else {
                 addAutoPilotLog('generate_images', `Scene ${i + 1}: Flow video worker not available or credits low. Using reference keyframe.`, 'info');
               }
             } catch (videoErr) {
-              addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${videoErr instanceof Error ? videoErr.message : 'Kept reference keyframe'}`, 'warn');
+              flowAvailableThisRun = false; addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${videoErr instanceof Error ? videoErr.message : 'Kept reference keyframe'}. Using reference keyframes for subsequent video scenes.`, 'warn');
             }
           }
           if (isVideoScene && !runSettings.media.allowImageFallback) {
@@ -1125,13 +1229,12 @@ export default function App() {
       // -------------------------------------------------------------
       // STAGE 4: Voiceover Narration Synthesis
       // -------------------------------------------------------------
-      await executeSupervisedStage('generate_audio', async () => {
+      await executeStage('generate_audio', async () => {
         setTab('generation');
         addAutoPilotLog('generate_audio', '[TTS] Synthesizing the selected narrator with measured scene timing...', 'gemini');
         await checkPauseOrAbort();
 
-        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-        currentScript = (await freshRes.json()) as Script;
+        currentScript = await reloadCurrentScript(scriptId, controller.signal);
 
         const activeScenePlan = scenePlan || currentScript.scenePlan;
         let selectedVoice = runSettings.voice.voiceId;
@@ -1230,16 +1333,13 @@ export default function App() {
       // -------------------------------------------------------------
       // STAGE 5: Documentary composition and rendered vision review
       // -------------------------------------------------------------
-      }
-      let finalVideoUrl: string | null = resumeVideoUrl || null;
-      if (!resumeVideoUrl) {
-      await executeSupervisedStage('plan_motion', async () => {
+      let finalVideoUrl: string | null = startStage >= 8 ? resumeVideoUrl || null : null;
+      await executeStage('plan_motion', async () => {
         setTab('review');
         addAutoPilotLog('plan_motion', 'Directing image compositions, detail highlights and rendered placement review...', 'gemini');
         await checkPauseOrAbort();
 
-        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-        currentScript = (await freshRes.json()) as Script;
+        currentScript = await reloadCurrentScript(scriptId, controller.signal);
 
         const audioFilename = currentScript.generatedAudio?.[0]?.filename;
         const readyImageIndexes = (currentScript.generatedImages || [])
@@ -1248,50 +1348,75 @@ export default function App() {
 
         if ((runSettings.graphics.enabled || runSettings.captions === 'motion') && audioFilename && readyImageIndexes.length) {
           try {
-            const projectInputs = {
-              scriptId,
-              audioFilename,
-              language: currentScript.generatedAudio?.[0]?.language || 'en',
-              imageIndexes: readyImageIndexes,
-              aspect: section === 'shorts' ? '9:16' : '16:9',
-              fps: 30,
-              settings: { stylePreference: runSettings.graphics.style, density: runSettings.graphics.density, documentary: runSettings.graphics.enabled && runSettings.graphics.mode === 'images', treatment: runSettings.graphics.treatment, visualReview: true, maxGeneratedAssets: 0, maxProviderCalls: 40, ...(runSettings.graphics.model ? { aiModel: runSettings.graphics.model } : {}) },
-            };
-            const created = await editingRequest<EditingPayload>(fetch, '/projects', projectInputs);
-            if (created?.project?.id) {
-              patchScriptState(scriptId, { editingProjectId: created.project.id });
-              await persistScript(scriptId, { editingProjectId: created.project.id });
-              if (runSettings.graphics.enabled) {
-              const started = await editingRequest<{ jobId: string }>(fetch, `/projects/${created.project.id}/generate`,
-                { expectedRevisionId: created.project.revisionId }, 'POST', controller.signal);
-              let visualsComplete = false;
+            let directed: EditingPayload | null = null;
+            if (currentScript.editingProjectId) {
               try {
-                while (!visualsComplete) {
-                  await checkPauseOrAbort();
-                  const visualJob = await editingRequest<{ state: string; stage: string; error?: string }>(fetch,
-                    `/jobs/${started.jobId}`, undefined, 'GET', controller.signal);
-                  if (['succeeded', 'partial'].includes(visualJob.state)) {
-                    visualsComplete = true;
-                    if (visualJob.state === 'partial') addAutoPilotLog('plan_motion', 'Some optional visuals were skipped or need review; generation notes are available in Artifacts.', 'warn');
-                  } else if (['failed', 'needs_configuration', 'interrupted', 'cancelled'].includes(visualJob.state)) {
-                    throw new Error(visualJob.error || `Documentary visuals ${visualJob.state}`);
-                  } else {
-                    setAutoPilotState(prev => ({ ...prev, statusMessage: visualJob.stage }));
-                    await new Promise(resolve => setTimeout(resolve, 1500));
+                const existing = await editingRequest<EditingPayload>(fetch, `/projects/${currentScript.editingProjectId}`);
+                if (existing?.project?.status === 'ready') {
+                  const imageCompositions = existing.project.artifacts?.filter(a => a.enabled && a.graphic?.kind === 'composition')?.length || 0;
+                  const inputsMatch = existing.project.inputs?.audioFilename === audioFilename &&
+                    existing.project.inputs?.imageAssets?.length === readyImageIndexes.length;
+                  if (inputsMatch && (!runSettings.graphics.enabled || runSettings.graphics.mode !== 'images' || imageCompositions > 0)) {
+                    directed = existing;
+                    addAutoPilotLog('plan_motion', `Reusing ${imageCompositions} verified documentary visuals from saved project.`, 'info');
                   }
                 }
-              } finally {
-                if (!visualsComplete) await editingRequest(fetch, `/jobs/${started.jobId}/cancel`, {}).catch(() => {});
+              } catch {
+                // If existing project check fails, create fresh project below
               }
+            }
+
+            if (!directed) {
+              const projectInputs = {
+                scriptId,
+                audioFilename,
+                language: currentScript.generatedAudio?.[0]?.language || 'en',
+                imageIndexes: readyImageIndexes,
+                aspect: section === 'shorts' ? '9:16' : '16:9',
+                fps: 30,
+              settings: { stylePreference: runSettings.graphics.style, density: runSettings.graphics.density, documentary: runSettings.graphics.enabled && runSettings.graphics.mode === 'images', treatment: runSettings.graphics.treatment, visualReview: true, maxGeneratedAssets: 3, maxProviderCalls: 40, ...(runSettings.graphics.model ? { aiModel: runSettings.graphics.model } : {}) },
+              };
+              const created = await editingRequest<EditingPayload>(fetch, '/projects', projectInputs);
+              if (created?.project?.id) {
+                patchScriptState(scriptId, { editingProjectId: created.project.id });
+                await persistScript(scriptId, { editingProjectId: created.project.id });
+                if (runSettings.graphics.enabled) {
+                  const started = await editingRequest<{ jobId: string }>(fetch, `/projects/${created.project.id}/generate`,
+                    { expectedRevisionId: created.project.revisionId }, 'POST', controller.signal);
+                  let visualsComplete = false;
+                  try {
+                    while (!visualsComplete) {
+                      await checkPauseOrAbort();
+                      const visualJob = await editingRequest<{ state: string; stage: string; error?: string }>(fetch,
+                        `/jobs/${started.jobId}`, undefined, 'GET', controller.signal);
+                      if (['succeeded', 'partial'].includes(visualJob.state)) {
+                        visualsComplete = true;
+                        if (visualJob.state === 'partial') addAutoPilotLog('plan_motion', 'Some optional visuals were skipped or need review; generation notes are available in Artifacts.', 'warn');
+                      } else if (['failed', 'needs_configuration', 'interrupted', 'cancelled'].includes(visualJob.state)) {
+                        throw new Error(visualJob.error || `Documentary visuals ${visualJob.state}`);
+                      } else {
+                        setAutoPilotState(prev => ({ ...prev, statusMessage: visualJob.stage }));
+                        await new Promise(resolve => setTimeout(resolve, 1500));
+                      }
+                    }
+                  } finally {
+                    if (!visualsComplete) await editingRequest(fetch, `/jobs/${started.jobId}/cancel`, {}).catch(() => {});
+                  }
+                }
+                directed = await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}`);
               }
-              const directed = await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}`);
+            }
+
+            if (directed?.project?.id) {
               const imageCompositions = directed.project.artifacts.filter(a => a.enabled && a.graphic?.kind === 'composition').length;
               if (runSettings.graphics.enabled && runSettings.graphics.mode === 'images' && !imageCompositions) throw new Error('Documentary generation returned no image compositions. Text-only completion is blocked.');
               if (runSettings.captions === 'motion') {
-                await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}/captions`,
+                await editingRequest<EditingPayload>(fetch, `/projects/${directed.project.id}/captions`,
                   { expectedRevisionId: directed.project.revisionId });
               }
-              addAutoPilotLog('plan_motion', `${directed.project.artifacts.filter(a => a.enabled && a.graphic?.kind !== 'caption').length} motion graphics prepared${runSettings.captions === 'motion' ? ' with motion captions' : ''}.`, 'success');
+              addAutoPilotLog('plan_motion', runSettings.graphics.enabled
+                ? `${directed.project.artifacts.filter(a => a.enabled && a.graphic?.kind !== 'caption').length} motion graphics prepared${runSettings.captions === 'motion' ? ' with motion captions' : ''}.`
+                : 'Motion captions prepared. Documentary motion graphics are switched off in this run’s settings.', runSettings.graphics.enabled ? 'success' : 'info');
             }
           } catch (projErr) {
             throw projErr;
@@ -1314,13 +1439,12 @@ export default function App() {
       // STAGE 6: Video Rendering
       // -------------------------------------------------------------
 
-      await executeSupervisedStage('render_video', async () => {
+      await executeStage('render_video', async () => {
         setTab('review');
         addAutoPilotLog('render_video', '[RENDER] Launching video rendering engine for high-definition MP4...', 'gemini');
         await checkPauseOrAbort();
 
-        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
-        currentScript = (await freshRes.json()) as Script;
+        currentScript = await reloadCurrentScript(scriptId, controller.signal);
 
         const sortedAssets = [...(currentScript.generatedImages || [])]
           .filter((img) => img.url)
@@ -1391,19 +1515,24 @@ export default function App() {
         }
       }, supervisorCtx);
 
-      }
       await checkPauseOrAbort();
       if (!finalVideoUrl) throw new Error('Rendering did not return a completed video.');
       const videoFilename = decodeURIComponent((finalVideoUrl as string).split('/').pop()!);
-      setAutoPilotState(prev => ({ ...prev, stage: 'review_retention', stageIndex: 8, progressPercent: 96,
-        renderedVideoUrl: finalVideoUrl, statusMessage: 'Reviewing the rendered opening, ending, captions and mixed audio...' }));
-      const reviewed = await apiPost<{ review: NonNullable<Script['retentionReview']> }>(
-        '/api/retention/review', { scriptId, videoFilename }, getApiKey(), fetch, controller.signal);
-      patchScriptState(scriptId, { retentionReview: reviewed.review });
-      for (const finding of reviewed.review.findings) addAutoPilotLog('review_retention', `${finding.category}: ${finding.detail}`, finding.severity === 'blocker' ? 'error' : 'info');
-      if (reviewed.review.status !== 'passed') throw new Error(`Final review needs attention: ${reviewed.review.summary}`);
-      addAutoPilotLog('review_retention', reviewed.review.summary, 'success');
+      if (startStage <= 8) {
+        enterStage('review_retention');
+        setAutoPilotState(prev => ({ ...prev, stage: 'review_retention', stageIndex: 8, progressPercent: 96,
+          renderedVideoUrl: finalVideoUrl, statusMessage: 'Reviewing the rendered opening, ending, captions and mixed audio...' }));
+        const reviewed = await waitForRenderedReview<{ review: NonNullable<Script['retentionReview']> }>({
+          scriptId, videoFilename, apiKey: getApiKey(), signal: controller.signal, checkPause: checkPauseOrAbort, fetcher: fetch,
+          status: statusMessage => setAutoPilotState(prev => ({ ...prev, statusMessage })),
+        });
+        patchScriptState(scriptId, { retentionReview: reviewed.review });
+        for (const finding of reviewed.review.findings) addAutoPilotLog('review_retention', `${finding.category}: ${finding.detail}`, finding.severity === 'blocker' ? 'error' : 'info');
+        if (reviewed.review.status !== 'passed') throw new Error(`Final review needs attention: ${reviewed.review.summary}`);
+        addAutoPilotLog('review_retention', reviewed.review.summary, 'success');
+      }
       await checkPauseOrAbort();
+      enterStage('upload_youtube');
       setAutoPilotState(prev => ({ ...prev, stage: 'upload_youtube', stageIndex: 9, progressPercent: 98,
         statusMessage: 'Final review passed. Exporting the video with its planned title and promise...' }));
       const metadata = retention.plan;
@@ -1446,7 +1575,7 @@ export default function App() {
       addAutoPilotLog('upload_youtube', 'Autonomous production and YouTube export finished.', 'success');
     } catch (err) {
       if (controller.signal.aborted) {
-        addAutoPilotLog(autoPilotState.stage, 'Auto-Pilot stopped by user. Manual control restored.', 'warn');
+        addAutoPilotLog(activeStage, 'Auto-Pilot stopped by user. Manual control restored.', 'warn');
         setAutoPilotState((prev) => ({
           ...prev,
           isActive: false,
@@ -1456,10 +1585,11 @@ export default function App() {
       }
       const msg = err instanceof Error ? err.message : String(err);
       console.error('Auto-Pilot error:', err);
-      addAutoPilotLog(autoPilotState.stage, `Pipeline halted: ${msg}`, 'error');
+      addAutoPilotLog(activeStage, `Pipeline halted: ${msg}`, 'error');
       setAutoPilotState((prev) => ({
         ...prev,
         stage: 'error',
+        stageIndex: AUTO_PILOT_STAGES.findIndex(item => item.id === activeStage),
         error: msg,
         statusMessage: `Pipeline halted: ${msg}`,
       }));
@@ -1489,6 +1619,9 @@ export default function App() {
 
   const selectedScript = scopeScripts.find(script => script.id === selectedScriptId) || null;
   const autoPilotScript = scopeScripts.find(script => script.id === autoPilotState.scriptId) || null;
+  const resumeCheckpoint = autoPilotState.scopeKey === scopeKey && autoPilotState.stage === 'error';
+  const resumableScript = resumeCheckpoint ? autoPilotScript : selectedScript?.autoPilotSettings && selectedScript.retentionPlan
+    && !selectedScript.youtubeExport?.uploadedVideoId ? selectedScript : null;
 
   function handleStopGeneration() {
     if (autoPilotState.isActive) {
@@ -1992,6 +2125,16 @@ export default function App() {
         />
       )}
 
+      {!autoPilotState.isActive && resumableScript && (
+        <button type="button" className="studio-btn-primary fixed bottom-6 right-6 z-40 shadow-pop"
+          onClick={() => { void runAutoPilotPipeline(resumableScript,
+            resumeCheckpoint ? autoPilotState.topic : resumableScript.topicName || resumableScript.retentionPlan?.topic || '',
+            resumeCheckpoint ? autoPilotState.instructions || '' : resumableScript.aiInstructions || '',
+            resumeCheckpoint ? autoPilotState.stageIndex : Math.min(6, savedProductionStage(resumableScript)),
+            resumeCheckpoint ? autoPilotState.renderedVideoUrl : null); }}>
+          <Play className="h-4 w-4" /> Resume Auto-Pilot
+        </button>
+      )}
       {autoPilotState.isActive && (
         <AutoPilotModal
           state={autoPilotState}
@@ -2000,8 +2143,8 @@ export default function App() {
           onStop={handleAutoPilotStop}
           onToggleMinimize={handleAutoPilotMinimizeToggle}
           onClose={handleAutoPilotClose}
-          onRetryProduction={autoPilotState.stage === 'error' && autoPilotState.stageIndex >= 6 && autoPilotScript?.retentionPlan && autoPilotScript.generatedAudio?.length && autoPilotScript.generatedImages?.some(image => image.url)
-            ? () => { void runAutoPilotPipeline(autoPilotScript, autoPilotScript.topicName || autoPilotState.topic, '', true, autoPilotState.stageIndex >= 8 ? autoPilotState.renderedVideoUrl : null); }
+          onRetryProduction={autoPilotState.stage === 'error' && autoPilotScript
+            ? () => { void runAutoPilotPipeline(autoPilotScript, autoPilotState.topic, autoPilotState.instructions || '', autoPilotState.stageIndex, autoPilotState.renderedVideoUrl); }
             : undefined}
           onNavigateTab={(targetTab) => setTab(targetTab)}
         />

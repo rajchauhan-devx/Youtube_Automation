@@ -13,12 +13,23 @@ const accounts = await import('../dist/services/accounts.js');
 const notes = await import('../dist/services/topic-notes.js');
 const retention = await import('../dist/services/retention.js');
 const analytics = await import('../dist/services/retention-analytics.js');
-const { reviewRenderedVideo, renderFileHash } = await import('../dist/services/retention-review.js');
+const { reviewRenderedVideo, renderFileHash, reviewSampleTimes } = await import('../dist/services/retention-review.js');
 const { store } = await import('../dist/services/store.js');
 const { runMedia } = await import('../dist/services/media-process.js');
 const { renderRevision } = await import('../dist/services/render-revision.js');
 const { buildFilterComplex } = await import('../dist/services/video.js');
 const { workspacesRouter } = await import('../dist/routes/workspaces.js');
+
+test('final review covers each scene and late motion graphics instead of only five global frames', () => {
+  const scenes = Array.from({ length: 11 }, (_, i) => ({ start: i * 7, end: (i + 1) * 7 }));
+  const graphics = [{ start: 36.4, end: 43.9 }, { start: 51.6, end: 59.6 }];
+  const times = reviewSampleTimes(77, scenes, graphics);
+  for (const window of [...scenes, ...graphics]) {
+    for (const t of [0.5, 0.85]) assert.ok(times.includes(Math.round((window.start + (window.end - window.start) * t) * 1000) / 1000));
+  }
+  assert.ok(times.length > 20);
+  assert.ok(times.every((t, i) => t >= 0 && t < 77 && (i === 0 || t > times[i - 1])));
+});
 const auth = await import('../dist/services/youtube-auth.js');
 accounts.updateAccount('default', { name: 'Ancient Dharma' });
 const ruleZero = accounts.createAccount('Rule Zero');
@@ -113,6 +124,60 @@ test('retention edit keeps original source, scene identities and media modes; in
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test('story editing repairs renamed, omitted, duplicated, extra or reordered scenes once with exact IDs', async () => {
+  const originalFetch = globalThis.fetch;
+  const options = { raw, template: 'Image-only documentary', research: 'Traditional source material.', plan: fullPlan, model: 'gemini-test', apiKey: 'fixture' };
+  const invalidResults = [
+    { ...editedResult, scenes: [editedResult.scenes[0]] },
+    { ...editedResult, scenes: [...editedResult.scenes].reverse() },
+    { ...editedResult, scenes: editedResult.scenes.map((scene, i) => ({ ...scene, sceneId: `scene_${i + 1}` })) },
+    { ...editedResult, scenes: [editedResult.scenes[0], editedResult.scenes[0]] },
+    { ...editedResult, scenes: [...editedResult.scenes, editedResult.scenes[0]] },
+  ];
+  try {
+    for (const invalid of invalidResults) {
+      let calls = 0;
+      globalThis.fetch = (url, input) => {
+        const request = JSON.parse(input.body);
+        assert.deepEqual(request.generationConfig.responseJsonSchema.properties.scenes.items.properties.sceneId.enum, ['opening', 'payoff']);
+        if (++calls === 1) {
+          assert.match(request.contents.at(-1).parts[0].text, /EXACTLY 2 scenes/);
+          return fakeModel(invalid)(url, input);
+        }
+        assert.equal(calls, 2, 'identity repair must stay bounded');
+        assert.match(request.contents.at(-1).parts[0].text, /Repair the JSON/);
+        assert.equal(JSON.parse(request.contents.at(-2).parts[0].text).scenes.length, invalid.scenes.length);
+        return fakeModel(editedResult)(url, input);
+      };
+      const edited = await retention.editForRetention(options);
+      assert.equal(calls, 2);
+      assert.deepEqual(edited.plan.scenes.map(scene => scene.id), ['opening', 'payoff']);
+      assert.equal(edited.sourceHash, retention.responseHash(raw));
+    }
+    let calls = 0;
+    globalThis.fetch = (url, input) => { calls++; return fakeModel(invalidResults[0])(url, input); };
+    await assert.rejects(retention.editForRetention(options), /after one repair attempt.*omitted scene identities/);
+    assert.equal(calls, 2, 'persistent omissions must fail without fabricating scenes');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
+test('story editing repairs missing video prompts while keeping the original media modes', async () => {
+  const originalFetch = globalThis.fetch;
+  const mixed = { ...sourcePlan, scenes: sourcePlan.scenes.map((scene, i) => i === 0 ? { ...scene, mediaType: 'video', videoPrompt: 'A continuous shore shot.' } : scene) };
+  let calls = 0;
+  globalThis.fetch = (url, input) => {
+    if (++calls === 1) return fakeModel(editedResult)(url, input);
+    assert.match(JSON.parse(input.body).contents.at(-1).parts[0].text, /opening.*video.*videoPrompt/);
+    return fakeModel({ ...editedResult, scenes: editedResult.scenes.map((scene, i) => i === 0 ? { ...scene, videoPrompt: 'A continuous shore shot.' } : scene) })(url, input);
+  };
+  try {
+    const edited = await retention.editForRetention({ raw: JSON.stringify(mixed), template: 'Mixed media documentary', research: '', plan: fullPlan, model: 'gemini-test', apiKey: 'fixture' });
+    assert.equal(calls, 2);
+    assert.deepEqual(edited.plan.scenes.map(scene => scene.mediaType), ['video', 'image']);
+    assert.equal(edited.plan.scenes[0].videoPrompt, 'A continuous shore shot.');
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test('watch-time import maps curve drops to scenes and preserves rewatches above 100 percent', () => {
   assert.equal(analytics.youtubeReportDate('2026-10-19T01:00:00.000Z'), '2026-10-18', 'YouTube reports use Pacific calendar days');
   const entry = { production: { duration: 60, scenes: [{ sceneId: 'payoff', start: 30, end: 60, purpose: 'Resolution' }] } };
@@ -190,25 +255,40 @@ test('final review sends actual rendered frames and mixed audio; rejects blocker
   store.add('scripts', script);
   accounts.atomicJson(`${file}.json`, { revision: renderRevision(script.id) });
   const originalFetch = globalThis.fetch;
-  let block = false, reviewCalls = 0;
+  let block = false, reviewCalls = 0, captionBlock = false, permanentError = false;
   globalThis.fetch = async (_url, options) => {
     if (++reviewCalls === 1) return new Response('Temporarily overloaded', { status: 503 });
+    if (permanentError) return new Response('Invalid credentials', { status: 401 });
     const body = JSON.parse(options.body);
     const images = body.contents[0].parts.filter(part => part.inlineData?.mimeType === 'image/jpeg');
     const audio = body.contents[0].parts.filter(part => part.inlineData?.mimeType === 'audio/mp3');
-    assert.ok(images.length >= 4);
+    const clips = body.contents[0].parts.filter(part => part.inlineData?.mimeType === 'video/mp4');
+    assert.ok(images.length >= 1 && images.length <= 6, 'bounded batches keep review image quota manageable');
     assert.ok(images.every(part => Buffer.from(part.inlineData.data, 'base64').length > 100));
-    assert.equal(audio.length, 1);
-    return Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ summary: block ? 'A concrete problem was found.' : 'The sampled material fulfills its promise.', findings: block ? [{ severity: 'blocker', category: 'audio', detail: 'Opening speech is inaudible at 0s.' }] : [] }) }] } }] });
+    assert.ok(audio.length <= 1);
+    assert.equal(clips.length, 1, 'actual video gives caption phrase transitions temporal context');
+    assert.equal(clips[0].videoMetadata.fps, 4);
+    assert.ok(Buffer.from(clips[0].inlineData.data, 'base64').length > 1000);
+    return Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ summary: block ? 'A concrete problem was found.' : 'The sampled material fulfills its promise.', findings: captionBlock ? [{ severity: 'blocker', category: 'captions', detail: 'Caption is cut off at the bottom edge at 1s.' }] : block ? [{ severity: 'blocker', category: 'audio', detail: 'Opening speech is inaudible at 0s.' }] : [] }) }] } }] });
   };
   try {
     const passed = await reviewRenderedVideo(script, 'final.mp4', 'fixture');
-    assert.equal(reviewCalls, 2, 'transient review overload retries once using the same rendered media');
+    assert.equal(reviewCalls, Math.ceil(passed.sampleTimes.length / 6) + 1, 'transient overload retries only its batch');
     assert.equal(passed.status, 'passed');
     assert.equal(passed.videoFilename, 'final.mp4');
     assert.equal(passed.renderHash, renderFileHash(file));
     block = true;
     assert.equal((await reviewRenderedVideo(script, 'final.mp4', 'fixture')).status, 'blocked');
+    captionBlock = true;
+    const clipped = await reviewRenderedVideo(script, 'final.mp4', 'fixture');
+    assert.equal(clipped.status, 'blocked', 'concrete caption clipping must not be downgraded');
+    assert.equal(clipped.findings[0].severity, 'blocker');
+    captionBlock = false;
+    permanentError = true;
+    const callsBeforePermanentError = reviewCalls;
+    await assert.rejects(reviewRenderedVideo(script, 'final.mp4', 'fixture'), /HTTP 401/);
+    assert.equal(reviewCalls, callsBeforePermanentError + 1, 'permanent errors are not retried');
+    permanentError = false;
     assert.notEqual(passed.productionHash, retention.productionHash({ ...script, narration: 'Changed narration' }));
     const priorHash = passed.renderHash;
     fs.utimesSync(file, new Date(), new Date(Date.now() + 2000));
@@ -257,4 +337,37 @@ test('polished audio graph maps voice and music inputs correctly for multiple im
   await runMedia('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=s=160x90:d=2', '-f', 'lavfi', '-i', 'color=s=160x90:d=2',
     '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', '-f', 'lavfi', '-i', 'sine=frequency=110:duration=2', '-filter_complex', audioGraph, '-map', '[a]', path.join(directory, 'mixed.wav')]);
   assert.ok(fs.statSync(path.join(directory, 'mixed.wav')).size > 1000);
+});
+
+test('rate limited final review saves completed batches and resumes without repeating them', async () => {
+  const dir = path.join(ws.outputDir(), 'review-resume'); fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'final.mp4');
+  await runMedia('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=blue:s=160x90:r=10:d=2',
+    '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', file]);
+  const script = { id: 'review-resume', topicName: fullPlan.topic, retentionPlan: fullPlan,
+    scenePlan: sourcePlan, narration: 'Test narration.', generatedAudio: [{ url: '/voice.wav' }],
+    generatedImages: [{ index: 0, url: '/first.png' }, { index: 1, url: '/second.png' }] };
+  store.add('scripts', script); accounts.atomicJson(`${file}.json`, { revision: renderRevision(script.id) });
+  const previous = globalThis.fetch; const seen = []; let attempts = 0;
+  globalThis.fetch = async (_, options) => {
+    attempts++;
+    const parts = JSON.parse(options.body).contents[0].parts;
+    seen.push(parts.filter(p => p.text?.startsWith('Rendered frame')).map(p => p.text));
+    if (attempts === 2) return Response.json({ error: { details: [{ retryDelay: '90s' }] } }, { status: 429 });
+    return Response.json({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify({ summary: 'Sampled batch clear.', findings: [] }) }] } }] });
+  };
+  try {
+    await assert.rejects(reviewRenderedVideo(script, 'final.mp4', 'fixture'), e => e.retryAfterSeconds >= 90 && e.completed === 1);
+    const checkpoint = `${file}.review-progress.json`;
+    const saved = JSON.parse(fs.readFileSync(checkpoint, 'utf8'));
+    assert.equal(saved.results.length, 1);
+    await assert.rejects(reviewRenderedVideo(script, 'final.mp4', 'fixture'), /waiting to retry/);
+    assert.equal(attempts, 2, 'Retry-After blocks premature provider calls');
+    accounts.atomicJson(checkpoint, { ...saved, retryAt: 0 });
+    const result = await reviewRenderedVideo(script, 'final.mp4', 'fixture');
+    assert.equal(result.status, 'passed');
+    assert.equal(attempts, 3);
+    assert.deepEqual(seen[1], seen[2], 'only the rate-limited batch is retried');
+    assert.notDeepEqual(seen[0], seen[2]);
+  } finally { globalThis.fetch = previous; }
 });

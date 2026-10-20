@@ -67,4 +67,43 @@ test('old image layers remain valid and invalid motion parameters fail validatio
   }
 });
 
+test('protected image labels stay inside portrait and landscape stages throughout every camera move', async () => {
+  const { documentaryImageLayout } = await import('@tubeflow/video-composition');
+  for (const [width, height] of [[1080, 1920], [1920, 1080]]) {
+    for (const source of [{ width: 768, height: 1376 }, { width: 1920, height: 1080 }]) {
+      for (const motion of ImageMotion.options) {
+        const protectedLayer = { ...layer, motion, strength: 0.2, preserveSource: true,
+          focus: { x: 1, y: 0 }, rotation: 6, crop: { x: 0.25, y: 0.25, width: 0.5, height: 0.5 } };
+        const layout = documentaryImageLayout(protectedLayer, width, height, source);
+        assert.deepEqual(layout.crop, { x: 0, y: 0, width: 1, height: 1 });
+        for (const progress of [0, 0.25, 0.5, 0.75, 1]) {
+          const state = imageMotionAt(protectedLayer, progress);
+          const w = source.width * layout.fit * state.scale, h = source.height * layout.fit * state.scale;
+          const left = (width - w) / 2 + state.x * width, top = (height - h) / 2 + state.y * height;
+          assert.ok(left >= width * 0.05 && left + w <= width * 0.95, `${motion}: horizontal source labels cropped`);
+          assert.ok(top >= height * 0.06 && top + h + height * 0.035 <= height * 0.94, `${motion}: vertical source labels cropped`);
+        }
+      }
+    }
+  }
+});
+
 test.after(() => fs.rmSync(process.env.TUBEFLOW_DATA_DIR, { recursive: true, force: true }));
+
+test('native diagram labels and pointer endpoints reflow inside both formats without scaling text with the source', async () => {
+  const { diagramLayout, contains } = await import('@tubeflow/video-composition');
+  for (const [width, height] of [[1080, 1920], [1920, 1080]]) {
+    for (const count of [1, 2, 4, 6]) {
+      const diagram = { sourceCrop: { x: 0.3, y: 0.2, width: 0.4, height: 0.6 },
+        labels: Array.from({ length: count }, (_, i) => ({ text: `Source label ${i + 1}`, anchor: { x: 0.2 + i * 0.1, y: 0.5 } })) };
+      const layout = diagramLayout(width, height, diagram, { width: 768, height: 1376 });
+      assert.ok(contains(layout.safe, layout.image));
+      assert.ok(layout.fontSize >= 34, 'native label size stays readable independent of image crop');
+      for (const card of layout.cards) {
+        assert.ok(contains(layout.safe, card), 'complete cards fit the format safe area');
+        assert.ok(contains(layout.image, { ...card.point, width: 1, height: 1 }));
+        assert.ok(height > width ? card.y > layout.image.y + layout.image.height : card.x > layout.image.x + layout.image.width);
+      }
+    }
+  }
+});

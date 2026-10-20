@@ -48,14 +48,12 @@ export async function registerMedia(
     );
   const route = `generate/file/${scriptId}/${match[1]}`;
   const scope = currentWorkspace();
-  if (
-    url !== mediaUrl(route) &&
-    !(
-      scope.accountId === "default" &&
-      scope.profile === "shorts" &&
-      url === `/api/${route}`
-    )
-  )
+  const validUrls = new Set([
+    mediaUrl(route),
+    `/api/${route}`,
+    `/api/accounts/${scope.accountId}/profiles/${scope.profile}/${route}`,
+  ]);
+  if (!validUrls.has(url))
     throw new EditingError(
       "INVALID_MEDIA",
       "Media URL belongs to a different workspace",

@@ -8,7 +8,7 @@ const { fixture } = await import('./fixtures.mjs');
 const { createMotionCaptions } = await import('../../server/dist/services/editing/motionCaptions.js');
 const { applyMotionTheme, inferMotionTheme } = await import('../../server/dist/services/editing/motionTheme.js');
 const { validateProject } = await import('@tubeflow/editing-contracts');
-const { exportVideo } = await import('../../server/dist/services/editing/renderer.js');
+const { exportVideo, previewFrames } = await import('../../server/dist/services/editing/renderer.js');
 const { randomUUID } = await import('node:crypto');
 const { projectDir } = await import('../../server/dist/services/editing/repository.js');
 
@@ -45,6 +45,8 @@ test('motion captions render in the exported composition', async () => {
     const project = await createMotionCaptions(source, new AbortController().signal);
     assert.ok(project.artifacts.every(a => a.graphic.bounds.y >= project.inputs.height * 0.75), 'captions stay in the bottom portion');
     applyMotionTheme(project, 'modern');
+    const checked = await previewFrames(project, new AbortController().signal, project.artifacts[0].id);
+    assert.ok(checked.every(frame => frame.findings.length === 0), 'native caption typography must fit throughout its reveal');
     const jobId = randomUUID();
     await exportVideo(project, jobId, new AbortController().signal, () => {});
     assert.ok(fs.statSync(path.join(projectDir(project.id), 'renders', jobId, 'video.mp4')).size > 1000);

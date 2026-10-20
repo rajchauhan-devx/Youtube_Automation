@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { AbsoluteFill, continueRender, delayRender, interpolate, spring } from 'remotion';
+import { AbsoluteFill, continueRender, delayRender, interpolate, spring, useVideoConfig } from 'remotion';
 import type { ArtifactComposition, EditingProject } from '@tubeflow/editing-contracts';
 import { cardBounds, targetMostlyVisible, targetOnScreen } from './graphics.js';
 import type { Matrix } from './math.js';
@@ -8,19 +8,21 @@ import { DocumentaryComposition, type DocumentaryAssets } from './DocumentaryCom
 type Props = { project: EditingProject; artifact: ArtifactComposition; frame: number; source: { width: number; height: number }; sourceTransform?: Matrix; assets?: DocumentaryAssets };
 function Text({ text, size, height, family, color = '#ffffff', weight = 700 }: { text: string; size: number; height: number; family: string; color?: string; weight?: number }) {
   const ref = useRef<HTMLDivElement>(null);
+  const config = useVideoConfig();
+  const minimum = Math.min(config.width, config.height) * 0.026;
   const [handle] = useState(() => delayRender('Fit motion graphic typography'));
   useLayoutEffect(() => {
     const el = ref.current;
     if (el) {
-      let current = size;
+      let current = Math.max(size, minimum);
       el.style.fontSize = `${current}px`;
-      while ((el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) && current > 6) {
+      while ((el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1) && current > minimum) {
         current -= 1; el.style.fontSize = `${current}px`;
       }
     }
     continueRender(handle);
     return () => continueRender(handle);
-  }, [text, size, height, family, handle]);
+  }, [text, size, height, family, handle, minimum]);
   return <div ref={ref} data-editing-text="motion" style={{ height, fontFamily: family, fontSize: size, lineHeight: 1.3, fontWeight: weight, color, overflowWrap: 'anywhere', whiteSpace: 'pre-wrap' }}>{text}</div>;
 }
 
@@ -125,6 +127,38 @@ export function ObjectSpotlight(props: Props) {
 }
 
 export function MotionGraphicRenderer(props: Props) {
+  return <AbsoluteFill data-graphic-artifact={props.artifact.id} style={{ zIndex: props.artifact.graphic?.kind === 'caption' ? 20 : 5 }}>
+    <GraphicContent {...props} />
+    <GraphicLayoutCheck {...props} />
+  </AbsoluteFill>;
+}
+
+/** Runs after the graphics mount (FontRegistry loads before this subtree exists). */
+function GraphicLayoutCheck({ project, artifact, frame }: Props) {
+  const [handle] = useState(() => delayRender('Check rendered graphic bounds'));
+  useLayoutEffect(() => {
+    const root = document.querySelector<HTMLElement>(`[data-graphic-artifact="${artifact.id}"]`);
+    const check = () => {
+      root?.querySelectorAll<HTMLElement>('[data-editing-text]').forEach(element => {
+        const bounds = element.getBoundingClientRect(), viewport = root.getBoundingClientRect();
+        const overflow = element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
+        const outside = bounds.left < viewport.left - 1 || bounds.top < viewport.top - 1 || bounds.right > viewport.right + 1 || bounds.bottom > viewport.bottom + 1;
+        const small = parseFloat(getComputedStyle(element).fontSize) < Math.min(project.inputs.width, project.inputs.height) * 0.025;
+        if (overflow || outside || small) console.warn('EDITING_QA:' + JSON.stringify({
+          code: overflow ? 'TEXT_OVERFLOW' : outside ? 'GRAPHIC_OUTSIDE_FRAME' : 'TEXT_TOO_SMALL',
+          artifactId: artifact.id, nodeId: element.dataset.nodeId || 'native-graphic',
+          message: `Native text must fit at a readable size: ${element.clientWidth}x${element.clientHeight}, content ${element.scrollWidth}x${element.scrollHeight}, font ${getComputedStyle(element).fontSize}.`,
+        }));
+      });
+      continueRender(handle);
+    };
+    const animation = requestAnimationFrame(check);
+    return () => { cancelAnimationFrame(animation); continueRender(handle); };
+  }, [project, artifact, frame, handle]);
+  return null;
+}
+
+function GraphicContent(props: Props) {
   const graphic = props.artifact.graphic;
   if (!graphic) return null;
   if (graphic.kind === 'composition') {
@@ -219,13 +253,13 @@ export function MotionCaption(props: Props) {
   // burned-in subtitles. The active-word emphasis is conveyed by timing only.
   const words = g.title.split(/\s+/u).filter(Boolean);
   const duration = Math.max(1, artifact.endFrame - artifact.startFrame);
-  const fontSize = Math.min(b.height * 0.38, b.width * (project.inputs.height > project.inputs.width ? 0.085 : 0.056));
+  const fontSize = Math.min(b.height * 0.34, b.width * (project.inputs.height > project.inputs.width ? 0.085 : 0.056));
   const delay = Math.min(fps * 0.06, duration * 0.25 / Math.max(1, words.length));
   const color = textFor(project);
   return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity, zIndex: 2,
     display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', alignContent: 'center',
     columnGap: '0.38em', rowGap: '0.02em', fontFamily: familyFor(project), fontWeight: 700,
-    fontSize, lineHeight: 1.2, textAlign: 'center', textShadow: '0 1px 3px #000, 0 0 8px #000' }} data-editing-text="motion-caption">
+    fontSize, lineHeight: 1.4, textAlign: 'center', textShadow: '0 1px 3px #000, 0 0 8px #000' }} data-editing-text="motion-caption">
     {words.map((word, index) => {
       const reveal = spring({ frame: Math.max(0, local - (g.wordTimings?.[index]?.startFrame ?? index * delay)), fps, config: { stiffness: 180, damping: 24, overshootClamping: true } });
       return <span key={`${index}-${word}`} style={{ display: 'inline-block', color,

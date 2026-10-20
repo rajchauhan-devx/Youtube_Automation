@@ -14,6 +14,7 @@ import {
   validateProject,
   motionProject,
   assertDocumentaryVisuals,
+  assertGraphicsReviewed,
   RENDERER_VERSION,
   RenderManifest,
   type EditingProject,
@@ -76,6 +77,12 @@ export async function renderSession(
     if (assetRecord(id).mime !== "font/woff2")
       throw new Error("Approved font asset has the wrong media type");
   for (const artifact of project.artifacts) {
+    const subjectId = artifact.graphic?.composition?.editorial?.subjectAssetId;
+    if (subjectId) {
+      const record = assetRecord(subjectId);
+      if (!record.mime.startsWith('image/') || !record.alpha || !record.width || !record.height)
+        throw new Error('An editorial subject must be a registered isolated image with transparency.');
+    }
     for (const layer of artifact.graphic?.composition?.layers || []) {
       const record = assetRecord(layer.assetId);
       if (!record.mime.startsWith('image/') || !record.width || !record.height)
@@ -174,6 +181,7 @@ export async function exportGraphicsOverlay(
   progress: (completed: number, total: number) => void,
   legacyCameras?: CompositionProps['legacyCameras'],
 ) {
+  assertGraphicsReviewed(project);
   const config = editingConfig();
   const bounded = AbortSignal.any([signal, AbortSignal.timeout(config.renderTimeout)]);
   const session = await renderSession(project, bounded, 'ArtifactsOverlay', legacyCameras);
@@ -229,7 +237,7 @@ export async function previewFrames(
         output: path.join(dir, `${frame}.png`),
         frame,
         imageFormat: "png",
-        scale: 0.5,
+        scale: 0.75,
         timeoutInMilliseconds: 60000,
         onBrowserLog: (log) => {
           if (!log.text.startsWith("EDITING_QA:")) return;
@@ -251,12 +259,28 @@ export async function previewFrames(
     findings: findings.get(frame) || [],
   }));
 }
+export async function previewArtifactVideo(project: EditingProject, artifactId: string, signal: AbortSignal) {
+  const artifact = project.artifacts.find(a => a.id === artifactId && a.enabled);
+  if (!artifact) throw new Error('No enabled graphic to review');
+  const dir = path.join(projectDir(project.id), 'previews', project.revisionId);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${artifactId}-motion.mp4`);
+  const session = await renderSession(project, signal);
+  try {
+    await renderMedia({ ...session, codec: 'h264', imageFormat: 'jpeg', jpegQuality: 85, crf: 22,
+      frameRange: [artifact.startFrame, artifact.endFrame - 1], everyNthFrame: 3,
+      scale: 0.5, x264Preset: 'ultrafast', outputLocation: file,
+      concurrency: editingConfig().renderConcurrency, timeoutInMilliseconds: 60000 });
+  } finally { session.close(); }
+  return file;
+}
 export async function exportVideo(
   project: EditingProject,
   jobId: string,
   signal: AbortSignal,
   progress: (completed: number, total: number) => void,
 ) {
+  assertGraphicsReviewed(project);
   if (!["ready", "partial"].includes(project.status))
     throw new Error("Only ready revisions can be exported");
   project = motionProject(project);

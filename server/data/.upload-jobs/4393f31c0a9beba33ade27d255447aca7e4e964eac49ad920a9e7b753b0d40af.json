@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "4393f31c0a9beba33ade27d255447aca7e4e964eac49ad920a9e7b753b0d40af",
+  "scriptId": "shorts_images_videos",
+  "videoFilename": "final_a4f09eb7-31b1-4684-a7dd-1e31d5f8de00.mp4",
+  "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+  "pid": 19948,
+  "owner": "60ab29d1-5890-474f-a971-8de9ce74aa40",
+  "status": "completed",
+  "startedAt": "2026-10-20T16:19:17.973Z",
+  "updatedAt": "2026-10-20T16:19:28.104Z",
+  "result": {
+    "accountId": "default",
+    "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+    "success": true,
+    "topicHistorySaved": true,
+    "videoId": "bp2sZWBNQ6Q",
+    "videoUrl": "https://youtu.be/bp2sZWBNQ6Q",
+    "title": "Raja Raja Chola’s 80-Ton Mystery: How Was Brihadisvara Temple Built?",
+    "privacyStatus": "public",
+    "scheduled": false,
+    "uploadedAt": "2026-10-20T16:19:28.064Z"
+  }
+}

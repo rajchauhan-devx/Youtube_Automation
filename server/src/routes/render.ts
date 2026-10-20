@@ -12,6 +12,7 @@ import { renderRevision, isCurrentRender } from '../services/render-revision.js'
 import { validateEditingSettings } from '../services/auto-edit.js';
 import { removePreviousRenders } from '../services/render-output.js';
 import { generateSubtitleFile } from '../services/subtitle.js';
+import { synchronizedCaptionAss } from '../services/final-captions.js';
 import { listMusicTracks, resolveMusicTrack, ensureDefaultMusicTracks } from '../services/music.js';
 import { startMusic, musicJobStatus, musicInstalled, cancelMusic, resolveGeneratedMusic, generateMusicPrompt } from '../services/local-music.js';
 import fs from 'fs';
@@ -187,6 +188,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
   let savedGraphics: ReturnType<typeof savedGraphicsForRender>;
   let savedCameras: ReturnType<typeof graphicsCameras> | undefined;
   let savedMotionCaptions = false;
+  let hasVisualArtifacts = false;
   let effectiveEditing = editing;
   try {
     resolvedBgm = bgmTrack === 'ai' ? resolveGeneratedMusic(scriptId) : bgmTrack ? resolveMusicTrack(bgmTrack) : null;
@@ -226,6 +228,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
       planTimeline(timelineConfig.clips, finalDuration);
     }
     savedGraphics = savedGraphicsForRender(scriptId, audioPath, imagePaths, resolution || { width: 1080, height: 1920 });
+    hasVisualArtifacts = Boolean(savedGraphics?.artifacts.some(a => a.enabled && a.graphic));
     if (savedGraphics) {
       savedCameras = graphicsCameras(savedGraphics, { scriptId, imagePaths, audioPath, timelineConfig, sceneAnalysis, zoomFactor, transitionDuration, editing: effectiveEditing }, finalDuration, longPlan, longSync);
       savedMotionCaptions = savedGraphics.artifacts.some(a => a.enabled && a.graphic?.kind === 'caption');
@@ -279,7 +282,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     transitionDuration,
     timelineConfig,
     sceneAnalysis,
-    enableSubtitles: Boolean(enableSubtitles && !savedMotionCaptions && (longSync || subtitlePath)),
+    enableSubtitles: Boolean(enableSubtitles && !hasVisualArtifacts && (longSync || subtitlePath)),
     subtitlePath,
     bgmPath: resolvedBgm || undefined,
     bgmVolume: typeof bgmVolume === 'number' ? bgmVolume : 0.15,
@@ -287,13 +290,13 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     colorGrade: typeof colorGrade === 'string' ? colorGrade : undefined,
     enableVignette: enableVignette !== false,
     enableSfx: enableSfx !== false,
-    editing: savedMotionCaptions && effectiveEditing ? { ...effectiveEditing, captions: false } : effectiveEditing,
+    editing: hasVisualArtifacts && effectiveEditing ? { ...effectiveEditing, captions: false } : effectiveEditing,
     presenter,
     presenterSourceSize,
     onProgress: (percent) => {
       const entry = activeRenders.get(workspaceKey(scriptId));
       if (entry === job) {
-        entry.progress = savedGraphics ? (presenter?.enabled ? Math.min(65, 45 + Math.round(percent * 0.20)) : Math.min(65, Math.round(percent * 0.65))) : presenter?.enabled ? Math.min(99, 45 + Math.round(percent * 0.54)) : percent;
+        entry.progress = (savedGraphics && hasVisualArtifacts) ? (presenter?.enabled ? Math.min(65, 45 + Math.round(percent * 0.20)) : Math.min(65, Math.round(percent * 0.65))) : presenter?.enabled ? Math.min(99, 45 + Math.round(percent * 0.54)) : percent;
         entry.stage = percent >= 95 && presenter?.enabled ? 'Compositing presenter' : 'Rendering story scenes';
         persist();
       }
@@ -313,10 +316,19 @@ const startRender: import('express').RequestHandler = async (req, res) => {
   })()
     .then(async (result) => {
       try {
-        if (savedGraphics) await compositeSavedGraphics(result, savedGraphics, controller.signal, (stage, progress) => {
+        let finalCaptionPath: string | undefined;
+        if (hasVisualArtifacts && enableSubtitles && !savedMotionCaptions && (!effectiveEditing?.enabled || effectiveEditing.captions)) {
+          if (longPlan && longSync) {
+            finalCaptionPath = path.join(getOutputDir(scriptId), `${result.filename}.captions.ass`);
+            fs.writeFileSync(finalCaptionPath, reservePresenterCaptionSpace(synchronizedCaptionAss(longPlan, longSync,
+              resolution?.width || 1080, resolution?.height || 1920, effectiveEditing), presenter, presenterSourceSize,
+              resolution || { width: 1080, height: 1920 }));
+          } else finalCaptionPath = subtitlePath;
+        }
+        if (savedGraphics && hasVisualArtifacts) await compositeSavedGraphics(result, savedGraphics, controller.signal, (stage, progress) => {
           const entry = activeRenders.get(workspaceKey(scriptId));
           if (entry === job) { entry.stage = stage; entry.progress = progress; persist(); }
-        }, savedCameras);
+        }, savedCameras, finalCaptionPath);
         controller.signal.throwIfAborted();
         if (revision && renderRevision(scriptId) !== revision) {
           throw new Error('The story, scene assets or motion graphics changed during rendering. Render again with the current settings.');

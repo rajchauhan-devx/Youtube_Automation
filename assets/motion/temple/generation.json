@@ -1,0 +1,7 @@
+{
+  "tool": "built-in image_gen",
+  "asset": "granite-on-rollers-v1.png",
+  "purpose": "Isolated illustrative prop for a narrated construction process, not archaeological evidence",
+  "transparent": true,
+  "prompt": "Use case: scientific-educational. Asset type: a single isolated motion-design subject for an explanatory video about raising a heavy granite capstone in premodern construction.\nCreate ONE clean three-quarter-view, long low rectangular granite monolith resting on three dark wooden log rollers. Dark warm grey natural granite with restrained grain, bevelled slightly chipped edges, realistic material, front-right perspective, carefully drawn editorial 3D illustration. The stone and rollers are the entire asset. All objects contained inside canvas with 12% transparent padding. No people, animals, buildings, scene background, table, floor plane, cards, panels, collage, text, numbers, labels, arrows, logos, border, watermark. The silhouette must read clearly at video scale. Consistent warm upper-left key light with a narrow contact shadow only beneath the stone on its own rollers, no large cast background shadow. Genuine transparent background. This is an illustrative engineering prop, not archaeological evidence."
+}

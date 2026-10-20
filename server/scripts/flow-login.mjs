@@ -27,6 +27,16 @@ async function main() {
   const profileDir = configured
     ? path.isAbsolute(configured) ? configured : path.resolve(SERVER_ROOT, configured)
     : path.join(SERVER_ROOT, 'data', 'flow', 'profile-default');
+
+  const isFresh = process.argv.includes('--fresh');
+  if (isFresh) {
+    console.log(`Clearing previous Google Flow profile for fresh login...`);
+    try {
+      fs.rmSync(profileDir, { recursive: true, force: true });
+    } catch (e) {
+      console.warn('Could not remove profileDir:', e.message);
+    }
+  }
   fs.mkdirSync(profileDir, { recursive: true });
 
   const channel = getBrowserChannel();
@@ -34,6 +44,7 @@ async function main() {
   console.log(` Google Flow One-Time Login Helper`);
   console.log(` Profile Directory: ${profileDir}`);
   console.log(` Browser Channel:   ${channel || 'bundled chromium'}`);
+  console.log(` Fresh Session:     ${isFresh ? 'YES' : 'NO'}`);
   console.log(`======================================================\n`);
   console.log(`Opening browser window...`);
   console.log(`1. Sign in to your Google Account (with Google Flow / Pro access).`);
@@ -56,24 +67,29 @@ async function main() {
   const interval = setInterval(async () => {
     try {
       if (page.isClosed()) return;
-      const avatar = page.locator('button[aria-label*="@" i], [data-identifier*="@" i], img[alt*="@" i]').first();
-      if ((await avatar.count()) > 0) {
-        const aria = (await avatar.getAttribute('aria-label').catch(() => '')) || '';
-        const dataId = (await avatar.getAttribute('data-identifier').catch(() => '')) || '';
-        const alt = (await avatar.getAttribute('alt').catch(() => '')) || '';
-        const match = `${aria} ${dataId} ${alt}`.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-        if (match && fs.existsSync(creditsPath)) {
-          const current = JSON.parse(fs.readFileSync(creditsPath, 'utf8'));
-          if (current.account !== match[0]) {
-            current.account = match[0];
-            current.lastSync = new Date().toISOString();
-            fs.writeFileSync(creditsPath, JSON.stringify(current, null, 2), 'utf8');
-            console.log(`[Account Detected] Switched active Google account to: ${match[0]}`);
+      const detectedEmail = await page.evaluate(() => {
+        const els = document.querySelectorAll('a, button, [role="button"], [aria-label], [title], [data-identifier], img');
+        for (const el of els) {
+          const text = `${el.getAttribute('aria-label') || ''} ${el.getAttribute('title') || ''} ${el.getAttribute('data-identifier') || ''} ${el.getAttribute('alt') || ''} ${el.textContent || ''}`;
+          const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+          if (match && !match[0].includes('w3.org') && !match[0].includes('example.com') && !match[0].includes('google.com/')) {
+            return match[0];
           }
+        }
+        return null;
+      }).catch(() => null);
+
+      if (detectedEmail && fs.existsSync(creditsPath)) {
+        const current = JSON.parse(fs.readFileSync(creditsPath, 'utf8'));
+        if (current.account !== detectedEmail) {
+          current.account = detectedEmail;
+          current.lastSync = new Date().toISOString();
+          fs.writeFileSync(creditsPath, JSON.stringify(current, null, 2), 'utf8');
+          console.log(`[Account Detected] Switched active Google account to: ${detectedEmail}`);
         }
       }
     } catch {}
-  }, 4000);
+  }, 3000);
 
   // Wait until user closes the browser
   await new Promise((resolve) => {

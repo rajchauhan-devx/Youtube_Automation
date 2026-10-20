@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { store } from '../services/store.js';
 import { modelCredential } from '../services/model-json.js';
+import { getGeminiApiKey } from '../services/gemini.js';
 import { createRetentionPlan, editForRetention, responseHash, retentionBrief, productionHash } from '../services/retention.js';
 import { reviewRenderedVideo } from '../services/retention-review.js';
+import { ReviewPending } from '../services/review-retry.js';
 
 export const retentionRouter = Router();
 for (const operation of ['plan', 'edit', 'review'] as const) {
@@ -20,7 +22,7 @@ for (const operation of ['plan', 'edit', 'review'] as const) {
       let patch: Record<string, unknown>;
       let result: unknown;
       if (operation === 'plan') {
-        if (!req.get('x-api-key') && !process.env.GEMINI_API_KEY) { res.status(401).json({ error: 'Add a Gemini API key for the final rendered review before starting Auto-Pilot.' }); return; }
+        if (!getGeminiApiKey(req.get('x-api-key'))) { res.status(401).json({ error: 'Add a Gemini API key for the final rendered review before starting Auto-Pilot.' }); return; }
         const topic = typeof req.body?.topic === 'string' ? req.body.topic.trim() : '';
         if (!topic || topic.length > 300) { res.status(400).json({ error: 'Select a topic before planning hooks' }); return; }
         const plan = await createRetentionPlan({ topic, template, instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : '', duration: script.duration || 30, model, apiKey, signal: controller.signal });
@@ -38,7 +40,7 @@ for (const operation of ['plan', 'edit', 'review'] as const) {
         result = { edit };
       } else {
         if (!script.retentionPlan || !script.retentionEdit) { res.status(409).json({ error: 'This run needs a hook plan and retention edit before review.' }); return; }
-        const review = await reviewRenderedVideo(script, req.body?.videoFilename, req.get('x-api-key') || process.env.GEMINI_API_KEY || '', controller.signal);
+        const review = await reviewRenderedVideo(script, req.body?.videoFilename, getGeminiApiKey(req.get('x-api-key')), controller.signal);
         if (review.productionHash !== productionHash(script)) throw new Error('The production changed during review.');
         patch = { retentionReview: review };
         result = { review };
@@ -51,7 +53,13 @@ for (const operation of ['plan', 'edit', 'review'] as const) {
       store.add('scripts', { ...latest, ...patch });
       res.json(result);
     } catch (error) {
-      if (!controller.signal.aborted) res.status(422).json({ error: error instanceof Error ? error.message : 'Retention review failed' });
+      if (!controller.signal.aborted) {
+        if (error instanceof ReviewPending) res.setHeader('Retry-After', error.retryAfterSeconds).status(429).json({
+          error: error.message, retryable: true, retryAfterSeconds: error.retryAfterSeconds,
+          completedBatches: error.completed, totalBatches: error.total,
+        });
+        else res.status(422).json({ error: error instanceof Error ? error.message : 'Retention review failed' });
+      }
     } finally { res.off('close', disconnect); }
   });
 }

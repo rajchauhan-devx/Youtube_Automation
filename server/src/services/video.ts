@@ -23,6 +23,28 @@ if (!fs.existsSync(workspaceOutputDir())) {
 
 ffmpeg.setFfmpegPath('ffmpeg');
 
+let hasNvencCache: boolean | null = null;
+export async function canUseNvenc(): Promise<boolean> {
+  if (hasNvencCache !== null) return hasNvencCache;
+  try {
+    await runMedia('ffmpeg', ['-f', 'lavfi', '-i', 'color=c=black:s=256x256:d=0.04', '-c:v', 'h264_nvenc', '-f', 'null', '-']);
+    hasNvencCache = true;
+    console.log('[VIDEO ENCODER] NVIDIA NVENC hardware acceleration active.');
+  } catch {
+    hasNvencCache = false;
+    console.log('[VIDEO ENCODER] Hardware NVENC unavailable; using multi-threaded CPU libx264.');
+  }
+  return hasNvencCache;
+}
+
+export function videoEncoderFlags(useNvenc: boolean, crf = 21): string[] {
+  if (useNvenc) {
+    return ['-c:v', 'h264_nvenc', '-preset', 'p4', '-cq', String(crf)];
+  }
+  return ['-c:v', 'libx264', '-preset', 'fast', '-crf', String(crf)];
+}
+
+
 export interface RenderOptions {
   polishAudio?: boolean;
   presenter?: PresenterSettings;
@@ -81,7 +103,20 @@ export async function probeAudioDuration(filePath: string): Promise<number> {
 export function resolveInputPath(p: string, scriptId: string): string {
   if (!safeSegment(scriptId) || typeof p !== 'string') throw new Error('Invalid media identifier');
   if (p.startsWith('/api/')) {
-    const expected = [mediaUrl(`generate/file/${scriptId}/`), mediaUrl(`tts/file/${scriptId}/`)];
+    const scope = currentWorkspace();
+    const prefixes = ['generate/file', 'tts/file'];
+    const expected: string[] = [];
+    for (const prefix of prefixes) {
+      expected.push(
+        mediaUrl(`${prefix}/${scriptId}/`),
+        `/api/${prefix}/${scriptId}/`,
+        `/api/accounts/${scope.accountId}/profiles/${scope.profile}/${prefix}/${scriptId}/`,
+        `/api/accounts/default/profiles/${scope.profile}/${prefix}/${scriptId}/`,
+        `/api/accounts/default/profiles/shorts/${prefix}/${scriptId}/`,
+        `/api/accounts/default/profiles/long/${prefix}/${scriptId}/`,
+        `/api/accounts/default/profiles/mixed/${prefix}/${scriptId}/`
+      );
+    }
     if (!expected.some(prefix => p.startsWith(prefix) && safeSegment(p.slice(prefix.length)))) throw new Error('Media must belong to this account, profile and script');
     return containedFile(generatedDir(), scriptId, p.slice(p.lastIndexOf('/') + 1));
   }
@@ -168,7 +203,7 @@ export function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]
   // Subtitles
   if (opts.enableSubtitles && opts.subtitlePath && fs.existsSync(opts.subtitlePath)) {
     const cleanSubPath = path.resolve(opts.subtitlePath).replace(/\\/g, '/').replace(/:/g, '\\:');
-    postFilters.push(`ass='${cleanSubPath}'`);
+    postFilters.push(`ass='${cleanSubPath}':shaping=complex`);
   }
 
   // Final video output node [v]
@@ -327,6 +362,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
     return `${Math.floor(centiseconds / 360000)}:${String(Math.floor(centiseconds / 6000) % 60).padStart(2, '0')}:${String(Math.floor(centiseconds / 100) % 60).padStart(2, '0')}.${String(centiseconds % 100).padStart(2, '0')}`;
   };
   try {
+    const useNvenc = await canUseNvenc();
     const files: string[] = [];
     let presenterSourceSize = opts.presenterSourceSize;
     if (opts.presenter?.enabled && opts.presenterPath && !presenterSourceSize) {
@@ -372,7 +408,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         const file = `scene-${i}.mp4`;
         const length = frames / FPS;
         await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', resolveInputPath(opts.imagePaths[i], opts.scriptId), '-vf', `${filter},${normalizeVideo}`,
-          '-frames:v', String(frames), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', editing.quality === 'high' ? '18' : '21', '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), '-threads', '2', clean], opts.signal, work);
+          '-frames:v', String(frames), '-an', ...videoEncoderFlags(useNvenc, editing.quality === 'high' ? 18 : 21), '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), clean], opts.signal, work);
         const transitionLength = Math.min(editing.transitionSeconds, length / 3);
         const post: string[] = [];
         if ((i === 0 && editing.bookendFades) || decisions[i].transition === 'dip-black') post.push(`fade=t=in:st=0:d=${transitionLength}`);
@@ -383,7 +419,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         }
         if (editing.captions && opts.enableSubtitles !== false) {
           fs.writeFileSync(containedFile(work, `polish-${i}.ass`), reservePresenterCaptionSpace(autoEditAss(scenePlan.scenes[i].narration, length, '', width, height, editing, true), opts.presenter, presenterSourceSize));
-          post.push(`subtitles=polish-${i}.ass`);
+          post.push(`ass=polish-${i}.ass:shaping=complex`);
         }
         post.push(normalizeVideo);
         const sceneArgs = ['-v', 'error', '-y', '-i', clean];
@@ -393,7 +429,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
           sceneArgs.push('-loop', '1', '-framerate', String(FPS), '-i', 'previous-tail.png', '-filter_complex_threads', '1', '-filter_complex',
             `[1:v]trim=duration=${transitionLength},settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[tail];[0:v]settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[current];[tail][current]xfade=transition=fade:duration=${transitionLength}:offset=0,${post.join(',')}[v]`, '-map', '[v]');
         } else sceneArgs.push('-vf', post.join(','));
-        sceneArgs.push('-frames:v', String(frames), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', editing.quality === 'high' ? '19' : '23', '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), '-threads', '2', file);
+        sceneArgs.push('-frames:v', String(frames), '-an', ...videoEncoderFlags(useNvenc, editing.quality === 'high' ? 19 : 23), '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), file);
         await runMedia('ffmpeg', sceneArgs, opts.signal, work);
         if (decisions[i + 1]?.transition === 'dissolve') await runMedia('ffmpeg', ['-v', 'error', '-y', '-sseof', String(-1 / FPS), '-i', clean, '-frames:v', '1', '-update', '1', 'previous-tail.png'], opts.signal, work);
         fs.rmSync(containedFile(work, clean), { force: true });
@@ -405,12 +441,12 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         const caption = scenePlan.scenes[i].narration.replace(/[{}\\\r\n]/g, ' ');
         const ass = `[Script Info]\nScriptType: v4.00+\nPlayResX: ${width}\nPlayResY: ${height}\nWrapStyle: 0\n[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\nStyle: Default,Nirmala UI,40,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,0,0,0,0,100,100,0,0,1,2,0,2,96,96,60,1\n[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\nDialogue: 0,0:00:00.00,${time(frames / FPS)},Default,,0,0,0,,${caption}\n`;
         fs.writeFileSync(containedFile(work, `caption-${i}.ass`), reservePresenterCaptionSpace(ass, opts.presenter, presenterSourceSize));
-        filter += `,subtitles=caption-${i}.ass`;
+        filter += `,ass=caption-${i}.ass:shaping=complex`;
       }
       filter += `,${normalizeVideo}`;
       const file = `scene-${i}.mp4`;
       await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', resolveInputPath(opts.imagePaths[i], opts.scriptId), '-vf', filter,
-        '-frames:v', String(frames), '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), '-threads', '2', file], opts.signal, work);
+        '-frames:v', String(frames), '-an', ...videoEncoderFlags(useNvenc, 23), '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), file], opts.signal, work);
       files.push(`file '${file}'`);
       opts.onProgress?.(Math.round(90 * (i + 1) / scenePlan.scenes.length));
     }

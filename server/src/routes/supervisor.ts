@@ -5,7 +5,7 @@ import os from 'node:os';
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { currentWorkspace, generatedDir, outputDir } from '../services/workspace.js';
-import { chat, formatGeminiModel } from '../services/gemini.js';
+import { chat, formatGeminiModel, getGeminiApiKey } from '../services/gemini.js';
 import { store } from '../services/store.js';
 
 const execAsync = promisify(exec);
@@ -132,8 +132,19 @@ supervisorRouter.post('/diagnose', async (req, res) => {
     return;
   }
 
+  // Fast-path recovery for overloaded or rate-limited models without blocking on another LLM call
+  if (/503|overload|temporarily overloaded|busy|UNAVAILABLE|rate limit|quota|429/i.test(error)) {
+    res.json({
+      diagnosis: 'The selected Gemini model is overloaded with high Google traffic or rate-limited.',
+      recoveryAction: 'switch_to_low_traffic_model',
+      details: 'Automatically switch to a low-traffic model (gemini-3.1-flash-lite) and resume the stage.',
+      confidence: 0.99,
+    });
+    return;
+  }
+
   const script = scriptId ? store.getById<any>('scripts', scriptId) : null;
-  const apiKey = (req.headers['x-api-key'] as string) || req.body?.apiKey || process.env.GEMINI_API_KEY || '';
+  const apiKey = getGeminiApiKey(req.get('x-api-key') || req.body?.apiKey);
 
   if (!apiKey) {
     // Fall back to heuristic rule if no API key is available

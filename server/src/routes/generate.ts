@@ -36,6 +36,12 @@ import {
 import { generateGoogleImage, isGoogleImageConfigured } from '../services/google-image.js';
 import { getGoogleAuthToken } from '../services/google-adc.js';
 
+// mediaScenes exposes the motion prompt as imagePrompt for video playback and
+// imports. Keyframe generation must retain the authored still prompt as well.
+function keyframeScene(script: any, index: number) {
+  return script?.scenePlan?.scenes?.[index] || mediaScenes(script)[index];
+}
+
 function isScript2dStylized(scriptObj: any, rawPrompt?: string): boolean {
   if (rawPrompt && TWO_D_STYLE_PATTERN.test(rawPrompt)) return true;
   const planScenes = Array.isArray(scriptObj?.scenePlan?.scenes) ? scriptObj.scenePlan.scenes : [];
@@ -392,7 +398,7 @@ generateRouter.post('/image', async (req, res) => {
   const validPreset: QualityPreset = preset === 'fast' || preset === 'high' ? preset : 'standard';
 
   const mixed = ['mixed', 'shorts'].includes(currentWorkspace().profile) || Boolean(store.getById<any>('scripts', scriptId)?.scenePlan);
-  const scene = mixed ? mediaScenes({ ...store.getById<any>('scripts', scriptId), section: currentWorkspace().profile })[index] : undefined;
+  const scene = mixed ? keyframeScene(store.getById<any>('scripts', scriptId), index) : undefined;
   if (mixed && (!scene || (scene.imagePrompt !== prompt && (scene as any).videoPrompt !== prompt))) {
     res.status(400).json({ error: 'Choose a valid scene with its current extracted prompt.' });
     return;
@@ -440,7 +446,7 @@ generateRouter.post('/image', async (req, res) => {
     let referenceFrames: Record<string, any> | undefined;
     if (mixed) {
       const current = store.getById<any>('scripts', scriptId);
-      if (!current || JSON.stringify(mediaScenes({ ...current, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) {
+      if (!current || JSON.stringify(keyframeScene(current, index)) !== JSON.stringify(scene)) {
         res.status(409).json({ error: 'Scene changed during generation. Generate again using the updated scene.' });
         return;
       }
@@ -513,9 +519,8 @@ generateRouter.post('/reference-frame', async (req, res) => {
     return;
   }
 
-  const scenes = mediaScenes({ ...currentScript, section: currentWorkspace().profile });
-  const scene = scenes[index];
-  if (!scene || scene.imagePrompt !== prompt) {
+  const scene = keyframeScene(currentScript, index);
+  if (!scene || (scene.imagePrompt !== prompt && scene.videoPrompt !== prompt)) {
     res.status(400).json({ error: 'Choose a valid scene with its current extracted prompt.' });
     return;
   }
@@ -565,7 +570,7 @@ generateRouter.post('/reference-frame', async (req, res) => {
     });
 
     const latest = store.getById<any>('scripts', scriptId);
-    if (!latest || JSON.stringify(mediaScenes({ ...latest, section: currentWorkspace().profile })[index]) !== JSON.stringify(scene)) {
+    if (!latest || JSON.stringify(keyframeScene(latest, index)) !== JSON.stringify(scene)) {
       res.status(409).json({ error: 'Scene changed during reference frame generation. Generate again using the updated scene.' });
       return;
     }

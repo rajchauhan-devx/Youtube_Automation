@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Artifact, Crop, ImageMotionSettings, ImageComparison, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
+import { Artifact, Crop, EditorialSequence, ImageMotionSettings, ImageComparison, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { cardBounds, graphicIssues, graphicNames } from '@tubeflow/video-composition';
 import { assetRecord } from './repository.js';
 import { narrationCue } from './narrationCue.js';
@@ -12,6 +12,7 @@ export const GraphicProposal = z.strictObject({
   target: z.string().trim().max(120),
   quote: z.string().trim().min(1).max(1000),
   position: z.enum(['top', 'bottom', 'left', 'right', 'center']).optional(),
+  sequence: EditorialSequence.omit({ subjectAssetId: true }).extend({ assetPrompt: z.string().trim().max(1600).optional() }).optional(),
   composition: z.strictObject({
     treatment: z.enum(['archival', 'cinematic', 'map']),
     layout: z.enum(['inset', 'cutaway']).optional(),
@@ -45,7 +46,7 @@ export function sceneNarration(p: EditingProject, sceneId: string) {
   const scene = p.scenes.find(s => s.id === sceneId)!;
   return scene.narrativeRefs.map(id => p.alignment.tokens.find(t => t.id === id)?.text || '').join(' ');
 }
-export function compileGraphic(p: EditingProject, proposal: Proposal, target?: MotionGraphicSpec['target'], id = `graphic-${proposal.sceneId}`): ArtifactComposition {
+export function compileGraphic(p: EditingProject, proposal: Proposal, target?: MotionGraphicSpec['target'], id = `graphic-${proposal.sceneId}`, labeledSources: string[] = []): ArtifactComposition {
   const scene = p.scenes.find(s => s.id === proposal.sceneId);
   const cue = scene && narrationCue(p.alignment.tokens.filter(t => scene.narrativeRefs.includes(t.id)), proposal.quote);
   if (!scene || !cue) throw new Error('The proposed graphic has no matching narration evidence.');
@@ -75,15 +76,17 @@ export function compileGraphic(p: EditingProject, proposal: Proposal, target?: M
         const sourceScene = p.scenes.find(s => s.id === layer.sourceSceneId);
         if (!sourceScene) throw new Error('Documentary layer refers to an unknown scene.');
         const source = assetRecord(sourceScene.assetId);
+        const preserveSource = labeledSources.includes(source.id);
         if (!source.mime.startsWith('image/')) throw new Error('Documentary inserts require still images. Choose an image scene.');
         if (layer.useTargetCrop && (!target || sourceScene.id !== scene.id)) throw new Error('A verified detail crop must use its own source scene.');
         return { bounds: layer.bounds, fit: layer.fit, motion: layer.motion, delay: layer.delay, rotation: layer.rotation,
           ...(layer.strength !== undefined ? { strength: layer.strength } : {}), ...(layer.focus ? { focus: layer.focus } : {}),
           ...(layer.crop ? { crop: layer.crop } : {}), id: `image-${i}`, assetId: source.id,
-          ...(layer.useTargetCrop ? { crop: target!.region } : {}) };
+          ...(layer.useTargetCrop ? { crop: target!.region } : {}),
+          ...(preserveSource ? { preserveSource: true, fit: 'contain' as const, crop: { x: 0, y: 0, width: 1, height: 1 }, rotation: 0 } : {}) };
       }) };
   } else if (proposal.composition) throw new Error('Only documentary compositions accept image layers.');
-  if (graphic.composition && graphic.composition.layers.every(layer => layer.assetId === scene.assetId &&
+  if (graphic.composition && graphic.composition.layers.every(layer => !layer.preserveSource && layer.assetId === scene.assetId &&
     (!layer.crop || (layer.crop.x === 0 && layer.crop.y === 0 && layer.crop.width >= 0.98 && layer.crop.height >= 0.98))))
     throw new Error('Repeating the entire background is not a documentary insert. Use a useful source detail or a related companion image.');
   const artifact = Artifact.parse({ id, sceneId: scene.id, enabled: true, intent: `${graphicNames[proposal.kind]}: ${title}`,

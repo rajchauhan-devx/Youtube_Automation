@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SCHEMA_VERSION = 1;
-export const RENDERER_VERSION = "4.2.0";
+export const RENDERER_VERSION = "5.0.0";
 export const Id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 export const UUID = z.uuid();
 export const Hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -238,24 +238,48 @@ export const ImageMotionSettings = {
   focus: z.strictObject({ x: unit, y: unit }).optional(),
 };
 export const ImageComparison = z.strictObject({ mode: z.enum(['split', 'wipe']), beforeLabel: z.string().trim().max(40), afterLabel: z.string().trim().max(40) });
+// Source pixels and annotations are separate. Anchors are normalized within sourceCrop.
+export const DiagramReflow = z.strictObject({
+  sourceCrop: Crop,
+  labels: z.array(z.strictObject({
+    text: z.string().trim().min(1).max(72),
+    anchor: z.strictObject({ x: unit, y: unit }),
+  })).min(1).max(6),
+});
+export const EditorialSequence = z.strictObject({
+  template: z.enum(['impact', 'measure', 'process', 'assembly']),
+  headline: z.string().trim().min(1).max(64),
+  kicker: z.string().trim().max(64),
+  facts: z.array(z.strictObject({ value: z.string().trim().min(1).max(24), label: z.string().trim().max(48) })).max(3),
+  subjectAssetId: Id.optional(),
+  direction: z.enum(['horizontal', 'incline']).default('horizontal'),
+  disclosure: z.string().trim().max(80).default(''),
+});
 // Explicitly versioned; retired free-form nodes remain hidden on old projects.
 export const DocumentaryComposition = z.strictObject({
   version: z.literal(1),
   treatment: z.enum(['archival', 'cinematic', 'map']),
   layout: z.enum(['inset', 'cutaway']).optional(),
   comparison: ImageComparison.optional(),
+  diagram: DiagramReflow.optional(),
+  editorial: EditorialSequence.optional(),
   layers: z.array(z.strictObject({
     id: Id,
     assetId: Id,
     bounds: Crop, // normalized inside the graphic's image stage
     crop: Crop.optional(),
+    preserveSource: z.boolean().optional(), // embedded labels require the complete source throughout motion
     fit: z.enum(['contain', 'cover']),
     ...ImageMotionSettings,
     delay: z.number().min(0).max(0.5), // fraction of artifact duration
     rotation: z.number().min(-6).max(6),
-  })).min(1).max(4),
+  })).max(4),
   emphasis: z.enum(['none', 'focus', 'marker']),
-}).refine(composition => !composition.comparison || composition.layers.length === 2, 'Image comparisons need exactly two source layers');
+}).refine(composition => !composition.comparison || composition.layers.length === 2, 'Image comparisons need exactly two source layers')
+  .refine(c => !c.diagram || (c.layers.length === 1 && !c.comparison && c.layout === 'cutaway' && c.emphasis === 'none'),
+    'Reflowed diagrams need one full-frame source and native annotations')
+  .refine(c => c.editorial ? c.layers.length === 0 && !c.diagram && !c.comparison && c.emphasis === 'none' && c.layout === 'cutaway' : c.layers.length > 0,
+    'Editorial sequences use their own scene elements; image compositions need source layers');
 export type DocumentarySpec = z.infer<typeof DocumentaryComposition>;
 export const MotionGraphic = z.strictObject({
   kind: z.enum(["title", "lower-third", "badge", "spotlight", "caption", "route", "counter", "frame", "diagram", "composition"]),
@@ -370,6 +394,7 @@ export const Scene = z.strictObject({
   startFrame: Frame,
   endFrame: Frame,
   narrativeRefs: z.array(Id).max(1000),
+  framing: z.enum(['contain', 'cover']).optional(),
   camera: z
     .array(
       z.strictObject({
@@ -587,8 +612,13 @@ export type EditingProject = z.infer<typeof Project>;
 /** New image-led generations may never silently export as captions/labels only. */
 export function assertDocumentaryVisuals(project: EditingProject) {
   if (!project.documentaryRequirement) return;
-  if (!project.artifacts.some(a => a.enabled && a.graphic?.kind === 'composition' && a.graphic.composition?.layers.length))
+  if (!project.artifacts.some(a => a.enabled && a.graphic?.kind === 'composition' && (a.graphic.composition?.layers.length || a.graphic.composition?.editorial)))
     throw new Error('Image-led documentary generation produced no enabled image compositions. Review the skipped visuals or regenerate; text-only export is blocked.');
+}
+export function assertGraphicsReviewed(project: EditingProject) {
+  if (!project.settings.visualReview) return;
+  const pending = project.artifacts.filter(a => a.enabled && a.graphic && a.graphic.kind !== 'caption' && a.visualReview?.status !== 'passed');
+  if (pending.length) throw new Error(`Rendered vision review has not passed for ${pending.length} motion graphic(s). Retry visual review before exporting.`);
 }
 /** Read old revisions without displaying retired captions, stickers or generated assets.
  * Saved revisions remain intact; new revisions and exports use only the native graphics. */
@@ -600,6 +630,7 @@ export function motionProject(input: EditingProject): EditingProject {
   p.style.textureAssetIds = [];
   p.assetIds = [...new Set([p.inputs.audioAssetId, ...p.inputs.imageAssets.map(a => a.assetId), ...p.style.fontAssetIds,
     ...p.artifacts.flatMap(a => a.graphic?.composition?.layers.map(layer => layer.assetId) || [])])];
+  p.assetIds = [...new Set([...p.assetIds, ...p.artifacts.flatMap(a => a.graphic?.composition?.editorial?.subjectAssetId ? [a.graphic.composition.editorial.subjectAssetId] : [])])];
   p.sceneOutcomes = p.sceneOutcomes?.map(s => ({ ...s, artifactIds: s.artifactIds.filter(id => p.artifacts.some(a => a.id === id)) }));
   return p;
 }
@@ -764,6 +795,7 @@ export function validateProject(value: unknown): EditingProject {
       if (a.graphic.composition) {
         unique(a.graphic.composition.layers.map(layer => layer.id), 'documentary layer ID');
         a.graphic.composition.layers.forEach(layer => asset(layer.assetId));
+        if (a.graphic.composition.editorial?.subjectAssetId) asset(a.graphic.composition.editorial.subjectAssetId);
       }
     }
     if (a.visualReview?.frames.some(frame => frame < a.startFrame || frame >= a.endFrame))

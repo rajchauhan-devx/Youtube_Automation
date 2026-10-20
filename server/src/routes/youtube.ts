@@ -3,7 +3,7 @@ import { isCurrentRender } from '../services/render-revision.js';
 import fs from 'fs';
 import path from 'path';
 import { google } from 'googleapis';
-import { chat } from '../services/gemini.js';
+import { chat, getGeminiApiKey } from '../services/gemini.js';
 import { youtubeAuthRouter } from './youtube-auth.js';
 import { createOAuth2Client, verifyChannel } from '../services/youtube-auth.js';
 import { tokenPath, atomicJson } from '../services/accounts.js';
@@ -18,7 +18,7 @@ import { claimUpload, uploadStatus, reconcileUpload, retryUncertainUpload, Uploa
 export const youtubeRouter = Router();
 youtubeRouter.use(youtubeAuthRouter);
 function getApiKey(req: import('express').Request): string {
-  return req.get('x-api-key') || process.env.GEMINI_API_KEY || process.env.OPENROUTER_API_KEY || '';
+  return getGeminiApiKey(req.get('x-api-key'));
 }
 
 // 6. Generate AI YouTube Metadata (Viral Titles, Description, Tags)

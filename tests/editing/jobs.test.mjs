@@ -20,6 +20,8 @@ const { workspaceContext } = await import(
 );
 const { store } = await import("../../server/dist/services/store.js");
 const p = await fixture();
+const originalFetch = globalThis.fetch;
+test.afterEach(() => { globalThis.fetch = originalFetch; });
 async function waitJob(id) {
   for (let i = 0; i < 100; i++) {
     const j = repo.getJob(id);
@@ -29,6 +31,12 @@ async function waitJob(id) {
   throw new Error("Job did not settle");
 }
 test("duplicate enqueue never repeats provider work and conflicts on key reuse", async () => {
+  let requests = 0;
+  globalThis.fetch = async (_url, options) => {
+    requests++;
+    assert.equal(options.headers['x-goog-api-key'], 'ephemeral-test-key');
+    return new Response('Invalid fixture credential', { status: 401 });
+  };
   const key = randomUUID(),
     a = scheduler.enqueue(p, "generate", key, "ephemeral-test-key"),
     b = scheduler.enqueue(p, "generate", key);
@@ -36,7 +44,8 @@ test("duplicate enqueue never repeats provider work and conflicts on key reuse",
   const completed = await waitJob(a.id);
   assert.equal(completed.state, "needs_configuration");
   assert.equal(completed.attempts, 1);
-  assert.equal(completed.usage.length, 0);
+  assert.equal(completed.usage.length, 1);
+  assert.equal(requests, 1, 'duplicate enqueue must not repeat the rejected provider request');
   assert.throws(
     () => scheduler.enqueue(p, "render", key),
     /different operation/,

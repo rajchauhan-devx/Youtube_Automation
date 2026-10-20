@@ -116,7 +116,7 @@ export function sourceMatrix(
   output: { width: number; height: number },
   source: { width: number; height: number },
 ): Matrix {
-  const fit = Math.max(
+  const fit = (scene.framing === 'contain' ? Math.min : Math.max)(
       output.width / source.width,
       output.height / source.height,
     ),

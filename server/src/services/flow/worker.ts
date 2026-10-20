@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { flowDownloadsDir, type StepLog } from './jobs.js';
 import { flowProfileDir } from './profile.js';
-import { deductFlowCredits } from './credits.js';
+import { deductFlowCredits, getFlowCreditsInfo } from './credits.js';
 
 // Live Google Flow worker (Playwright browser automation).
 //
@@ -154,10 +154,15 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     }
 
     // 2. Handle Google account chooser if prompted
-    if (/accounts\.google|signin|accountchooser/i.test(page.url())) {
-      const accountTile = page.locator('[data-identifier*="@gmail.com"], li:has-text("@gmail.com"), div[role="link"]:has-text("Raj chauhan-17")').first();
-      if ((await accountTile.count()) > 0) {
-        await accountTile.click();
+        if (/accounts\.google|signin|accountchooser/i.test(page.url())) {
+      const activeAccount = getFlowCreditsInfo().account;
+      const targetTile = activeAccount
+        ? page.locator(`[data-identifier*="${activeAccount}"], li:has-text("${activeAccount}"), div[role="link"]:has-text("${activeAccount}"), [data-email*="${activeAccount}"]`).first()
+        : null;
+      const fallbackTile = page.locator('[data-identifier*="@gmail.com"], li:has-text("@gmail.com")').first();
+      const tileToClick = (targetTile && (await targetTile.count()) > 0) ? targetTile : fallbackTile;
+      if ((await tileToClick.count()) > 0) {
+        await tileToClick.click();
         await page.waitForNavigation({ timeout: 15000 }).catch(() => null);
         await page.waitForTimeout(3000);
       }
@@ -190,6 +195,13 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
       }
     }
     input.logStep({ step: 'project-opened', at: new Date().toISOString(), shot: await shot(page, dir, 'project-opened') });
+
+    // Dismiss Google Flow's new right AI copilot / session drawer if it automatically popped open
+    const closeDrawerBtn = page.locator('button.header-action:has(mat-icon:has-text("close")), button[aria-label="Close"].header-action').first();
+    if (await closeDrawerBtn.isVisible().catch(() => false)) {
+      await closeDrawerBtn.click().catch(() => {});
+      await page.waitForTimeout(600);
+    }
 
     // 4. Wait for the prompt composer to be ready
     const composer = page.locator('div[contenteditable="true"].ProseMirror, div[contenteditable="true"]').first();
@@ -381,6 +393,19 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
       throw fail('paste', error, page.url());
     }
     input.logStep({ step: 'paste', at: new Date().toISOString(), shot: await shot(page, dir, 'paste') });
+
+    // Check if Google Flow is displaying an insufficient credits warning
+    const insufficientCreditsBtn = page.locator('.prompt-warning-button, [aria-label*="Insufficient credits" i]').first();
+    if (await insufficientCreditsBtn.isVisible().catch(() => false)) {
+      await shot(page, dir, 'insufficient-credits');
+      const err = new Error('Google Flow has insufficient credits to generate this video. Please top up your Google Flow AI credits or enable still-image fallback in AutoPilot settings.');
+      (err as any).overseerCode = 'INSUFFICIENT_CREDITS';
+      try {
+        const { updateFlowCredits } = await import('./credits.js');
+        updateFlowCredits(0);
+      } catch {}
+      throw err;
+    }
 
     // Click Start Generation
     input.onStage('Submitting generation to Google Flow', 45);

@@ -1,7 +1,8 @@
 import { Router } from 'express';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { flowLoginSteps, flowStatus } from '../services/flow/profile.js';
+import { flowLoginSteps, flowStatus, flowProfileDir } from '../services/flow/profile.js';
 import { getFlowCreditsInfo, updateFlowCredits } from '../services/flow/credits.js';
 import { cancelFlowJob, flowJobStatus, flowJobsFor, resolveFlowDownload, startFlowJob } from '../services/flow/jobs.js';
 
@@ -45,13 +46,16 @@ flowRouter.post('/credits', (req, res) => {
 });
 
 // Launch headed browser window for Google Flow login or switching accounts
-flowRouter.post('/launch-login', async (_req, res) => {
+flowRouter.post('/launch-login', async (req, res) => {
   try {
     const { spawn } = await import('node:child_process');
     const scriptPath = path.resolve(__dirname, '..', '..', 'scripts', 'flow-login.mjs');
+    const fresh = req.body?.fresh === true || req.query.fresh === 'true';
+    const args = [scriptPath];
+    if (fresh) args.push('--fresh');
     
     // Launch headed browser helper detached
-    const child = spawn(process.execPath, [scriptPath], {
+    const child = spawn(process.execPath, args, {
       detached: true,
       stdio: 'ignore',
       windowsHide: false,
@@ -60,10 +64,24 @@ flowRouter.post('/launch-login', async (_req, res) => {
 
     res.json({
       success: true,
-      message: 'Headed browser launched. Please sign in or switch your Google account, then close the browser window when done.',
+      message: fresh
+        ? 'Clean browser window launched. Please sign in to your new Google account, then close the browser window.'
+        : 'Headed browser launched. Please sign in or switch your Google account, then close the browser window when done.',
     });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to launch login browser' });
+  }
+});
+
+// Clear Google Flow browser session
+flowRouter.post('/clear-session', (_req, res) => {
+  try {
+    const profileDir = flowProfileDir();
+    fs.rmSync(profileDir, { recursive: true, force: true });
+    fs.mkdirSync(profileDir, { recursive: true });
+    res.json({ success: true, message: 'Google Flow session cleared.' });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to clear session' });
   }
 });
 

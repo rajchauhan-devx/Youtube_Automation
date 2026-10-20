@@ -56,7 +56,7 @@ test('Shorts scene types, imports, image generation, speech timing and portrait 
     assert.equal(created.status, 201);
     list = await (await originalFetch(host + prefix + '/scripts')).json();
     assert.equal(list.filter(s => s.id === 'shorts_images_videos').length, 1);
-    assert.match(list[0].prompts[0].content, /"videoPrompt"/);
+    assert.match(list[0].prompts[0].content, /<video_prompt>/);
     list = await (await originalFetch(host + prefix + '/scripts')).json();
     assert.equal(list.length, 1, 'explicitly created template persists');
     ws.workspaceContext.run(scope, () => store.add('scripts', { ...list[0], narration: 'Keep existing work', prompts: [{ ...list[0].prompts[0], content: LEGACY_SHORTS_MEDIA_TEMPLATE }] }));
@@ -85,20 +85,23 @@ test('Shorts scene types, imports, image generation, speech timing and portrait 
     }
     const imageUpload = await upload(0, image, 'png');
     assert.equal(imageUpload.status, 200, await imageUpload.text());
-    assert.equal((await upload(1, image, 'png')).status, 400);
+    assert.equal((await upload(1, image, 'png')).status, 200, 'video scenes accept a still fallback');
+    assert.equal(read().scenePlan.scenes[1].mediaType, 'image');
+    assert.equal((await json('/scripts/episode', { scenePlan: plan }, 'PUT')).status, 200);
     const videoUpload = await upload(1, video, 'mp4');
     assert.equal(videoUpload.status, 200, await videoUpload.text());
     const importedVideo = read().generatedImages.find(a => a.mediaType === 'video');
     assert.equal(importedVideo.prompt, plan.scenes[1].videoPrompt);
     assert.equal((await originalFetch(host + importedVideo.url, { headers: { Range: 'bytes=0-99' } })).status, 206);
     assert.equal((await originalFetch(host + importedVideo.url.replace('/shorts/', '/mixed/'))).status, 404);
-    assert.equal((await json('/generate/image', { scriptId: 'episode', index: 1, prompt: plan.scenes[1].videoPrompt })).status, 400);
-    assert.equal(modelRequests, 0);
+    assert.equal((await json('/generate/image', { scriptId: 'episode', index: 1, prompt: plan.scenes[1].videoPrompt })).status, 200);
+    assert.equal(modelRequests, 1);
     assert.equal((await json('/scripts/episode', { videoImportsEnabled: false }, 'PUT')).status, 200);
-    assert.equal((await json('/generate/image', { scriptId: 'episode', index: 1, prompt: plan.scenes[1].imagePrompt })).status, 400, 'image models must reject video slots even with the legacy flag off');
+    assert.equal((await json('/generate/image', { scriptId: 'episode', index: 1, prompt: plan.scenes[1].imagePrompt })).status, 200, 'video scenes accept their authored still keyframe');
+    assert.equal(read().referenceFrames[1].prompt, plan.scenes[1].imagePrompt);
     const generated = await json('/generate/image', { scriptId: 'episode', index: 0, prompt: plan.scenes[0].imagePrompt });
     assert.equal(generated.status, 200, await generated.text());
-    assert.equal(modelRequests, 1);
+    assert.equal(modelRequests, 3);
     assert.equal(read().generatedImages.length, 2, 'image generation only updates the image slot');
     assert.deepEqual(mediaScenes(read()).map(s => s.mediaType), ['image', 'video']);
     await json('/scripts/episode', { videoImportsEnabled: true }, 'PUT');
