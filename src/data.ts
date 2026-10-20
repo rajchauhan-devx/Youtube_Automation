@@ -144,9 +144,13 @@ export interface InstagramExportData {
 }
 
 export interface Script {
+  autoPilotSettings?: import('../server/src/services/autopilot-settings').AutoPilotSettings;
+  retentionPlan?: import('../server/src/services/retention-types').RetentionPlan;
+  retentionEdit?: import('../server/src/services/retention-types').RetentionEdit;
+  retentionReview?: import('../server/src/services/retention-types').RetentionReview;
   /** Legacy template setting. Media types now come from the extracted scene plan. */
   videoImportsEnabled?: boolean;
-  editingProjectId?: string;
+  editingProjectId?: string | null;
   enableSubtitles?: boolean;
   presenter?: import('../server/src/services/presenter-settings').PresenterSettings;
   maxDurationSeconds?: number;

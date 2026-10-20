@@ -124,6 +124,7 @@ const controllers = new Map<string, AbortController>();
 // Per-episode spend guard: scriptId -> credits committed this process lifetime.
 const spend = new Map<string, number>();
 
+export const flowJobsBusy = () => [...jobs.values()].some(job => job.state === 'queued' || job.state === 'running');
 export function flowJobStatus(id: string): FlowJob | undefined {
   return jobs.get(id);
 }

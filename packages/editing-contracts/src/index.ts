@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SCHEMA_VERSION = 1;
-export const RENDERER_VERSION = "4.0.0";
+export const RENDERER_VERSION = "4.2.0";
 export const Id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 export const UUID = z.uuid();
 export const Hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -231,23 +231,31 @@ export const Node = z.discriminatedUnion("kind", [
     assetId: Id,
   }),
 ]);
+export const ImageMotion = z.enum(['hold', 'push-in', 'pull-out', 'drift-left', 'drift-right', 'drift-up', 'drift-down', 'diagonal-in', 'focus-in']);
+export const ImageMotionSettings = {
+  motion: ImageMotion,
+  strength: z.number().min(0).max(0.2).optional(),
+  focus: z.strictObject({ x: unit, y: unit }).optional(),
+};
+export const ImageComparison = z.strictObject({ mode: z.enum(['split', 'wipe']), beforeLabel: z.string().trim().max(40), afterLabel: z.string().trim().max(40) });
 // Explicitly versioned; retired free-form nodes remain hidden on old projects.
 export const DocumentaryComposition = z.strictObject({
   version: z.literal(1),
   treatment: z.enum(['archival', 'cinematic', 'map']),
   layout: z.enum(['inset', 'cutaway']).optional(),
+  comparison: ImageComparison.optional(),
   layers: z.array(z.strictObject({
     id: Id,
     assetId: Id,
     bounds: Crop, // normalized inside the graphic's image stage
     crop: Crop.optional(),
     fit: z.enum(['contain', 'cover']),
-    motion: z.enum(['hold', 'push-in', 'drift-left', 'drift-right']),
+    ...ImageMotionSettings,
     delay: z.number().min(0).max(0.5), // fraction of artifact duration
     rotation: z.number().min(-6).max(6),
   })).min(1).max(4),
   emphasis: z.enum(['none', 'focus', 'marker']),
-});
+}).refine(composition => !composition.comparison || composition.layers.length === 2, 'Image comparisons need exactly two source layers');
 export type DocumentarySpec = z.infer<typeof DocumentaryComposition>;
 export const MotionGraphic = z.strictObject({
   kind: z.enum(["title", "lower-third", "badge", "spotlight", "caption", "route", "counter", "frame", "diagram", "composition"]),
@@ -255,6 +263,7 @@ export const MotionGraphic = z.strictObject({
   detail: z.string().trim().max(120),
   bounds: Rect,
   composition: DocumentaryComposition.optional(),
+  wordTimings: z.array(z.strictObject({ startFrame: Frame, endFrame: Frame })).max(64).optional(),
   target: z.strictObject({
     label: z.string().trim().min(1).max(120),
     region: Crop,
@@ -513,7 +522,7 @@ export const Job = z.strictObject({
   id: UUID,
   projectId: UUID,
   revisionId: UUID,
-  operation: z.enum(["generate", "revise", "render", "review"]),
+  operation: z.enum(["generate", "revise", "render", "review", "align"]),
   inputHash: Hash,
   idempotencyKey: z.string().min(1).max(128),
   state: z.enum([
@@ -750,6 +759,8 @@ export function validateProject(value: unknown): EditingProject {
       if (b.x < 0 || b.y < 0 || b.x + b.width > p.inputs.width || b.y + b.height > p.inputs.height)
         fail("Motion graphic exceeds the output canvas");
       if (a.nodes.length) fail("Motion graphics cannot include legacy composition nodes");
+      if (a.graphic.wordTimings && (a.graphic.kind !== 'caption' || a.graphic.wordTimings.length !== a.graphic.title.split(/\s+/u).filter(Boolean).length ||
+        a.graphic.wordTimings.some((word, index, words) => word.endFrame <= word.startFrame || word.endFrame > a.endFrame - a.startFrame || (index > 0 && word.startFrame < words[index - 1].startFrame)))) fail('Invalid caption word timing');
       if (a.graphic.composition) {
         unique(a.graphic.composition.layers.map(layer => layer.id), 'documentary layer ID');
         a.graphic.composition.layers.forEach(layer => asset(layer.assetId));

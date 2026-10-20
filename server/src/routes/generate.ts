@@ -415,7 +415,7 @@ generateRouter.post('/image', async (req, res) => {
           (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
           (provider !== 'local' && cfCfg.provider === 'cloudflare')
           ? 'cloudflare'
-          : cfCfg.provider === 'google'
+          : provider === 'local' ? 'local' : cfCfg.provider === 'google'
             ? 'google'
             : 'local';
     const scriptDoc = store.getById<any>('scripts', scriptId);
@@ -542,7 +542,7 @@ generateRouter.post('/reference-frame', async (req, res) => {
           (typeof modelName === 'string' && modelName.startsWith('@cf/')) ||
           (provider !== 'local' && cfCfg.provider === 'cloudflare')
           ? 'cloudflare'
-          : cfCfg.provider === 'google'
+          : provider === 'local' ? 'local' : cfCfg.provider === 'google'
             ? 'google'
             : 'local';
     const force2dStylized = isScript2dStylized(currentScript, prompt);

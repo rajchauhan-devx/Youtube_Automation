@@ -22,6 +22,7 @@ export interface EditingCapabilities {
   ready: boolean;
   missing: string[];
   alignment: string;
+  wordAlignment?: { ready: boolean; message: string };
   grounding: boolean;
   artifactGeneration: boolean;
   modelsVerified: boolean;

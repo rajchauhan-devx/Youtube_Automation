@@ -150,7 +150,7 @@ export function buildResearchMessages(params: {
   ];
 }
 
-async function runGeminiGroundedResearch(
+export async function runGeminiGroundedResearch(
   apiKey: string,
   modelName: string | undefined,
   messages: ChatMessage[],

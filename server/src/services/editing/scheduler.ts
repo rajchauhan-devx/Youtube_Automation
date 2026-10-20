@@ -28,6 +28,7 @@ import {
 import { EditingError, editingConfig } from "./config.js";
 import { runPipeline } from "./pipeline.js";
 import { renderInWorker } from "./renderWorker.js";
+import { alignProject } from './alignProject.js';
 import { store } from "../store.js";
 import {
   scriptFingerprint,
@@ -198,7 +199,8 @@ async function execute(task: Task) {
         (done, total) => stage("rendering MP4", done, total),
       );
     else {
-      const result = await runPipeline(project, {
+      if (job.operation === 'align') stage('Measuring spoken word timing', 0, 1);
+      const result = job.operation === 'align' ? await alignProject(project, controller.signal) : await runPipeline(project, {
         signal: controller.signal,
         apiKey: task.apiKey,
         job,

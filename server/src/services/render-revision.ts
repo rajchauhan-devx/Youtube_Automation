@@ -9,8 +9,10 @@ export function renderRevision(scriptId: string): string | undefined {
   if (!script || (script.enableSubtitles === undefined && !script.presenter && !script?.scenePlan && !script.editingProjectId)) return undefined;
   return createHash('sha256').update(JSON.stringify({ plan: script.scenePlan, videoImportsEnabled: script.videoImportsEnabled, narration: script.narration, editing: script.editing,
     presenter: script.presenter,
+    autoPilotSettings: script.autoPilotSettings,
     graphics: graphicsRenderRevision(script),
     enableSubtitles: script.enableSubtitles,
+    retention: script.retentionPlan ? { directions: script.retentionEdit?.sceneDirections, polishAudio: true } : undefined,
     presenterLayoutVersion: script.presenter?.enabled ? 2 : undefined,
     mix: { bgmTrack: script.timelineConfig?.bgmTrack, bgmVolume: script.timelineConfig?.bgmVolume, ttsVolume: script.timelineConfig?.ttsVolume ?? script.ttsVolume, music: script.timelineConfig?.bgmTrack === 'ai' ? script.generatedMusic?.filename : undefined },
     audio: script.generatedAudio?.[0]?.filename, images: script.generatedImages?.map((image: any) => [image.index, image.url, image.prompt, image.status, image.mediaType, image.duration]) })).digest('hex');

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { PipelineStep, Script } from '../../data';
 import { copyTextToClipboard } from '../../lib/safe';
+import { RetentionPanel } from './RetentionPanel';
 
 interface PreviewTabProps {
   pipeline: PipelineStep[];
@@ -131,7 +132,7 @@ export function PreviewTab({
               title="Run 1-Click End-to-End Autonomous Pipeline"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              {isAutoPilotRunning ? 'Auto-Pilot Running…' : '⚡ 1-Click Auto-Pilot'}
+              {isAutoPilotRunning ? 'Auto-Pilot Running…' : 'Run Auto-Pilot'}
             </button>
           )}
           {onImportResponse && (
@@ -165,6 +166,7 @@ export function PreviewTab({
         </div>
       </div>
 
+      <RetentionPanel script={script} />
       {showImport && <div className="space-y-3 border-b border-border bg-bg/60 px-5 py-4">
         <label htmlFor="external-ai-response" className="block text-sm font-medium text-white">Response from another AI</label>
         <p className="text-xs text-gray-400">Paste the complete response from your browser AI, keeping the script, image prompts, scene tags and timeline format from your template.</p>

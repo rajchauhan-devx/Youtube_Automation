@@ -43,6 +43,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AutoPilotModal } from './components/autopilot/AutoPilotModal';
 import type { AutoPilotState, AutoPilotStage } from './services/autoPilotTypes';
 import { editingRequest, type EditingPayload } from './services/editingApi';
+import { AutoPilotSettingsSchema, defaultAutoPilotSettings, narrationOptions, type AutoPilotSettings } from '../server/src/services/autopilot-settings';
 import { executeSupervisedStage, runPreflightSupervision } from './services/supervisor';
 
 const TABS: { id: Tab; label: string; icon: typeof ScrollText; step: string }[] = [
@@ -159,7 +160,7 @@ export default function App() {
     isMinimized: false,
     stage: 'idle',
     stageIndex: 0,
-    totalStages: 6,
+    totalStages: 10,
     progressPercent: 0,
     statusMessage: 'Ready',
     topic: '',
@@ -195,6 +196,7 @@ export default function App() {
 
   function handleAutoPilotStop() {
     autoPilotAbortRef.current?.abort();
+    generationAbortRef.current?.abort();
     autoPilotAbortRef.current = null;
     autoPilotPausedRef.current = false;
     setAutoPilotState((prev) => ({
@@ -274,6 +276,7 @@ export default function App() {
           return { ...script, pipeline, accountId: activeChannel.id, section };
         });
         setUserScripts(normalized);
+        setSaveError('');
         setSelectedScriptId(current => normalized.some(script => script.id === current) ? current : normalized[0]?.id || null);
       }
     }).catch(error => { if (!controller.signal.aborted && !isAbortError(error)) setSaveError(safeErrorMessage(error, 'Could not load workspace scripts')); });
@@ -331,7 +334,7 @@ export default function App() {
     return buildFreePrompt(template, topic, instructions, duration || 30, researchData);
   }
 
-  async function generateScript(script: Script, topic: string, instructions: string) {
+  async function generateScript(script: Script, topic: string, instructions: string, retention?: { plan: NonNullable<Script['retentionPlan']>; brief: string }) {
     const scriptId = script.id;
     const controller = new AbortController();
 
@@ -350,6 +353,9 @@ export default function App() {
       id: scriptId,
       topicName: topic,
       aiInstructions: instructions,
+      retentionPlan: retention?.plan,
+      retentionEdit: undefined,
+      retentionReview: undefined,
       aiResponse: '',
       researchData: '',
       researchSources: [],
@@ -430,7 +436,7 @@ export default function App() {
           model: script.model || 'gemini-3.6-flash',
           topic,
           template: template || script.howItWorks || '',
-          instructions,
+          instructions: [instructions, retention?.brief].filter(Boolean).join('\n\n'),
           duration: script.duration || 30,
         }),
       });
@@ -493,7 +499,7 @@ export default function App() {
       const promptText = buildPrompt(
         template || script.howItWorks || '',
         topic,
-        instructions,
+        [instructions, retention?.brief].filter(Boolean).join('\n\n'),
         script.duration || 30,
         researchData
       );
@@ -723,8 +729,8 @@ export default function App() {
     }
   }
 
-  async function runAutoPilotPipeline(initialScript: Script, topic: string, instructions: string) {
-    if (autoPilotState.isActive) return;
+  async function runAutoPilotPipeline(initialScript: Script, topic: string, instructions: string, resumeProduction = false, resumeVideoUrl?: string | null) {
+    if (autoPilotAbortRef.current && autoPilotState.stage !== 'error') return;
     autoPilotAbortRef.current?.abort();
     generationAbortRef.current?.abort();
     const controller = new AbortController();
@@ -732,25 +738,28 @@ export default function App() {
     autoPilotPausedRef.current = false;
 
     const scriptId = initialScript.id;
+    const runSettings = AutoPilotSettingsSchema.parse(initialScript.autoPilotSettings || defaultAutoPilotSettings(initialScript));
+    const imageEngine = { google: 'Google Cloud', cloudflare: 'Cloudflare', local: 'Local image model' }[runSettings.media.imageProvider];
+    if (runSettings.voice.language !== 'auto') instructions += `\nNarration language selected for this run: ${runSettings.voice.language === 'hi' ? 'Hindi / Hinglish' : 'English'}. Write all spoken narration in this language.`;
     setSelectedScriptId(scriptId);
 
     setAutoPilotState({
       isActive: true,
       isPaused: false,
       isMinimized: false,
-      stage: 'research_script',
-      stageIndex: 0,
-      totalStages: 6,
-      progressPercent: 5,
-      statusMessage: 'Gemini Co-Pilot: Researching topic depth & generating script...',
+      stage: resumeVideoUrl ? 'review_retention' : resumeProduction ? 'plan_motion' : 'plan_hooks',
+      stageIndex: resumeVideoUrl ? 8 : resumeProduction ? 6 : 0,
+      totalStages: 10,
+      progressPercent: resumeVideoUrl ? 96 : resumeProduction ? 80 : 5,
+      statusMessage: resumeProduction ? 'Continuing with saved images and narration...' : topic.trim() ? 'Checking this topic against the profile notes...' : 'Researching a fresh topic for this profile...',
       topic,
       scriptId,
       logs: [],
-      renderedVideoUrl: null,
+      renderedVideoUrl: resumeVideoUrl || null,
       error: null,
     });
 
-    addAutoPilotLog('research_script', `[GEMINI] ⚡ Launching 1-Click Autonomous Production for: "${topic}"`, 'gemini');
+    addAutoPilotLog('research_script', topic.trim() ? `Checking topic: "${topic}"` : `Finding the best unused topic for ${activeChannel.youtubeChannelTitle || activeChannel.name}...`, 'gemini');
     addAutoPilotLog('research_script', `Target profile: ${section === 'shorts' ? '9:16 Vertical Short' : '16:9 Landscape Video'}`, 'info');
 
     async function checkPauseOrAbort() {
@@ -772,28 +781,70 @@ export default function App() {
         await persistScript(id, patch);
       },
       checkPauseOrAbort,
+      autoPilotSettings: runSettings,
     };
 
     try {
+      let freshRes: Response;
+      let currentScript: Script;
+      let retention: { plan: NonNullable<Script['retentionPlan']>; brief: string };
+      if (resumeProduction) {
+        freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`, { signal: controller.signal });
+        if (!freshRes.ok) throw new Error('Could not load the saved production.');
+        currentScript = await freshRes.json() as Script;
+        if (!currentScript.retentionPlan || !currentScript.generatedAudio?.[0]?.filename || !currentScript.generatedImages?.some(image => image.url))
+          throw new Error('Saved images, narration and a retention plan are required to continue production.');
+        if (currentScript.youtubeExport?.uploadedVideoId) throw new Error('This production has already been exported to YouTube.');
+        topic = currentScript.topicName || topic;
+        retention = { plan: currentScript.retentionPlan, brief: '' };
+        addAutoPilotLog('plan_motion', 'Reusing the saved topic, script, images and narration. Retrying the visual edit and final export.', 'info');
+      } else {
+      const memoryResponse = await fetch('/api/youtube/retention/sync', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}', signal: controller.signal,
+      });
+      const memory = await memoryResponse.json();
+      addAutoPilotLog('plan_hooks', memory.message || 'Using saved profile performance observations.', memory.status === 'needs_connection' ? 'warn' : 'info');
+      await checkPauseOrAbort();
+      const topicResponse = await fetch('/api/llm/autopilot-topic', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(getApiKey() ? { 'x-api-key': getApiKey() } : {}) },
+        body: JSON.stringify({ scriptId, topic: topic.trim(), instructions }), signal: controller.signal,
+      });
+      const selectedTopic = await topicResponse.json();
+      if (!topicResponse.ok || !selectedTopic.topic?.trim()) throw new Error(selectedTopic.error || 'Could not select a fresh topic');
+      await checkPauseOrAbort();
+      topic = selectedTopic.topic;
+      setAutoPilotState(prev => ({ ...prev, topic }));
+      addAutoPilotLog('research_script', `Selected: "${topic}". Checked ${selectedTopic.historyCount} previously exported topics. ${selectedTopic.reason || ''}`, 'success');
+
+      const youtubeStatus = await fetch('/api/youtube/status', { signal: controller.signal });
+      const connection = await youtubeStatus.json();
+      if (!youtubeStatus.ok || !connection.authenticated) throw new Error('Connect this profile’s YouTube account before running Auto-Pilot.');
+      await checkPauseOrAbort();
+      setAutoPilotState(prev => ({ ...prev, statusMessage: 'Comparing three opening hooks and planning the title/thumbnail promise...' }));
+      retention = await apiPost<{ plan: NonNullable<Script['retentionPlan']>; brief: string }>(
+        '/api/retention/plan', { scriptId, topic, instructions }, getApiKey(), fetch, controller.signal);
+      await checkPauseOrAbort();
+      patchScriptState(scriptId, { retentionPlan: retention.plan });
+      addAutoPilotLog('plan_hooks', `Selected hook ${retention.plan.selectedHookIndex + 1}/3: ${retention.plan.hooks[retention.plan.selectedHookIndex].openingLine}`, 'success');
+      addAutoPilotLog('plan_hooks', `Viewer promise: ${retention.plan.viewerPromise}`, 'info');
+      setAutoPilotState(prev => ({ ...prev, stage: 'research_script', stageIndex: 1, progressPercent: 10 }));
       // -------------------------------------------------------------
       // PRE-FLIGHT AUTONOMOUS SUPERVISION: Storage & Voice Buffers
       // -------------------------------------------------------------
       await runPreflightSupervision(
         fetch,
         addAutoPilotLog,
-        (msg) => setAutoPilotState((prev) => ({ ...prev, statusMessage: msg }))
+        (msg) => setAutoPilotState((prev) => ({ ...prev, statusMessage: msg })),
+        runSettings.voice.provider
       );
 
       // -------------------------------------------------------------
       // STAGE 1: Script Research & Generation
       // -------------------------------------------------------------
-      let freshRes: Response;
-      let currentScript: Script;
-
       await executeSupervisedStage('research_script', async () => {
         setTab('preview');
         addAutoPilotLog('research_script', 'Synthesizing live research & streaming script narrative with Google Gemini...', 'info');
-        await generateScript(initialScript, topic, instructions);
+        await generateScript(initialScript, topic, instructions, retention);
         await checkPauseOrAbort();
 
         freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
@@ -805,12 +856,20 @@ export default function App() {
         addAutoPilotLog('research_script', `Script generated successfully (${currentScript.aiResponse.length} characters).`, 'success');
         setAutoPilotState((prev) => ({
           ...prev,
-          stage: 'extract_assets',
-          stageIndex: 1,
-          progressPercent: 22,
-          statusMessage: 'Gemini Co-Pilot: Extracting scenes, visual prompts & voice script...',
+          stage: 'edit_retention',
+          stageIndex: 2,
+          progressPercent: 20,
+          statusMessage: 'Editing narration for clarity, forward momentum and an earned payoff...',
         }));
       }, supervisorCtx);
+
+      const editorial = await apiPost<{ edit: NonNullable<Script['retentionEdit']> }>(
+        '/api/retention/edit', { scriptId }, getApiKey(), fetch, controller.signal);
+      await checkPauseOrAbort();
+      patchScriptState(scriptId, { retentionEdit: editorial.edit });
+      for (const note of editorial.edit.notes) addAutoPilotLog('edit_retention', note, 'success');
+      setAutoPilotState(prev => ({ ...prev, stage: 'extract_assets', stageIndex: 3, progressPercent: 27,
+        statusMessage: 'Extracting the edited production scenes, visuals and narration...' }));
 
       // -------------------------------------------------------------
       // STAGE 2: Scene Asset Extraction
@@ -836,7 +895,7 @@ export default function App() {
 
         const extractResult = await apiPost(
           '/api/llm/extract',
-          { rawText: currentScript.aiResponse, useTimelineNarration: false, template },
+          { scriptId, rawText: currentScript.aiResponse, useTimelineNarration: false, template },
           getApiKey(),
           fetch
         );
@@ -846,10 +905,10 @@ export default function App() {
         narration = extractResult.ttsText || '';
         extractedScript = extractResult.script || '';
         const sceneAnalysis = {
-          transitions: imagePrompts.map(() => 'none'),
-          effects: imagePrompts.map(() => 'zoom-in'),
+          transitions: imagePrompts.map((_, i) => editorial.edit.sceneDirections[i]?.transition === 'dissolve' ? 'dissolve' : 'none'),
+          effects: imagePrompts.map((_, i) => editorial.edit.sceneDirections[i]?.motion || 'hold'),
           timings: [],
-          mood: 'epic',
+          mood: retention.plan.musicMood === 'none' ? 'neutral' : retention.plan.musicMood,
           colorGrade: 'warm-vintage',
         };
 
@@ -879,11 +938,11 @@ export default function App() {
         setAutoPilotState((prev) => ({
           ...prev,
           stage: 'generate_images',
-          stageIndex: 2,
+          stageIndex: 4,
           progressPercent: 35,
           sceneTotal: sceneCount,
           sceneCurrent: 0,
-          statusMessage: `Gemini Co-Pilot: Generating ${sceneCount} visuals via Google Cloud...`,
+          statusMessage: `Generating ${sceneCount} visuals via ${imageEngine}...`,
         }));
       }, supervisorCtx);
 
@@ -892,7 +951,7 @@ export default function App() {
       // -------------------------------------------------------------
       await executeSupervisedStage('generate_images', async () => {
         setTab('generation');
-        addAutoPilotLog('generate_images', `[GOOGLE CLOUD] Directing image generation for ${sceneCount} scene keyframes...`, 'gemini');
+        addAutoPilotLog('generate_images', `[${imageEngine}] Directing image generation for ${sceneCount} scene keyframes...`, 'gemini');
 
         freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
         currentScript = (await freshRes.json()) as Script;
@@ -905,15 +964,13 @@ export default function App() {
 
         for (let i = 0; i < scenesToRender.length; i++) {
           await checkPauseOrAbort();
-          const scenePrompt = ((scenesToRender[i] as any).mediaType === 'video' && (scenesToRender[i] as any).videoPrompt)
-            ? (scenesToRender[i] as any).videoPrompt
-            : (scenesToRender[i].imagePrompt || imagePrompts[i] || 'cinematic scene visual');
+          const scenePrompt = scenesToRender[i].imagePrompt || imagePrompts[i] || 'cinematic scene visual';
 
           setAutoPilotState((prev) => ({
             ...prev,
             sceneCurrent: i + 1,
             progressPercent: 35 + ((i + 1) / scenesToRender.length) * 30, // 35% -> 65%
-            statusMessage: `Google Cloud: Rendering scene ${i + 1} of ${scenesToRender.length}...`,
+            statusMessage: `${imageEngine}: Rendering scene ${i + 1} of ${scenesToRender.length}...`,
           }));
 
           addAutoPilotLog('generate_images', `Rendering scene ${i + 1}/${scenesToRender.length}: "${scenePrompt.slice(0, 50)}..."`, 'info');
@@ -925,28 +982,12 @@ export default function App() {
               scriptId,
               index: i,
               prompt: scenePrompt,
-              preset: 'standard',
-              provider: 'google',
+              preset: runSettings.media.imageQuality,
+              provider: runSettings.media.imageProvider,
+              ...(runSettings.media.seedMode === 'fixed' ? { seed: runSettings.media.seed } : {}),
             }),
             signal: controller.signal,
           });
-
-          // Fallback to cloudflare or local if google failed
-          if (!genRes.ok) {
-            addAutoPilotLog('generate_images', `Scene ${i + 1}: Google Cloud reported ${genRes.status}, switching to Cloudflare/Local fallback...`, 'warn');
-            genRes = await fetch('/api/generate/image', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                scriptId,
-                index: i,
-                prompt: scenePrompt,
-                preset: 'standard',
-                provider: 'cloudflare',
-              }),
-              signal: controller.signal,
-            });
-          }
 
           if (genRes.ok) {
             const genJson = await genRes.json();
@@ -957,11 +998,11 @@ export default function App() {
             addAutoPilotLog('generate_images', `Scene ${i + 1} keyframe rendered & saved.`, 'success');
           } else {
             const errText = await genRes.text().catch(() => '');
-            addAutoPilotLog('generate_images', `Scene ${i + 1} note: ${errText.slice(0, 100)}`, 'warn');
+            throw new Error(`Scene ${i + 1} image generation failed: ${errText.slice(0, 250)}`);
           }
 
           // If this scene is a video scene (mediaType === 'video' or in mixed section):
-          const isVideoScene = (scenesToRender[i] as any).mediaType === 'video' || (section === 'mixed' && i % 2 === 0);
+          const isVideoScene = runSettings.media.flowEnabled && (scenesToRender[i] as any).mediaType === 'video';
           if (isVideoScene) {
             try {
               setAutoPilotState((prev) => ({
@@ -988,8 +1029,8 @@ export default function App() {
                     prompt: videoPrompt,
                     model: 'veo-3.1-fast',
                     aspect,
-                    duration: 8,
-                    resolution: '720p',
+                    duration: runSettings.media.flowDuration,
+                    resolution: runSettings.media.flowResolution,
                     dryRun: false,
                   }),
                   signal: controller.signal,
@@ -1040,6 +1081,12 @@ export default function App() {
               addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${videoErr instanceof Error ? videoErr.message : 'Kept reference keyframe'}`, 'warn');
             }
           }
+          if (isVideoScene && !runSettings.media.allowImageFallback) {
+            const check = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`, { signal: controller.signal });
+            const saved = await check.json() as Script;
+            if (!saved.generatedImages?.some(asset => asset.index === i && asset.mediaType === 'video' && asset.status === 'done'))
+              throw new Error(`Flow video is required for scene ${i + 1}. Enable still-image fallback or resolve the Flow error before continuing.`);
+          }
         }
 
         // Reconcile scene plan media types with actual generated assets to prevent compositor validation mismatch
@@ -1069,7 +1116,7 @@ export default function App() {
         setAutoPilotState((prev) => ({
           ...prev,
           stage: 'generate_audio',
-          stageIndex: 3,
+          stageIndex: 5,
           progressPercent: 68,
           statusMessage: 'Gemini Co-Pilot: Synthesizing voiceover narration with acoustic sync...',
         }));
@@ -1080,14 +1127,14 @@ export default function App() {
       // -------------------------------------------------------------
       await executeSupervisedStage('generate_audio', async () => {
         setTab('generation');
-        addAutoPilotLog('generate_audio', '[TTS] Initializing acoustic voiceover with word-level timing...', 'gemini');
+        addAutoPilotLog('generate_audio', '[TTS] Synthesizing the selected narrator with measured scene timing...', 'gemini');
         await checkPauseOrAbort();
 
         freshRes = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`);
         currentScript = (await freshRes.json()) as Script;
 
         const activeScenePlan = scenePlan || currentScript.scenePlan;
-        const selectedVoice = currentScript.generatedAudio?.[0]?.voice || 'builtin';
+        let selectedVoice = runSettings.voice.voiceId;
         const textToNarrate = narration || currentScript.narration || extractedScript || currentScript.extractedScript;
 
         if (!textToNarrate?.trim()) {
@@ -1095,7 +1142,17 @@ export default function App() {
         }
 
         const hasHindi = /[\u0900-\u097F]/.test(textToNarrate);
-        const languageToUse = hasHindi ? 'hi' : (currentScript.generatedAudio?.[0]?.language || 'en');
+        const languageToUse = runSettings.voice.language === 'auto' ? (hasHindi ? 'hi' : 'en') : runSettings.voice.language;
+        const libraryRes = await fetch(`/api/tts/voices?language=${languageToUse}&provider=${runSettings.voice.provider}`, { signal: controller.signal });
+        const library = await libraryRes.json();
+        if (!libraryRes.ok || !Array.isArray(library.voices)) throw new Error(library.error || 'Could not load the selected voice engine.');
+        if (!library.voices.some((voice: { id: string }) => voice.id === selectedVoice)) {
+          if (runSettings.voice.language !== 'auto') throw new Error('The selected narration voice is unavailable for this language. Choose another voice.');
+          selectedVoice = library.voices.find((voice: { source?: string }) => voice.source === 'clone')?.id || library.voices[0]?.id;
+          if (!selectedVoice) throw new Error('No matching narration voice is available for this script language.');
+          addAutoPilotLog('generate_audio', `Using ${selectedVoice} from the matching ${languageToUse} voice library.`, 'info');
+        }
+        const voiceOptions = { ...narrationOptions(runSettings, languageToUse), language: languageToUse, voice: selectedVoice };
 
         if (section === 'shorts' && !activeScenePlan) {
           const ttsRes = await fetch('/api/tts/generate', {
@@ -1103,9 +1160,8 @@ export default function App() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               text: textToNarrate,
-              language: languageToUse,
               scriptId,
-              voice: selectedVoice,
+              ...voiceOptions,
             }),
             signal: controller.signal,
           });
@@ -1119,7 +1175,7 @@ export default function App() {
             narrationText: textToNarrate,
             language: languageToUse,
             voice: ttsData.voice || selectedVoice,
-            voiceName: 'Chatterbox Natural',
+            voiceName: library.voices.find((voice: { id: string }) => voice.id === selectedVoice)?.name || selectedVoice,
             url: ttsData.publicUrl,
             filename: ttsData.filename,
           };
@@ -1131,8 +1187,7 @@ export default function App() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               scriptId,
-              language: languageToUse,
-              voice: selectedVoice,
+              ...voiceOptions,
             }),
             signal: controller.signal,
           });
@@ -1166,7 +1221,7 @@ export default function App() {
         setAutoPilotState((prev) => ({
           ...prev,
           stage: 'plan_motion',
-          stageIndex: 4,
+          stageIndex: 6,
           progressPercent: 80,
           statusMessage: 'Planning documentary images and placement review...',
         }));
@@ -1175,6 +1230,9 @@ export default function App() {
       // -------------------------------------------------------------
       // STAGE 5: Documentary composition and rendered vision review
       // -------------------------------------------------------------
+      }
+      let finalVideoUrl: string | null = resumeVideoUrl || null;
+      if (!resumeVideoUrl) {
       await executeSupervisedStage('plan_motion', async () => {
         setTab('review');
         addAutoPilotLog('plan_motion', 'Directing image compositions, detail highlights and rendered placement review...', 'gemini');
@@ -1188,7 +1246,7 @@ export default function App() {
           .filter((img) => img.url)
           .map((img) => img.index);
 
-        if (audioFilename && readyImageIndexes.length) {
+        if ((runSettings.graphics.enabled || runSettings.captions === 'motion') && audioFilename && readyImageIndexes.length) {
           try {
             const projectInputs = {
               scriptId,
@@ -1197,12 +1255,13 @@ export default function App() {
               imageIndexes: readyImageIndexes,
               aspect: section === 'shorts' ? '9:16' : '16:9',
               fps: 30,
-              settings: { stylePreference: 'Use image-led documentary storytelling with related source images and verified details.', density: 'balanced', documentary: true, treatment: 'auto', visualReview: true, maxGeneratedAssets: 0, maxProviderCalls: 40 },
+              settings: { stylePreference: runSettings.graphics.style, density: runSettings.graphics.density, documentary: runSettings.graphics.enabled && runSettings.graphics.mode === 'images', treatment: runSettings.graphics.treatment, visualReview: true, maxGeneratedAssets: 0, maxProviderCalls: 40, ...(runSettings.graphics.model ? { aiModel: runSettings.graphics.model } : {}) },
             };
             const created = await editingRequest<EditingPayload>(fetch, '/projects', projectInputs);
             if (created?.project?.id) {
               patchScriptState(scriptId, { editingProjectId: created.project.id });
               await persistScript(scriptId, { editingProjectId: created.project.id });
+              if (runSettings.graphics.enabled) {
               const started = await editingRequest<{ jobId: string }>(fetch, `/projects/${created.project.id}/generate`,
                 { expectedRevisionId: created.project.revisionId }, 'POST', controller.signal);
               let visualsComplete = false;
@@ -1224,24 +1283,28 @@ export default function App() {
               } finally {
                 if (!visualsComplete) await editingRequest(fetch, `/jobs/${started.jobId}/cancel`, {}).catch(() => {});
               }
+              }
               const directed = await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}`);
               const imageCompositions = directed.project.artifacts.filter(a => a.enabled && a.graphic?.kind === 'composition').length;
-              if (!imageCompositions) throw new Error('Documentary generation returned no image compositions. Text-only completion is blocked.');
-              if (currentScript.enableSubtitles === true) {
+              if (runSettings.graphics.enabled && runSettings.graphics.mode === 'images' && !imageCompositions) throw new Error('Documentary generation returned no image compositions. Text-only completion is blocked.');
+              if (runSettings.captions === 'motion') {
                 await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}/captions`,
                   { expectedRevisionId: directed.project.revisionId });
               }
-              addAutoPilotLog('plan_motion', `${imageCompositions} image compositions prepared${currentScript.enableSubtitles === true ? ' with captions' : ''}.`, 'success');
+              addAutoPilotLog('plan_motion', `${directed.project.artifacts.filter(a => a.enabled && a.graphic?.kind !== 'caption').length} motion graphics prepared${runSettings.captions === 'motion' ? ' with motion captions' : ''}.`, 'success');
             }
           } catch (projErr) {
             throw projErr;
           }
+        } else {
+          await persistScript(scriptId, { editingProjectId: null });
+          addAutoPilotLog('plan_motion', 'Motion graphics and motion captions are off for this run.', 'info');
         }
 
         setAutoPilotState((prev) => ({
           ...prev,
           stage: 'render_video',
-          stageIndex: 5,
+          stageIndex: 7,
           progressPercent: 88,
           statusMessage: 'Gemini Supervisor: Compiling final 1080p MP4 video...',
         }));
@@ -1250,7 +1313,6 @@ export default function App() {
       // -------------------------------------------------------------
       // STAGE 6: Video Rendering
       // -------------------------------------------------------------
-      let finalVideoUrl: string | null = null;
 
       await executeSupervisedStage('render_video', async () => {
         setTab('review');
@@ -1285,14 +1347,15 @@ export default function App() {
             narration: currentScript.narration || '',
             duration: currentScript.duration || 30,
             resolution: section === 'shorts' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 },
-            zoomFactor: 1.15,
-            transitionDuration: 0.5,
-            sceneAnalysis: currentScript.sceneAnalysis,
-            enableSubtitles: currentScript.enableSubtitles === true,
-            bgmTrack: 'epic',
-            bgmVolume: 0.15,
-            ttsVolume: 1.0,
-            colorGrade: 'teal-orange',
+            zoomFactor: runSettings.editing.mode === 'off' ? 1 : 1.08,
+            transitionDuration: runSettings.editing.mode === 'off' ? 0 : section === 'shorts' ? 0.2 : 0.4,
+            sceneAnalysis: runSettings.editing.mode === 'off' ? { effects: imagePaths.map(() => 'hold'), transitions: imagePaths.map(() => 'none'), timings: currentScript.sceneAnalysis?.timings } : currentScript.sceneAnalysis,
+            enableSubtitles: runSettings.captions !== 'off',
+            ...(runSettings.editing.mode === 'custom' ? { editing: { ...runSettings.editing.settings, enabled: true, captions: runSettings.captions === 'plain' } } : runSettings.editing.mode === 'off' ? { editing: { ...runSettings.editing.settings, enabled: false, captions: runSettings.captions === 'plain' } } : {}),
+            bgmTrack: runSettings.audio.music === 'auto' ? retention.plan.musicMood : runSettings.audio.music,
+            bgmVolume: runSettings.audio.musicVolume,
+            ttsVolume: runSettings.audio.voiceVolume,
+            colorGrade: 'none',
             enableVignette: false,
             enableSfx: false,
           }),
@@ -1315,7 +1378,7 @@ export default function App() {
               const pct = typeof statusData.progress === 'number' ? statusData.progress : 50;
               setAutoPilotState((prev) => ({
                 ...prev,
-                progressPercent: 88 + (pct / 100) * 11, // 88% -> 99%
+                progressPercent: 88 + (pct / 100) * 7,
                 statusMessage: statusData.message || `Rendering video composition (${Math.round(pct)}%)...`,
               }));
             } else if (statusData.status === 'done' && statusData.videos?.length > 0) {
@@ -1328,6 +1391,45 @@ export default function App() {
         }
       }, supervisorCtx);
 
+      }
+      await checkPauseOrAbort();
+      if (!finalVideoUrl) throw new Error('Rendering did not return a completed video.');
+      const videoFilename = decodeURIComponent((finalVideoUrl as string).split('/').pop()!);
+      setAutoPilotState(prev => ({ ...prev, stage: 'review_retention', stageIndex: 8, progressPercent: 96,
+        renderedVideoUrl: finalVideoUrl, statusMessage: 'Reviewing the rendered opening, ending, captions and mixed audio...' }));
+      const reviewed = await apiPost<{ review: NonNullable<Script['retentionReview']> }>(
+        '/api/retention/review', { scriptId, videoFilename }, getApiKey(), fetch, controller.signal);
+      patchScriptState(scriptId, { retentionReview: reviewed.review });
+      for (const finding of reviewed.review.findings) addAutoPilotLog('review_retention', `${finding.category}: ${finding.detail}`, finding.severity === 'blocker' ? 'error' : 'info');
+      if (reviewed.review.status !== 'passed') throw new Error(`Final review needs attention: ${reviewed.review.summary}`);
+      addAutoPilotLog('review_retention', reviewed.review.summary, 'success');
+      await checkPauseOrAbort();
+      setAutoPilotState(prev => ({ ...prev, stage: 'upload_youtube', stageIndex: 9, progressPercent: 98,
+        statusMessage: 'Final review passed. Exporting the video with its planned title and promise...' }));
+      const metadata = retention.plan;
+      const exportSettings = initialScript.youtubeExport || {};
+      const uploadResponse = await fetch('/api/youtube/upload', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptId, videoFilename, autoPilot: true,
+          title: metadata.titles?.[0] || topic, description: metadata.description || '', tags: metadata.tags || [],
+          privacyStatus: runSettings.youtube.privacyStatus, categoryId: exportSettings.categoryId || '22',
+          ...(runSettings.youtube.publishMode === 'schedule' ? { publishAt: runSettings.youtube.scheduledPublishAt } : {}),
+        }),
+        signal: controller.signal,
+      });
+      const uploaded = await uploadResponse.json();
+      if (!uploadResponse.ok || !uploaded.success) throw new Error(uploaded.error || 'YouTube export failed');
+      patchScriptState(scriptId, { youtubeExport: { ...exportSettings,
+        title: metadata.titles?.[0] || topic, description: metadata.description || '', tags: metadata.tags || [],
+        publishMode: runSettings.youtube.publishMode, scheduledPublishAt: runSettings.youtube.scheduledPublishAt,
+        privacyStatus: uploaded.privacyStatus, uploadedVideoId: uploaded.videoId,
+        uploadedVideoUrl: uploaded.videoUrl, uploadedAt: uploaded.uploadedAt,
+      } });
+      addAutoPilotLog('upload_youtube', `Exported to YouTube: ${uploaded.videoUrl}`, 'success');
+      addAutoPilotLog('upload_youtube', uploaded.topicHistorySaved
+        ? 'Topic saved in this profile’s notes. Future topic searches will exclude it.'
+        : 'Upload receipt saved. Topic notes will be recovered from the receipt before the next topic search.', uploaded.topicHistorySaved ? 'success' : 'warn');
+
       // -------------------------------------------------------------
       // COMPLETION
       // -------------------------------------------------------------
@@ -1335,12 +1437,13 @@ export default function App() {
         ...prev,
         stage: 'completed',
         progressPercent: 100,
-        statusMessage: 'Production complete! 1080p video ready to watch & download.',
+        statusMessage: 'Production complete! Video exported to YouTube and topic recorded.',
         renderedVideoUrl: finalVideoUrl,
+        youtubeVideoUrl: uploaded.videoUrl,
       }));
 
       addAutoPilotLog('render_video', `🎉 Full MP4 video successfully rendered: ${finalVideoUrl}`, 'success');
-      addAutoPilotLog('render_video', '[GEMINI] Autonomous end-to-end production finished with 100% success.', 'gemini');
+      addAutoPilotLog('upload_youtube', 'Autonomous production and YouTube export finished.', 'success');
     } catch (err) {
       if (controller.signal.aborted) {
         addAutoPilotLog(autoPilotState.stage, 'Auto-Pilot stopped by user. Manual control restored.', 'warn');
@@ -1367,18 +1470,25 @@ export default function App() {
     }
   }
 
-  async function handleRunScriptSubmit(topic: string, instructions: string, options?: { autoPilot?: boolean }) {
+  async function handleRunScriptSubmit(topic: string, instructions: string, options?: { autoPilot?: boolean; settings?: AutoPilotSettings }) {
     if (!runModalScript) return;
-    const script = runModalScript;
-    setRunModalScript(null);
+    let script = runModalScript;
     if (options?.autoPilot) {
+      const settings = AutoPilotSettingsSchema.parse(options.settings || defaultAutoPilotSettings(script));
+      const patch = { autoPilotSettings: settings, enableSubtitles: settings.captions !== 'off', editingProjectId: null };
+      const saved = await persistScript(script.id, patch);
+      if (!saved) throw new Error('Could not save production settings. Please retry.');
+      script = { ...script, ...patch };
+      setRunModalScript(null);
       void runAutoPilotPipeline(script, topic, instructions);
     } else {
+      setRunModalScript(null);
       await generateScript(script, topic, instructions);
     }
   }
 
   const selectedScript = scopeScripts.find(script => script.id === selectedScriptId) || null;
+  const autoPilotScript = scopeScripts.find(script => script.id === autoPilotState.scriptId) || null;
 
   function handleStopGeneration() {
     if (autoPilotState.isActive) {
@@ -1475,7 +1585,7 @@ export default function App() {
         .join('\n\n') || selectedScript.howItWorks || '';
       const result = await apiPost(
         '/api/llm/extract',
-        { rawText: selectedScript.aiResponse, useTimelineNarration, template },
+        { scriptId, rawText: selectedScript.aiResponse, useTimelineNarration, template },
         getApiKey(), fetch
       );
       extracted = {
@@ -1590,6 +1700,7 @@ export default function App() {
         <div role="alert" className="fixed right-4 top-4 z-[80] studio-card max-w-sm border-danger/40 bg-[#1a0f14] p-4 text-[13px] leading-relaxed text-red-100 shadow-pop animate-scale-in">
           <p className="font-semibold text-red-200">Sync issue</p>
           <p className="mt-1 text-red-100/80">{saveError}. Changes remain in this tab; check the server before closing.</p>
+          <button type="button" onClick={() => setSaveError('')} className="mt-2 underline">Dismiss</button>
         </div>
       )}
       {/* Sidebar */}
@@ -1828,14 +1939,7 @@ export default function App() {
                       onExtractAssets={() => handleExtractAssets()}
                       onExtractTimelineAssets={() => handleExtractAssets(true)}
                       onImportResponse={handleImportResponse}
-                      onAutoPilot={() =>
-                        selectedScript &&
-                        runAutoPilotPipeline(
-                          selectedScript,
-                          selectedScript.topicName || selectedScript.name,
-                          selectedScript.aiInstructions || ''
-                        )
-                      }
+                      onAutoPilot={() => selectedScript && setRunModalScript(selectedScript)}
                       isAutoPilotRunning={autoPilotState.isActive}
                     />
                   )}
@@ -1891,11 +1995,14 @@ export default function App() {
       {autoPilotState.isActive && (
         <AutoPilotModal
           state={autoPilotState}
-          script={selectedScript}
+          script={autoPilotScript}
           onPauseToggle={handleAutoPilotPauseToggle}
           onStop={handleAutoPilotStop}
           onToggleMinimize={handleAutoPilotMinimizeToggle}
           onClose={handleAutoPilotClose}
+          onRetryProduction={autoPilotState.stage === 'error' && autoPilotState.stageIndex >= 6 && autoPilotScript?.retentionPlan && autoPilotScript.generatedAudio?.length && autoPilotScript.generatedImages?.some(image => image.url)
+            ? () => { void runAutoPilotPipeline(autoPilotScript, autoPilotScript.topicName || autoPilotState.topic, '', true, autoPilotState.stageIndex >= 8 ? autoPilotState.renderedVideoUrl : null); }
+            : undefined}
           onNavigateTab={(targetTab) => setTab(targetTab)}
         />
       )}

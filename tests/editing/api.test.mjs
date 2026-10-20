@@ -161,6 +161,41 @@ test("mutation uses revision conflict checks and returns a new immutable revisio
   ).json();
   assert.equal(historical.project.artifacts[0].enabled, true);
 });
+test('image motion and layout edits persist without allowing source or verification changes', async (t) => {
+  const originalScript = structuredClone(store.getById('scripts', p.scriptId));
+  t.after(() => store.add('scripts', originalScript));
+  const { compileGraphic } = await import('../../server/dist/services/editing/motionPackArtifacts.js');
+  const { nextRevision, publish } = await import('../../server/dist/services/editing/repository.js');
+  const baseProject = await fixture('museum', false, true), project = nextRevision(baseProject);
+  project.artifacts = [compileGraphic(project, { sceneId: 'scene-0', kind: 'composition', title: 'Statue detail', detail: '', target: '', quote: 'a bronze statue and its hand',
+    position: 'top', composition: { treatment: 'cinematic', emphasis: 'none', layers: [{ sourceSceneId: 'scene-0', bounds: { x: 0, y: 0, width: 1, height: 1 },
+      crop: { x: 0.4, y: 0.3, width: 0.3, height: 0.3 }, useTargetCrop: false, fit: 'cover', motion: 'hold', delay: 0, rotation: 0 }] } })];
+  project.artifacts[0].visualReview = { status: 'passed', attempts: 1, frames: [24], reason: 'fixture review' };
+  publish(project, baseProject.revisionId);
+  const artifact = project.artifacts[0], graphic = structuredClone(artifact.graphic);
+  graphic.bounds.x += 5;
+  Object.assign(graphic.composition.layers[0], { motion: 'focus-in', strength: 0.12, focus: { x: 0.7, y: 0.3 } });
+  const route = `/projects/${project.id}/artifacts/${artifact.id}`;
+  const response = await request(route, { expectedRevisionId: project.revisionId, graphic }, 'PATCH');
+  assert.equal(response.status, 200, JSON.stringify(await response.clone().json()));
+  const saved = await response.json();
+  assert.deepEqual(saved.project.artifacts[0].graphic, graphic);
+  assert.equal(saved.project.artifacts[0].visualReview, undefined, 'motion edits invalidate previous placement review');
+  const reloaded = await (await request(`/projects/${project.id}`, undefined, 'GET')).json();
+  assert.deepEqual(reloaded.project.artifacts[0].graphic, graphic);
+  for (const mutate of [
+    g => { g.composition.layers[0].assetId = 'forged-source'; },
+    g => { g.composition.layers[0].crop.x = 0.2; },
+    g => { g.composition.layers[0].bounds.width = 0.7; },
+    g => { g.target = { verified: true, label: 'fake', evidence: '', region: { x: 0, y: 0, width: 0.1, height: 0.1 } }; },
+  ]) {
+    const forged = structuredClone(graphic); mutate(forged);
+    const rejected = await request(route, { expectedRevisionId: saved.project.revisionId, graphic: forged }, 'PATCH');
+    assert.equal((await rejected.json()).error.code, 'INVALID_TARGET');
+  }
+  const invalid = structuredClone(graphic); invalid.bounds.x = -1;
+  assert.equal((await request(route, { expectedRevisionId: saved.project.revisionId, graphic: invalid }, 'PATCH')).status, 422);
+});
 test("registered asset serving supports range requests; traversal is rejected", async () => {
   const r = await request(
     `/assets/${p.inputs.audioAssetId}`,

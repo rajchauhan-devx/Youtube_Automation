@@ -18,10 +18,15 @@ import { flowRouter } from './routes/flow.js';
 import { editingRouter } from './routes/editing.js';
 import { editingConfig } from './services/editing/config.js';
 import { acquireSchedulerLock } from './services/editing/repository.js';
+import { initializeTopicNotes } from './services/topic-notes.js';
+import { StoreCorruptionError } from './services/store.js';
+import { recoveryRouter } from './routes/recovery.js';
+import { workspaceMutationGuard } from './services/workspace-activity.js';
 
 import { supervisorRouter } from './routes/supervisor.js';
 
 const app = express();
+try { initializeTopicNotes(); } catch (error) { if (error instanceof StoreCorruptionError) console.error(error.message); else throw error; }
 editingConfig();
 acquireSchedulerLock();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -45,6 +50,8 @@ app.use(express.json({ limit: '12mb' }));
 
 app.use('/api/accounts/:accountId/profiles/:profile', workspacesRouter);
 app.use('/api/accounts', accountsRouter);
+app.use('/api/recovery', recoveryRouter);
+app.use('/api', (req, res, next) => req.path.startsWith('/accounts') ? next() : workspaceMutationGuard(req, res, next));
 app.use('/api/health', healthRouter);
 app.use('/api/llm', llmRouter);
 app.use('/api/scripts', scriptsRouter);
@@ -65,6 +72,7 @@ app.use((_req, res) => {
 });
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof StoreCorruptionError) { res.status(409).json({ error: err.message, code: err.code }); return; }
   console.error('Unhandled error:', err);
   res.status(500).json({ error: 'Internal server error' });
 });

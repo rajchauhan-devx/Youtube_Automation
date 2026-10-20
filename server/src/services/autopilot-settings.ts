@@ -1,0 +1,69 @@
+import { z } from 'zod';
+import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
+
+export const VoiceProvider = z.enum(['default', 'chatterbox', 'edge', 'openrouter', 'omni']);
+export const AutoPilotSettingsSchema = z.strictObject({
+  version: z.literal(1),
+  media: z.strictObject({
+    imageProvider: z.enum(['google', 'cloudflare', 'local']),
+    imageQuality: z.enum(['fast', 'standard', 'high']),
+    seedMode: z.enum(['random', 'fixed']), seed: z.number().int().min(0).max(2147483647),
+    flowEnabled: z.boolean(), flowResolution: z.enum(['720p', '1080p']),
+    flowDuration: z.union([z.literal(4), z.literal(6), z.literal(8)]),
+    allowImageFallback: z.boolean(),
+  }),
+  voice: z.strictObject({
+    provider: VoiceProvider, language: z.enum(['auto', 'en', 'hi']), voiceId: z.string().trim().min(1).max(150),
+    rate: z.number().int().min(-25).max(35), pitch: z.number().int().min(-12).max(12),
+    speed: z.number().min(0.75).max(1.5), exaggeration: z.number().min(0.25).max(1.2),
+    cfgWeight: z.number().min(0.2).max(0.8), temperature: z.number().min(0.4).max(1.2),
+    seed: z.number().int().min(0).max(2147483647),
+  }),
+  captions: z.enum(['off', 'plain', 'motion']),
+  graphics: z.strictObject({
+    enabled: z.boolean(), mode: z.enum(['images', 'callouts']), density: z.enum(['subtle', 'balanced', 'expressive']),
+    treatment: z.enum(['auto', 'archival', 'cinematic', 'map']),
+    style: z.string().trim().min(1).max(2000),
+    model: z.string().max(150).refine(value => !value || /^gemini-[a-z0-9.-]+$/i.test(value), 'Select a Gemini vision model.'),
+  }),
+  editing: z.strictObject({
+    mode: z.enum(['story', 'custom', 'off']),
+    settings: z.custom<EditingSettings>(value => {
+      try { validateEditingSettings(value); return true; } catch { return false; }
+    }, 'Invalid editing settings.'),
+  }),
+  audio: z.strictObject({
+    music: z.enum(['auto', 'none', 'calm', 'cinematic', 'epic', 'upbeat']),
+    musicVolume: z.number().min(0).max(1), voiceVolume: z.number().min(0).max(2),
+  }),
+  youtube: z.strictObject({ privacyStatus: z.enum(['private', 'unlisted', 'public']),
+    publishMode: z.enum(['now', 'schedule']).default('now'), scheduledPublishAt: z.string().max(100).default(''),
+  }).superRefine((value, ctx) => {
+    if (value.publishMode === 'schedule' && !Number.isFinite(Date.parse(value.scheduledPublishAt))) ctx.addIssue({ code: 'custom', path: ['scheduledPublishAt'], message: 'Choose a valid scheduled publication time.' });
+  }),
+});
+export type AutoPilotSettings = z.infer<typeof AutoPilotSettingsSchema>;
+
+export function defaultAutoPilotSettings(script: { enableSubtitles?: boolean; editing?: EditingSettings; generatedAudio?: { voice?: string; language?: string }[]; youtubeExport?: { privacyStatus?: 'private' | 'unlisted' | 'public'; publishMode?: 'now' | 'schedule'; scheduledPublishAt?: string }; ttsVolume?: number } = {}): AutoPilotSettings {
+  return {
+    version: 1,
+    media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: true, flowResolution: '720p', flowDuration: 8, allowImageFallback: true },
+    voice: { provider: 'default', language: 'auto', voiceId: script.generatedAudio?.[0]?.voice || 'builtin', rate: 0, pitch: 0, speed: 1, exaggeration: 0.65, cfgWeight: 0.32, temperature: 0.72, seed: 42 },
+    captions: script.enableSubtitles === true ? 'motion' : 'off',
+    graphics: { enabled: true, mode: 'images', density: 'balanced', treatment: 'auto', style: 'Use image-led documentary storytelling with related source images and verified details.', model: '' },
+    editing: { mode: script.editing?.enabled ? 'custom' : 'story', settings: script.editing || { ...editingPreset('documentary'), bookendFades: false, colorLook: 'none' } },
+    audio: { music: 'auto', musicVolume: 0.10, voiceVolume: script.ttsVolume ?? 1 },
+    youtube: { privacyStatus: script.youtubeExport?.privacyStatus || 'private', publishMode: script.youtubeExport?.publishMode || 'now', scheduledPublishAt: script.youtubeExport?.scheduledPublishAt || '' },
+  };
+}
+
+export function narrationOptions(settings: AutoPilotSettings, detectedLanguage: 'en' | 'hi') {
+  const voice = settings.voice;
+  return {
+    ...(voice.provider === 'default' ? {} : { provider: voice.provider }),
+    language: voice.language === 'auto' ? detectedLanguage : voice.language,
+    voice: voice.voiceId,
+    rate: `${voice.rate >= 0 ? '+' : ''}${voice.rate}%`, pitch: `${voice.pitch >= 0 ? '+' : ''}${voice.pitch}Hz`,
+    speed: voice.speed, exaggeration: voice.exaggeration, cfgWeight: voice.cfgWeight, temperature: voice.temperature, seed: voice.seed,
+  };
+}

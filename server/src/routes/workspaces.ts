@@ -1,4 +1,5 @@
-import { Router } from 'express';
+import { Router, type ErrorRequestHandler } from 'express';
+import { StoreCorruptionError } from '../services/store.js';
 import { getAccount } from '../services/accounts.js';
 import { safeSegment } from '../services/paths.js';
 import { workspaceContext } from '../services/workspace.js';
@@ -16,6 +17,9 @@ import { editingRouter } from './editing.js';
 
 import { flowRouter } from './flow.js';
 import { supervisorRouter } from './supervisor.js';
+import { retentionRouter } from './retention.js';
+import { recoveryRouter } from './recovery.js';
+import { workspaceMutationGuard } from '../services/workspace-activity.js';
 
 export const workspacesRouter = Router({ mergeParams: true });
 workspacesRouter.use((req, res, next) => {
@@ -25,6 +29,8 @@ workspacesRouter.use((req, res, next) => {
   }
   workspaceContext.run({ accountId, profile }, next);
 });
+workspacesRouter.use(workspaceMutationGuard);
+workspacesRouter.use('/recovery', recoveryRouter);
 workspacesRouter.use('/scripts', scriptsRouter);
 workspacesRouter.use('/generate', generateRouter);
 workspacesRouter.use('/media-import', mediaImportRouter);
@@ -38,3 +44,8 @@ workspacesRouter.use('/facebook', facebookRouter);
 workspacesRouter.use('/instagram', instagramRouter);
 workspacesRouter.use('/llm', llmRouter);
 workspacesRouter.use('/supervisor', supervisorRouter);
+workspacesRouter.use('/retention', retentionRouter);
+workspacesRouter.use(((error, _req, res, next) => {
+  if (error instanceof StoreCorruptionError) { res.status(409).json({ error: error.message, code: error.code }); return; }
+  next(error);
+}) as ErrorRequestHandler);

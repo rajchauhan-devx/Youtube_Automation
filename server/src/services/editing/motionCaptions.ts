@@ -23,10 +23,14 @@ function sceneWords(project: EditingProject, scene: EditingProject['scenes'][num
 }
 
 /** Captions are timed to saved narration boundaries, never inferred from unrelated script text. */
-export async function createMotionCaptions(input: EditingProject, signal: AbortSignal): Promise<EditingProject> {
+export async function createMotionCaptions(input: EditingProject, signal: AbortSignal, preserveScenes = false): Promise<EditingProject> {
   const project = motionProject(nextRevision(input));
   project.alignment = await align(project, signal, false);
-  project.scenes = mapScenes(project);
+  if (!preserveScenes && !project.artifacts.some(artifact => artifact.graphic?.kind !== 'caption')) project.scenes = mapScenes(project);
+  else {
+    for (const scene of project.scenes) scene.narrativeRefs = project.alignment.tokens.filter(token => Math.round(token.start * project.inputs.fps) >= scene.startFrame && Math.round(token.start * project.inputs.fps) < scene.endFrame).map(token => token.id);
+    for (const artifact of project.artifacts) artifact.narrativeRefs = project.scenes.find(scene => scene.id === artifact.sceneId)!.narrativeRefs.slice(0, 100);
+  }
   project.artifacts = project.artifacts.filter(a => a.graphic?.kind !== 'caption');
   project.diagnostics = project.diagnostics.filter(d => d.code !== 'CAPTION_TIMING_ESTIMATED');
   const portrait = project.inputs.height > project.inputs.width;
@@ -46,7 +50,11 @@ export async function createMotionCaptions(input: EditingProject, signal: AbortS
           id: `caption-${index++}`, sceneId: scene.id, enabled: true, intent: `Motion caption: ${title}`,
           narrativeRefs: [...new Set(group.map(word => word.tokenId))], startFrame, endFrame,
           priority: 3, nodes: [], assetRequestIds: [],
-          graphic: { kind: 'caption', title, detail: '', bounds: cardBounds('caption', project.inputs.width, project.inputs.height) },
+          graphic: { kind: 'caption', title, detail: '', bounds: cardBounds('caption', project.inputs.width, project.inputs.height),
+            ...(project.alignment.mode === 'word' ? { wordTimings: group.map(word => {
+              const start = Math.min(endFrame - startFrame - 1, Math.max(0, Math.round(word.start * project.inputs.fps) - startFrame));
+              return { startFrame: start, endFrame: Math.min(endFrame - startFrame, Math.max(start + 1, Math.round(word.end * project.inputs.fps) - startFrame)) };
+            }) } : {}) },
         }));
       }
       group = [];
@@ -61,7 +69,7 @@ export async function createMotionCaptions(input: EditingProject, signal: AbortS
   }
   if (!index) throw new Error('No narration timing is available for motion captions.');
   if (project.artifacts.length > 1000) throw new Error('This narration needs more than 1,000 captions. Split the video into shorter projects.');
-  if (project.alignment.mode === 'approximate') project.diagnostics.push({ severity: 'info', code: 'CAPTION_TIMING_ESTIMATED', stage: 'captions', message: 'Caption timing is estimated because measured narration scene timing is unavailable.', retryable: false });
+  if (project.alignment.mode !== 'word') project.diagnostics.push({ severity: 'info', code: 'CAPTION_TIMING_ESTIMATED', stage: 'captions', message: project.alignment.mode === 'phrase' ? 'Scene boundaries are measured, but word intervals are estimated. Use Align spoken words for measured caption timing.' : 'Caption timing is estimated because measured narration scene timing is unavailable.', retryable: false });
   project.status = project.diagnostics.some(d => d.code === 'GRAPHIC_SKIPPED') ? 'partial' : 'ready';
   return validateProject(project);
 }

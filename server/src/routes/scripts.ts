@@ -1,3 +1,4 @@
+import { AutoPilotSettingsSchema } from '../services/autopilot-settings.js';
 import { generatedDir, currentWorkspace } from '../services/workspace.js';
 import { Router } from 'express';
 import fs from 'fs';
@@ -16,6 +17,14 @@ import { validatePresenter } from '../services/presenter-settings.js';
 import { SHORTS_MEDIA_TEMPLATE, LEGACY_SHORTS_MEDIA_TEMPLATE } from '../services/shorts-media.js';
 
 export const scriptsRouter = Router();
+scriptsRouter.use((req, res, next) => {
+  if (req.body?.autoPilotSettings !== undefined) {
+    const parsed = AutoPilotSettingsSchema.safeParse(req.body.autoPilotSettings);
+    if (!parsed.success) { res.status(400).json({ error: 'Invalid Auto-Pilot settings.', details: parsed.error.issues }); return; }
+    req.body.autoPilotSettings = parsed.data;
+  }
+  next();
+});
 scriptsRouter.param('id', (_req, res, next, value) => {
   if (!sanitizeSegment(value)) { res.status(400).json({ error: 'Invalid script ID' }); return; }
   next();
@@ -161,6 +170,10 @@ scriptsRouter.put('/:id', async (req, res) => {
   const scope = currentWorkspace();
   const updated = { ...existing, ...req.body, id: req.params.id, accountId: scope.accountId, section: scope.profile };
   if (reset) {
+    delete updated.retentionEdit;
+    delete updated.retentionReview;
+    delete updated.retentionProduction;
+    if (!req.body?.retentionPlan || req.body.retentionPlan.topic !== updated.topicName) delete updated.retentionPlan;
     delete updated.generatedMusic;
     for (const key of ['timelineConfig', 'sceneAnalysis', 'youtubeExport', 'facebookExport', 'instagramExport', 'scenePlan']) delete updated[key];
     if (!('researchData' in (req.body || {}))) delete updated.researchData;
@@ -176,6 +189,7 @@ scriptsRouter.put('/:id', async (req, res) => {
     store.set(`pipeline_${req.params.id}`, []);
   }
   if (sceneChanged) { updated.generatedAudio = []; delete updated.timelineConfig; delete updated.youtubeExport; delete updated.facebookExport; delete updated.instagramExport; delete updated.generatedMusic; }
+  if (sceneChanged || mediaModeChanged) delete updated.retentionReview;
   if (mediaModeChanged) { delete updated.timelineConfig; delete updated.youtubeExport; delete updated.facebookExport; delete updated.instagramExport; }
   store.add('scripts', updated);
   res.json(updated);
@@ -199,7 +213,7 @@ scriptsRouter.post('/:id/clear', async (req, res) => {
     // Rebuild from template fields so no run data can survive a clear.
     const clean: Record<string, any> = {};
     for (const key of ['id', 'name', 'prompts', 'howItWorks', 'duration', 'model', 'locked',
-      'videoImportsEnabled', 'enableSubtitles', 'presenter', 'maxDurationSeconds', 'editing', 'ttsVolume']) {
+      'videoImportsEnabled', 'enableSubtitles', 'presenter', 'maxDurationSeconds', 'editing', 'ttsVolume', 'autoPilotSettings']) {
       if (key in existing) clean[key] = existing[key];
     }
     const scope = currentWorkspace();

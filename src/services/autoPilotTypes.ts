@@ -1,11 +1,15 @@
 export type AutoPilotStage =
   | 'idle'
+  | 'plan_hooks'
   | 'research_script'
+  | 'edit_retention'
   | 'extract_assets'
   | 'generate_images'
   | 'generate_audio'
   | 'plan_motion'
   | 'render_video'
+  | 'review_retention'
+  | 'upload_youtube'
   | 'completed'
   | 'error';
 
@@ -32,6 +36,7 @@ export interface AutoPilotState {
   sceneTotal?: number;
   logs: AutoPilotLog[];
   renderedVideoUrl?: string | null;
+  youtubeVideoUrl?: string | null;
   error?: string | null;
 }
 
@@ -41,40 +46,49 @@ export const AUTO_PILOT_STAGES: {
   description: string;
   stepNumber: number;
 }[] = [
+  { id: 'plan_hooks', label: 'Hooks & Promise', description: 'Learns from profile performance and selects one of three honest opening hooks', stepNumber: 1 },
   {
     id: 'research_script',
     label: 'Script & Research',
-    description: 'Gemini researches topic depth and writes a complete production script',
-    stepNumber: 1,
+    description: 'Checks profile notes, selects a fresh topic and writes a researched script',
+    stepNumber: 2,
   },
+  { id: 'edit_retention', label: 'Story Edit', description: 'Removes repetition and aligns scene narration and visuals with the promised payoff', stepNumber: 3 },
   {
     id: 'extract_assets',
     label: 'Asset Extraction',
     description: 'Deconstructs script into structured scenes, visual prompts and narration',
-    stepNumber: 2,
+    stepNumber: 4,
   },
   {
     id: 'generate_images',
     label: 'Visual Generation',
     description: 'Generates cinematic visual keyframes for each scene via Google Cloud',
-    stepNumber: 3,
+    stepNumber: 5,
   },
   {
     id: 'generate_audio',
     label: 'Voice Narration',
     description: 'Synthesizes narration with measured scene timing',
-    stepNumber: 4,
+    stepNumber: 6,
   },
   {
     id: 'plan_motion',
     label: 'Documentary Visuals',
     description: 'Composes image inserts and detail highlights, then reviews rendered placement',
-    stepNumber: 5,
+    stepNumber: 7,
   },
   {
     id: 'render_video',
     label: 'Render MP4',
     description: 'Assembles timeline and compiles final high-definition video',
-    stepNumber: 6,
+    stepNumber: 8,
+  },
+  { id: 'review_retention', label: 'Final Review', description: 'Reviews sampled final frames and mixed audio before permitting upload', stepNumber: 9 },
+  {
+    id: 'upload_youtube',
+    label: 'YouTube Export',
+    description: 'Uploads the final video and records its topic in this profile’s notes',
+    stepNumber: 10,
   },
 ];

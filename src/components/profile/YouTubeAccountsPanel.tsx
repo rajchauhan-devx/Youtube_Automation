@@ -145,7 +145,7 @@ export function YouTubeAccountsPanel({ accounts, onAccountsChange, onSelectAccou
       const info = credInfo[account.id];
       const removing = busy === `remove-${account.id}`;
       return <div key={account.id} className={`flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3 ${active.id === account.id ? 'border-accent bg-accent/5' : 'border-border bg-bg'}`}>
-        <div className="min-w-0 flex-1"><p className="break-words font-medium">{account.name}{active.id === account.id && <span className="ml-2 text-xs text-accent">Active</span>}</p>
+        <div className="min-w-0 basis-full sm:flex-1 sm:basis-0"><p className="break-words font-medium">{account.name}{active.id === account.id && <span className="ml-2 text-xs text-accent">Active</span>}</p>
           <p className="text-xs text-gray-400">{status?.authenticated ? `Connected: ${status.channel?.title || account.youtubeChannelTitle}` : status ? status.message || 'YouTube not connected' : 'Checking connection…'}</p>
           {info?.configured && info.clientId && <p className="mt-1 break-all font-mono text-[11px] text-gray-500">OAuth app: {info.clientId}{sourceLabel(info) ? ` · ${sourceLabel(info)}` : ''}</p>}
           {!info?.configured && status && !status.configured && <p className="mt-1 text-[11px] text-gray-500">No Google OAuth app saved — configure it below, no file editing needed.</p>}</div>

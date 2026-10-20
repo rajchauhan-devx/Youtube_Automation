@@ -7,6 +7,7 @@ import {
 import fs from "node:fs";
 import path from "node:path";
 import { assetRecord, atomic, objectHash, projectDir } from "./repository.js";
+import { measureWords } from './wordAlignment.js';
 export function approximateAlignment(
   inputs: EditingProject["inputs"],
   duration: number,
@@ -41,8 +42,17 @@ export function approximateAlignment(
 export async function align(
   project: EditingProject,
   signal: AbortSignal,
-  _useService = false,
+  useService = false,
 ): Promise<AlignmentResult> {
+  const measuredFile = path.join(projectDir(project.id), 'alignment', `${objectHash({ audio: project.inputs.audioHash, text: project.inputs.narrationHash, language: project.inputs.language, version: 'measured-words-v1' })}.words.json`);
+  if (fs.existsSync(measuredFile)) {
+    const measured = Alignment.parse(JSON.parse(fs.readFileSync(measuredFile, 'utf8')));
+    if (measured.audioHash !== project.inputs.audioHash || measured.narrationHash !== project.inputs.narrationHash || measured.mode !== 'word') throw new Error('Word timing identity mismatch');
+    return measured;
+  }
+  if (useService) {
+    const measured = await measureWords(project, signal); signal.throwIfAborted(); atomic(measuredFile, measured); return measured;
+  }
   const key = objectHash({
       audio: project.inputs.audioHash,
       text: project.inputs.narrationHash,

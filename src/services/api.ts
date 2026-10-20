@@ -1,6 +1,6 @@
 import { parseJsonResponse, isAbortError } from '../lib/safe';
 
-export async function apiPost<T = any>(path: string, body: unknown, apiKey: string, fetcher: typeof fetch = fetch): Promise<T> {
+export async function apiPost<T = any>(path: string, body: unknown, apiKey: string, fetcher: typeof fetch = fetch, signal?: AbortSignal): Promise<T> {
   let res: Response;
   try {
     res = await fetcher(path, {
@@ -10,6 +10,7 @@ export async function apiPost<T = any>(path: string, body: unknown, apiKey: stri
         ...(apiKey ? { 'x-api-key': apiKey } : {}),
       },
       body: JSON.stringify(body),
+      signal,
     });
   } catch (error) {
     if (isAbortError(error)) throw error;

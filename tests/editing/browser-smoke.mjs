@@ -70,8 +70,8 @@ try {
   });
   await page.waitForSelector('[aria-label="Timeline playhead"]');
   assert.match(await page.$eval('body', el => el.textContent), /Clear graphics/i);
-  assert.equal(await page.$eval('[aria-label="Image-led documentary visuals"]', el => el.checked), true);
-  assert.equal(await page.$eval('[aria-label="Review rendered placement"]', el => el.checked), true);
+  assert.equal(await page.$eval('[aria-label="Image-led documentary visuals"]', el => el.checked), p.settings.documentary);
+  assert.equal(await page.$eval('[aria-label="Review rendered placement"]', el => el.checked), p.settings.visualReview);
   assert.deepEqual(await page.$$eval('[aria-label="Documentary treatment"] option', options => options.map(option => option.value)), ['auto', 'archival', 'cinematic', 'map']);
   assert.match(await page.$eval('body', el => el.textContent), /Placement has not passed review/);
   const modelChoices = await page.$$eval('[aria-label="Visual editing AI model"] option', options => options.map(option => option.value));

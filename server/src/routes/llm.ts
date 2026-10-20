@@ -2,7 +2,7 @@ import { getXkiroModels } from '../services/xkiro-models.js';
 import { normalizeScenePlanResponse } from '../services/scene-plan-format.js';
 import { currentWorkspace } from '../services/workspace.js';
 import { Router } from 'express';
-import { isImageOnlyTemplate, parseScenePlan, spokenText } from '../services/scene-plan.js';
+import { isImageOnlyTemplate, parseScenePlan, spokenText, validateScenePlan } from '../services/scene-plan.js';
 import { chat, formatGeminiModel } from '../services/gemini.js';
 import { generateLongScenePlan, longGenerationDuration } from '../services/long-script-generation.js';
 import { repairVisualPrompts } from '../services/visual-prompt-repair.js';
@@ -15,8 +15,40 @@ import { reasoningProvider, GROQ_MODELS, OPENROUTER_MODELS } from '../services/r
 import { isLocalModel, LOCAL_MODELS } from '../services/local-models.js';
 import { streamLocal } from '../services/ollama.js';
 import { conductScriptResearch } from '../services/script-research.js';
+import { selectAutoPilotTopic } from '../services/autopilot-topic.js';
+import { syncTopicNotes } from '../services/topic-notes.js';
+import { responseHash } from '../services/retention.js';
 
 export const llmRouter = Router();
+
+llmRouter.get('/topic-notes', (_req, res) => {
+  try { res.json(syncTopicNotes()); }
+  catch (error) { res.status(500).json({ error: error instanceof Error ? error.message : 'Could not read profile notes' }); }
+});
+
+llmRouter.post('/autopilot-topic', async (req, res) => {
+  const script = store.getById<any>('scripts', req.body?.scriptId);
+  if (!script) { res.status(404).json({ error: 'Script not found in this profile' }); return; }
+  const model = script.model || 'gemini-3.6-flash';
+  const provider = reasoningProvider(model);
+  const openCode = isOpenCodeModel(model);
+  const apiKey = provider === 'xkiro' ? process.env.XKIRO_API_KEY : provider === 'groq' ? process.env.GROQ_API_KEY : provider === 'openrouter' ? process.env.OPENROUTER_API_KEY : openCode ? process.env.OPENCODE_API_KEY : getApiKey(req);
+  if (!apiKey && !isLocalModel(model)) { res.status(401).json({ error: `Add your ${provider || (openCode ? 'OpenCode' : 'Gemini')} API key in Settings.` }); return; }
+  const controller = new AbortController();
+  const disconnect = () => controller.abort();
+  res.on('close', disconnect);
+  try {
+    const result = await selectAutoPilotTopic({
+      topic: typeof req.body?.topic === 'string' ? req.body.topic : '',
+      template: (script.prompts || []).map((prompt: { content: string }) => prompt.content).join('\n\n'),
+      instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : '',
+      duration: script.duration || 30, model, apiKey: apiKey || '', signal: controller.signal,
+    });
+    res.json(result);
+  } catch (error) {
+    if (!controller.signal.aborted) res.status(422).json({ error: error instanceof Error ? error.message : 'Could not select a fresh topic' });
+  } finally { res.off('close', disconnect); }
+});
 
 llmRouter.get('/models/xkiro', async (_req, res) => {
   try { res.json({ models: await getXkiroModels() }); }
@@ -90,7 +122,10 @@ llmRouter.post('/extract', async (req, res) => {
     const isImageOnly = typeof req.body?.isImageOnly === 'boolean'
       ? req.body.isImageOnly
       : (template ? isImageOnlyTemplate(template) : isImageOnlyTemplate(rawText));
-    const plan = parseScenePlan(rawText, req.body?.useTimelineNarration === true, { isImageOnly });
+    const saved = typeof req.body?.scriptId === 'string' ? store.getById<any>('scripts', req.body.scriptId) : undefined;
+    const edited = saved?.retentionEdit && saved.aiResponse === rawText && saved.retentionEdit.sourceHash === responseHash(rawText)
+      ? saved.retentionEdit.plan : undefined;
+    const plan = edited ? validateScenePlan(edited) : parseScenePlan(rawText, req.body?.useTimelineNarration === true, { isImageOnly });
     const profile = currentWorkspace().profile;
     if (profile === 'mixed' && plan.scenes.some(scene => !scene.mediaType)) throw new Error('Mixed Media requires an image or video mediaType on every scene. Use the shared scene-plan format.');
     res.json({ script: spokenText(plan), ttsText: spokenText(plan), imagePrompts: plan.scenes.map(scene => scene.imagePrompt), scenePlan: plan,

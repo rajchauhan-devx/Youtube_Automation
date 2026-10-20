@@ -10,7 +10,7 @@ import { runMedia } from './media-process.js';
 import { compositePresenter } from './presenter.js';
 import { reservePresenterCaptionSpace, type PresenterSettings } from './presenter-settings.js';
 import type { ScenePlan, NarrationSync } from './scene-plan.js';
-import { autoEditPlan, autoMotionFilter, smoothMotionFilter, autoEditAss, autoAudioGraph, validateEditingSettings, type EditingSettings } from './auto-edit.js';
+import { autoEditPlan, autoMotionFilter, smoothMotionFilter, autoEditAss, autoAudioGraph, editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { generatedDir, mediaUrl, currentWorkspace } from './workspace.js';
@@ -24,6 +24,7 @@ if (!fs.existsSync(workspaceOutputDir())) {
 ffmpeg.setFfmpegPath('ffmpeg');
 
 export interface RenderOptions {
+  polishAudio?: boolean;
   presenter?: PresenterSettings;
   presenterPath?: string;
   presenterSourceSize?: { width: number; height: number };
@@ -178,7 +179,10 @@ export function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]
   const voiceIndex = numImages;
   const ttsVol = (opts.ttsVolume ?? 1.0).toFixed(2);
 
-  if (hasBgm && opts.bgmPath) {
+  if (opts.polishAudio) {
+    const graph = autoAudioGraph(editingPreset('documentary'), totalVideoDuration, opts.ttsVolume ?? 1, opts.bgmVolume ?? 0.1, hasBgm, []);
+    filterParts.push(graph.replace(/\[([12]):a\]/g, (_match, input) => `[${voiceIndex + Number(input) - 1}:a]`));
+  } else if (hasBgm && opts.bgmPath) {
     const bgmIndex = voiceIndex + 1;
     const bgmVol = (opts.bgmVolume ?? 0.15).toFixed(2);
 
@@ -417,6 +421,9 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
       if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
       const chapterTimes = decisions.flatMap((decision, i) => i > 0 && decision.chapterStart ? [sync.scenes[i].startSample / sync.sampleRate] : []);
       args.push('-filter_complex', autoAudioGraph(editing, duration, voiceVolume, opts.bgmVolume ?? 0.12, Boolean(opts.bgmPath), chapterTimes));
+    } else if (opts.polishAudio) {
+      if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
+      args.push('-filter_complex', autoAudioGraph(editingPreset('documentary'), duration, voiceVolume, opts.bgmVolume ?? 0.1, Boolean(opts.bgmPath), []));
     } else if (opts.bgmPath) {
       args.push('-stream_loop', '-1', '-i', opts.bgmPath, '-filter_complex', `[1:a]volume=${voiceVolume}[voice];[2:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,volume=${opts.bgmVolume ?? 0.15},afade=t=in:d=${Math.min(1, duration / 4)},afade=t=out:st=${Math.max(0, duration - 1.5)}:d=${Math.min(1.5, duration)}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`);
     } else args.push('-filter_complex', `[1:a]volume=${voiceVolume}[a]`);

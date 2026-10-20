@@ -1,0 +1,44 @@
+name: Production checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+      EDITING_BROWSER_EXECUTABLE: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
+      - name: Install media tools
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm ci
+      - run: npm ci --prefix server
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Server and editing regression tests
+        run: npm test
+      - name: Browser interaction checks
+        if: ${{ !cancelled() }}
+        run: node tests/editing/browser-smoke.mjs && node tests/editing/motion-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-previews
+          path: |
+            artifacts/*.png
+            artifacts/editing-smoke/*.png
+          if-no-files-found: ignore

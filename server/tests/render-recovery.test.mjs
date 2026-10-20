@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import { execFileSync } from 'node:child_process';
+import express from 'express';
+const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'render-recovery-')); process.env.TUBEFLOW_DATA_DIR = directory;
+const { store } = await import('../dist/services/store.js');
+const { renderRevision } = await import('../dist/services/render-revision.js');
+const { renderRouter } = await import('../dist/routes/render.js');
+const { readRenderJob, saveRenderJob } = await import('../dist/services/render-jobs.js');
+const input = path.join(directory, 'generated/episode'); fs.mkdirSync(input, { recursive: true });
+execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=blue:s=160x90', '-frames:v', '1', path.join(input, 'image.png')]);
+execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=220:duration=1', path.join(input, 'voice.wav')]);
+store.add('scripts', { id: 'episode', enableSubtitles: false, narration: 'One scene.', generatedAudio: [{ filename: 'voice.wav' }], generatedImages: [{ index: 0, url: 'image.png', status: 'done' }] });
+const revision = renderRevision('episode');
+const request = { scriptId: 'episode', imagePaths: ['image.png'], audioPath: 'voice.wav', resolution: { width: 1080, height: 1920 }, enableSubtitles: false, enableVignette: false, enableSfx: false, colorGrade: 'none', sceneAnalysis: { effects: ['hold'] } };
+execFileSync(process.execPath, ['--input-type=module', '-e', `import {saveRenderJob} from './server/dist/services/render-jobs.js';saveRenderJob(${JSON.stringify({ scriptId: 'episode', request, revision, status: 'running', progress: 38 })});`], { env: process.env });
+const app = express(); app.use(express.json()); app.use('/api/render', renderRouter);
+const server = await new Promise(resolve => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
+const base = `http://127.0.0.1:${server.address().port}/api/render`;
+test('an interrupted render is exposed and restarts from its validated saved inputs', { timeout: 30000 }, async () => {
+  const interrupted = await (await fetch(`${base}/status/episode`)).json();
+  assert.equal(interrupted.status, 'error'); assert.equal(interrupted.interrupted, true); assert.equal(interrupted.recoverable, true);
+  const response = await fetch(`${base}/resume/episode`, { method: 'POST' }); assert.equal(response.status, 200, await response.clone().text());
+  let status;
+  for (let i = 0; i < 100; i++) { status = await (await fetch(`${base}/status/episode`)).json(); if (status.status !== 'running') break; await new Promise(resolve => setTimeout(resolve, 100)); }
+  assert.equal(status.status, 'done', JSON.stringify(status)); assert.equal(status.videos.length, 1); assert.equal(readRenderJob('episode').status, 'done');
+  saveRenderJob({ scriptId: 'episode', request, revision, status: 'interrupted', progress: 20 });
+  store.add('scripts', { ...store.getById('scripts', 'episode'), narration: 'Changed narration.' });
+  assert.equal((await fetch(`${base}/resume/episode`, { method: 'POST' })).status, 409, 'Old inputs cannot restart after a production change');
+});
+test.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); fs.rmSync(directory, { recursive: true, force: true }); });

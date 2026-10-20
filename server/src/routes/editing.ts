@@ -17,6 +17,7 @@ import {
   UUID,
   Settings,
   type EditingProject,
+  type DocumentarySpec,
 } from "@tubeflow/editing-contracts";
 import {
   createProject,
@@ -52,7 +53,15 @@ import { mediaUrl } from "../services/workspace.js";
 import { store } from "../services/store.js";
 import { sampleFrames } from "@tubeflow/video-composition";
 import { createMotionCaptions } from '../services/editing/motionCaptions.js';
+import { wordAlignmentStatus } from '../services/editing/wordAlignment.js';
+import { MotionStyleSettings, listMotionStyles, saveMotionStyle, applyMotionStyle } from '../services/editing/motionStyles.js';
 export const editingRouter = Router();
+// Manual motion tuning cannot replace evidence, sources, crops, or layer geometry.
+const compositionEvidence = (composition?: DocumentarySpec) => composition && ({
+  version: composition.version, treatment: composition.treatment, layout: composition.layout, emphasis: composition.emphasis,
+  layers: composition.layers.map(layer => ({ id: layer.id, assetId: layer.assetId, bounds: layer.bounds, crop: layer.crop,
+    fit: layer.fit, delay: layer.delay, rotation: layer.rotation })),
+});
 const route =
   (fn: (req: Request, res: Response) => Promise<unknown> | unknown) =>
   (req: Request, res: Response, next: NextFunction) => {
@@ -154,7 +163,8 @@ editingRouter.get(
     let model = '';
     try { model = motionModel(selected); } catch (error) { missing.push(error instanceof Error ? error.message : 'Select a Gemini model.'); }
     if (!motionCredential(credential(req))) missing.push('Add GEMINI_API_KEY in server/.env.');
-    res.json({ ...capabilities, ready: missing.length === 0, missing,
+    const wordAlignment = await wordAlignmentStatus();
+    res.json({ ...capabilities, ready: missing.length === 0, missing, wordAlignment,
       provider: 'Gemini', models: { planner: model, vision: model, review: model }, modelsVerified: false,
       alignment: 'Saved narration scene timing; estimated timing when unavailable', grounding: true,
       artifactGeneration: false, renderedVisionReview: true, documentaryLayers: true,
@@ -162,6 +172,17 @@ editingRouter.get(
       limits: { maxProviderCalls: c.maxCalls, maxGeneratedAssets: 0 } });
   }),
 );
+editingRouter.get('/styles', route((_req, res) => res.json({ styles: listMotionStyles() })));
+editingRouter.post('/styles', route((req, res) => {
+  const body = z.strictObject({ name: z.string().trim().min(1).max(60), settings: MotionStyleSettings }).parse(req.body);
+  res.status(201).json(saveMotionStyle(body.name, body.settings));
+}));
+editingRouter.post('/projects/:projectId/style', route((req, res) => {
+  const body = z.strictObject({ expectedRevisionId: UUID, presetId: UUID }).parse(req.body), p = current(req.params.projectId);
+  expected(p, body.expectedRevisionId);
+  if (jobs(p.id).some(job => ['queued', 'running', 'cancel_requested'].includes(job.state))) throw new EditingError('JOB_ACTIVE', 'Wait for the current motion job to finish.', 409);
+  const next = applyMotionStyle(p, body.presetId); publish(next, p.revisionId); res.json(payload(next));
+}));
 editingRouter.post(
   "/projects",
   route(async (req, res) => {
@@ -196,6 +217,15 @@ editingRouter.get(
   route((req, res) =>
     res.json(payload(revision(req.params.projectId, req.params.revisionId))),
   ),
+);
+editingRouter.post(
+  '/projects/:projectId/align',
+  route(async (req, res) => {
+    const p = current(req.params.projectId); expected(p, req.body.expectedRevisionId);
+    const status = await wordAlignmentStatus(); if (!status.ready) throw new EditingError('NEEDS_CONFIGURATION', status.message);
+    if (jobs(p.id).some(job => ['queued', 'running', 'cancel_requested'].includes(job.state))) throw new EditingError('JOB_ACTIVE', 'Wait for the current motion job to finish.', 409);
+    const job = enqueue(p, 'align', key(req)); res.status(202).json({ jobId: job.id });
+  }),
 );
 editingRouter.post(
   "/projects/:projectId/generate",
@@ -321,8 +351,8 @@ editingRouter.patch(
     if (change.graphic) {
       // A text/layout edit cannot forge or replace the model-verified target.
       if (JSON.stringify(change.graphic.target) !== JSON.stringify(artifact.graphic.target) || change.graphic.kind !== artifact.graphic.kind ||
-        JSON.stringify(change.graphic.composition) !== JSON.stringify(artifact.graphic.composition))
-        throw new EditingError('INVALID_TARGET', 'Regenerate the spotlight to change its target.');
+        JSON.stringify(compositionEvidence(change.graphic.composition)) !== JSON.stringify(compositionEvidence(artifact.graphic.composition)))
+        throw new EditingError('INVALID_TARGET', 'Regenerate the graphic to change its verified target, source images, crops, or layer layout.');
       artifact.graphic = change.graphic;
       artifact.intent = `${graphicNames[change.graphic.kind]}: ${change.graphic.title}`;
     }

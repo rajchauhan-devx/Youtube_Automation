@@ -19,6 +19,8 @@ import path from 'path';
 import { generatePresenter, presenterHealth } from '../services/presenter.js';
 import { validatePresenter, reservePresenterCaptionSpace, type PresenterSettings } from '../services/presenter-settings.js';
 import { compositeSavedGraphics, savedGraphicsForRender, graphicsCameras } from '../services/render-graphics.js';
+import { retentionEditing } from '../services/retention.js';
+import { saveRenderJob, readRenderJob, removeRenderJob } from '../services/render-jobs.js';
 
 export const renderRouter = Router();
 renderRouter.param('scriptId', (_req, res, next, value) => {
@@ -45,6 +47,7 @@ export async function clearScriptVideo(scriptId: string) {
     // getOutputDir validates containment before removing this script's output.
     fs.rmSync(getOutputDir(scriptId), { recursive: true, force: true });
     activeRenders.delete(key);
+    removeRenderJob(scriptId);
   } finally {
     clearingRenders.delete(key);
   }
@@ -80,7 +83,7 @@ renderRouter.post('/music/cancel/:scriptId', async (req, res) => {
   res.json(musicJobStatus(req.params.scriptId));
 });
 
-renderRouter.post('/start', async (req, res) => {
+const startRender: import('express').RequestHandler = async (req, res) => {
   let presenter: PresenterSettings | undefined;
   let presenterSourceSize: { width: number; height: number } | undefined;
   try {
@@ -128,7 +131,7 @@ renderRouter.post('/start', async (req, res) => {
   } = req.body || {};
   if (editing !== undefined) {
     try { validateEditingSettings(editing); } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid editing settings' }); return; }
-    if (editing.enabled && currentWorkspace().profile === 'shorts') { res.status(400).json({ error: 'Automatic long-form editing requires Long Video or Mixed Media.' }); return; }
+    if (editing.enabled && currentWorkspace().profile === 'shorts' && !store.getById<any>('scripts', req.body?.scriptId)?.scenePlan) { res.status(400).json({ error: 'Automatic long-form editing requires Long Video or Mixed Media.' }); return; }
   }
 
   if (!safeSegment(scriptId)) {
@@ -162,6 +165,21 @@ renderRouter.post('/start', async (req, res) => {
   const finished = new Promise<void>(resolve => { finish = resolve; });
   const job = { controller, finished, status: 'running' as 'running' | 'done' | 'error', progress: 5, error: undefined as string | undefined };
   activeRenders.set(workspaceKey(scriptId), job);
+  const request = Object.fromEntries(['scriptId', 'imagePaths', 'audioPath', 'narration', 'duration', 'resolution', 'zoomFactor', 'transitionDuration', 'timelineConfig', 'sceneAnalysis', 'enableSubtitles', 'bgmTrack', 'bgmVolume', 'ttsVolume', 'colorGrade', 'enableVignette', 'enableSfx', 'editing', 'presenter'].filter(key => req.body[key] !== undefined).map(key => [key, req.body[key]]));
+  let persistedRevision = renderRevision(scriptId), lastSaved = 0;
+  const persist = (force = false, outputFilename?: string) => {
+    if (!force && Date.now() - lastSaved < 1000) return;
+    try {
+      saveRenderJob({ scriptId, request, revision: persistedRevision, status: job.status === 'error' && controller.signal.aborted ? 'cancelled' : job.status,
+        progress: job.progress, stage: (job as { stage?: string }).stage, error: job.error, outputFilename });
+    } catch (error) {
+      if (force) throw error;
+      job.status = 'error'; job.error = 'Could not save render progress. Check available disk space and data-folder access.'; controller.abort();
+      console.error(job.error); return;
+    }
+    lastSaved = Date.now();
+  };
+  try { persist(true); } catch (error) { activeRenders.delete(workspaceKey(scriptId)); finish(); res.status(500).json({ error: 'Could not save the render job. The render was not started.' }); return; }
   let finalDuration: number;
   let longSync: NarrationSync | undefined;
   let longPlan: ScenePlan | undefined;
@@ -169,12 +187,14 @@ renderRouter.post('/start', async (req, res) => {
   let savedGraphics: ReturnType<typeof savedGraphicsForRender>;
   let savedCameras: ReturnType<typeof graphicsCameras> | undefined;
   let savedMotionCaptions = false;
+  let effectiveEditing = editing;
   try {
     resolvedBgm = bgmTrack === 'ai' ? resolveGeneratedMusic(scriptId) : bgmTrack ? resolveMusicTrack(bgmTrack) : null;
     const resolvedAudio = resolveInputPath(audioPath, scriptId);
     if (currentWorkspace().profile !== 'shorts' || store.getById<any>('scripts', scriptId)?.scenePlan) {
       if (narrationStatus(scriptId).status === 'running') throw new Error('Wait for synchronized narration to finish.');
       const script = store.getById<any>('scripts', scriptId);
+      effectiveEditing = editing ?? retentionEditing(script);
       if (script?.generatedAudio?.[0]?.filename !== path.basename(resolvedAudio)) throw new Error('Select the latest synchronized narration before rendering.');
       longSync = assertNarrationCurrent(script, path.basename(resolvedAudio));
       longPlan = { ...script.scenePlan, scenes: mediaScenes({ ...script, section: currentWorkspace().profile }) };
@@ -207,7 +227,7 @@ renderRouter.post('/start', async (req, res) => {
     }
     savedGraphics = savedGraphicsForRender(scriptId, audioPath, imagePaths, resolution || { width: 1080, height: 1920 });
     if (savedGraphics) {
-      savedCameras = graphicsCameras(savedGraphics, { scriptId, imagePaths, audioPath, timelineConfig, sceneAnalysis, zoomFactor, transitionDuration, editing }, finalDuration, longPlan, longSync);
+      savedCameras = graphicsCameras(savedGraphics, { scriptId, imagePaths, audioPath, timelineConfig, sceneAnalysis, zoomFactor, transitionDuration, editing: effectiveEditing }, finalDuration, longPlan, longSync);
       savedMotionCaptions = savedGraphics.artifacts.some(a => a.enabled && a.graphic?.kind === 'caption');
     }
     if (controller.signal.aborted) throw new Error('Render cancelled');
@@ -218,6 +238,7 @@ renderRouter.post('/start', async (req, res) => {
     }
   } catch (error) {
     job.status = 'error'; job.error = error instanceof Error ? error.message : 'Invalid render input';
+    try { persist(true); } catch (storageError) { console.error('Could not save failed render status:', storageError); }
     finish();
     res.status(400).json({ error: job.error }); return;
   }
@@ -244,7 +265,10 @@ renderRouter.post('/start', async (req, res) => {
   const scriptForPresenter = store.getById<any>('scripts', scriptId);
   if (presenter && scriptForPresenter) store.add('scripts', { ...scriptForPresenter, presenter });
   const revision = renderRevision(scriptId);
+  persistedRevision = revision;
+  try { persist(true); } catch (error) { job.status = 'error'; job.error = 'Could not save the validated render inputs. Check the data folder.'; finish(); res.status(500).json({ error: job.error }); return; }
   const renderOptions = {
+    polishAudio: Boolean(scriptForPresenter?.retentionPlan && scriptForPresenter?.retentionEdit && effectiveEditing?.enabled !== false),
     signal: controller.signal,
     scriptId,
     imagePaths,
@@ -263,7 +287,7 @@ renderRouter.post('/start', async (req, res) => {
     colorGrade: typeof colorGrade === 'string' ? colorGrade : undefined,
     enableVignette: enableVignette !== false,
     enableSfx: enableSfx !== false,
-    editing: savedMotionCaptions && editing ? { ...editing, captions: false } : editing,
+    editing: savedMotionCaptions && effectiveEditing ? { ...effectiveEditing, captions: false } : effectiveEditing,
     presenter,
     presenterSourceSize,
     onProgress: (percent) => {
@@ -271,6 +295,7 @@ renderRouter.post('/start', async (req, res) => {
       if (entry === job) {
         entry.progress = savedGraphics ? (presenter?.enabled ? Math.min(65, 45 + Math.round(percent * 0.20)) : Math.min(65, Math.round(percent * 0.65))) : presenter?.enabled ? Math.min(99, 45 + Math.round(percent * 0.54)) : percent;
         entry.stage = percent >= 95 && presenter?.enabled ? 'Compositing presenter' : 'Rendering story scenes';
+        persist();
       }
     },
   } as RenderOptions;
@@ -279,7 +304,7 @@ renderRouter.post('/start', async (req, res) => {
       renderOptions.presenterPath = await generatePresenter(scriptId, resolveInputPath(audioPath, scriptId), presenter,
         AbortSignal.any([controller.signal, AbortSignal.timeout(2 * 60 * 60 * 1000)]), (stage, percent) => {
           const entry = activeRenders.get(workspaceKey(scriptId));
-          if (entry === job) { entry.stage = stage; entry.progress = Math.min(44, Math.round(percent * 0.44)); }
+          if (entry === job) { entry.stage = stage; entry.progress = Math.min(44, Math.round(percent * 0.44)); persist(); }
         });
     }
     controller.signal.throwIfAborted();
@@ -290,7 +315,7 @@ renderRouter.post('/start', async (req, res) => {
       try {
         if (savedGraphics) await compositeSavedGraphics(result, savedGraphics, controller.signal, (stage, progress) => {
           const entry = activeRenders.get(workspaceKey(scriptId));
-          if (entry === job) { entry.stage = stage; entry.progress = progress; }
+          if (entry === job) { entry.stage = stage; entry.progress = progress; persist(); }
         }, savedCameras);
         controller.signal.throwIfAborted();
         if (revision && renderRevision(scriptId) !== revision) {
@@ -301,6 +326,7 @@ renderRouter.post('/start', async (req, res) => {
         if (entry === job) {
           entry.status = 'done';
           entry.progress = 100;
+          persist(true, result.filename);
         }
         console.log(`Render completed for ${scriptId}: ${result.filename}`);
       } catch (error) {
@@ -314,11 +340,22 @@ renderRouter.post('/start', async (req, res) => {
       if (entry === job) {
         entry.status = 'error';
         entry.error = err.message;
+        try { persist(true); } catch (storageError) { console.error('Could not save failed render status:', storageError); }
       }
       console.error(`Render failed for ${scriptId}:`, err.message);
     }).finally(finish);
 
   res.json({ ok: true, message: 'Render started', scriptId });
+};
+renderRouter.post('/start', startRender);
+renderRouter.post('/resume/:scriptId', async (req, res, next) => {
+  try {
+    const job = readRenderJob(req.params.scriptId);
+    if (!job || !['interrupted', 'error', 'cancelled'].includes(job.status)) { res.status(409).json({ error: 'There is no interrupted or failed render to restart.' }); return; }
+    if (job.revision !== renderRevision(req.params.scriptId)) { res.status(409).json({ error: 'The production changed. Start a new render with the current settings.' }); return; }
+    req.body = job.request;
+    await startRender(req, res, next);
+  } catch (error) { next(error); }
 });
 
 renderRouter.post('/cancel', (req, res) => {
@@ -337,14 +374,18 @@ renderRouter.get('/status/:scriptId', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const { scriptId } = req.params;
   const entry = activeRenders.get(workspaceKey(scriptId));
+  const persisted = entry?.status === 'running' ? undefined : readRenderJob(scriptId);
+  if (persisted && ['error', 'interrupted', 'cancelled'].includes(persisted.status)) {
+    res.json({ status: 'error', error: persisted.error || 'Render interrupted', recoverable: true, interrupted: persisted.status === 'interrupted', progress: persisted.progress }); return;
+  }
   
   if (entry) {
     if (entry.status === 'running') {
       res.json({ status: 'running', progress: entry.progress || 5, message: entry.stage || 'Preparing render' });
       return;
     }
-    if (entry.status === 'error') {
-      res.json({ status: 'error', error: entry.error });
+    if (entry.status === 'error' && persisted?.status !== 'done') {
+      res.json({ status: 'error', error: entry.error, recoverable: Boolean(persisted && ['error', 'interrupted', 'cancelled'].includes(persisted.status)) });
       return;
     }
     if (entry.status === 'done') {

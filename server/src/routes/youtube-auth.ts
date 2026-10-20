@@ -4,8 +4,17 @@ import { atomicJson, getAccount, tokenPath } from '../services/accounts.js';
 import { currentWorkspace } from '../services/workspace.js';
 import { APP_ORIGIN, OAUTH_ORIGIN, bindChannel, connectionRevision, consumeOAuthState, createOAuth2Client, credentialInfo, credentialsPath, invalidateConnection, issueOAuthState, REDIRECT_URI, storedCredentials, verifyChannel } from '../services/youtube-auth.js';
 import { fetchAccountStudioOverview, fetchAllAccountsStudioDashboard } from '../services/youtube-studio.js';
+import { syncRetentionPerformance } from '../services/retention-analytics.js';
 
 export const youtubeAuthRouter = Router();
+youtubeAuthRouter.post('/retention/sync', async (req, res) => {
+  const controller = new AbortController();
+  const disconnect = () => controller.abort();
+  res.on('close', disconnect);
+  try { res.json(await syncRetentionPerformance(req.body?.force === true, controller.signal)); }
+  catch (error) { if (!controller.signal.aborted) res.status(500).json({ error: error instanceof Error ? error.message : 'Could not import retention data' }); }
+  finally { res.off('close', disconnect); }
+});
 youtubeAuthRouter.get('/status', async (_req, res) => {
   const { accountId } = currentWorkspace();
   try {
@@ -65,7 +74,8 @@ youtubeAuthRouter.get('/auth-url', (req, res) => {
   }
   const issued = issueOAuthState(scope);
   res.cookie(issued.cookie, issued.nonce, { httpOnly: true, sameSite: 'lax', secure: REDIRECT_URI.startsWith('https:'), path: '/api', maxAge: 10 * 60_000 });
-  const url = client.generateAuthUrl({ access_type: 'offline', prompt: 'consent select_account', scope: ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly'], state: issued.state });
+  const url = client.generateAuthUrl({ access_type: 'offline', prompt: 'consent select_account', include_granted_scopes: true,
+    scope: ['https://www.googleapis.com/auth/youtube.upload', 'https://www.googleapis.com/auth/youtube.readonly', 'https://www.googleapis.com/auth/yt-analytics.readonly'], state: issued.state });
   res.json({ url, accountId: scope.accountId, callbackOrigin: OAUTH_ORIGIN });
 });
 

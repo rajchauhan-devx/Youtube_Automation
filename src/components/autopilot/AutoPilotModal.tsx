@@ -31,6 +31,7 @@ interface AutoPilotModalProps {
   onStop: () => void;
   onToggleMinimize: () => void;
   onClose: () => void;
+  onRetryProduction?: () => void;
   onNavigateTab: (tab: 'scripts' | 'preview' | 'assets' | 'generation' | 'artifacts' | 'review') => void;
 }
 
@@ -41,6 +42,7 @@ export function AutoPilotModal({
   onStop,
   onToggleMinimize,
   onClose,
+  onRetryProduction,
   onNavigateTab,
 }: AutoPilotModalProps) {
   const terminalEndRef = useRef<HTMLDivElement>(null);
@@ -71,7 +73,7 @@ export function AutoPilotModal({
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-white">Auto-Pilot</span>
             <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-semibold text-accent">
-              Stage {state.stageIndex + 1}/6 · {Math.round(state.progressPercent)}%
+              Stage {state.stageIndex + 1}/{state.totalStages} · {Math.round(state.progressPercent)}%
             </span>
           </div>
           <p className="max-w-[220px] truncate text-[11px] text-muted">{state.statusMessage}</p>
@@ -95,13 +97,13 @@ export function AutoPilotModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6 backdrop-blur-md animate-fade-in">
       <div className="studio-card flex h-[92vh] max-h-[840px] w-full max-w-5xl flex-col overflow-hidden border-borderSoft shadow-2xl">
         {/* Top Header */}
-        <div className="flex items-center justify-between border-b border-borderSoft bg-surface/90 px-5 py-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-borderSoft bg-surface/90 px-5 py-4">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/30 bg-accent/15 text-accent shadow-glow">
               <Sparkles className="h-5 w-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-bold text-white tracking-tight">Gemini Auto-Pilot Engine</h2>
                 <span className="rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
                   End-to-End
@@ -117,13 +119,18 @@ export function AutoPilotModal({
                   </span>
                 )}
               </div>
-              <p className="text-xs text-muted">
+              <p className="break-words text-xs text-muted">
                 Topic: <strong className="text-white">{state.topic || script?.name || 'Autonomous Video'}</strong>
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
+            {state.stage === 'error' && onRetryProduction && (
+              <button type="button" onClick={onRetryProduction} className="studio-btn-ghost !px-3 !py-1.5 text-xs">
+                <Play className="h-3.5 w-3.5" /> Continue Production
+              </button>
+            )}
             {state.stage !== 'completed' && state.stage !== 'error' && (
               <>
                 <button
@@ -168,7 +175,7 @@ export function AutoPilotModal({
 
         {/* Stage Stepper Banner */}
         <div className="border-b border-border bg-bg/50 px-5 py-3.5">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
             {AUTO_PILOT_STAGES.map((s, idx) => {
               const isPast = idx < state.stageIndex || state.stage === 'completed';
               const isCurrent = idx === state.stageIndex && state.stage !== 'completed' && state.stage !== 'error';
@@ -256,6 +263,7 @@ export function AutoPilotModal({
                   />
                 </div>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+                  {state.youtubeVideoUrl && <a href={state.youtubeVideoUrl} target="_blank" rel="noreferrer" className="studio-btn-primary flex items-center gap-2 text-sm"><ExternalLink className="h-4 w-4" />Open on YouTube</a>}
                   <a
                     href={state.renderedVideoUrl}
                     download="tubeflow-video.mp4"
@@ -277,7 +285,9 @@ export function AutoPilotModal({
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-emerald-300">
-                  🎉 Video production completed end-to-end! All visual scenes, synchronized voiceover and captions compiled.
+                  {state.stage === 'completed'
+                    ? 'Video exported to YouTube and topic saved in this profile’s notes.'
+                    : 'MP4 rendered. Final review and YouTube export must finish before production is complete.'}
                 </p>
               </div>
             ) : (

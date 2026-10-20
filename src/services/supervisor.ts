@@ -1,3 +1,4 @@
+import { narrationOptions, type AutoPilotSettings } from '../../server/src/services/autopilot-settings';
 import type { AutoPilotStage, AutoPilotLog } from './autoPilotTypes';
 import { getApiKey } from './api';
 
@@ -13,6 +14,7 @@ export interface SupervisorContext {
   persistScript: (id: string, patch: any) => Promise<void>;
   checkPauseOrAbort: () => Promise<void>;
   attempt: number;
+  autoPilotSettings?: AutoPilotSettings;
 }
 
 export interface HealingResult {
@@ -28,7 +30,8 @@ export interface HealingResult {
 export async function runPreflightSupervision(
   fetchFn: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
   addLog: (stage: AutoPilotStage, message: string, type?: AutoPilotLog['type']) => void,
-  setStatus: (message: string) => void
+  setStatus: (message: string) => void,
+  provider = 'default'
 ): Promise<void> {
   try {
     // 1. Storage & Compositor Pre-flight Check
@@ -44,18 +47,18 @@ export async function runPreflightSupervision(
     }
 
     // 2. Chatterbox Neural TTS Pre-flight Check
-    const ttsRes = await fetchFn('/api/tts/status').catch(() => null);
+    const ttsRes = await fetchFn(`/api/tts/status?provider=${provider}`).catch(() => null);
     const ttsStatus = ttsRes && ttsRes.ok ? await ttsRes.json() : null;
     if (!ttsStatus?.ready) {
-      addLog('research_script', '[SUPERVISOR] 🎙️ Initializing & warming up Chatterbox neural voice engine...', 'info');
-      setStatus('Gemini Supervisor: Starting Chatterbox neural speech engine...');
-      await fetchFn('/api/tts/start', { method: 'POST' }).catch(() => {});
+      addLog('research_script', '[SUPERVISOR] 🎙️ Initializing & warming up selected voice engine...', 'info');
+      setStatus('Gemini Supervisor: Starting selected speech engine...');
+      await fetchFn('/api/tts/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider }) }).catch(() => {});
       
       let waited = 0;
       while (waited < 30) {
         await new Promise((r) => setTimeout(r, 2000));
         waited += 2;
-        const check = await fetchFn('/api/tts/status').catch(() => null);
+        const check = await fetchFn(`/api/tts/status?provider=${provider}`).catch(() => null);
         const st = check && check.ok ? await check.json() : null;
         if (st?.ready) break;
       }
@@ -88,15 +91,23 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
       const script = await freshRes.json();
       const hasHindi = /[\u0900-\u097F]/.test(script.narration || script.extractedScript || '');
       const languageToUse = hasHindi ? 'hi' : (script.language || 'en');
-      const voiceToUse = script.voice || script.generatedAudio?.[0]?.voice || 'builtin';
+      const voiceToUse = ctx.autoPilotSettings?.voice.voiceId || script.voice || script.generatedAudio?.[0]?.voice || 'builtin';
+      const voiceOptions = ctx.autoPilotSettings ? narrationOptions(ctx.autoPilotSettings, languageToUse) : { language: languageToUse, voice: voiceToUse };
 
+      if (ctx.autoPilotSettings?.voice.language === 'auto') {
+        const response = await ctx.fetch(`/api/tts/voices?language=${voiceOptions.language}&provider=${ctx.autoPilotSettings.voice.provider}`);
+        const library = await response.json();
+        if (!response.ok || !Array.isArray(library.voices)) throw new Error(library.error || 'Could not load the selected voice library.');
+        if (!library.voices.some((voice: { id: string }) => voice.id === voiceOptions.voice))
+          voiceOptions.voice = library.voices.find((voice: { source?: string }) => voice.source === 'clone')?.id || library.voices[0]?.id;
+        if (!voiceOptions.voice) throw new Error('No matching narration voice is available.');
+      }
       const startRes = await ctx.fetch('/api/tts/long/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scriptId: ctx.scriptId,
-          language: languageToUse,
-          voice: voiceToUse,
+          ...voiceOptions,
         }),
       });
 
@@ -250,20 +261,20 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
   // HEALING RULE 5: Chatterbox Engine Offline or Loading
   // -------------------------------------------------------------------------
   if (/TTS|Chatterbox|model loading|not ready|connection refused/i.test(errMsg)) {
-    ctx.addLog(ctx.stage, '[SUPERVISOR] 🛠️ Healing Action: Waking and warming up Chatterbox neural voice engine...', 'gemini');
-    ctx.setStatus('Gemini Supervisor: Restarting Chatterbox neural voice engine...');
+    ctx.addLog(ctx.stage, '[SUPERVISOR] 🛠️ Healing Action: Waking and warming up selected voice engine...', 'gemini');
+    ctx.setStatus('Gemini Supervisor: Restarting selected voice engine...');
 
     try {
-      await ctx.fetch('/api/tts/start', { method: 'POST' }).catch(() => {});
+      await ctx.fetch('/api/tts/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: ctx.autoPilotSettings?.voice.provider || 'default' }) }).catch(() => {});
       let count = 0;
       while (count < 25) {
         await new Promise((r) => setTimeout(r, 2000));
         await ctx.checkPauseOrAbort();
-        const statusRes = await ctx.fetch('/api/tts/status').catch(() => null);
+        const statusRes = await ctx.fetch(`/api/tts/status?provider=${ctx.autoPilotSettings?.voice.provider || 'default'}`).catch(() => null);
         const statusJson = statusRes && statusRes.ok ? await statusRes.json() : null;
         if (statusJson?.ready) {
-          ctx.addLog(ctx.stage, '[SUPERVISOR] ✅ Chatterbox neural TTS engine is warmed and ready.', 'success');
-          return { healed: true, actionTaken: 'Chatterbox TTS restarted and ready' };
+          ctx.addLog(ctx.stage, '[SUPERVISOR] ✅ Selected TTS engine is warmed and ready.', 'success');
+          return { healed: true, actionTaken: 'Selected TTS engine restarted and ready' };
         }
         count++;
       }

@@ -227,7 +227,7 @@ export function MotionCaption(props: Props) {
     columnGap: '0.38em', rowGap: '0.02em', fontFamily: familyFor(project), fontWeight: 700,
     fontSize, lineHeight: 1.2, textAlign: 'center', textShadow: '0 1px 3px #000, 0 0 8px #000' }} data-editing-text="motion-caption">
     {words.map((word, index) => {
-      const reveal = spring({ frame: Math.max(0, local - index * delay), fps, config: { stiffness: 180, damping: 24, overshootClamping: true } });
+      const reveal = spring({ frame: Math.max(0, local - (g.wordTimings?.[index]?.startFrame ?? index * delay)), fps, config: { stiffness: 180, damping: 24, overshootClamping: true } });
       return <span key={`${index}-${word}`} style={{ display: 'inline-block', color,
         opacity: reveal, transform: `translateY(${(1 - reveal) * 0.12}em)`,
         transformOrigin: 'center bottom' }}>{word}</span>;

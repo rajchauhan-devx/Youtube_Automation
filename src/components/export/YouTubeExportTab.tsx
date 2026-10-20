@@ -30,6 +30,7 @@ import {
 import { Field } from '../layout/Field';
 import type { Script, GeneratedImage } from '../../data';
 import { copyTextToClipboard } from '../../lib/safe';
+import { UploadRecoveryPanel } from './UploadRecoveryPanel';
 
 interface YouTubeChannelInfo {
   id?: string;
@@ -1097,6 +1098,7 @@ export function YouTubeExportTab({
             )}
 
             {/* Direct YouTube Upload Button */}
+            {script && <UploadRecoveryPanel scriptId={script.id} refreshKey={uploadError} onRecovered={result => { setUploadSuccess(result); setUploadError(''); persistExportData({ uploadedVideoId: result.videoId, uploadedVideoUrl: result.videoUrl }); }} />}
             <div className="flex flex-col gap-3">
               {ytStatus.authenticated ? (
                 <button

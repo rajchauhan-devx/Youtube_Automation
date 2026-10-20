@@ -86,6 +86,7 @@ export function ReviewAdjustTab({
   const [progress, setProgress] = useState(0);
   const [renderedVideo, setRenderedVideo] = useState<string | null>(null);
   const [renderError, setRenderError] = useState('');
+  const [canRestartRender, setCanRestartRender] = useState(false);
   const [duration, setDuration] = useState(script?.duration || 30);
   const [resolution, setResolution] = useState<'1080x1920' | '1920x1080'>(profile !== 'shorts' ? '1920x1080' : '1080x1920');
   const [zoomFactor, setZoomFactor] = useState(1.15);
@@ -154,6 +155,7 @@ export function ReviewAdjustTab({
   const commitTimeline = useCallback((next: TimelineConfig) => {
     setPlaying(false);
     setRenderedVideo(null);
+    setCanRestartRender(false);
     if (timeline) setUndoStack(stack => [...stack.slice(-49), timeline]);
     setRedoStack([]);
     setTimeline(next);
@@ -201,13 +203,14 @@ export function ReviewAdjustTab({
     const controller = new AbortController();
     const epoch = ++renderEpoch.current;
     setRenderedVideo(null);
+    setCanRestartRender(false);
     if (script?.id && script.generatedImages?.length && script.generatedAudio?.length) {
       fetch(`/api/render/status/${script.id}`, { signal: controller.signal })
         .then((r) => r.json())
         .then((data) => {
           if (!mountedRef.current || controller.signal.aborted || epoch !== renderEpoch.current) return;
           if (data.status === 'running') { setRendering(true); startPolling(script.id); }
-          if (data.status === 'error') setRenderError(data.error || 'Previous render failed');
+          if (data.status === 'error') { setRenderError(data.error || 'Previous render failed'); setCanRestartRender(Boolean(data.recoverable)); }
           if (data.videos?.length > 0) {
             setRenderedVideo(data.videos[0].url);
           }
@@ -532,6 +535,7 @@ export function ReviewAdjustTab({
             clearInterval(progressInterval);
             setRendering(false);
             setRenderError(statusData.error || 'Render failed');
+            setCanRestartRender(Boolean(statusData.recoverable));
           } else if (statusData.status === 'done' && statusData.videos?.length > 0) {
             clearInterval(progressInterval);
             setRendering(false);
@@ -1147,6 +1151,13 @@ export function ReviewAdjustTab({
             <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300 flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />
               {renderError}
+              {canRestartRender && <button type="button" className="ml-auto shrink-0 underline disabled:opacity-40" disabled={rendering} onClick={() => {
+                if (!script) return;
+                setRendering(true); setRenderError('');
+                void fetch(`/api/render/resume/${encodeURIComponent(script.id)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+                  .then(async response => { const data = await response.json(); if (!response.ok) throw new Error(data.error || 'Could not restart render'); setCanRestartRender(false); startPolling(script.id); })
+                  .catch(error => { setRendering(false); setRenderError(error.message); });
+              }}>Restart saved render</button>}
             </div>
           )}
 

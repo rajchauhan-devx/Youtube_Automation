@@ -15,11 +15,24 @@ import {
   previewTTS,
   startOmniVoice,
   stopOmniVoice,
-  TTS_PROVIDER_NAME,
+  TTS_PROVIDER,
+  resolveTtsProvider,
+  ttsProviderName,
   TtsError,
 } from '../services/omnivoice.js';
 
 export const ttsRouter = Router();
+ttsRouter.use((req, res, next) => {
+  try { resolveTtsProvider(req.body?.provider ?? req.query.provider); next(); }
+  catch (error) { res.status(400).json({ error: errorMessage(error, 'Invalid voice engine.') }); }
+});
+ttsRouter.get('/providers', (_req, res) => res.json({
+  defaultProvider: TTS_PROVIDER,
+  providers: ['chatterbox', 'edge', 'openrouter', 'omni'].map(id => ({ id, name: ttsProviderName(resolveTtsProvider(id)),
+    configured: id !== 'openrouter' || Boolean(process.env.OPENROUTER_API_KEY?.trim()),
+    kind: ['chatterbox', 'omni'].includes(id) ? 'local' : 'cloud',
+  })),
+}));
 ttsRouter.use(presenterGuard(['/start', '/long/start', '/preview', '/generate']));
 ttsRouter.use((req, res, next) => {
   if (req.method === 'POST' && ['/start', '/long/start', '/preview', '/generate'].includes(req.path) && localMusicBusy()) {
@@ -29,14 +42,14 @@ ttsRouter.use((req, res, next) => {
 });
 
 ttsRouter.post('/long/start', async (req, res) => {
-  const { scriptId, language, voice, rate, pitch, speed, exaggeration, cfgWeight, temperature, seed } = req.body || {};
+  const { scriptId, language, voice, rate, pitch, speed, exaggeration, cfgWeight, temperature, seed, provider } = req.body || {};
   if (!safeSegment(scriptId) || !['hi', 'en'].includes(language) || typeof voice !== 'string' || !voice) {
     res.status(400).json({ error: 'Select a Long Video script, language and voice.' }); return;
   }
   let started = false;
   try {
     // Reserve the narration job synchronously before invalidating existing render output.
-    startNarration({ scriptId, language, voice, rate, pitch, speed, exaggeration, cfgWeight, temperature, seed });
+    startNarration({ scriptId, language, voice, rate, pitch, speed, exaggeration, cfgWeight, temperature, seed, provider });
     started = true;
     await clearScriptVideo(scriptId);
     res.status(202).json(narrationStatus(scriptId));
@@ -69,8 +82,8 @@ function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
-ttsRouter.get('/status', async (_req, res) => {
-  res.json(await getTtsProviderStatus());
+ttsRouter.get('/status', async (req, res) => {
+  res.json(await getTtsProviderStatus(req.query.provider as string | undefined));
 });
 
 ttsRouter.get('/voices', async (req, res, next) => {
@@ -79,8 +92,8 @@ ttsRouter.get('/voices', async (req, res, next) => {
     res.status(400).json({ error: 'language must be "hi" or "en"' }); return;
   }
   try {
-    const voices = await getVoices(language);
-    res.json({ voices, provider: TTS_PROVIDER_NAME });
+    const voices = await getVoices(language, req.query.provider as string | undefined);
+    res.json({ voices, provider: ttsProviderName(resolveTtsProvider(req.query.provider as string | undefined)) });
   } catch (error) { next(error); }
 });
 
@@ -93,13 +106,13 @@ ttsRouter.get('/voices/:id/reference', (req, res, next) => {
   } catch (error) { next(error); }
 });
 
-ttsRouter.post('/start', async (_req, res) => {
-  const result = await startOmniVoice();
+ttsRouter.post('/start', async (req, res) => {
+  const result = await startOmniVoice(req.body?.provider);
   res.json(result);
 });
 
-ttsRouter.post('/stop', async (_req, res) => {
-  const result = await stopOmniVoice();
+ttsRouter.post('/stop', async (req, res) => {
+  const result = await stopOmniVoice(req.body?.provider);
   res.json(result);
 });
 
@@ -116,6 +129,7 @@ ttsRouter.post('/preview', async (req, res) => {
 
   try {
     const { buffer, contentType } = await previewTTS({
+      provider: req.body?.provider,
       text,
       voice,
       language,
@@ -178,6 +192,7 @@ ttsRouter.post('/generate', async (req, res) => {
 
   try {
     const result = await generateTTS({
+      provider: req.body?.provider,
       text: text.trim(),
       language,
       scriptId,

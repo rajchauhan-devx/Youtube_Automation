@@ -5,7 +5,7 @@ import { atomicJson } from './accounts.js';
 import { generatedDir, mediaUrl, workspaceKey } from './workspace.js';
 import { containedFile } from './paths.js';
 import { store } from './store.js';
-import { generateTTS, TTS_PROVIDER_NAME } from './omnivoice.js';
+import { generateTTS, resolveTtsProvider, ttsProviderName } from './omnivoice.js';
 import { runMedia } from './media-process.js';
 import { writeNarrationMetadata } from './editing/media.js';
 import { normalizeNarration, spokenText, syncScenePlanNarration, validateScenePlan, validateSync, type ScenePlan, type NarrationSync } from './scene-plan.js';
@@ -60,7 +60,7 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
   try {
     for (const scene of plan.scenes) {
       signal.throwIfAborted();
-      const key = hash({ version: 2, provider: TTS_PROVIDER_NAME, options, text: scene.narration });
+      const key = hash({ version: 2, provider: ttsProviderName(resolveTtsProvider(options.provider)), options, text: scene.narration });
       const pcm = containedFile(cache, `${key}.pcm`);
       const meta = `${pcm}.json`;
       let valid = false;
@@ -100,7 +100,7 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
     fs.renameSync(partial, output);
     atomicJson(`${output}.sync.json`, { ...sync, audioHash: createHash('sha256').update(fs.readFileSync(output)).digest('hex') });
     writeNarrationMetadata(output, spokenText(plan), options.language);
-    return { filename, url: mediaUrl(`generate/file/${options.scriptId}/${filename}`), language: options.language, voice: options.voice, sync, narrationText: spokenText(plan) };
+    return { filename, url: mediaUrl(`generate/file/${options.scriptId}/${filename}`), language: options.language, voice: options.voice, provider: resolveTtsProvider(options.provider), sync, narrationText: spokenText(plan) };
   } catch (error) {
     fs.rmSync(output, { force: true }); fs.rmSync(`${output}.sync.json`, { force: true });
     throw error;

@@ -212,6 +212,27 @@ test('map planner cannot invent a source map; review-only jobs preserve composit
   assert.ok(reviewed.diagnostics.some(d => d.code === 'ORIGINAL_TIMING'));
 });
 
+test('image designer repairs a repeated background before compilation and rendered review', async () => {
+  const p = await fixture('museum', false, true); p.settings.documentary = true; p.settings.visualReview = true;
+  let designs = 0;
+  globalThis.fetch = async (_, options) => {
+    const body = JSON.parse(options.body), system = body.system_instruction.parts[0].text;
+    if (system.includes('Inspect each supplied image')) return response({ scenes: [{ sceneId: 'scene-0', visibleObjects: ['statue'], openArea: 'top', mediaRole: 'photo' }] });
+    if (system.includes('Review rendered')) return response(pass);
+    if (system.includes('Design an image-led')) {
+      const candidate = design().composition;
+      if (designs++ === 0) candidate.layers[0].crop = { x: 0, y: 0, width: 1, height: 1 };
+      else assert.match(body.contents[0].parts[0].text, /Repeating the full current background/);
+      return response(candidate);
+    }
+    const { composition, ...brief } = design(); return response({ graphics: [brief] });
+  };
+  const result = await runPipeline(p, context(p));
+  assert.equal(designs, 2);
+  assert.equal(result.artifacts[0].visualReview.status, 'passed');
+  assert.equal(result.artifacts[0].enabled, true);
+});
+
 test('wire schema is provider-compatible while local validation remains strict', () => {
   const schema = z.strictObject({ text: z.string().max(2), boxes: z.array(z.number().gt(0)).max(2) });
   const wire = geminiResponseSchema(schema), json = JSON.stringify(wire);

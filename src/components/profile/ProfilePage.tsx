@@ -3,6 +3,8 @@ import { Loader2, Mic2, RefreshCw, Trash2, Upload } from 'lucide-react';
 import type { Channel } from '../../data';
 import { YouTubeAccountsPanel } from './YouTubeAccountsPanel';
 import { MetaAccountsPanel } from './MetaAccountsPanel';
+import { ProfileTopicNotes } from './ProfileTopicNotes';
+import { RecoveryPanel } from './RecoveryPanel';
 import { createWorkspaceUrl, useWorkspaceApi } from '../../services/workspaceApi';
 import { listVoices, rememberVoice, removeVoiceReference, saveVoiceReference, VOICE_FILE_ACCEPT, type SavedVoice, type VoiceLanguage } from '../../services/voiceLibrary';
 
@@ -117,6 +119,8 @@ export function ProfilePage({ accounts, onAccountsChange, onSelectAccount, onOpe
   return <div className="mx-auto max-w-5xl space-y-7">
     <YouTubeAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} onOpenDashboard={onOpenDashboard} />
     <MetaAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} />
+    <ProfileTopicNotes />
+    <RecoveryPanel />
     <div className="border-t border-border/70 pt-6">
       <p className="mb-1 flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-accent">
         <span className="h-1 w-5 rounded-full bg-accent" />

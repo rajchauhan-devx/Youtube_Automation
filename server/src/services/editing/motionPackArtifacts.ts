@@ -1,7 +1,8 @@
 import { z } from 'zod';
-import { Artifact, Crop, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
+import { Artifact, Crop, ImageMotionSettings, ImageComparison, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { cardBounds, graphicIssues, graphicNames } from '@tubeflow/video-composition';
 import { assetRecord } from './repository.js';
+import { narrationCue } from './narrationCue.js';
 
 export const GraphicProposal = z.strictObject({
   sceneId: z.string(),
@@ -14,6 +15,7 @@ export const GraphicProposal = z.strictObject({
   composition: z.strictObject({
     treatment: z.enum(['archival', 'cinematic', 'map']),
     layout: z.enum(['inset', 'cutaway']).optional(),
+    comparison: ImageComparison.optional(),
     emphasis: z.enum(['none', 'focus', 'marker']),
     layers: z.array(z.strictObject({
       sourceSceneId: z.string().max(100),
@@ -21,14 +23,13 @@ export const GraphicProposal = z.strictObject({
       crop: Crop.optional(),
       useTargetCrop: z.boolean(),
       fit: z.enum(['contain', 'cover']),
-      motion: z.enum(['hold', 'push-in', 'drift-left', 'drift-right']),
+      ...ImageMotionSettings,
       delay: z.number().min(0).max(0.5),
       rotation: z.number().min(-6).max(6),
     })).min(1).max(4),
   }).optional(),
 });
 export type Proposal = z.infer<typeof GraphicProposal>;
-const normalize = (text: string) => text.normalize('NFC').replace(/\s+/g, ' ').trim().toLocaleLowerCase();
 // Motivational/clickbait labels read as AI slop in documentaries. Details are
 // source/era citations, titles are evidence nouns — never slogans.
 const SLOGAN = /\b(amazing|incredible|shocking|unbelievable|mind[\s-]?blow|viral|epic|secret|you won'?t believe|must watch)\b/i;
@@ -46,7 +47,8 @@ export function sceneNarration(p: EditingProject, sceneId: string) {
 }
 export function compileGraphic(p: EditingProject, proposal: Proposal, target?: MotionGraphicSpec['target'], id = `graphic-${proposal.sceneId}`): ArtifactComposition {
   const scene = p.scenes.find(s => s.id === proposal.sceneId);
-  if (!scene || !normalize(sceneNarration(p, scene.id)).includes(normalize(proposal.quote))) throw new Error('The proposed graphic has no matching narration evidence.');
+  const cue = scene && narrationCue(p.alignment.tokens.filter(t => scene.narrativeRefs.includes(t.id)), proposal.quote);
+  if (!scene || !cue) throw new Error('The proposed graphic has no matching narration evidence.');
   if (proposal.kind !== 'spotlight' && SLOGAN.test(`${proposal.title} ${proposal.detail}`)) throw new Error('The proposed label reads as clickbait. Use an evidence noun or citation instead.');
   const title = proposal.kind === 'spotlight' && target ? target.label.slice(0, 64).replace(/^./u, first => first.toLocaleUpperCase()) : proposal.title;
   const sceneSeconds = (scene.endFrame - scene.startFrame) / p.inputs.fps;
@@ -56,10 +58,8 @@ export function compileGraphic(p: EditingProject, proposal: Proposal, target?: M
   const seconds = readingSeconds(detail);
   if (sceneSeconds < (proposal.kind === 'composition' ? 1.4 : Math.min(seconds, 3))) throw new Error('The scene is too short to read this graphic.');
   let startFrame = scene.startFrame;
-  if (p.alignment.mode === 'word') {
-    const phrase = normalize(proposal.quote), firstWord = phrase.split(' ')[0];
-    const token = p.alignment.tokens.find(t => scene.narrativeRefs.includes(t.id) && normalize(t.text) === firstWord);
-    if (token) startFrame = Math.max(startFrame, Math.round(token.start * p.inputs.fps));
+  if (p.alignment.mode !== 'approximate') {
+    startFrame = Math.max(startFrame, Math.round(cue.start * p.inputs.fps));
   }
   const endFrame = proposal.kind === 'composition' ? scene.endFrame : Math.min(scene.endFrame, startFrame + Math.ceil(seconds * p.inputs.fps));
   if (endFrame - startFrame < p.inputs.fps * (proposal.kind === 'composition' ? 1.4 : 2)) throw new Error('The cue leaves insufficient reading time.');
@@ -70,6 +70,7 @@ export function compileGraphic(p: EditingProject, proposal: Proposal, target?: M
     const design = proposal.composition;
     if (design.layout === 'cutaway') graphic.bounds = { x: 0, y: 0, width: p.inputs.width, height: p.inputs.height };
     graphic.composition = { version: 1, treatment: design.treatment, ...(design.layout ? { layout: design.layout } : {}), emphasis: design.emphasis,
+      ...(design.comparison ? { comparison: design.comparison } : {}),
       layers: design.layers.map((layer, i) => {
         const sourceScene = p.scenes.find(s => s.id === layer.sourceSceneId);
         if (!sourceScene) throw new Error('Documentary layer refers to an unknown scene.');
@@ -77,6 +78,7 @@ export function compileGraphic(p: EditingProject, proposal: Proposal, target?: M
         if (!source.mime.startsWith('image/')) throw new Error('Documentary inserts require still images. Choose an image scene.');
         if (layer.useTargetCrop && (!target || sourceScene.id !== scene.id)) throw new Error('A verified detail crop must use its own source scene.');
         return { bounds: layer.bounds, fit: layer.fit, motion: layer.motion, delay: layer.delay, rotation: layer.rotation,
+          ...(layer.strength !== undefined ? { strength: layer.strength } : {}), ...(layer.focus ? { focus: layer.focus } : {}),
           ...(layer.crop ? { crop: layer.crop } : {}), id: `image-${i}`, assetId: source.id,
           ...(layer.useTargetCrop ? { crop: target!.region } : {}) };
       }) };

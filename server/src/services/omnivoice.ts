@@ -36,6 +36,17 @@ export const TTS_PROVIDER_NAME =
         : 'Edge Neural TTS';
 export const TTS_PROVIDER_KIND = TTS_PROVIDER === 'chatterbox' || TTS_PROVIDER === 'omni' ? 'local' : 'cloud';
 
+export type TtsProvider = 'chatterbox' | 'edge' | 'openrouter' | 'omni';
+export function resolveTtsProvider(value?: string): TtsProvider {
+  const provider = !value || value === 'default' ? TTS_PROVIDER : value;
+  if (!['chatterbox', 'edge', 'openrouter', 'omni'].includes(provider)) throw new TtsError('VALIDATION', 'Choose a supported voice engine.');
+  return provider as TtsProvider;
+}
+export function ttsProviderName(provider: TtsProvider) {
+  return { chatterbox: 'Chatterbox Multilingual V3', edge: 'Edge Neural TTS', openrouter: 'OpenRouter TTS', omni: 'OmniVoice' }[provider];
+}
+
+
 const TTS_TIMEOUT_MS = parseInt(process.env.TTS_TIMEOUT_MS || '300000', 10);
 const TTS_NUM_STEP = parseInt(process.env.TTS_NUM_STEP || '4', 10);
 const TTS_CHUNK_MAX_CHARS = parseInt(process.env.TTS_CHUNK_MAX_CHARS || '85', 10);
@@ -54,18 +65,19 @@ export function preprocessForTTS(text: string): string {
   return sanitizeTextForPlainTTS(text);
 }
 
-export async function getVoices(language?: string): Promise<VoiceInfo[]> {
+export async function getVoices(language?: string, selectedProvider?: string): Promise<VoiceInfo[]> {
+  const provider = resolveTtsProvider(selectedProvider);
   const lang = language === 'hi' ? 'hi' : 'en';
 
-  if (TTS_PROVIDER === 'chatterbox') {
+  if (provider === 'chatterbox') {
     return getChatterboxVoices(lang);
   }
 
-  if (TTS_PROVIDER === 'openrouter') {
+  if (provider === 'openrouter') {
     return lang === 'hi' ? OPENROUTER_HINDI_VOICES : OPENROUTER_ENGLISH_VOICES;
   }
 
-  if (TTS_PROVIDER === 'edge') {
+  if (provider === 'edge') {
     return lang === 'hi' ? EDGE_HINDI_VOICES : EDGE_ENGLISH_VOICES;
   }
 
@@ -159,6 +171,7 @@ async function callOmniVoice(text: string, voice?: string, language?: string): P
 }
 
 export async function generateTTS(params: {
+  provider?: string;
   text: string;
   language: 'hi' | 'en';
   voice?: string;
@@ -172,12 +185,13 @@ export async function generateTTS(params: {
   temperature?: number;
   seed?: number;
 }): Promise<{ filename: string; publicUrl: string; elapsedMs: number; narrationText: string }> {
+  const provider = resolveTtsProvider(params.provider);
   const start = Date.now();
 
   let audioBuffer: Buffer;
   let ext: 'mp3' | 'wav' = 'mp3';
 
-  if (TTS_PROVIDER === 'chatterbox') {
+  if (provider === 'chatterbox') {
     audioBuffer = await synthesizeChatterbox(params.text, params.voice, params.language, {
       exaggeration: params.exaggeration,
       cfgWeight: params.cfgWeight,
@@ -185,11 +199,11 @@ export async function generateTTS(params: {
       seed: params.seed,
     });
     ext = 'wav';
-  } else if (TTS_PROVIDER === 'openrouter') {
+  } else if (provider === 'openrouter') {
     const result = await generateCloudAudio(params.text, params.voice, { speed: params.speed });
     audioBuffer = result.buffer;
     ext = result.ext;
-  } else if (TTS_PROVIDER === 'edge') {
+  } else if (provider === 'edge') {
     const result = await generateEdgeAudio(params.text, params.voice, {
       rate: params.rate,
       pitch: params.pitch,
@@ -218,7 +232,7 @@ export async function generateTTS(params: {
   fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, audioBuffer);
-  const narrationText = !['chatterbox', 'openrouter', 'edge'].includes(TTS_PROVIDER) ? preprocessForTTS(params.text) : params.text;
+  const narrationText = !['chatterbox', 'openrouter', 'edge'].includes(provider) ? preprocessForTTS(params.text) : params.text;
   writeNarrationMetadata(filePath, narrationText, params.language);
 
   return {
@@ -230,6 +244,7 @@ export async function generateTTS(params: {
 }
 
 export async function previewTTS(params: {
+  provider?: string;
   text?: string;
   voice?: string;
   language: 'hi' | 'en';
@@ -242,11 +257,12 @@ export async function previewTTS(params: {
   temperature?: number;
   seed?: number;
 }): Promise<{ buffer: Buffer; contentType: string }> {
-  const allVoices = await getVoices(params.language);
+  const provider = resolveTtsProvider(params.provider);
+  const allVoices = await getVoices(params.language, provider);
   const matched = allVoices.find((v) => v.id === params.voice) || allVoices[0];
   const sampleText = params.text?.trim() || matched?.sampleText || (params.language === 'hi' ? 'नमस्ते! यह मेरी आवाज़ का नमूना है।' : 'Hello! This is a sample of my voice.');
 
-  if (TTS_PROVIDER === 'chatterbox') {
+  if (provider === 'chatterbox') {
     return {
       buffer: await previewChatterbox(sampleText, params.voice, params.language, {
         exaggeration: params.exaggeration,
@@ -257,13 +273,13 @@ export async function previewTTS(params: {
       contentType: 'audio/wav',
     };
   }
-  if (TTS_PROVIDER === 'openrouter') {
+  if (provider === 'openrouter') {
     return {
       buffer: await synthesizeOpenRouter(sampleText, params.voice, { speed: params.speed }),
       contentType: 'audio/mpeg',
     };
   }
-  if (TTS_PROVIDER === 'edge') {
+  if (provider === 'edge') {
     return {
       buffer: await previewEdgeTts(sampleText, params.voice, {
         rate: params.rate,
@@ -290,55 +306,59 @@ export interface TtsProviderStatus {
   gpu?: unknown;
 }
 
-export async function getTtsProviderStatus(): Promise<TtsProviderStatus> {
-  if (TTS_PROVIDER === 'chatterbox') {
+export async function getTtsProviderStatus(selectedProvider?: string): Promise<TtsProviderStatus> {
+  const provider = resolveTtsProvider(selectedProvider);
+  const providerName = ttsProviderName(provider);
+  if (provider === 'chatterbox') {
     const status = await getChatterboxStatus();
-    return { ...status, provider: TTS_PROVIDER_NAME, providerKind: 'local' };
+    return { ...status, provider: providerName, providerKind: 'local' };
   }
-  if (TTS_PROVIDER === 'openrouter') {
+  if (provider === 'openrouter') {
     const status = await checkOpenRouterStatus();
     return {
       online: status.online,
       ready: status.online,
       state: status.online ? 'ready' : 'offline',
-      provider: TTS_PROVIDER_NAME,
+      provider: providerName,
       providerKind: 'cloud',
       model: status.model,
     };
   }
-  if (TTS_PROVIDER === 'edge') {
+  if (provider === 'edge') {
     const online = await checkEdgeTtsStatus();
-    return { online, ready: online, state: online ? 'ready' : 'offline', provider: TTS_PROVIDER_NAME, providerKind: 'cloud' };
+    return { online, ready: online, state: online ? 'ready' : 'offline', provider: providerName, providerKind: 'cloud' };
   }
   try {
     const res = await fetch(`${OMNIVOICE_URL}/health`, { signal: AbortSignal.timeout(3000) });
-    if (res.ok) return { online: true, ready: true, state: 'ready', provider: TTS_PROVIDER_NAME, providerKind: 'local' };
+    if (res.ok) return { online: true, ready: true, state: 'ready', provider: providerName, providerKind: 'local' };
   } catch {
     // Fall through to the OpenAI-compatible models endpoint.
   }
   try {
     const res = await fetch(`${OMNIVOICE_URL}/v1/models`, { signal: AbortSignal.timeout(3000) });
     const online = res.ok;
-    return { online, ready: online, state: online ? 'ready' : 'offline', provider: TTS_PROVIDER_NAME, providerKind: 'local' };
+    return { online, ready: online, state: online ? 'ready' : 'offline', provider: providerName, providerKind: 'local' };
   } catch {
-    return { online: false, ready: false, state: 'offline', provider: TTS_PROVIDER_NAME, providerKind: 'local' };
+    return { online: false, ready: false, state: 'offline', provider: providerName, providerKind: 'local' };
   }
 }
 
-export async function checkOmniVoiceStatus(): Promise<boolean> {
-  const status = await getTtsProviderStatus();
+export async function checkOmniVoiceStatus(selectedProvider?: string): Promise<boolean> {
+  const status = await getTtsProviderStatus(selectedProvider);
   return status.ready;
 }
 
-export async function startOmniVoice(): Promise<{ success: boolean; ready?: boolean; state?: string; message: string }> {
-  if (TTS_PROVIDER === 'chatterbox') return startChatterbox();
-  if (TTS_PROVIDER !== 'omni') {
-    return { success: true, message: `${TTS_PROVIDER_NAME} is active (cloud/neural provider).` };
+export async function startOmniVoice(selectedProvider?: string): Promise<{ success: boolean; ready?: boolean; state?: string; message: string }> {
+  const provider = resolveTtsProvider(selectedProvider);
+  const providerName = ttsProviderName(provider);
+  if (provider === 'chatterbox') return startChatterbox();
+  if (provider !== 'omni') {
+    return { success: true, message: `${providerName} is active (cloud/neural provider).` };
   }
-  const already = await checkOmniVoiceStatus();
+  const already = await checkOmniVoiceStatus(provider);
   if (already) return { success: true, message: 'OmniVoice is already running' };
 
-  await stopOmniVoice();
+  await stopOmniVoice(provider);
   await new Promise((r) => setTimeout(r, 1000));
 
   const startCmd = OMNIVOICE_START_CMD;
@@ -376,10 +396,12 @@ export async function startOmniVoice(): Promise<{ success: boolean; ready?: bool
   }
 }
 
-export async function stopOmniVoice(): Promise<{ success: boolean; message: string }> {
-  if (TTS_PROVIDER === 'chatterbox') return stopChatterbox();
-  if (TTS_PROVIDER !== 'omni') {
-    return { success: true, message: `${TTS_PROVIDER_NAME} — no local server to stop.` };
+export async function stopOmniVoice(selectedProvider?: string): Promise<{ success: boolean; message: string }> {
+  const provider = resolveTtsProvider(selectedProvider);
+  const providerName = ttsProviderName(provider);
+  if (provider === 'chatterbox') return stopChatterbox();
+  if (provider !== 'omni') {
+    return { success: true, message: `${providerName} — no local server to stop.` };
   }
   let killed = false;
   if (omniProcess) {
