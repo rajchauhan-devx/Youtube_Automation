@@ -5,7 +5,20 @@ import ts from 'typescript';
 import { providerRetrySeconds } from '../dist/services/review-retry.js';
 const code = ts.transpileModule(fs.readFileSync(new URL('../../src/services/renderReview.ts', import.meta.url), 'utf8'),
   { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } }).outputText;
-const { waitForRenderedReview } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+const { hasCaptionBlocker, reviewBlockerMessage, waitForRenderedReview } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+
+test('caption blockers require a new render and errors highlight actionable findings', () => {
+  const review = { status: 'blocked', summary: 'Batch 1: No defects. Batch 2: Caption issue.', findings: [
+    { severity: 'note', category: 'captioning', detail: 'Minor issue at 10.85s.' },
+    { severity: 'blocker', category: 'Captions', detail: 'At 60.02s the text is unreadable.' },
+  ] };
+  assert.equal(hasCaptionBlocker(review), true);
+  assert.equal(reviewBlockerMessage(review), 'Final review needs attention: Captions: At 60.02s the text is unreadable.');
+  assert.equal(hasCaptionBlocker({ ...review, status: 'passed' }), false);
+  assert.equal(hasCaptionBlocker({ ...review, findings: [{ severity: 'blocker', category: 'Audio', detail: 'Silence at 5s.' }] }), false);
+  assert.equal(hasCaptionBlocker({ ...review, findings: [review.findings[0]] }), false);
+  assert.equal(hasCaptionBlocker(undefined), false);
+});
 
 test('review waits honor Retry-After seconds, dates and Gemini retry details', () => {
   assert.equal(providerRetrySeconds(new Response('', { headers: { 'retry-after': '95' } }), null), 95);

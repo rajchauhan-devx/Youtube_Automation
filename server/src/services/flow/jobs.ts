@@ -222,6 +222,7 @@ async function runLive(jobId: string, signal: AbortSignal): Promise<void> {
     const { runLiveGeneration } = await import('./worker.js');
     const status = await flowStatus();
     const result = await runLiveGeneration({
+      estimatedCreditCost: job.cost,
       jobId: job.id,
       prompt: job.prompt,
       promptWrapped: job.preview?.promptWrapped || wrapPrompt(job.prompt, job.model, job.aspect, job.duration),

@@ -77,8 +77,8 @@ export const AUTO_PILOT_STAGES: {
   },
   {
     id: 'plan_motion',
-    label: 'Documentary Visuals',
-    description: 'Composes image inserts and detail highlights, then reviews rendered placement',
+    label: 'Optional Graphics',
+    description: 'Adds useful graphics only when enabled; otherwise keeps scene footage clean',
     stepNumber: 7,
   },
   {

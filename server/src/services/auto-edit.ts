@@ -80,7 +80,7 @@ const assTime = (seconds: number) => {
   const value = Math.round(seconds * 100);
   return `${Math.floor(value / 360000)}:${String(Math.floor(value / 6000) % 60).padStart(2, '0')}:${String(Math.floor(value / 100) % 60).padStart(2, '0')}.${String(value % 100).padStart(2, '0')}`;
 };
-const safeText = (text: string) => text.replace(/[{}\\\r\n]/g, ' ').trim();
+const safeText = (text: string) => text.replace(/[{}\\\r\n]/g, ' ').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
 export function captionPhrases(text: string, wordsPerPhrase: number) {
   const words = safeText(text).split(/\s+/).filter(Boolean);
   const phrases: string[] = [];

@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "f91fca85c3fb87847e9dd2285b496868df326620033dc96e88f8006b7c3ea89a",
+  "scriptId": "usr_1787934167716",
+  "videoFilename": "final_cdaed358-890f-4944-82d9-a52f646aa651.mp4",
+  "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+  "pid": 49539,
+  "owner": "9d3dc764-5a2a-47fe-b0e8-1ce000443db1",
+  "status": "completed",
+  "startedAt": "2026-10-21T11:10:28.372Z",
+  "updatedAt": "2026-10-21T11:10:33.688Z",
+  "result": {
+    "accountId": "default",
+    "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+    "success": true,
+    "topicHistorySaved": true,
+    "videoId": "Y75bVPaDDDk",
+    "videoUrl": "https://youtu.be/Y75bVPaDDDk",
+    "title": "Why Lakshmana Never Slept for 14 Years",
+    "privacyStatus": "public",
+    "scheduled": false,
+    "uploadedAt": "2026-10-21T11:10:33.675Z"
+  }
+}

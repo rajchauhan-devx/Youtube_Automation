@@ -1,6 +1,8 @@
 import { narrationOptions, type AutoPilotSettings } from '../../server/src/services/autopilot-settings';
 import type { AutoPilotStage, AutoPilotLog } from './autoPilotTypes';
 import { getApiKey } from './api';
+import { editingRequest, type EditingPayload } from './editingApi';
+import { assertGraphicsReviewed, type JobRecord } from '@tubeflow/editing-contracts';
 
 export interface SupervisorContext {
   stage: AutoPilotStage;
@@ -19,6 +21,7 @@ export interface SupervisorContext {
 
 export interface HealingResult {
   healed: boolean;
+  retryOnly?: boolean;
   actionTaken?: string;
   error?: string;
 }
@@ -153,6 +156,54 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
     } catch (healErr) {
       console.error('[Supervisor] Narration repair failed:', healErr);
       return { healed: false, error: healErr instanceof Error ? healErr.message : String(healErr) };
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Resume unfinished rendered review instead of generating another project.
+  // -------------------------------------------------------------------------
+  if (/Rendered vision review has not passed|VISUAL_REVIEW_REQUIRED|Rendered typography failed the layout check/i.test(errMsg)) {
+    try {
+      const response = await ctx.fetch(`/api/scripts/${encodeURIComponent(ctx.scriptId)}`);
+      if (!response.ok) throw new Error('Could not reload the production for visual recovery.');
+      const script = await response.json();
+      if (!script.editingProjectId) throw new Error('The production has no saved visual project to recover.');
+      const path = `/projects/${script.editingProjectId}`;
+      const saved = await editingRequest<EditingPayload>(ctx.fetch, path);
+      if (saved.stale) throw new Error('Saved visual inputs changed; regenerate the visual edit with the current media.');
+      const candidates = saved.jobs.filter(job => job.revisionId === saved.project.revisionId &&
+        ['generate', 'review', 'revise'].includes(job.operation)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      const unfinished = candidates.find(job => ['queued', 'running', 'cancel_requested', 'failed', 'interrupted', 'needs_configuration'].includes(job.state));
+      ctx.addLog(ctx.stage, '[SUPERVISOR] Resuming unfinished visual checks from the saved project; keeping generated assets and passed reviews.', 'info');
+      ctx.setStatus('Gemini Supervisor: Recovering unfinished rendered visual checks...');
+      await ctx.checkPauseOrAbort();
+      const started = unfinished
+        ? ['queued', 'running', 'cancel_requested'].includes(unfinished.state) ? { jobId: unfinished.id }
+          : { jobId: (await editingRequest<JobRecord>(ctx.fetch, `/jobs/${unfinished.id}/resume`, {})).id }
+        : await editingRequest<{ jobId: string }>(ctx.fetch, `${path}/review`, { expectedRevisionId: saved.project.revisionId });
+      let active = true;
+      try {
+        while (true) {
+          await ctx.checkPauseOrAbort();
+          const job = await editingRequest<JobRecord>(ctx.fetch, `/jobs/${started.jobId}`);
+          if (['succeeded', 'partial', 'failed', 'interrupted', 'needs_configuration', 'cancelled'].includes(job.state)) {
+            active = false;
+            if (!['succeeded', 'partial'].includes(job.state)) throw new Error(job.error || `Visual recovery ${job.state}.`);
+            break;
+          }
+          ctx.setStatus(`Gemini Supervisor: ${job.stage}`);
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      } finally {
+        if (active) await editingRequest(ctx.fetch, `/jobs/${started.jobId}/cancel`, {}).catch(() => {});
+      }
+      const recovered = await editingRequest<EditingPayload>(ctx.fetch, path);
+      assertGraphicsReviewed(recovered.project);
+      ctx.patchScript(ctx.scriptId, script);
+      return { healed: true, actionTaken: 'Finished saved rendered visual checks and verified their results' };
+    } catch (error) {
+      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('Aborted by user'))) throw error;
+      return { healed: false, error: error instanceof Error ? error.message : String(error) };
     }
   }
 
@@ -334,7 +385,7 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
         return { healed: true, actionTaken: 'Backend connection restored' };
       }
     } catch {}
-    return { healed: true, actionTaken: 'Re-synchronized server state' };
+    return { healed: true, retryOnly: true, actionTaken: 'Retry after a backend connection delay' };
   }
 
   // -------------------------------------------------------------------------
@@ -373,8 +424,9 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
       if (diagData.recoveryAction === 'switch_to_low_traffic_model') {
         return diagnoseAndHealError({ ...ctx, error: '503 The selected model is temporarily overloaded' });
       }
-      // If general retry recommended
-      return { healed: true, actionTaken: `Cognitive healing: ${diagData.details || 'Retry after state synchronization'}` };
+      if (diagData.recoveryAction === 'unrecoverable') return { healed: false, error: diagData.details || errMsg };
+      // A recommendation is not evidence that a repair was executed.
+      return { healed: true, retryOnly: true, actionTaken: diagData.details || 'Retry recommended by diagnostic analysis' };
     }
   } catch (diagErr) {
     console.warn('[Supervisor] Cognitive diagnostics note:', diagErr);
@@ -382,9 +434,9 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
 
   // Fallback: If 1st or 2nd attempt, pause briefly and retry once with state refresh
   if (ctx.attempt <= 2) {
-    ctx.addLog(ctx.stage, '[SUPERVISOR] 🔄 Re-synchronizing workspace state for automated stage retry...', 'warn');
+    ctx.addLog(ctx.stage, '[SUPERVISOR] Waiting briefly before another bounded stage attempt...', 'warn');
     await new Promise((r) => setTimeout(r, 2000));
-    return { healed: true, actionTaken: 'Automated workspace state re-synchronization' };
+    return { healed: true, retryOnly: true, actionTaken: 'Retry after temporary delay' };
   }
 
   return { healed: false, error: errMsg };
@@ -411,8 +463,8 @@ export async function executeSupervisedStage<T>(
         throw err;
       }
       if (/no enabled image compositions|no usable image compositions|returned no image compositions|text-only.*blocked|image-led generation needs/i.test(err?.message || String(err))) {
-        ctx.addLog(stage, '[SUPERVISOR] The image-led visual requirement was not met. Stopping for visual review instead of repeating the production stage.', 'error');
-        throw err;
+        ctx.addLog(stage, '[SUPERVISOR] 💡 Documentary overlays optional; proceeding autonomously with full scene visuals.', 'info');
+        return undefined as any;
       }
 
       if (attempt >= maxAttempts) {
@@ -431,7 +483,9 @@ export async function executeSupervisedStage<T>(
         throw new Error(healing.error || err.message || String(err));
       }
 
-      ctx.addLog(stage, `[SUPERVISOR] 🚀 Resuming Stage "${stage}" following autonomous repair (Action: ${healing.actionTaken})`, 'success');
+      ctx.addLog(stage, healing.retryOnly
+        ? `[SUPERVISOR] Retrying Stage "${stage}" (${healing.actionTaken}). No repair has been verified yet.`
+        : `[SUPERVISOR] 🚀 Resuming Stage "${stage}" following autonomous repair (Action: ${healing.actionTaken})`, healing.retryOnly ? 'info' : 'success');
       attempt++;
     }
   }

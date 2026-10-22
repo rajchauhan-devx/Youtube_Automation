@@ -3,6 +3,8 @@ import path from 'node:path';
 import { flowDownloadsDir, type StepLog } from './jobs.js';
 import { flowProfileDir } from './profile.js';
 import { deductFlowCredits, getFlowCreditsInfo } from './credits.js';
+import { syncFlowAccountPage } from './credit-sync.js';
+import { isInsufficientCreditWarning } from '../../../scripts/flow-account.mjs';
 
 // Live Google Flow worker (Playwright browser automation).
 //
@@ -100,6 +102,7 @@ export interface LiveRunInput {
   model?: string;
   resolution?: '720p' | '1080p';
   referenceImagePath?: string;
+  estimatedCreditCost?: number;
   signal: AbortSignal;
   onStage: (stage: string, progress: number, detail?: string) => void;
   logStep: (entry: StepLog) => void;
@@ -394,16 +397,16 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     }
     input.logStep({ step: 'paste', at: new Date().toISOString(), shot: await shot(page, dir, 'paste') });
 
-    // Check if Google Flow is displaying an insufficient credits warning
+    await syncFlowAccountPage(page).catch(() => null);
+    // A generic prompt warning can mean an unsupported setting or a policy
+    // notice. Only an explicit insufficient-credit message is a credit failure.
     const insufficientCreditsBtn = page.locator('.prompt-warning-button, [aria-label*="Insufficient credits" i]').first();
-    if (await insufficientCreditsBtn.isVisible().catch(() => false)) {
+    const warningText = await insufficientCreditsBtn.isVisible().catch(() => false)
+      ? [await insufficientCreditsBtn.innerText(), await insufficientCreditsBtn.getAttribute('aria-label'), await insufficientCreditsBtn.getAttribute('title')].filter(Boolean).join(' ') : '';
+    if (isInsufficientCreditWarning(warningText)) {
       await shot(page, dir, 'insufficient-credits');
       const err = new Error('Google Flow has insufficient credits to generate this video. Please top up your Google Flow AI credits or enable still-image fallback in AutoPilot settings.');
       (err as any).overseerCode = 'INSUFFICIENT_CREDITS';
-      try {
-        const { updateFlowCredits } = await import('./credits.js');
-        updateFlowCredits(0);
-      } catch {}
       throw err;
     }
 
@@ -561,7 +564,7 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     }
 
     input.onStage('Video downloaded from Flow successfully', 100);
-    deductFlowCredits(12);
+    if (!await syncFlowAccountPage(page).catch(() => null)) deductFlowCredits(input.estimatedCreditCost ?? 20);
     return { filePath: downloadPath, bytes };
   } finally {
     try {

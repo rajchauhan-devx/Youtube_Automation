@@ -13,10 +13,19 @@ import type { ScenePlan, NarrationSync } from './scene-plan.js';
 import { runMedia } from './media-process.js';
 import { store } from './store.js';
 
-export function graphicsRenderRevision(script: { editingProjectId?: string }) {
+/** Respect run choices even when a previous project still contains graphics. */
+export function graphicsForRun(project: EditingProject, settings?: { graphics: { enabled: boolean }; captions: string }) {
+  const selected = motionProject(project);
+  if (settings) selected.artifacts = selected.artifacts.filter(a => a.graphic?.kind === 'caption'
+    ? settings.captions === 'motion' : settings.graphics.enabled);
+  return selected;
+}
+
+export function graphicsRenderRevision(script: { editingProjectId?: string; autoPilotSettings?: { graphics: { enabled: boolean }; captions: string } }) {
   if (!script.editingProjectId) return undefined;
+  if (script.autoPilotSettings?.graphics.enabled === false && script.autoPilotSettings.captions !== 'motion') return undefined;
   try {
-    const project = motionProject(current(script.editingProjectId));
+    const project = graphicsForRun(current(script.editingProjectId), script.autoPilotSettings);
     if (!project.artifacts.some(artifact => artifact.enabled)) return undefined;
     const rendererVersion = RENDERER_VERSION;
     return { version: 1, rendererVersion, projectId: project.id, revisionId: project.revisionId, hash: objectHash(project) };
@@ -31,11 +40,12 @@ export function savedGraphicsForRender(
 ): EditingProject | undefined {
   const script = store.getById<any>('scripts', scriptId);
   if (!script?.editingProjectId) return undefined;
-  const project = motionProject(current(script.editingProjectId));
+  if (script.autoPilotSettings?.graphics.enabled === false && script.autoPilotSettings.captions !== 'motion') return undefined;
+  const project = graphicsForRun(current(script.editingProjectId), script.autoPilotSettings);
+  if (!project.artifacts.some(artifact => artifact.enabled)) return undefined;
   if (project.scriptId !== scriptId) throw new Error('The saved motion graphics belong to another script. Generate graphics for this script.');
   assertDocumentaryVisuals(project);
   assertGraphicsReviewed(project);
-  if (!project.artifacts.some(artifact => artifact.enabled)) return undefined;
   if (!['ready', 'partial'].includes(project.status)) throw new Error('Finish generating motion graphics in Artifacts before rendering.');
   if (project.inputs.scriptHash !== scriptFingerprint(script)) throw new Error('The saved motion graphics use older media or narration. Generate a new revision in Artifacts before rendering.');
   if (project.inputs.width !== resolution.width || project.inputs.height !== resolution.height) throw new Error('Use the saved motion graphics video format, or generate graphics for the new format.');

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const SCHEMA_VERSION = 1;
-export const RENDERER_VERSION = "5.0.0";
+export const RENDERER_VERSION = "5.0.1";
 export const Id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
 export const UUID = z.uuid();
 export const Hash = z.string().regex(/^[a-f0-9]{64}$/);
@@ -609,7 +609,7 @@ export const RenderManifest = z.strictObject({
   durationMs: z.number().min(0),
 });
 export type EditingProject = z.infer<typeof Project>;
-/** New image-led generations may never silently export as captions/labels only. */
+/** Legacy quota check. motionProject retires this requirement for optional graphics. */
 export function assertDocumentaryVisuals(project: EditingProject) {
   if (!project.documentaryRequirement) return;
   if (!project.artifacts.some(a => a.enabled && a.graphic?.kind === 'composition' && (a.graphic.composition?.layers.length || a.graphic.composition?.editorial)))
@@ -624,6 +624,8 @@ export function assertGraphicsReviewed(project: EditingProject) {
  * Saved revisions remain intact; new revisions and exports use only the native graphics. */
 export function motionProject(input: EditingProject): EditingProject {
   const p = structuredClone(input);
+  // Graphics are optional, including in saved projects from the old quota-based planner.
+  delete p.documentaryRequirement;
   p.artifacts = p.artifacts.filter(a => a.graphic);
   p.analyses = [];
   p.scenes.forEach(s => { delete s.analysisId; });

@@ -21,6 +21,7 @@ const post = (url, body, method = 'POST') => fetch(base + url, { method, headers
 const settings = defaultAutoPilotSettings();
 
 test('run settings validate real controls and preserve independent graphics and caption choices', () => {
+  assert.equal(settings.graphics.enabled, false, 'graphics are opt-in');
   const a = structuredClone(settings); a.media.flowResolution = '1080p'; a.media.flowDuration = 4;
   a.graphics.enabled = false; a.captions = 'motion'; a.voice.provider = 'edge'; a.voice.voiceId = 'en_brian';
   assert.deepEqual(AutoPilotSettingsSchema.parse(a), a);

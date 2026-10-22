@@ -6,6 +6,7 @@ import { type Script, getChannelLoraProfile, formatPromptWithChannelStyleDna } f
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import { GenerationDisclosure } from './GenerationDisclosure';
 import { CloudflareImagePanel, type ImageProviderMode } from './CloudflareImagePanel';
+import type { FlowCreditsState } from '../../../server/src/services/flow/credits';
 
 interface FlowJobState {
   id: string;
@@ -20,15 +21,6 @@ interface FlowJobState {
 // Per-scene Google Flow automation: start → poll → download → import.
 // Uses the global /api/flow routes (own Google session); the downloaded MP4 is
 // imported through the workspace-scoped media-import, same as manual upload.
-interface FlowCreditsState {
-  credits: number;
-  videosRemaining: number;
-  status: 'ok' | 'low' | 'exhausted';
-  tier: string;
-  account: string;
-  costPerVideo?: number;
-}
-
 interface FlowAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -38,7 +30,7 @@ interface FlowAccountModalProps {
 
 function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountModalProps) {
   const [emailInput, setEmailInput] = useState(credits?.account || '');
-  const [creditsInput, setCreditsInput] = useState(credits?.credits !== undefined ? String(credits.credits) : '800');
+  const [creditsInput, setCreditsInput] = useState(credits?.credits != null ? String(credits.credits) : '');
   const [launching, setLaunching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -46,7 +38,7 @@ function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountMo
   useEffect(() => {
     if (credits) {
       setEmailInput(credits.account || '');
-      setCreditsInput(String(credits.credits ?? 800));
+      setCreditsInput(credits.credits == null ? '' : String(credits.credits));
     }
   }, [credits]);
 
@@ -83,10 +75,10 @@ function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountMo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           account: emailInput.trim(),
-          credits: parseInt(creditsInput, 10),
+          ...(creditsInput.trim() ? { credits: Number(creditsInput) } : {}),
         }),
       });
-      if (!res.ok) throw new Error('Failed to update credentials');
+      if (!res.ok) throw new Error('Enter a valid credit estimate.');
       onUpdated();
       setMsg('Account info updated successfully!');
       setTimeout(() => {
@@ -121,16 +113,16 @@ function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountMo
         <div className="rounded-xl border border-purple-500/20 bg-purple-950/30 p-3.5 space-y-1.5">
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">Active Google Account:</span>
-            <span className="font-semibold text-purple-200">{credits?.account || 'zrajchauhan3@gmail.com'}</span>
+            <span className="font-semibold text-purple-200">{credits?.account || 'Account not synced'}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">Current Balance:</span>
-            <span className="font-semibold text-emerald-300">{credits?.credits ?? 0} Credits (~{credits?.videosRemaining ?? 0} videos)</span>
+            <span className="font-semibold text-emerald-300">{credits?.credits == null ? 'Balance not synced' : `${credits.credits} credits`}{credits?.source !== 'flow' && credits?.credits != null ? ' · Estimate' : ''}</span>
           </div>
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-400">Tier:</span>
             <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/30">
-              {credits?.tier || 'PRO'}
+              {credits?.tier || 'Not synced'}
             </span>
           </div>
         </div>
@@ -234,7 +226,7 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defau
       const res = await globalThis.fetch('/api/flow/credits');
       if (res.ok) {
         const data = await res.json() as FlowCreditsState;
-        if (typeof data.credits === 'number') setCredits(data);
+        setCredits(data);
       }
     } catch {}
   }, []);
@@ -359,7 +351,7 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defau
         </div>
 
         {!running ? (
-          <button type="button" disabled={disabled || busy || credits?.status === 'exhausted'} onClick={() => void start()}
+          <button type="button" disabled={disabled || busy} onClick={() => void start()}
             className="flex items-center gap-1.5 rounded bg-purple-500/25 px-2.5 py-1.5 text-xs font-semibold text-purple-100 hover:bg-purple-500/35 disabled:opacity-40"
             title={hasReference ? "Generate video with Google Flow (using 2D image reference frame)" : "Generate video with Google Flow"}>
             <Sparkles className="h-3.5 w-3.5 text-purple-300" /> Generate with Flow
@@ -375,7 +367,7 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defau
       </div>
 
       {credits?.status === 'exhausted' && (
-        <p className="text-[11px] text-red-400 font-medium">❌ Out of credits. Top up in Google Flow or switch accounts above.</p>
+        <p className="text-[11px] text-amber-300">The saved balance is below the estimated cost. Flow checks the available credits for your selected model when generating.</p>
       )}
 
       {job?.state === 'error' && job.error && (
@@ -406,12 +398,13 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
   const [flowCredits, setFlowCredits] = useState<FlowCreditsState | null>(null);
   const [flowResolution, setFlowResolution] = useState<'720p' | '1080p'>('720p');
 
-  const loadFlowCredits = useCallback(async () => {
+  const loadFlowCredits = useCallback(async (refresh = false) => {
     try {
-      const res = await globalThis.fetch('/api/flow/credits');
+      const res = await globalThis.fetch(`/api/flow/credits${refresh ? '?refresh=true' : ''}`);
       if (res.ok) {
         const data = await res.json() as FlowCreditsState;
-        if (typeof data.credits === 'number') setFlowCredits(data);
+        setFlowCredits(data);
+        if (data.syncError) setNotice(data.syncError);
       }
     } catch {}
   }, []);
@@ -650,11 +643,6 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
     if (!script || operation.current || !indices.length) return;
     const queue = indices.filter(index => Boolean(scenes[index]));
     if (!queue.length) return;
-
-    if (flowCredits && flowCredits.credits < 12) {
-      setError('Insufficient Google Flow credits. Please top up or switch accounts.');
-      return;
-    }
 
     operation.current = true;
     stopRequested.current = false;
@@ -969,15 +957,15 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold text-white">Google Flow AI Video</span>
               <span className="rounded bg-purple-500/20 px-1.5 py-0.5 text-[10px] font-bold text-purple-300 border border-purple-500/30">
-                {flowCredits?.tier || 'PRO'}
+                {flowCredits?.tier || 'Flow'}
               </span>
               <span className="inline-flex items-center gap-1 rounded bg-black/50 px-2 py-0.5 text-xs text-purple-200 border border-white/10 font-medium">
                 <User className="h-3 w-3 text-purple-300" />
-                {flowCredits?.account || 'zrajchauhan3@gmail.com'}
+                {flowCredits?.account || 'Account not synced'}
               </span>
             </div>
             <p className="mt-0.5 text-[11px] text-gray-400">
-              Live Balance: <strong className="text-emerald-400 font-semibold">{flowCredits?.credits ?? 788} Credits</strong> (~{flowCredits?.videosRemaining ?? 65} videos remaining · ~12 credits/video) · Quality: <strong className="text-purple-300">{flowResolution === '1080p' ? '1080p Upscaled' : '720p Fast'}</strong>
+              {flowCredits?.source === 'flow' ? 'Last synced from Flow' : 'Estimated balance'}: <strong className="text-emerald-400 font-semibold">{flowCredits?.credits == null ? 'Not synced' : `${flowCredits.credits} credits`}</strong> · Costs depend on model and output settings · Quality: <strong className="text-purple-300">{flowResolution === '1080p' ? '1080p Upscaled' : '720p Fast'}</strong>
             </p>
           </div>
         </div>
@@ -985,7 +973,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => void loadFlowCredits()}
+            onClick={() => void loadFlowCredits(true)}
             className="flex items-center gap-1 rounded-lg border border-white/10 bg-black/40 px-2.5 py-1.5 text-xs text-gray-300 hover:text-white hover:bg-white/5 transition"
             title="Refresh Flow credit balance"
           >

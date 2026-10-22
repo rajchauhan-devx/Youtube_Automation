@@ -140,9 +140,32 @@ function GraphicLayoutCheck({ project, artifact, frame }: Props) {
     const root = document.querySelector<HTMLElement>(`[data-graphic-artifact="${artifact.id}"]`);
     const check = () => {
       root?.querySelectorAll<HTMLElement>('[data-editing-text]').forEach(element => {
+        // Entrance/exit animations may move transparent text outside the canvas.
+        // Measure it once visible; hidden transition geometry is not a defect.
+        let opacity = 1;
+        for (let ancestor: HTMLElement | null = element; ancestor; ancestor = ancestor.parentElement) {
+          const style = getComputedStyle(ancestor);
+          if (style.display === 'none' || style.visibility === 'hidden') return;
+          opacity *= Number(style.opacity);
+          if (ancestor === root) break;
+        }
+        if (opacity <= 0.01) return;
         const bounds = element.getBoundingClientRect(), viewport = root.getBoundingClientRect();
+        // A reveal can slide text through an on-canvas clipping container.
+        // Only its visible intersection can extend outside the video frame.
+        const visible = { left: bounds.left, right: bounds.right, top: bounds.top, bottom: bounds.bottom };
+        for (let ancestor = element.parentElement; ancestor && ancestor !== root; ancestor = ancestor.parentElement) {
+          const style = getComputedStyle(ancestor), clip = ancestor.getBoundingClientRect();
+          if (/hidden|clip|auto|scroll/.test(style.overflowX)) {
+            visible.left = Math.max(visible.left, clip.left); visible.right = Math.min(visible.right, clip.right);
+          }
+          if (/hidden|clip|auto|scroll/.test(style.overflowY)) {
+            visible.top = Math.max(visible.top, clip.top); visible.bottom = Math.min(visible.bottom, clip.bottom);
+          }
+        }
         const overflow = element.scrollWidth > element.clientWidth + 1 || element.scrollHeight > element.clientHeight + 1;
-        const outside = bounds.left < viewport.left - 1 || bounds.top < viewport.top - 1 || bounds.right > viewport.right + 1 || bounds.bottom > viewport.bottom + 1;
+        const outside = visible.right > visible.left && visible.bottom > visible.top &&
+          (visible.left < viewport.left - 1 || visible.top < viewport.top - 1 || visible.right > viewport.right + 1 || visible.bottom > viewport.bottom + 1);
         const small = parseFloat(getComputedStyle(element).fontSize) < Math.min(project.inputs.width, project.inputs.height) * 0.025;
         if (overflow || outside || small) console.warn('EDITING_QA:' + JSON.stringify({
           code: overflow ? 'TEXT_OVERFLOW' : outside ? 'GRAPHIC_OUTSIDE_FRAME' : 'TEXT_TOO_SMALL',
@@ -247,23 +270,40 @@ export function DiagramCallout(props: Props) {
 
 export function MotionCaption(props: Props) {
   const { project, artifact } = props, g = artifact.graphic!, b = cardBounds('caption', project.inputs.width, project.inputs.height);
-  const { opacity, local, fps } = animation(props);
-  // Documentary mode: uniform readable text with a soft fade stagger. No
-  // per-word accent color or scale pop — that reads as Shorts-slop and fights
-  // burned-in subtitles. The active-word emphasis is conveyed by timing only.
+  const { local, fps } = animation(props);
+  const ref = useRef<HTMLDivElement>(null);
+  const [handle] = useState(() => delayRender('Fit caption phrase'));
   const words = g.title.split(/\s+/u).filter(Boolean);
   const duration = Math.max(1, artifact.endFrame - artifact.startFrame);
   const fontSize = Math.min(b.height * 0.34, b.width * (project.inputs.height > project.inputs.width ? 0.085 : 0.056));
   const delay = Math.min(fps * 0.06, duration * 0.25 / Math.max(1, words.length));
-  const color = textFor(project);
-  return <div style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, opacity, zIndex: 2,
+  const family = familyFor(project);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (element) {
+      const minimum = Math.min(project.inputs.width, project.inputs.height) * 0.026;
+      let size = Math.max(minimum, fontSize);
+      element.style.fontSize = `${size}px`;
+      while ((element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1) && size > minimum) {
+        size = Math.max(minimum, size - 1);
+        element.style.fontSize = `${size}px`;
+      }
+    }
+    continueRender(handle);
+    return () => continueRender(handle);
+  }, [g.title, fontSize, family, project.inputs.width, project.inputs.height, handle]);
+  // Keep the complete phrase legible from its first frame to its last. Motion
+  // moves words slightly, but never hides upcoming words against the footage.
+  return <div ref={ref} style={{ position: 'absolute', left: b.x, top: b.y, width: b.width, height: b.height, zIndex: 2,
+    boxSizing: 'border-box', padding: `${b.height * 0.08}px ${b.width * 0.035}px`,
+    background: 'rgba(0, 0, 0, 0.88)', borderRadius: b.height * 0.08, color: '#ffffff',
     display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', alignContent: 'center',
-    columnGap: '0.38em', rowGap: '0.02em', fontFamily: familyFor(project), fontWeight: 700,
+    columnGap: '0.38em', rowGap: '0.02em', fontFamily: family, fontWeight: 700,
     fontSize, lineHeight: 1.4, textAlign: 'center', textShadow: '0 1px 3px #000, 0 0 8px #000' }} data-editing-text="motion-caption">
     {words.map((word, index) => {
       const reveal = spring({ frame: Math.max(0, local - (g.wordTimings?.[index]?.startFrame ?? index * delay)), fps, config: { stiffness: 180, damping: 24, overshootClamping: true } });
-      return <span key={`${index}-${word}`} style={{ display: 'inline-block', color,
-        opacity: reveal, transform: `translateY(${(1 - reveal) * 0.12}em)`,
+      return <span key={`${index}-${word}`} style={{ display: 'inline-block', maxWidth: '100%', overflowWrap: 'anywhere',
+        transform: `translateY(${(1 - reveal) * 0.06}em)`,
         transformOrigin: 'center bottom' }}>{word}</span>;
     })}
   </div>;

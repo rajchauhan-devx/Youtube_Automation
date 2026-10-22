@@ -68,11 +68,18 @@ export async function reviewGraphics(project: EditingProject, ctx: MotionContext
   artifactIds: string[], completed: string[], save: () => void) {
   const targets = project.artifacts.filter(a => a.graphic && a.graphic.kind !== 'caption' && a.enabled && artifactIds.includes(a.id));
   for (const artifact of targets) {
-    if (completed.includes(artifact.id)) continue;
+    // An unavailable check is unfinished work, even in older checkpoints that
+    // recorded it as completed. Keep accepted reviews when resuming the job.
+    if (completed.includes(artifact.id) && artifact.visualReview?.status === 'passed') continue;
+    if (artifact.visualReview?.status === 'unavailable') {
+      const index = completed.indexOf(artifact.id);
+      if (index !== -1) completed.splice(index, 1);
+    }
     ctx.signal.throwIfAborted();
     project.diagnostics = project.diagnostics.filter(d => d.artifactId !== artifact.id || !d.code.startsWith('VISUAL_REVIEW_'));
-    let attempts = artifact.visualReview?.status === 'pending' ? artifact.visualReview.attempts : 0;
-    let frames: number[] = artifact.visualReview?.status === 'pending' ? artifact.visualReview.frames : [];
+    const unfinished = ['pending', 'unavailable'].includes(artifact.visualReview?.status || '');
+    let attempts = unfinished ? artifact.visualReview!.attempts : 0;
+    let frames: number[] = unfinished ? artifact.visualReview!.frames : [];
     try {
       for (let round = attempts; round < 2; round++) {
         ctx.stage(`${round ? 'Checking repaired' : 'Reviewing rendered'} placement`, completed.length, targets.length);
@@ -81,7 +88,8 @@ export async function reviewGraphics(project: EditingProject, ctx: MotionContext
         const previews = await (ctx.renderPreviews || previewFrames)(project, ctx.signal, artifact.id);
         if (!previews.length) throw new Error('No rendered frames available for placement review');
         frames = previews.map(p => p.frame);
-        if (previews.some(p => p.findings.length)) throw new Error('Rendered typography failed the layout check');
+        const findings = previews.flatMap(p => p.findings.map(f => `frame ${p.frame}: ${f.code}: ${f.message}`));
+        if (findings.length) throw new Error(`Rendered typography failed the layout check: ${findings.slice(0, 3).join('; ')}`);
         const scene = project.scenes.find(s => s.id === artifact.sceneId)!;
         const subjectId = artifact.graphic!.composition?.editorial?.subjectAssetId;
         const sourceIds = [...new Set([scene.assetId, ...(artifact.graphic!.composition?.layers.map(l => l.assetId) || []), ...(subjectId ? [subjectId] : [])])]
@@ -149,6 +157,7 @@ When composition.diagram exists, annotations have been deliberately removed from
       project.diagnostics.push({ severity: 'warning', code: 'VISUAL_REVIEW_UNAVAILABLE', stage: 'review', sceneId: artifact.sceneId,
         artifactId: artifact.id, message: `“${artifact.graphic!.title}” has not passed rendered placement review: ${reason}`, retryable: true });
     }
-    completed.push(artifact.id); save();
+    if (artifact.visualReview?.status !== 'unavailable' && !completed.includes(artifact.id)) completed.push(artifact.id);
+    save();
   }
 }

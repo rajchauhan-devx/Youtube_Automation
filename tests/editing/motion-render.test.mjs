@@ -11,8 +11,37 @@ const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'motion-render-'));
 process.env.TUBEFLOW_DATA_DIR = directory;
 const { fixture } = await import('./motion-fixtures.mjs');
 const { compileGraphic } = await import('../../server/dist/services/editing/motionPackArtifacts.js');
-const { saveAsset, projectDir } = await import('../../server/dist/services/editing/repository.js');
+const { saveAsset, projectDir, hash } = await import('../../server/dist/services/editing/repository.js');
 const { renderSession, exportVideo } = await import('../../server/dist/services/editing/renderer.js');
+const { compileEditorial } = await import('../../server/dist/services/editing/editorial.js');
+
+test('impact entrances pass rendered QA while visible out-of-frame typography is still rejected', { timeout: 120000 }, async () => {
+  for (const portrait of [true, false]) {
+    const p = await fixture('museum', portrait, true);
+    const text = 'The total weight is 30 lbs.';
+    p.inputs.narrationText = text; p.inputs.narrationHash = hash(text); p.alignment.narrationHash = hash(text);
+    p.alignment.tokens = [{ ...p.alignment.tokens[0], id: 'impact-cue', text, start: 0, end: 3, startOffset: 0, endOffset: text.length }];
+    p.scenes[0].narrativeRefs = ['impact-cue'];
+    p.artifacts = [await compileEditorial(p, { sceneId: 'scene-0', kind: 'composition', title: 'Weight', detail: '', target: '', quote: text,
+      sequence: { template: 'impact', headline: '30 Pounds of Iron', kicker: 'Physical weight of unconfessed lies',
+        facts: [{ value: '30 lbs', label: 'Total weight of iron keys' }], direction: 'horizontal', disclosure: 'Illustrative weight.' } },
+      { signal: new AbortController().signal })];
+    const signal = AbortSignal.timeout(60000);
+    const inspect = async frames => {
+      const session = await renderSession(p, signal), findings = [];
+      try {
+        for (const frame of frames) await renderStill({ ...session, frame, output: path.join(directory, `impact-${portrait}-${frame}.png`), imageFormat: 'png',
+          onBrowserLog: log => { if (log.text.startsWith('EDITING_QA:')) findings.push(JSON.parse(log.text.slice('EDITING_QA:'.length))); } });
+      } finally { session.close(); }
+      return findings;
+    };
+    assert.deepEqual(await inspect([0, 1, 15, 36, p.artifacts[0].endFrame - 1]), [], 'Hidden or clipped entrance text must not block visual review');
+    if (portrait) {
+      p.artifacts[0].graphic.composition.editorial.facts[0].value = '123456789012345678901234';
+      assert.ok((await inspect([36])).some(f => ['TEXT_OVERFLOW', 'GRAPHIC_OUTSIDE_FRAME'].includes(f.code)), 'Visible layout defects must still block approval');
+    }
+  }
+});
 
 test('new layer motion changes rendered pixels and exports complete portrait/landscape MP4s', { timeout: 120000 }, async () => {
   const pattern = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><rect width="40" height="40" fill="#1a2535"/><rect width="20" height="20" fill="#64cbe8"/><rect x="20" y="20" width="20" height="20" fill="#f4c97b"/></pattern></defs><rect width="400" height="400" fill="url(#grid)"/><circle cx="300" cy="100" r="45" fill="#e44267"/></svg>');

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { flowLoginSteps, flowStatus, flowProfileDir } from '../services/flow/profile.js';
 import { getFlowCreditsInfo, updateFlowCredits } from '../services/flow/credits.js';
+import { syncFlowCredits } from '../services/flow/credit-sync.js';
 import { cancelFlowJob, flowJobStatus, flowJobsFor, resolveFlowDownload, startFlowJob } from '../services/flow/jobs.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,9 +22,9 @@ flowRouter.get('/status', async (_req, res) => {
 });
 
 // Current Google Flow credit balance and remaining estimated videos
-flowRouter.get('/credits', (_req, res) => {
+flowRouter.get('/credits', async (req, res) => {
   try {
-    res.json(getFlowCreditsInfo());
+    res.json(req.query.refresh === 'true' ? await syncFlowCredits() : getFlowCreditsInfo());
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : 'Flow credits query failed' });
   }
@@ -33,7 +34,7 @@ flowRouter.get('/credits', (_req, res) => {
 flowRouter.post('/credits', (req, res) => {
   try {
     const { credits, account, tier, costPerVideo } = req.body || {};
-    const numericCredits = typeof credits === 'number' ? credits : credits ? Number.parseInt(credits, 10) : undefined;
+    const numericCredits = credits == null || credits === '' ? undefined : Number(credits);
     const updated = updateFlowCredits(numericCredits, {
       account: typeof account === 'string' && account.trim() ? account.trim() : undefined,
       tier: typeof tier === 'string' && tier.trim() ? tier.trim() : undefined,
@@ -41,7 +42,7 @@ flowRouter.post('/credits', (req, res) => {
     });
     res.json(updated);
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Flow credits update failed' });
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Flow credits update failed' });
   }
 });
 

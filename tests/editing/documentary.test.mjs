@@ -28,7 +28,7 @@ function context(p, extra = {}) {
 }
 const pass = { verdict: 'pass', reason: 'All three supplied frames keep the target clear.', bounds: null, layers: [] };
 
-test('image-led generation rejects text-only planner output and export cannot silently lose all image layers', async () => {
+test('image mode rejects text-only output and legacy graphic quotas do not block clean footage', async () => {
   const p = await fixture('museum', false, true); p.settings.documentary = true;
   globalThis.fetch = async (_, options) => {
     const system = JSON.parse(options.body).system_instruction.parts[0].text;
@@ -37,11 +37,42 @@ test('image-led generation rejects text-only planner output and export cannot si
   };
   await assert.rejects(runPipeline(p, context(p)), /failed validation/);
   p.documentaryRequirement = { version: 1 };
-  assert.throws(() => assertDocumentaryVisuals(p), /no enabled image compositions/);
+  assert.doesNotThrow(() => assertDocumentaryVisuals(motionProject(p)));
   p.artifacts = [compileGraphic(p, design())];
   assert.doesNotThrow(() => assertDocumentaryVisuals(p));
   p.artifacts[0].enabled = false;
-  assert.throws(() => assertDocumentaryVisuals(p), /no enabled image compositions/);
+  assert.doesNotThrow(() => assertDocumentaryVisuals(motionProject(p)));
+});
+
+test('the visual director can choose zero graphics and image mode refuses decorative statistic sequences', async () => {
+  const p = await fixture('museum', false, true); p.settings.documentary = true; p.settings.visualReview = true;
+  globalThis.fetch = async (_, options) => {
+    const body = JSON.parse(options.body), system = body.system_instruction.parts[0].text;
+    if (system.includes('Inspect each supplied image')) return response({ scenes: [{ sceneId: 'scene-0', visibleObjects: ['statue'], openArea: 'top' }] });
+    assert.equal(JSON.parse(body.contents[0].parts[0].text).minimumImageBeats, 0);
+    return response({ graphics: [] });
+  };
+  const result = await runPipeline(p, context(p));
+  assert.equal(result.artifacts.length, 0); assert.equal(result.status, 'ready');
+  assert.equal(result.documentaryRequirement, undefined);
+  globalThis.fetch = async (_, options) => {
+    if (JSON.parse(options.body).system_instruction.parts[0].text.includes('Inspect each supplied image'))
+      return response({ scenes: [{ sceneId: 'scene-0', visibleObjects: ['statue'], openArea: 'top' }] });
+    return response({ graphics: [{ ...design(), composition: undefined, sequence: {
+      template: 'impact', headline: '30 Pounds', kicker: '', facts: [{ value: '30', label: 'pounds' }], direction: 'horizontal', disclosure: '',
+    } }] });
+  };
+  await assert.rejects(runPipeline(p, context(p)), /failed validation/);
+});
+
+test('disabled graphics stay out of saved renders independently of motion captions', async () => {
+  const { graphicsForRun } = await import('../../server/dist/services/render-graphics.js');
+  const p = await fixture('museum', false, true); p.artifacts = [compileGraphic(p, design())];
+  const caption = { ...structuredClone(p.artifacts[0]), id: 'caption', graphic: { kind: 'caption', title: 'Narration', detail: '', bounds: p.artifacts[0].graphic.bounds } };
+  p.artifacts.push(caption);
+  assert.deepEqual(graphicsForRun(p, { graphics: { enabled: false }, captions: 'off' }).artifacts, []);
+  assert.deepEqual(graphicsForRun(p, { graphics: { enabled: false }, captions: 'motion' }).artifacts.map(a => a.id), ['caption']);
+  assert.equal(p.artifacts.length, 2, 'saved revisions are preserved');
 });
 
 test('short image inserts remain eligible while duplicating the full background is rejected', async () => {
@@ -150,6 +181,47 @@ test('budget and preview failures remain explicitly unreviewed; cancellation pro
   await assert.rejects(reviewGraphics(p, context(p, { signal: abort.signal }), 'gemini-fixture', [p.artifacts[0].id], [], () => {}), /abort/i);
 });
 
+test('resumed review retries unavailable checks in old checkpoints and preserves passing graphics', async () => {
+  const p = await fixture('museum', false, true); p.settings.visualReview = true;
+  const first = compileGraphic(p, design()), second = { ...structuredClone(first), id: 'second-graphic' };
+  first.visualReview = { status: 'passed', attempts: 1, frames: [36], reason: 'Already verified.' };
+  second.visualReview = { status: 'unavailable', attempts: 0, frames: [18], reason: 'Rendered typography failed the layout check' };
+  p.artifacts = [first, second];
+  const completed = [first.id, second.id]; // persisted by the old implementation
+  let reviews = 0;
+  globalThis.fetch = async () => { reviews++; return response(pass); };
+  await reviewGraphics(p, context(p), 'gemini-fixture', [first.id, second.id], completed, () => {});
+  assert.equal(reviews, 1);
+  assert.equal(first.visualReview.reason, 'Already verified.');
+  assert.equal(second.visualReview.status, 'passed');
+  assert.deepEqual(completed, [first.id, second.id]);
+});
+
+test('unavailable optional graphics are hidden and the production finishes with the original footage', async () => {
+  const p = await fixture('museum', false, true); p.settings.documentary = true; p.settings.visualReview = true;
+  let failLayout = true, plans = 0, designs = 0;
+  globalThis.fetch = async (_, options) => {
+    const system = JSON.parse(options.body).system_instruction.parts[0].text;
+    if (system.includes('Inspect each supplied image')) return response({ scenes: [{ sceneId: 'scene-0', visibleObjects: ['statue'], openArea: 'top' }] });
+    if (system.includes('Review rendered')) return response(pass);
+    if (system.includes('Design an image-led')) { designs++; return response(design().composition); }
+    plans++;
+    const { composition, ...brief } = design(); return response({ graphics: [brief] });
+  };
+  const ctx = context(p, { renderPreviews: async () => [{ frame: 36, file: assetFile(p.scenes[0].assetId),
+    findings: failLayout ? [{ code: 'GRAPHIC_OUTSIDE_FRAME', message: 'Visible text is outside the canvas.' }] : [] }] });
+  const result = await runPipeline(p, ctx);
+  const checkpointFile = path.join(process.env.TUBEFLOW_DATA_DIR, 'editing', p.id, 'jobs', `${ctx.job.id}.checkpoint.json`);
+  const checkpoint = JSON.parse(fs.readFileSync(checkpointFile, 'utf8'));
+  assert.deepEqual(checkpoint.reviewed, []);
+  assert.match(checkpoint.project.artifacts[0].visualReview.reason, /frame 36: GRAPHIC_OUTSIDE_FRAME/);
+  assert.equal(result.artifacts[0].visualReview.status, 'unavailable');
+  assert.equal(result.artifacts[0].enabled, false);
+  assert.equal(result.status, 'partial');
+  assert.equal(result.revisionId, checkpoint.project.revisionId);
+  assert.equal(plans, 1); assert.equal(designs, 1);
+});
+
 test('generation connects documentary planning to rendered review and checkpoint resume', async () => {
   const p = await fixture('museum', false, true); p.settings = { ...p.settings, documentary: true, treatment: 'auto', visualReview: true };
   const ctx = context(p);
@@ -202,7 +274,9 @@ test('map planner cannot invent a source map; review-only jobs preserve composit
     const { composition, ...brief } = design('map');
     return response({ graphics: [brief] });
   };
-  await assert.rejects(runPipeline(p, context(p)), /no enabled image compositions/);
+  const skipped = await runPipeline(p, context(p));
+  assert.equal(skipped.status, 'partial');
+  assert.equal(skipped.artifacts.filter(a => a.enabled).length, 0, 'unsupported map inserts are skipped without blocking footage');
   p.artifacts = [compileGraphic(p, design())]; globalThis.fetch = async () => response(pass);
   p.diagnostics.push({ severity: 'info', code: 'ORIGINAL_TIMING', stage: 'timing', message: 'Keep this timing diagnostic.', retryable: false });
   const reviewed = await runPipeline(p, context(p, { job: { id: randomUUID(), operation: 'review', usage: [] } }));

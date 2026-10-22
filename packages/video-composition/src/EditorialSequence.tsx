@@ -23,9 +23,9 @@ export function EditorialSequence({ project, artifact, frame, assets }: {
     <div data-editing-text="editorial" data-artifact-id={artifact.id} style={{ fontFamily: family, fontSize: size,
       lineHeight: 1.5, overflowWrap: 'anywhere', color: '#f4eee5', ...style }}>{children}</div>;
   const Fact = ({ index, size = unit * 0.12 }: { index: number; size?: number }) => spec.facts[index] &&
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: unit * 0.018 }}>
-      <Text size={size} style={{ fontWeight: 800, color: accent, fontVariantNumeric: 'tabular-nums' }}>{spec.facts[index].value}</Text>
-      <Text size={unit * 0.038} style={{ maxWidth: contentW * 0.46 }}>{spec.facts[index].label}</Text>
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: unit * 0.018, maxWidth: '100%' }}>
+      <Text size={Math.min(size, unit * 0.1)} style={{ fontWeight: 700, color: '#f4eee5', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', flexShrink: 0, maxWidth: '100%' }}>{spec.facts[index].value}</Text>
+      <Text size={unit * 0.034} style={{ maxWidth: '100%', lineHeight: 1.4, color: '#e4e7eb' }}>{spec.facts[index].label}</Text>
     </div>;
   return <AbsoluteFill data-editorial-sequence={spec.template} style={{ opacity: designed ? 1 : exit, fontFamily: family }}>
     {designed ? <AbsoluteFill style={{ background: 'radial-gradient(ellipse at 60% 38%, #26313b 0%, #101820 52%, #0a1016 100%)' }}>

@@ -55,17 +55,20 @@ export interface ChatResponse {
 }
 
 export function formatGeminiModel(modelName?: string): string {
-  if (!modelName) return 'gemini-flash-latest';
+  let model = modelName;
   if (
-    modelName.includes('deepseek') ||
-    modelName.includes('gpt') ||
-    modelName.includes('claude') ||
-    modelName.startsWith('ollama/') ||
-    modelName.includes('qwen')
+    !model ||
+    model.includes('deepseek') ||
+    model.includes('gpt') ||
+    model.includes('claude') ||
+    model.startsWith('ollama/') ||
+    model.includes('qwen')
   ) {
-    return 'gemini-flash-latest';
+    model = process.env.GEMINI_USE_ADC === 'true' ? 'gemini-2.5-flash' : 'gemini-flash-latest';
+  } else if (process.env.GEMINI_USE_ADC === 'true' && model === 'gemini-flash-latest') {
+    model = 'gemini-2.5-flash';
   }
-  return modelName;
+  return model;
 }
 
 function buildGeminiPayload(req: ChatRequest) {
@@ -119,7 +122,7 @@ export async function chat(apiKey: string, req: ChatRequest): Promise<ChatRespon
   const model = formatGeminiModel(req.model);
   const payload = buildGeminiPayload(req);
 
-  const fallbackList = GEMINI_CHAT_FALLBACK_MODELS.filter(m => m !== model);
+  const fallbackList = GEMINI_CHAT_FALLBACK_MODELS.map(formatGeminiModel).filter(m => m !== model);
   let activeModel = model;
   let fallbackIndex = 0;
 

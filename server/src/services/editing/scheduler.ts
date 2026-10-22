@@ -204,7 +204,9 @@ async function execute(task: Task) {
         signal: controller.signal,
         apiKey: task.apiKey,
         job,
-        maxCalls: Math.min(
+        // Resuming reuses generated assets and successful checks, with a fresh
+        // bounded request allowance. Historical usage remains in the audit log.
+        maxCalls: job.usage.length + Math.min(
           project.settings.maxProviderCalls,
           editingConfig().maxCalls,
         ),

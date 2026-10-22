@@ -49,6 +49,7 @@ export function generateSubtitleFile(opts: {
     .replace(/\[.*?\]/g, '')
     .replace(/<[^>]*>/g, '')
     .replace(/[{}\\]/g, '')
+    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 

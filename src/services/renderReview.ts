@@ -1,3 +1,19 @@
+type RenderReview = {
+  status: string;
+  summary: string;
+  findings: { severity: string; category: string; detail: string }[];
+};
+
+export function hasCaptionBlocker(review?: RenderReview): boolean {
+  return review?.status === 'blocked' && review.findings.some(finding =>
+    finding.severity === 'blocker' && /caption|subtitle/i.test(`${finding.category} ${finding.detail}`));
+}
+
+export function reviewBlockerMessage(review: RenderReview): string {
+  const blockers = review.findings.filter(finding => finding.severity === 'blocker');
+  return `Final review needs attention: ${blockers.length ? blockers.map(finding => `${finding.category}: ${finding.detail}`).join('\n') : review.summary}`;
+}
+
 /** Retry only temporary transport/provider failures, never quality blockers. */
 export async function waitForRenderedReview<T>(options: {
   scriptId: string; videoFilename: string; apiKey: string; signal: AbortSignal;

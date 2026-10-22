@@ -38,7 +38,7 @@ import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { incompleteResponse, placeholderResponse } from '../server/src/services/generation-status';
 import { buildFreePrompt, FREE_CHAT_SYSTEM, freeChatSystem } from '../server/src/services/script-generation';
 import { apiPost, getApiKey } from './services/api.js';
-import { waitForRenderedReview } from './services/renderReview.js';
+import { hasCaptionBlocker, reviewBlockerMessage, waitForRenderedReview } from './services/renderReview.js';
 import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AutoPilotModal } from './components/autopilot/AutoPilotModal';
@@ -872,6 +872,10 @@ export default function App() {
         startStage = Math.min(startStage, savedProductionStage(currentScript));
         if (startStage >= 8 && !resumeVideoUrl) startStage = 7;
         if (startStage >= 9 && currentScript.retentionReview?.status !== 'passed') startStage = 8;
+        if (startStage >= 8 && runSettings.captions !== 'off' && hasCaptionBlocker(currentScript.retentionReview)) {
+          startStage = 7;
+          addAutoPilotLog('render_video', 'The saved MP4 failed caption review. Rebuilding captions with the current renderer before reviewing again.', 'info');
+        }
         if (currentScript.retentionPlan) retention = { plan: currentScript.retentionPlan, brief: autoPilotState.retentionBrief || `Viewer promise: ${currentScript.retentionPlan.viewerPromise}. Selected hook: ${currentScript.retentionPlan.hooks[currentScript.retentionPlan.selectedHookIndex].openingLine}` };
         patchScriptState(scriptId, currentScript);
         setAutoPilotState(prev => ({ ...prev, topic, renderedVideoUrl: startStage >= 8 ? resumeVideoUrl : null }));
@@ -1116,7 +1120,7 @@ export default function App() {
               const flowStatusRes = await fetch('/api/flow/status');
               const flowStatusData = flowStatusRes.ok ? await flowStatusRes.json() : null;
 
-              if (flowStatusData?.profileReady && (flowStatusData?.creditsRemaining ?? 0) >= 12) {
+              if (flowStatusData?.profileReady) {
                 addAutoPilotLog('generate_images', `[FLOW] Generating video for Scene ${i + 1} via Veo 3.1...`, 'gemini');
                 setAutoPilotState((prev) => ({
                   ...prev,
@@ -1179,7 +1183,7 @@ export default function App() {
                   }
                 }
               } else {
-                addAutoPilotLog('generate_images', `Scene ${i + 1}: Flow video worker not available or credits low. Using reference keyframe.`, 'info');
+                addAutoPilotLog('generate_images', `Scene ${i + 1}: Flow video worker is not signed in. Using reference keyframe.`, 'info');
               }
             } catch (videoErr) {
               flowAvailableThisRun = false; addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${videoErr instanceof Error ? videoErr.message : 'Kept reference keyframe'}. Using reference keyframes for subsequent video scenes.`, 'warn');
@@ -1326,7 +1330,7 @@ export default function App() {
           stage: 'plan_motion',
           stageIndex: 6,
           progressPercent: 80,
-          statusMessage: 'Planning documentary images and placement review...',
+          statusMessage: runSettings.graphics.enabled ? 'Preparing optional graphics...' : 'Keeping scene footage clean...',
         }));
       }, supervisorCtx);
 
@@ -1336,7 +1340,7 @@ export default function App() {
       let finalVideoUrl: string | null = startStage >= 8 ? resumeVideoUrl || null : null;
       await executeStage('plan_motion', async () => {
         setTab('review');
-        addAutoPilotLog('plan_motion', 'Directing image compositions, detail highlights and rendered placement review...', 'gemini');
+        addAutoPilotLog('plan_motion', runSettings.graphics.enabled ? 'Checking whether any optional graphics would help this story...' : 'Graphics are off. Keeping scene footage clean.', 'info');
         await checkPauseOrAbort();
 
         currentScript = await reloadCurrentScript(scriptId, controller.signal);
@@ -1350,19 +1354,26 @@ export default function App() {
           try {
             let directed: EditingPayload | null = null;
             if (currentScript.editingProjectId) {
-              try {
-                const existing = await editingRequest<EditingPayload>(fetch, `/projects/${currentScript.editingProjectId}`);
-                if (existing?.project?.status === 'ready') {
+              const existing = await editingRequest<EditingPayload>(fetch, `/projects/${currentScript.editingProjectId}`).catch(() => null);
+              if (existing?.project) {
                   const imageCompositions = existing.project.artifacts?.filter(a => a.enabled && a.graphic?.kind === 'composition')?.length || 0;
                   const inputsMatch = existing.project.inputs?.audioFilename === audioFilename &&
-                    existing.project.inputs?.imageAssets?.length === readyImageIndexes.length;
-                  if (inputsMatch && (!runSettings.graphics.enabled || runSettings.graphics.mode !== 'images' || imageCompositions > 0)) {
+                    existing.project.inputs?.imageAssets?.length === readyImageIndexes.length && !existing.stale;
+                  const failedReview = existing.jobs?.filter(job => job.revisionId === existing.project.revisionId &&
+                    ['generate', 'review', 'revise'].includes(job.operation) && ['failed', 'interrupted'].includes(job.state) &&
+                    /Rendered vision review has not passed|VISUAL_REVIEW_REQUIRED|Rendered typography failed the layout check/i.test(job.error || ''))
+                    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+                  // Generation failures can have valid assets in a checkpoint
+                  // while the published revision is still a draft. Recover that
+                  // job before creating yet another visual project.
+                  if (inputsMatch && failedReview) throw new Error(failedReview.error);
+                  const pendingReviews = existing.project.artifacts.filter(a => a.enabled && a.graphic && a.graphic.kind !== 'caption' && a.visualReview?.status !== 'passed');
+                  if (inputsMatch && existing.project.settings.visualReview && pendingReviews.length)
+                    throw new Error(`Rendered vision review has not passed for ${pendingReviews.length} motion graphic(s). Retry visual review before exporting.`);
+                  if (inputsMatch && ['ready', 'partial'].includes(existing.project.status)) {
                     directed = existing;
                     addAutoPilotLog('plan_motion', `Reusing ${imageCompositions} verified documentary visuals from saved project.`, 'info');
                   }
-                }
-              } catch {
-                // If existing project check fails, create fresh project below
               }
             }
 
@@ -1393,6 +1404,11 @@ export default function App() {
                         visualsComplete = true;
                         if (visualJob.state === 'partial') addAutoPilotLog('plan_motion', 'Some optional visuals were skipped or need review; generation notes are available in Artifacts.', 'warn');
                       } else if (['failed', 'needs_configuration', 'interrupted', 'cancelled'].includes(visualJob.state)) {
+                        if (visualJob.error?.includes('DOCUMENTARY_VISUALS_REQUIRED') || visualJob.error?.includes('no enabled image compositions')) {
+                          addAutoPilotLog('plan_motion', 'Documentary visual overlays skipped; continuing with full scene visual keyframes.', 'info');
+                          visualsComplete = true;
+                          break;
+                        }
                         throw new Error(visualJob.error || `Documentary visuals ${visualJob.state}`);
                       } else {
                         setAutoPilotState(prev => ({ ...prev, statusMessage: visualJob.stage }));
@@ -1409,7 +1425,9 @@ export default function App() {
 
             if (directed?.project?.id) {
               const imageCompositions = directed.project.artifacts.filter(a => a.enabled && a.graphic?.kind === 'composition').length;
-              if (runSettings.graphics.enabled && runSettings.graphics.mode === 'images' && !imageCompositions) throw new Error('Documentary generation returned no image compositions. Text-only completion is blocked.');
+              if (runSettings.graphics.enabled && runSettings.graphics.mode === 'images' && !imageCompositions) {
+                addAutoPilotLog('plan_motion', 'Documentary overlays skipped; proceeding with scene-led visuals.', 'info');
+              }
               if (runSettings.captions === 'motion') {
                 await editingRequest<EditingPayload>(fetch, `/projects/${directed.project.id}/captions`,
                   { expectedRevisionId: directed.project.revisionId });
@@ -1419,7 +1437,20 @@ export default function App() {
                 : 'Motion captions prepared. Documentary motion graphics are switched off in this run’s settings.', runSettings.graphics.enabled ? 'success' : 'info');
             }
           } catch (projErr) {
-            throw projErr;
+            if (isAbortError(projErr)) throw projErr;
+            addAutoPilotLog('plan_motion', `Optional graphics skipped: ${safeErrorMessage(projErr, 'Visual generation was unavailable')}. Continuing with scene footage.`, 'warn');
+            await persistScript(scriptId, { editingProjectId: null });
+            patchScriptState(scriptId, { editingProjectId: undefined });
+            if (runSettings.captions === 'motion') {
+              const captionsProject = await editingRequest<EditingPayload>(fetch, '/projects', {
+                scriptId, audioFilename, language: currentScript.generatedAudio?.[0]?.language || 'en', imageIndexes: readyImageIndexes,
+                aspect: section === 'shorts' ? '9:16' : '16:9', fps: 30,
+                settings: { documentary: false, visualReview: true, stylePreference: '', density: 'subtle', maxGeneratedAssets: 0, maxProviderCalls: 40 },
+              });
+              await editingRequest(fetch, `/projects/${captionsProject.project.id}/captions`, { expectedRevisionId: captionsProject.project.revisionId });
+              await persistScript(scriptId, { editingProjectId: captionsProject.project.id });
+              patchScriptState(scriptId, { editingProjectId: captionsProject.project.id });
+            }
           }
         } else {
           await persistScript(scriptId, { editingProjectId: null });
@@ -1528,7 +1559,7 @@ export default function App() {
         });
         patchScriptState(scriptId, { retentionReview: reviewed.review });
         for (const finding of reviewed.review.findings) addAutoPilotLog('review_retention', `${finding.category}: ${finding.detail}`, finding.severity === 'blocker' ? 'error' : 'info');
-        if (reviewed.review.status !== 'passed') throw new Error(`Final review needs attention: ${reviewed.review.summary}`);
+        if (reviewed.review.status !== 'passed') throw new Error(reviewBlockerMessage(reviewed.review));
         addAutoPilotLog('review_retention', reviewed.review.summary, 'success');
       }
       await checkPauseOrAbort();

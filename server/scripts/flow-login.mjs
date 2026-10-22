@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { readFlowAccount } from './flow-account.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SERVER_ROOT = path.resolve(__dirname, '..');
@@ -64,32 +65,19 @@ async function main() {
   const creditsPath = path.join(path.dirname(profileDir), 'credits.json');
 
   // Monitor in background for account changes while user is browsing
+  let syncing = false;
   const interval = setInterval(async () => {
+    if (syncing) return;
+    syncing = true;
     try {
       if (page.isClosed()) return;
-      const detectedEmail = await page.evaluate(() => {
-        const els = document.querySelectorAll('a, button, [role="button"], [aria-label], [title], [data-identifier], img');
-        for (const el of els) {
-          const text = `${el.getAttribute('aria-label') || ''} ${el.getAttribute('title') || ''} ${el.getAttribute('data-identifier') || ''} ${el.getAttribute('alt') || ''} ${el.textContent || ''}`;
-          const match = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-          if (match && !match[0].includes('w3.org') && !match[0].includes('example.com') && !match[0].includes('google.com/')) {
-            return match[0];
-          }
-        }
-        return null;
-      }).catch(() => null);
-
-      if (detectedEmail && fs.existsSync(creditsPath)) {
-        const current = JSON.parse(fs.readFileSync(creditsPath, 'utf8'));
-        if (current.account !== detectedEmail) {
-          current.account = detectedEmail;
-          current.lastSync = new Date().toISOString();
-          fs.writeFileSync(creditsPath, JSON.stringify(current, null, 2), 'utf8');
-          console.log(`[Account Detected] Switched active Google account to: ${detectedEmail}`);
-        }
+      const snapshot = await readFlowAccount(page);
+      if (snapshot) {
+        fs.writeFileSync(creditsPath, JSON.stringify({ ...snapshot, source: 'flow', lastSync: new Date().toISOString(), costPerVideo: 20 }, null, 2), 'utf8');
+        console.log(`[Flow] Synced ${snapshot.credits} credits for ${snapshot.account}.`);
       }
-    } catch {}
-  }, 3000);
+    } catch {} finally { syncing = false; }
+  }, 10000);
 
   // Wait until user closes the browser
   await new Promise((resolve) => {

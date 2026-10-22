@@ -63,6 +63,19 @@ test("resume retains checkpoints and missing credentials remains recoverable", a
   assert.equal(next.stages["inspecting media"].durationMs, 123);
   assert.equal(next.attempts, 2);
 });
+test('a resumed job gets a bounded new provider allowance while retaining historical usage', async () => {
+  const base = await fixture(), limited = repo.nextRevision(base);
+  limited.settings.maxProviderCalls = 1; repo.publish(limited, base.revisionId);
+  let requests = 0;
+  globalThis.fetch = async () => { requests++; return new Response('Invalid fixture credential', { status: 401 }); };
+  const job = scheduler.enqueue(limited, 'generate', randomUUID(), 'ephemeral-test-key');
+  const first = await waitJob(job.id);
+  assert.equal(first.usage.length, 1); assert.equal(first.state, 'needs_configuration');
+  scheduler.resume(job.id, 'ephemeral-test-key');
+  const second = await waitJob(job.id);
+  assert.equal(second.state, 'needs_configuration');
+  assert.equal(second.usage.length, 2); assert.equal(requests, 2);
+});
 test("cancellation is idempotent and preserves current revision", async () => {
   const j = scheduler.enqueue(p, "generate", randomUUID());
   scheduler.cancel(j.id);

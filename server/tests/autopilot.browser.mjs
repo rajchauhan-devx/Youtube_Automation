@@ -30,6 +30,14 @@ let failExtraction = false;
 let videoOpening = false;
 let changePromptDuringGeneration = false;
 let diagnoses = 0;
+let recoverVisuals = false, visualsRecovered = false, visualCreates = 0, visualResumes = 0;
+const visualError = 'Rendered vision review has not passed for 2 motion graphic(s). Retry visual review before exporting.';
+const visualPayload = () => ({ stale: false, assets: {}, artifactPreviews: {}, revisions: [],
+  project: { id: 'visual-project', revisionId: visualsRecovered ? 'verified' : 'draft', status: visualsRecovered ? 'partial' : 'draft',
+    inputs: { audioFilename: 'fixture.wav', imageAssets: script.generatedImages || [] }, settings: { visualReview: true },
+    artifacts: visualsRecovered ? [{ id: 'graphic', enabled: true, graphic: { kind: 'composition' }, visualReview: { status: 'passed' } }] : [] },
+  jobs: [{ id: 'visual-job', revisionId: 'draft', operation: 'generate', state: visualsRecovered ? 'partial' : 'failed',
+    error: visualsRecovered ? undefined : visualError, updatedAt: '2026-10-21T12:00:00Z' }] });
 const imageCalls = [];
 let audioCalls = 0;
 let renderCalls = 0;
@@ -79,6 +87,11 @@ app.use('/api/accounts/default/profiles/shorts', (req, res) => {
       ...(extractedPlan ? { scenePlan: extractedPlan } : {}) });
   }
   if (req.path === '/supervisor/diagnose') { diagnoses++; return res.json({ recoveryAction: 'retry_stage' }); }
+  if (recoverVisuals && req.path === '/editing/projects') { visualCreates++; return res.json(visualPayload()); }
+  if (recoverVisuals && req.path === '/editing/projects/visual-project') return res.json(visualPayload());
+  if (recoverVisuals && req.path === '/editing/projects/visual-project/generate') return res.json({ jobId: 'visual-job' });
+  if (recoverVisuals && req.path === '/editing/jobs/visual-job/resume') { visualResumes++; visualsRecovered = true; return res.json({ id: 'visual-job', state: 'queued' }); }
+  if (recoverVisuals && req.path === '/editing/jobs/visual-job') return res.json({ state: visualsRecovered ? 'partial' : 'failed', error: visualsRecovered ? undefined : visualError });
   if (req.path === '/generate/image') {
     imageCalls.push(req.body.index);
     if (changePromptDuringGeneration && req.body.index === 1) {
@@ -270,6 +283,23 @@ try {
   assert.equal(uploadRequests.length, beforeRecovery.uploads + 1);
   assert.equal(script.generatedImages[1].prompt, 'The ocean at sunset.');
   assert.ok(script.scenePlan.scenes.every(scene => scene.mediaType === 'image'), 'allowed still fallback reconciles the plan before narration and rendering');
+  await click('Close');
+
+  // Explicitly opt into graphics, then verify a failed optional visual stage
+  // continues with footage rather than repeatedly halting the production.
+  await page.evaluate(() => { localStorage.removeItem('tubeflow:v1:default'); localStorage.setItem('tubeflow:v1', JSON.stringify({ channelId: 'default', section: 'shorts', tab: 'preview', selectedScriptId: 'autopilot-test' })); });
+  await page.reload({ waitUntil: 'networkidle0' });
+  recoverVisuals = true;
+  const beforeVisualRecovery = { diagnoses, uploads: uploadRequests.length };
+  await click('Run Auto-Pilot');
+  await page.click('input[aria-label="Add optional graphics"]');
+  await page.$eval('#run-topic', input => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.click('form:has(#run-topic) button[type="submit"]');
+  await page.waitForFunction(() => document.body.textContent.includes('Production complete! Video exported to YouTube and topic recorded.'), { timeout: 30000 });
+  assert.equal(visualCreates, 1, 'visual recovery must not generate another project');
+  assert.equal(visualResumes, 0, 'optional graphics must not trigger a blocking repair loop');
+  assert.equal(diagnoses, beforeVisualRecovery.diagnoses, 'rendered review errors have deterministic recovery');
+  assert.equal(uploadRequests.length, beforeVisualRecovery.uploads + 1);
   await click('Close');
   await page.click('[aria-label="Profile and voices"]');
   await page.waitForFunction(() => document.body.textContent.includes('70.0% average viewed'), { timeout: 5000 }).catch(async error => {

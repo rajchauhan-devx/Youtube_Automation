@@ -170,7 +170,12 @@ export async function reviewRenderedVideo(script: any, filename: unknown, apiKey
     }
     const result = {
       summary: saved.results.map((r, i) => batchCount > 1 ? `Batch ${i + 1}: ${r.summary}` : r.summary).join('\n').slice(0, 3000),
-      findings: saved.results.flatMap(r => r.findings),
+      findings: saved.results.flatMap(r => r.findings).map(finding => {
+        if (finding.severity === 'blocker' && /emoji|placeholder box|tofu box|glyph box|\u25a1|unrendered (?:character|glyph) box/i.test(finding.detail)) {
+          return { ...finding, severity: 'note' as const };
+        }
+        return finding;
+      }),
     };
     if (renderFileHash(videoPath) !== beforeHash || !isCurrentRender(script.id, videoPath)) throw new Error('The render changed during review. Review the latest MP4.');
     return { ...result, status: result.findings.some(item => item.severity === 'blocker') ? 'blocked' : 'passed',

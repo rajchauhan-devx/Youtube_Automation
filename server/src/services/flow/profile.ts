@@ -28,7 +28,7 @@ export interface FlowStatus {
   headless: boolean;
   creditBudgetPerEpisode: number;
   maxJobs: number;
-  creditsRemaining: number;
+  creditsRemaining: number | null;
   credits: FlowCreditsState;
   note: string;
 }

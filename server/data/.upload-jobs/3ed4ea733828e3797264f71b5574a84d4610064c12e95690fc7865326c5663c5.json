@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "3ed4ea733828e3797264f71b5574a84d4610064c12e95690fc7865326c5663c5",
+  "scriptId": "shorts_images_videos",
+  "videoFilename": "final_daa42fa3-fbfc-466b-b7e2-5234dfdf4e2e.mp4",
+  "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+  "pid": 8546,
+  "owner": "f36ef01b-24c1-48b0-8380-83581f0ee9af",
+  "status": "completed",
+  "startedAt": "2026-10-21T05:41:31.144Z",
+  "updatedAt": "2026-10-21T05:41:35.172Z",
+  "result": {
+    "accountId": "default",
+    "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+    "success": true,
+    "topicHistorySaved": true,
+    "videoId": "_jo1gP1Qjks",
+    "videoUrl": "https://youtu.be/_jo1gP1Qjks",
+    "title": "Why Jatayu Fought Ravana Alone: The Untold Sacrifice",
+    "privacyStatus": "private",
+    "scheduled": false,
+    "uploadedAt": "2026-10-21T05:41:35.158Z"
+  }
+}
