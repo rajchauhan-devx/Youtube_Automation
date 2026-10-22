@@ -35,7 +35,7 @@ google.youtube = ({ auth: client }) => ({
 });
 accounts.atomicJson(auth.CLIENT_SECRET_PATH, { installed: { client_id: 'test-client', client_secret: 'test-secret' } });
 accounts.atomicJson(accounts.tokenPath('default'), { access_token: 'legacy', refresh_token: 'legacy-refresh' });
-const app = express(); app.use(express.json());
+const app = express(); app.use(express.json({ limit: '12mb' }));
 app.use('/api/accounts', accountsRouter);
 app.use('/api/accounts/:accountId/profiles/:profile', workspacesRouter);
 app.use('/api/youtube', youtubeAuthRouter);
@@ -262,11 +262,12 @@ test('clearing an active render waits for cancellation and cannot restore the ol
 });
 
 test('voice libraries belong to a single profile and are shared only inside its account', async () => {
-  const wav = Buffer.alloc(44 + 24000 * 2);
+  const wav = Buffer.alloc(44 + 24000 * 2 * 8);
   wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
   wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
   wav.writeUInt32LE(24000, 24); wav.writeUInt32LE(48000, 28); wav.writeUInt16LE(2, 32);
   wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(wav.length - 44, 40);
+  for (let i = 0; i < 24000 * 8; i++) wav.writeInt16LE(Math.round(6000 * Math.sin(2 * Math.PI * 220 * i / 24000)), 44 + i * 2);
   const dataUrl = `data:audio/wav;base64,${wav.toString('base64')}`;
   const voiceUrl = prefix => `${prefix}/tts/voices`;
   const upload = prefix => request(voiceUrl(prefix), { name: 'Profile narrator', language: 'en', dataUrl });
@@ -293,6 +294,18 @@ test('voice libraries belong to a single profile and are shared only inside its 
   assert.equal((await request(`${voiceUrl(scope(a.id))}/${voice.id}`, undefined, 'DELETE')).status, 200);
   assert.equal(fs.existsSync(stored), false);
   assert.equal((await request(`${voiceUrl(scope(a.id))}/${voice.id}/reference`, undefined, 'GET')).status, 404);
+});
+
+test('Hindi pronunciation corrections are account-scoped, validated and shared with Long Video', async () => {
+  const url = (id, profile = 'shorts') => `${scope(id, profile)}/tts/pronunciations/hi`;
+  const corrections = { ChatGPT: 'चैट जी पी टी' };
+  const saved = await request(url(a.id), { entries: corrections }, 'PUT');
+  assert.equal(saved.status, 200);
+  assert.deepEqual((await saved.json()).entries, corrections);
+  assert.deepEqual((await (await request(url(a.id, 'long'), undefined, 'GET')).json()).entries, corrections);
+  assert.deepEqual((await (await request(url(b.id), undefined, 'GET')).json()).entries, {});
+  assert.equal((await request(url(a.id), { entries: { AI: '[pause 5s]' } }, 'PUT')).status, 400);
+  assert.deepEqual((await (await request(url(a.id), undefined, 'GET')).json()).entries, corrections);
 });
 
 test.after(async () => {

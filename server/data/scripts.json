@@ -108,10 +108,29 @@
     "lastUsed": "Never",
     "aiResponse": "",
     "extractedScript": "",
-    "narration": "",
+    "narration": "नमस्ते दोस्तों! आज की डिजिटल दुनिया में कृत्रिम बुद्धिमत्ता (AI) हमारी भाषा को समझने और बोलने में तेजी से आगे बढ़ रही है। भारत में वर्ष 2026 तक लगभग 45 करोड़ से अधिक लोग हिंदी भाषा का डिजिटल माध्यमों पर उपयोग करेंगे। क्या आप तैयार हैं इस नई तकनीक को अपनी आवाज देने के लिए? कृपया अपना सुझाव नीचे साझा करें।",
     "imagePrompts": [],
     "generatedImages": [],
-    "generatedAudio": [],
+    "generatedAudio": [
+      {
+        "narrationText": "नमस्ते दोस्तों! आज की डिजिटल दुनिया में कृत्रिम बुद्धिमत्ता (AI) हमारी भाषा को समझने और बोलने में तेजी से आगे बढ़ रही है। भारत में वर्ष 2026 तक लगभग 45 करोड़ से अधिक लोग हिंदी भाषा का डिजिटल माध्यमों पर उपयोग करेंगे। क्या आप तैयार हैं इस नई तकनीक को अपनी आवाज देने के लिए? कृपया अपना सुझाव नीचे साझा करें।",
+        "language": "hi",
+        "voice": "clone_0aaabd49-94d9-4ed7-9a40-90886a3042e6",
+        "voiceName": "raju",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/usr_1787934167716/narration_hi_1792659370859.wav",
+        "filename": "narration_hi_1792659370859.wav",
+        "elapsedMs": 82107
+      },
+      {
+        "narrationText": "नमस्ते दोस्तों! आज की डिजिटल दुनिया में कृत्रिम बुद्धिमत्ता (AI) हमारी भाषा को समझने और बोलने में तेजी से आगे बढ़ रही है। भारत में वर्ष 2026 तक लगभग 45 करोड़ से अधिक लोग हिंदी भाषा का डिजिटल माध्यमों पर उपयोग करेंगे। क्या आप तैयार हैं इस नई तकनीक को अपनी आवाज देने के लिए? कृपया अपना सुझाव नीचे साझा करें।",
+        "language": "en",
+        "voice": "builtin",
+        "voiceName": "Chatterbox Natural — English",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/usr_1787934167716/narration_en_1792659280277.wav",
+        "filename": "narration_en_1792659280277.wav",
+        "elapsedMs": 60239
+      }
+    ],
     "pipeline": []
   },
   {
@@ -126,7 +145,7 @@
       }
     ],
     "howItWorks": "Research runs first, then the script extracts assets. Generate or import images, import videos, then generate narration and render a portrait Short. Every image prompt is 70-120 words and every video prompt 90-150 words with a scroll-stopping hook. Turn off Use video imports in Generation for images only.",
-    "duration": 60,
+    "duration": 90,
     "model": "gemini-3.6-flash",
     "locked": false,
     "videoImportsEnabled": true,
@@ -219,15 +238,1140 @@
     },
     "accountId": "default",
     "section": "shorts",
-    "status": "draft",
-    "lastUsed": "Never",
-    "aiResponse": "",
-    "extractedScript": "",
-    "narration": "",
-    "imagePrompts": [],
-    "generatedImages": [],
-    "generatedAudio": [],
-    "pipeline": []
+    "status": "active",
+    "lastUsed": "2026-10-22T10:34:50.990Z",
+    "aiResponse": "### SECTION 1 — SCRIPT & ASSET BLUEPRINT\n\n🎬 SCENE 1 — THE DUALITY OF LANKA\nDuration: 00:00–00:06\nAsset Type: VIDEO\nEmotion: Tension / Curiosity\nVisual Concept: Vibhishana standing at Lanka's colossal golden gates, looking back at the dark glowing fortress before turning toward the stormy ocean.\nCamera/Movement: Slow push-in tracking shot following Vibhishana as he steps toward the cliff edge.\n\nLINE 1:\nText: अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?\nTone: Mysterious / High-Stakes\nOn-Screen Text: देशद्रोही या धर्मरक्षक?\n\n---\n\n🎬 SCENE 2 — THE WAR COUNCIL OF RAVANA\nDuration: 00:06–00:11\nAsset Type: IMAGE\nEmotion: Arrogance / Tension\nVisual Concept: Ravana on his grand obsidian throne surrounded by bloodthirsty demon generals shouting for war.\nCamera/Movement: Static wide establishing frame with high chiaroscuro lighting.\n\nLINE 2:\nText: क्या वे एक देशद्रोही थे, या धर्म के सबसे बड़े रक्षक?\nTone: Thought-Provoking\nOn-Screen Text: सत्य क्या है?\n\n---\n\n🎬 SCENE 3 — VIBHISHANA’S PLEA IN COURT\nDuration: 00:11–00:17\nAsset Type: VIDEO\nEmotion: Moral Courage\nVisual Concept: Vibhishana stepping forward in the middle of the dark assembly hall with folded hands, addressing King Ravana.\nCamera/Movement: Continuous slow pan across the shocked faces of demon ministers ending on Vibhishana's calm face.\n\nLINE 3:\nText: जब रावण ने सीता माता का हरण किया, तो विभीषण ने भरे दरबार में आवाज उठाई।\nTone: Solemn / Truthful\nOn-Screen Text: विभीषण की पुकार\n\n---\n\n🎬 SCENE 4 — THE WARNING OF DESTRUCTION\nDuration: 00:17–00:22\nAsset Type: IMAGE\nEmotion: Dread / Warning\nVisual Concept: Vibhishana pointing toward terrible omens—unquenchable fires and dark clouds hovering over Lanka.\nCamera/Movement: Static medium shot framed through carved obsidian pillars.\n\nLINE 4:\nText: उन्होंने कहा, \"हे राजन, पराई स्त्री का हरण अधर्म है। सीता माता को लौटा दीजिए, वर्ना लंका का सर्वनाश हो जाएगा।\"\nTone: Urgent / Advisory\nOn-Screen Text: अधर्म की चेतावनी\n\n---\n\n🎬 SCENE 5 — RAVANA’S EXPLOSIVE ANGER\nDuration: 00:22–00:28\nAsset Type: VIDEO\nEmotion: Pure Rage\nVisual Concept: Ravana rising from his throne in fury, ten heads looming in dark shadows, slamming his fist down.\nCamera/Movement: Dynamic low-angle tilt up to Ravana's towering, wrathful form as dust and embers rise.\n\nLINE 5:\nText: लेकिन रावण का अहंकार इतना बड़ा था कि उसने सच सुनने से मना कर दिया।\nTone: Dark / Ominous\nOn-Screen Text: अहंकार का अंधकार\n\n---\n\n🎬 SCENE 6 — THE PUBLIC BANISHMENT\nDuration: 00:28–00:33\nAsset Type: IMAGE\nEmotion: Humiliation / Betrayal\nVisual Concept: Ravana aggressively pointing his finger at Vibhishana, publicly banishing him from the royal court.\nCamera/Movement: Static medium close-up highlighting the emotional rift between the brothers.\n\nLINE 6:\nText: रावण ने विभीषण को कायर और गद्दार कहकर लात मारी और दरबार से निकाल दिया।\nTone: Harsh / Pained\nOn-Screen Text: अपमान और निष्कासन\n\n---\n\n🎬 SCENE 7 — THE ETHICAL CHOICE\nDuration: 00:33–00:39\nAsset Type: VIDEO\nEmotion: Resolve / Moral Duty\nVisual Concept: Vibhishana standing on a high cliff edge, removing his royal neck ornaments and turning his back on Lanka.\nCamera/Movement: Slow camera pedestal drop showing Vibhishana dropping royal jewels to the ground.\n\nLINE 7:\nText: विभीषण के पास दो रास्ते थे—या तो अपने अधर्मी भाई का साथ दें, या धर्म का मार्ग चुनें।\nTone: Deep / Philosophical\nOn-Screen Text: धर्म या परिवार?\n\n---\n\n🎬 SCENE 8 — FLIGHT ACROSS THE OCEAN\nDuration: 00:39–00:44\nAsset Type: IMAGE\nEmotion: Awe / Flight\nVisual Concept: Vibhishana flying through sky alongside his four faithful ministers above churning ocean waves.\nCamera/Movement: Static wide landscape frame with clouds sweeping across atmospheric sky.\n\nLINE 8:\nText: उन्होंने धर्म को चुना। वे अपने चार वफादार मंत्रियों के साथ लंका छोड़कर समुद्र पार कर गए।\nTone: Heroic / Decisive\nOn-Screen Text: समुद्र पार प्रस्थान\n\n---\n\n🎬 SCENE 9 — ARRIVAL AT RAMA’S CAMP\nDuration: 00:44–00:50\nAsset Type: VIDEO\nEmotion: Suspicion / Tension\nVisual Concept: Vibhishana landing gently on the sandy beach of Mount Mahendra while Vanara warriors raise weapons in defensive posture.\nCamera/Movement: Smooth forward tracking shot moving behind Vanara warriors as Vibhishana kneels.\n\nLINE 9:\nText: जब वे श्री राम के शिविर पहुंचे, तो वानर सेना ने उन्हें रावण का जासूस समझा।\nTone: Tense / Suspicious\nOn-Screen Text: वानर सेना का संदेह\n\n---\n\n🎬 SCENE 10 — SUGRIVA’S WARNING\nDuration: 00:50–00:55\nAsset Type: IMAGE\nEmotion: Caution\nVisual Concept: King Sugriva warning Shri Rama with raised hands, counseling extreme caution against the enemy prince.\nCamera/Movement: Static medium dialogue shot over Sugriva's shoulder toward Shri Rama.\n\nLINE 10:\nText: सुग्रीव ने श्री राम को चेतावनी दी कि शत्रु के भाई पर भरोसा करना खतरनाक हो सकता है।\nTone: Serious / Guarded\nOn-Screen Text: सुग्रीव की सलाह\n\n---\n\n🎬 SCENE 11 — HANUMAN’S ADVOCACY\nDuration: 00:55–01:01\nAsset Type: VIDEO\nEmotion: Truth / Devotion\nVisual Concept: Hanuman stepping forward with folded hands, testifying to Vibhishana's noble heart and devotion.\nCamera/Movement: Slow push-in on Hanuman's compassionate eyes and humble posture.\n\nLINE 11:\nText: लेकिन हनुमान जी आगे आए। उन्होंने कहा, \"विभीषण का मन पवित्र है, वे शरण मांगने आए हैं।\"\nTone: Warm / Respectful\nOn-Screen Text: हनुमान जी की गवाही\n\n---\n\n🎬 SCENE 12 — THE DIVINE SHARANAGATI VOW\nDuration: 00:01:01–01:07\nAsset Type: IMAGE\nEmotion: Divine Grace\nVisual Concept: Shri Rama standing majestic with bow Kodanda, smiling warmly and extending his hand in protection.\nCamera/Movement: Static majestic portrait with divine golden light radiating around Shri Rama.\n\nLINE 12:\nText: श्री राम ने अपनी अमर प्रतिज्ञा ली— \"जो भी प्रेम और सच्ची नीयत से मेरी शरण में आता है, मैं उसे कभी नहीं त्यागता।\"\nTone: Majestic / Compassionate\nOn-Screen Text: अभय वचन\n\n---\n\n🎬 SCENE 13 — THE PRE-WAR CORONATION\nDuration: 01:07–01:13\nAsset Type: VIDEO\nEmotion: Triump / Justice\nVisual Concept: Lakshmana pouring holy ocean water from a golden vessel over Vibhishana's head in a royal coronation ceremony on the beach.\nCamera/Movement: Slow tilt down following the flow of sacred water glinting in golden sunlight.\n\nLINE 13:\nText: युद्ध शुरू होने से पहले ही, श्री राम ने विभीषण को लंका का अगला राजा घोषित कर दिया।\nTone: Exalted / Victorious\nOn-Screen Text: लंकापति विभीषण\n\n---\n\n🎬 SCENE 14 — DEVOTIONAL BOND\nDuration: 01:13–01:18\nAsset Type: IMAGE\nEmotion: Deep Devotion / Peace\nVisual Concept: Vibhishana touching Shri Rama's lotus feet while Shri Rama gently lifts him into a warm brotherly embrace.\nCamera/Movement: Static low-angle devotional frame with soft atmospheric haze.\n\nLINE 14:\nText: विभीषण ने लंका का सिंहासन नहीं चाहा था, वे केवल धर्म के साथ खड़े होना चाहते थे।\nTone: Heartfelt / Spiritual\nOn-Screen Text: निस्वार्थ भक्ति\n\n---\n\n🎬 SCENE 15 — TRAITOR OR DEFENDER OF DHARMA?\nDuration: 01:18–01:24\nAsset Type: VIDEO\nEmotion: Philosophical Resolution\nVisual Concept: Vibhishana looking over the ocean toward Lanka, framed between dark stormy clouds and divine golden sky.\nCamera/Movement: Slow orbital camera move around Vibhishana as sunlight breaks through dark ocean storm clouds.\n\nLINE 15:\nText: वाल्मीकि रामायण सिखाती है कि जब परिवार या राजा अधर्म पर चल पड़े, तो धर्म का साथ देना ही सच्ची राष्ट्रभक्ति है।\nTone: Inspiring / Resonant\nOn-Screen Text: धर्म ही सर्वोपरि\n\n---\n\n🎬 SCENE 16 — FINAL BLESSING & CTA\nDuration: 01:24–01:30\nAsset Type: IMAGE\nEmotion: Reverence\nVisual Concept: Majestic composition of Shri Rama and Vibhishana standing together on the beach in sacred sunrise light.\nCamera/Movement: Static wide heroic closing shot.\n\nLINE 16:\nText: विभीषण गद्दार नहीं, धर्म के सच्चे रक्षक थे। जय श्री राम! चैनल को सब्सक्राइब करें।\nTone: Devotional / Inviting\nOn-Screen Text: जय श्री राम 🙏\n\n---\n\n### SECTION 2 — TIMESTAMPS FOR EDITOR SYNC\n\n- `00:00–00:06`: अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?\n- `00:06–00:11`: क्या वे एक देशद्रोही थे, या धर्म के सबसे बड़े रक्षक?\n- `00:11–00:17`: जब रावण ने सीता माता का हरण किया, तो विभीषण ने भरे दरबार में आवाज उठाई।\n- `00:17–00:22`: उन्होंने कहा, \"हे राजन, पराई स्त्री का हरण अधर्म है। सीता माता को लौटा दीजिए, वर्ना लंका का सर्वनाश हो जाएगा।\"\n- `00:22–00:28`: लेकिन रावण का अहंकार इतना बड़ा था कि उसने सच सुनने से मना कर दिया।\n- `00:28–00:33`: रावण ने विभीषण को कायर और गद्दार कहकर लात मारी और दरबार से निकाल दिया।\n- `00:33–00:39`: विभीषण के पास दो रास्ते थे—या तो अपने अधर्मी भाई का साथ दें, या धर्म का मार्ग चुनें।\n- `00:39–00:44`: उन्होंने धर्म को चुना। वे अपने चार वफादार मंत्रियों के साथ लंका छोड़कर समुद्र पार कर गए।\n- `00:44–00:50`: जब वे श्री राम के शिविर पहुंचे, तो वानर सेना ने उन्हें रावण का जासूस समझा।\n- `00:50–00:55`: सुग्रीव ने श्री राम को चेतावनी दी कि शत्रु के भाई पर भरोसा करना खतरनाक हो सकता है।\n- `00:55–01:01`: लेकिन हनुमान जी आगे आए। उन्होंने कहा, \"विभीषण का मन पवित्र है, वे शरण मांगने आए हैं।\"\n- `01:01–01:07`: श्री राम ने अपनी अमर प्रतिज्ञा ली— \"जो भी प्रेम और सच्ची नीयत से मेरी शरण में आता है, मैं उसे कभी नहीं त्यागता।\"\n- `01:07–01:13`: युद्ध शुरू होने से पहले ही, श्री राम ने विभीषण को लंका का अगला राजा घोषित कर दिया।\n- `01:13–01:18`: विभीषण ने लंका का सिंहासन नहीं चाहा था, वे केवल धर्म के साथ खड़े होना चाहते थे।\n- `01:18–01:24`: वाल्मीकि रामायण सिखाती है कि जब परिवार या राजा अधर्म पर चल पड़े, तो धर्म का साथ देना ही सच्ची राष्ट्रभक्ति है।\n- `01:24–01:30`: विभीषण गद्दार नहीं, धर्म के सच्चे रक्षक थे। जय श्री राम! चैनल को सब्सक्राइब करें।\n\n---\n\n### SECTION 2B — ELEVENLABS VOICED SCRIPT (PASTE-READY)\n\n<script>\nअपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?\n\n(break)\n\nक्या वे एक देशद्रोही थे, या धर्म के सबसे बड़े रक्षक? जब रावण ने सीता माता का हरण किया, तो विभीषण ने भरे दरबार में आवाज उठाई।\n\n(break)\n\nउन्होंने कहा, \"हे राजन, पराई स्त्री का हरण अधर्म है। सीता माता को लौटा दीजिए, वर्ना लंका का सर्वनाश हो जाएगा।\" लेकिन रावण का अहंकार इतना बड़ा था कि उसने सच सुनने से मना कर दिया।\n\n(break)\n\nरावण ने विभीषण को कायर और गद्दार कहकर लात मारी और दरबार से निकाल दिया। विभीषण के पास दो रास्ते थे—या तो अपने अधर्मी भाई का साथ दें, या धर्म का मार्ग चुनें।\n\n(break)\n\nउन्होंने धर्म को चुना। वे अपने चार वफादार मंत्रियों के साथ लंका छोड़कर समुद्र पार कर गए। जब वे श्री राम के शिविर पहुंचे, तो वानर सेना ने उन्हें रावण का जासूस समझा।\n\n(break)\n\nसुग्रीव ने श्री राम को चेतावनी दी कि शत्रु के भाई पर भरोसा करना खतरनाक हो सकता है। लेकिन हनुमान जी आगे आए। उन्होंने कहा, \"विभीषण का मन पवित्र है, वे शरण मांगने आए हैं।\"\n\n(break)\n\nश्री राम ने अपनी अमर प्रतिज्ञा ली— \"जो भी प्रेम और सच्ची नीयत से मेरी शरण में आता है, मैं उसे कभी नहीं त्यागता।\" युद्ध शुरू होने से पहले ही, श्री राम ने विभीषण को लंका का अगला राजा घोषित कर दिया।\n\n(break)\n\nविभीषण ने लंका का सिंहासन नहीं चाहा था, वे केवल धर्म के साथ खड़े होना चाहते थे। वाल्मीकि रामायण सिखाती है कि जब परिवार या राजा अधर्म पर चल पड़े, तो धर्म का साथ देना ही सच्ची राष्ट्रभक्ति है।\n\n(break)\n\nविभीषण गद्दार नहीं, धर्म के सच्चे रक्षक थे। जय श्री राम! चैनल को सब्सक्राइब करें।\n</script>\n\n---\n\n### SECTION 3 — VISUAL GENERATION PROMPTS\n\n<image_prompt0>\n#image 0\nASSET: THUMBNAIL\nPrompt:\nA dramatic split-lighting landscape 16:9 thumbnail depicting Vibhishana standing at a moral crossroad. On the left half, dark ominous shadows over Ravana's glowing golden palace court in Lanka, with fiery red braziers and demonic archways. On the right half, Vibhishana facing toward the ocean looking at Shri Rama's distant army camp bathed in radiant divine golden light. Vibhishana is a tall noble Rakshasa prince with refined facial features, wearing a dark gold silk antariya, golden crown, chest armor, with tears of devotion in his eyes. Extreme character focus, high contrast chiaroscuro lighting, asymmetric rule of thirds framing, deep narrative space.\nCharacter Consistency:\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, camera jitter.\nTHUMBNAIL TEXT: देशद्रोही या धर्मरक्षक?\n</image_prompt0>\n\n<video_prompt1>\n#video 1\nTIMELINE: 00:00–00:06\nASSET TYPE: VIDEO CLIP (OPENING HOOK)\nSCENE: The Duality of Lanka\nPrompt:\nA majestic continuous cinematic shot in Treta Yuga setting. Vibhishana stands atop a rocky cliff edge at the colossal golden sea gates of Lanka. Lanka's dark stone towers behind him glow with fiery red oil torches under a stormy night sky. Vibhishana slowly turns his head away from the burning city, looking down toward the dark, churning ocean waves crashing against jagged sea cliffs below. He takes one slow, heavy step forward toward the edge. Atmospheric sea mist, dark bronze lighting, high dynamic cinematic motion. Smooth camera push-in.\nCharacter Consistency:\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion.\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth camera motion, stable ending frame, no text.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, camera jitter.\n</video_prompt1>\n\n<image_prompt2>\n#image 2\nTIMELINE: 00:06–00:11\nASSET TYPE: STATIC IMAGE\nSCENE: The War Council of Ravana\nPrompt:\nInside the grand court assembly hall (Sabha) of Lanka. Ravana sits on an elevated black stone and gold throne carved with demon motifs. Surrounding him are muscular Rakshasa military commanders shouting aggressively, waving ancient spears and swords. Fiery crimson lighting from massive bronze braziers casts long dramatic shadows across stone carved pillars. Treta Yuga Vedic mythic architecture, intense high-contrast cinematic realism, deep focus framing.\nCharacter Consistency:\nRavana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads in wide shot, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, multiple armed weapons, Expression: Regal arrogance, unyielding pride, formidable authority.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.\n</image_prompt2>\n\n<video_prompt3>\n#video 3\nTIMELINE: 00:11–00:17\nASSET TYPE: VIDEO CLIP\nSCENE: Vibhishana's Plea in Court\nPrompt:\nA wide continuous tracking shot through the court of Lanka. Vibhishana steps forward from the crowd of rowdy generals into the center aisle. He folds his hands in a calm, dignified gesture, addressing King Ravana on his throne. The surrounding demon ministers slowly turn their heads in shock and disapproval as Vibhishana stands solitary in his moral conviction under ambient golden light from oil lamps hanging above.\nCharacter Consistency:\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion.\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth camera panning, stable terminal frame, no text.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, flickering.\n</video_prompt3>\n\n<image_prompt4>\n#image 4\nTIMELINE: 00:17–00:22\nASSET TYPE: STATIC IMAGE\nSCENE: The Warning of Destruction\nPrompt:\nMedium shot of Vibhishana in Ravana's court pointing out toward the balcony, where ominous black storm clouds and supernatural unquenchable red fires burn in Lanka's distant towers. Vibhishana speaks with earnest concern, his face expressing deep grief and moral righteousness. High tension composition framed through carved obsidian pillars with atmospheric smoke and embers.\nCharacter Consistency:\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.\n</image_prompt4>\n\n<video_prompt5>\n#video 5\nTIMELINE: 00:22–00:28\nASSET TYPE: VIDEO CLIP\nSCENE: Ravana's Explosive Anger\nPrompt:\nA dynamic low-angle video shot. Ravana violently rises from his elevated golden throne in extreme fury. His central head roars in anger while nine dark shadowy heads loom behind him. He slams his armored fist onto the throne rest, causing golden dust and fiery embers to rise around him. Shadows twist across the black stone walls of the royal court as he glares downward at Vibhishana.\nCharacter Consistency:\nRavana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, Expression: Regal arrogance, unyielding pride, formidable authority — never cartoonish.\nTemporal Constraints:\nNo cuts, single motion, no morphing faces, no flickering, stable camera move, continuous lighting.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</video_prompt5>\n\n<image_prompt6>\n#image 6\nTIMELINE: 00:28–00:33\nASSET TYPE: STATIC IMAGE\nSCENE: The Public Banishment\nPrompt:\nA dramatic high-contrast medium shot. Ravana points a harsh, commanding finger down toward Vibhishana, his face twisted in intense arrogance and anger. Vibhishana stands in the lower foreground, his head slightly lowered in sorrow but his posture firm as he is verbally kicked out and banished from the royal hall. Intense shadow play, blood-red and gold color palette, Treta Yuga grand palace interior.\nCharacter Consistency:\nRavana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: dominant majestic central head, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crown, Expression: Regal arrogance, unyielding pride.\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</image_prompt6>\n\n<video_prompt7>\n#video 7\nTIMELINE: 00:33–00:39\nASSET TYPE: VIDEO CLIP\nSCENE: The Ethical Choice\nPrompt:\nA poignant slow pedestal-down camera shot. Vibhishana stands alone on a cliff edge overlooking the stormy sea outside Lanka. With a solemn expression, he unclasps a heavy gold royal necklace and lets it drop to the stone floor at his feet. He turns his body away from Lanka toward the glowing horizon of the open ocean, taking a deep breath of resolve.\nCharacter Consistency:\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion.\nTemporal Constraints:\nNo cuts, continuous motion, no face shifting, smooth falling action of jewelry, clean final frame.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</video_prompt7>\n\n<image_prompt8>\n#image 8\nTIMELINE: 00:39–00:44\nASSET TYPE: STATIC IMAGE\nSCENE: Flight Across the Ocean\nPrompt:\nWide epic cinematic view of the night sky over a churning dark ocean. Vibhishana and his four loyal Rakshasa ministers (Anala, Sharabha, Sampati, Praghasa) fly through the storm clouds toward the mainland. Divine wind pulls their royal capes and silk antariyas. Moonlight cuts through breaking storm clouds, illuminating their path with ethereal silver light.\nCharacter Consistency:\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</image_prompt8>\n\n<video_prompt9>\n#video 9\nTIMELINE: 00:44–00:50\nASSET TYPE: VIDEO CLIP\nSCENE: Arrival at Rama's Camp\nPrompt:\nA low-angle forward tracking shot on the sandy beach shore of Mount Mahendra. Vibhishana and his four ministers descend from the sky and land gently on white sand. In the foreground, Vanara warriors step back in alert surprise, raising wooden bows and spears defensively. Vibhishana immediately kneels down on one knee, extending his empty palms outward in peace and total surrender.\nCharacter Consistency:\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion.\nTemporal Constraints:\nNo cuts, smooth landing motion, continuous camera tracking, stable final frame.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</video_prompt9>\n\n<image_prompt10>\n#image 10\nTIMELINE: 00:50–00:55\nASSET TYPE: STATIC IMAGE\nSCENE: Sugriva's Warning\nPrompt:\nOver-the-shoulder medium shot facing Shri Rama. Sugriva, the formidable Vanara king with golden fur and royal ornaments, stands beside Shri Rama pointing toward Vibhishana on the distant beach. Sugriva speaks with an urgent, guarded expression, warning Rama that Vibhishana might be a deceptive spy sent by Ravana. Warm morning beach sunlight, tropical palm leaves in background.\nCharacter Consistency:\nRama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, Hair: Long black hair tied in an ascetic knot, Attire: Ochre bark-cloth dhoti, no crown, bow and quiver, Expression: Serene, divine majesty.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</image_prompt10>\n\n<video_prompt11>\n#video 11\nTIMELINE: 00:55–01:01\nASSET TYPE: VIDEO CLIP\nSCENE: Hanuman's Advocacy\nPrompt:\nA slow camera push-in on Hanuman standing in the shore council circle. Hanuman folds his golden furred hands together reverently, speaking to Shri Rama with humble, intelligent eyes. He gestures gently toward Vibhishana, testifying with deep conviction about Vibhishana's pure intention, virtuous speech, and devotion to righteousness observed in Lanka. Warm sunrise glints on Hanuman's golden fur.\nCharacter Consistency:\nHanuman: Form: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, Attire: Simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), Expression: Deep devotional surrender, awe-inspiring strength, humble eyes.\nTemporal Constraints:\nNo cuts, single continuous motion, no face drift, stable terminal frame.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</video_prompt11>\n\n<image_prompt12>\n#image 12\nTIMELINE: 01:01–01:07\nASSET TYPE: STATIC IMAGE\nSCENE: The Divine Sharanagati Vow\nPrompt:\nA breathtaking portrait of Shri Rama standing on the coastal shore. Shri Rama has a deep blue-dark complexion (\"shyama varna\"), long black hair in an ascetic knot, wearing saffron bark-cloth. He holds his legendary bow Kodanda in one hand while raising his right hand in the Abhaya Mudra gesture of divine protection. A soft celestial golden aura surrounds him as he smiles compassionately, making his sacred vow of refuge.\nCharacter Consistency:\nRama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, never light or fair, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, long arms, Hair: Long black hair tied in an ascetic knot, Attire: Ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, Expression: Dignified, compassionate, serene, divine majesty.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</image_prompt12>\n\n<video_prompt13>\n#video 13\nTIMELINE: 01:07–01:13\nASSET TYPE: VIDEO CLIP\nSCENE: The Pre-War Coronation\nPrompt:\nA slow vertical camera tilt down. Lakshmana pours sacred ocean water from an ornate golden vessel over the bowed head of Vibhishana in a ritual coronation ceremony on the beach. Water droplets glint like liquid gold under bright morning sunlight as water flows down Vibhishana's forehead and chest armor. Shri Rama stands nearby looking on with a serene, royal smile.\nCharacter Consistency:\nRama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Long black hair tied in an ascetic knot, Attire: Saffron bark-cloth dhoti, Expression: Dignified, compassionate, serene.\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, expression radiating calm conviction and deep devotion.\nTemporal Constraints:\nNo cuts, continuous fluid water motion, smooth camera tilt, stable end frame.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</video_prompt13>\n\n<image_prompt14>\n#image 14\nTIMELINE: 01:13–01:18\nASSET TYPE: STATIC IMAGE\nSCENE: Devotional Bond\nPrompt:\nLow-angle emotional devotional shot. Vibhishana bows deeply, touching the lotus feet of Shri Rama on the ocean beach. Shri Rama, with deep blue-dark skin, gently reaches down with long arms to lift Vibhishana up into a warm, brotherly embrace. Golden rays of sunlight filter through beach palm leaves, casting a sacred warm glow over the emotional scene.\nCharacter Consistency:\nRama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm eyes, Body: Tall, broad shoulders, long arms reaching knees, Hair: Long black hair in an ascetic knot, Attire: Ochre bark-cloth dhoti, Expression: Dignified, compassionate, serene.\nVibhishana: Tall, noble Rakshasa prince with refined facial features, wearing royal silk antariya, chest armor plate, expression radiating devotional surrender and deep peace.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</image_prompt14>\n\n<video_prompt15>\n#video 15\nTIMELINE: 01:18–01:24\nASSET TYPE: VIDEO CLIP\nSCENE: Traitor or Defender of Dharma?\nPrompt:\nA cinematic orbital 360 camera move around Vibhishana as he stands majestically on the rocky coastline. On the left side of the frame, dark stormy clouds hover over distant Lanka in the ocean mist. On the right side, bright golden divine sunlight breaks through the clouds, illuminating Vibhishana's face with serene moral clarity and righteous strength as his red and gold antariya sways in the wind.\nCharacter Consistency:\nVibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral victory, and deep devotion.\nTemporal Constraints:\nNo cuts, smooth camera orbit, stable terminal composition, no face warping.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</video_prompt15>\n\n<image_prompt16>\n#image 16\nTIMELINE: 01:24–01:30\nASSET TYPE: STATIC IMAGE\nSCENE: Final Blessing & CTA\nPrompt:\nA majestic wide closing image. Shri Rama (with deep blue-dark skin, in saffron bark-cloth with bow Kodanda) and Vibhishana stand side by side on the coastal shore at sunrise, looking out towards the ocean path (Ram Setu region). Surrounding them in reverence are Lakshmana, Hanuman, and Sugriva under a brilliant golden-orange Treta Yuga dawn sky. Divine, peaceful, heroic atmospheric composition.\nCharacter Consistency:\nRama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Ascetic knot, Attire: Ochre bark-cloth, bow Kodanda, Expression: Serene divine majesty.\nVibhishana: Tall, noble Rakshasa prince, wearing royal silk antariya, gold crown, chest armor plate, Expression: Calm conviction and devotion.\nHanuman: Golden furred Vanara warrior in sacred loincloth, hands folded reverently.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.\n</image_prompt16>\n\n---\n\n### SECTION 4 — HINDI TEXT OVERLAYS\n\n- **Thumbnail Text**: देशद्रोही या धर्मरक्षक?\n- **Opening Frame Text**: विभीषण का धर्मसंकट\n- **Scene Lower-Thirds**:\n  - `00:11`: लंका राजसभा\n  - `00:33`: धर्म का चुनाव\n  - `01:01`: श्री राम का अभय दान\n  - `01:07`: लंकापति विभीषण\n- **Follow Frame Text**: ❤️ लाइक करें | 💬 कमेंट — जय श्री राम 🙏 | 🔔 जुड़े रहें\n- **End Card Text**: जय श्री राम 🙏\n\n---\n\n### SECTION 5 — THE REFLECTION ENGINE\n\n> **\"जब परिवार या देश का राजा अधर्म का रास्ता चुन ले, तो क्या धर्म का साथ देना सही है या अपनों का? आपकी क्या राय है, कमेंट्स में ज़रूर बताएं। जय श्री राम!\"**",
+    "extractedScript": "अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?\n\nलंका जलने के बाद, रावण ने अपनी राजसभा में युद्ध की रणनीति बनाने के लिए सभी सेनापतियों को बुलाया।\n\nजहाँ सभी राक्षस युद्ध की हुंकार भर रहे थे, वहीं विभीषण हाथ जोड़कर खड़े हुए।\n\nउन्होंने निडर होकर कहा, 'हे राजन, पराई स्त्री का हरण अधर्म है। सीता जी को आदर सहित लौटा दीजिए, वरना लंका का सर्वनाश निश्चित है।'\n\nअहंकार में अंधे रावण ने सत्य सुनने से इनकार कर दिया और विभीषण को कायर कह दिया।\n\nजब राजा अधर्म पर अड़ जाए, तो क्या कुल की रक्षा के नाम पर उसका साथ देना सही है?\n\nविभीषण ने भाई के मोह के ऊपर धर्म को चुना और लंका का त्याग कर दिया।\n\nवे अपने चार मंत्रियों—अनिल, शरभ, सम्पाती और प्रघस के साथ समुद्र पार कर श्री राम की खोज में निकले।\n\nसमुद्र तट पर पहुंचते ही वानर सेना ने शस्त्र उठा लिए, उन्हें रावण का गुप्तचर समझा गया।\n\nसुग्रीव ने चेतावनी दी कि शत्रु के भाई पर भरोसा करना भयानक भूल हो सकती है।\n\nलेकिन हनुमान जी ने गवाही दी कि विभीषण का मन कपट से मुक्त और धर्म में स्थिर है।\n\nतब श्री राम ने अपनी प्रसिद्ध प्रतिज्ञा ली—'जो भी एक बार मेरी शरण में आता है, मैं उसे अभय दान देता हूँ।'\n\nयुद्ध आरंभ होने से पहले ही, श्री राम ने समुद्र जल से विभीषण का लंकापति के रूप में राज्याभिषेक कर दिया।\n\nविभीषण सिंहासन नहीं, केवल सत्य का पक्ष चाहते थे। वाल्मीकि रामायण के अनुसार, वे देशद्रोही नहीं, धर्म के सच्चे रक्षक थे।\n\nजब राजा या परिवार अधर्म चुने, तो धर्म के साथ खड़े होना ही सर्वोच्च कर्तव्य है।\n\nजय श्री राम! धर्म की रक्षा के लिए चैनल से जुड़े रहें।",
+    "narration": "अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?\n\nलंका जलने के बाद, रावण ने अपनी राजसभा में युद्ध की रणनीति बनाने के लिए सभी सेनापतियों को बुलाया।\n\nजहाँ सभी राक्षस युद्ध की हुंकार भर रहे थे, वहीं विभीषण हाथ जोड़कर खड़े हुए।\n\nउन्होंने निडर होकर कहा, 'हे राजन, पराई स्त्री का हरण अधर्म है। सीता जी को आदर सहित लौटा दीजिए, वरना लंका का सर्वनाश निश्चित है।'\n\nअहंकार में अंधे रावण ने सत्य सुनने से इनकार कर दिया और विभीषण को कायर कह दिया।\n\nजब राजा अधर्म पर अड़ जाए, तो क्या कुल की रक्षा के नाम पर उसका साथ देना सही है?\n\nविभीषण ने भाई के मोह के ऊपर धर्म को चुना और लंका का त्याग कर दिया।\n\nवे अपने चार मंत्रियों—अनिल, शरभ, सम्पाती और प्रघस के साथ समुद्र पार कर श्री राम की खोज में निकले।\n\nसमुद्र तट पर पहुंचते ही वानर सेना ने शस्त्र उठा लिए, उन्हें रावण का गुप्तचर समझा गया।\n\nसुग्रीव ने चेतावनी दी कि शत्रु के भाई पर भरोसा करना भयानक भूल हो सकती है।\n\nलेकिन हनुमान जी ने गवाही दी कि विभीषण का मन कपट से मुक्त और धर्म में स्थिर है।\n\nतब श्री राम ने अपनी प्रसिद्ध प्रतिज्ञा ली—'जो भी एक बार मेरी शरण में आता है, मैं उसे अभय दान देता हूँ।'\n\nयुद्ध आरंभ होने से पहले ही, श्री राम ने समुद्र जल से विभीषण का लंकापति के रूप में राज्याभिषेक कर दिया।\n\nविभीषण सिंहासन नहीं, केवल सत्य का पक्ष चाहते थे। वाल्मीकि रामायण के अनुसार, वे देशद्रोही नहीं, धर्म के सच्चे रक्षक थे।\n\nजब राजा या परिवार अधर्म चुने, तो धर्म के साथ खड़े होना ही सर्वोच्च कर्तव्य है।\n\nजय श्री राम! धर्म की रक्षा के लिए चैनल से जुड़े रहें।",
+    "imagePrompts": [
+      "A majestic continuous cinematic shot in Treta Yuga setting. Vibhishana stands atop a rocky cliff edge at the colossal golden sea gates of Lanka. Lanka's dark stone towers behind him glow with fiery red oil torches under a stormy night sky. Vibhishana slowly turns his head away from the burning city, looking down toward the dark, churning ocean waves crashing against jagged sea cliffs below. He takes one slow, heavy step forward toward the edge. Atmospheric sea mist, dark bronze lighting, high dynamic cinematic motion. Smooth camera push-in. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera motion, stable ending frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, camera jitter.",
+      "Inside the grand court assembly hall (Sabha) of Lanka. Ravana sits on an elevated black stone and gold throne carved with demon motifs. Surrounding him are muscular Rakshasa military commanders shouting aggressively, waving ancient spears and swords. Fiery crimson lighting from massive bronze braziers casts long dramatic shadows across stone carved pillars. Treta Yuga Vedic mythic architecture, intense high-contrast cinematic realism, deep focus framing. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads in wide shot, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, multiple armed weapons, Expression: Regal arrogance, unyielding pride, formidable authority. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+      "A wide continuous tracking shot through the court of Lanka. Vibhishana steps forward from the crowd of rowdy generals into the center aisle. He folds his hands in a calm, dignified gesture, addressing King Ravana on his throne. The surrounding demon ministers slowly turn their heads in shock and disapproval as Vibhishana stands solitary in his moral conviction under ambient golden light from oil lamps hanging above. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera panning, stable terminal frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, flickering.",
+      "Medium shot of Vibhishana in Ravana's court pointing out toward the balcony, where ominous black storm clouds and supernatural unquenchable red fires burn in Lanka's distant towers. Vibhishana speaks with earnest concern, his face expressing deep grief and moral righteousness. High tension composition framed through carved obsidian pillars with atmospheric smoke and embers. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+      "A dynamic low-angle video shot. Ravana violently rises from his elevated golden throne in extreme fury. His central head roars in anger while nine dark shadowy heads loom behind him. He slams his armored fist onto the throne rest, causing golden dust and fiery embers to rise around him. Shadows twist across the black stone walls of the royal court as he glares downward at Vibhishana. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, Expression: Regal arrogance, unyielding pride, formidable authority — never cartoonish. Temporal Constraints: No cuts, single motion, no morphing faces, no flickering, stable camera move, continuous lighting. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "A dramatic high-contrast medium shot. Ravana points a harsh, commanding finger down toward Vibhishana, his face twisted in intense arrogance and anger. Vibhishana stands in the lower foreground, his head slightly lowered in sorrow but his posture firm as he is verbally kicked out and banished from the royal hall. Intense shadow play, blood-red and gold color palette, Treta Yuga grand palace interior. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: dominant majestic central head, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crown, Expression: Regal arrogance, unyielding pride. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "A poignant slow pedestal-down camera shot. Vibhishana stands alone on a cliff edge overlooking the stormy sea outside Lanka. With a solemn expression, he unclasps a heavy gold royal necklace and lets it drop to the stone floor at his feet. He turns his body away from Lanka toward the glowing horizon of the open ocean, taking a deep breath of resolve. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, continuous motion, no face shifting, smooth falling action of jewelry, clean final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "Wide epic cinematic view of the night sky over a churning dark ocean. Vibhishana and his four loyal Rakshasa ministers (Anala, Sharabha, Sampati, Praghasa) fly through the storm clouds toward the mainland. Divine wind pulls their royal capes and silk antariyas. Moonlight cuts through breaking storm clouds, illuminating their path with ethereal silver light. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "A low-angle forward tracking shot on the sandy beach shore of Mount Mahendra. Vibhishana and his four ministers descend from the sky and land gently on white sand. In the foreground, Vanara warriors step back in alert surprise, raising wooden bows and spears defensively. Vibhishana immediately kneels down on one knee, extending his empty palms outward in peace and total surrender. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, smooth landing motion, continuous camera tracking, stable final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "Over-the-shoulder medium shot facing Shri Rama. Sugriva, the formidable Vanara king with golden fur and royal ornaments, stands beside Shri Rama pointing toward Vibhishana on the distant beach. Sugriva speaks with an urgent, guarded expression, warning Rama that Vibhishana might be a deceptive spy sent by Ravana. Warm morning beach sunlight, tropical palm leaves in background. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, Hair: Long black hair tied in an ascetic knot, Attire: Ochre bark-cloth dhoti, no crown, bow and quiver, Expression: Serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "A slow camera push-in on Hanuman standing in the shore council circle. Hanuman folds his golden furred hands together reverently, speaking to Shri Rama with humble, intelligent eyes. He gestures gently toward Vibhishana, testifying with deep conviction about Vibhishana's pure intention, virtuous speech, and devotion to righteousness observed in Lanka. Warm sunrise glints on Hanuman's golden fur. Continuity Lock: Hanuman: Form: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, Attire: Simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), Expression: Deep devotional surrender, awe-inspiring strength, humble eyes. Temporal Constraints: No cuts, single continuous motion, no face drift, stable terminal frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "A breathtaking portrait of Shri Rama standing on the coastal shore. Shri Rama has a deep blue-dark complexion (\"shyama varna\"), long black hair in an ascetic knot, wearing saffron bark-cloth. He holds his legendary bow Kodanda in one hand while raising his right hand in the Abhaya Mudra gesture of divine protection. A soft celestial golden aura surrounds him as he smiles compassionately, making his sacred vow of refuge. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, never light or fair, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, long arms, Hair: Long black hair tied in an ascetic knot, Attire: Ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, Expression: Dignified, compassionate, serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "A slow vertical camera tilt down. Lakshmana pours sacred ocean water from an ornate golden vessel over the bowed head of Vibhishana in a ritual coronation ceremony on the beach. Water droplets glint like liquid gold under bright morning sunlight as water flows down Vibhishana's forehead and chest armor. Shri Rama stands nearby looking on with a serene, royal smile. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Long black hair tied in an ascetic knot, Attire: Saffron bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, expression radiating calm conviction and deep devotion. Temporal Constraints: No cuts, continuous fluid water motion, smooth camera tilt, stable end frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "Low-angle emotional devotional shot. Vibhishana bows deeply, touching the lotus feet of Shri Rama on the ocean beach. Shri Rama, with deep blue-dark skin, gently reaches down with long arms to lift Vibhishana up into a warm, brotherly embrace. Golden rays of sunlight filter through beach palm leaves, casting a sacred warm glow over the emotional scene. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm eyes, Body: Tall, broad shoulders, long arms reaching knees, Hair: Long black hair in an ascetic knot, Attire: Ochre bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined facial features, wearing royal silk antariya, chest armor plate, expression radiating devotional surrender and deep peace. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "A cinematic orbital 360 camera move around Vibhishana as he stands majestically on the rocky coastline. On the left side of the frame, dark stormy clouds hover over distant Lanka in the ocean mist. On the right side, bright golden divine sunlight breaks through the clouds, illuminating Vibhishana's face with serene moral clarity and righteous strength as his red and gold antariya sways in the wind. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral victory, and deep devotion. Temporal Constraints: No cuts, smooth camera orbit, stable terminal composition, no face warping. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+      "A majestic wide closing image. Shri Rama (with deep blue-dark skin, in saffron bark-cloth with bow Kodanda) and Vibhishana stand side by side on the coastal shore at sunrise, looking out towards the ocean path (Ram Setu region). Surrounding them in reverence are Lakshmana, Hanuman, and Sugriva under a brilliant golden-orange Treta Yuga dawn sky. Divine, peaceful, heroic atmospheric composition. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Ascetic knot, Attire: Ochre bark-cloth, bow Kodanda, Expression: Serene divine majesty. Vibhishana: Tall, noble Rakshasa prince, wearing royal silk antariya, gold crown, chest armor plate, Expression: Calm conviction and devotion. Hanuman: Golden furred Vanara warrior in sacred loincloth, hands folded reverently. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+    ],
+    "generatedImages": [
+      {
+        "index": 0,
+        "prompt": "A majestic continuous cinematic shot in Treta Yuga setting. Vibhishana stands atop a rocky cliff edge at the colossal golden sea gates of Lanka. Lanka's dark stone towers behind him glow with fiery red oil torches under a stormy night sky. Vibhishana slowly turns his head away from the burning city, looking down toward the dark, churning ocean waves crashing against jagged sea cliffs below. He takes one slow, heavy step forward toward the edge. Atmospheric sea mist, dark bronze lighting, high dynamic cinematic motion. Smooth camera push-in. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera motion, stable ending frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, camera jitter.",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_0_b0453d3f-268e-4117-8fed-f80034cbe3be.mp4"
+      },
+      {
+        "index": 1,
+        "prompt": "Inside the grand court assembly hall (Sabha) of Lanka. Ravana sits on an elevated black stone and gold throne carved with demon motifs. Surrounding him are muscular Rakshasa military commanders shouting aggressively, waving ancient spears and swords. Fiery crimson lighting from massive bronze braziers casts long dramatic shadows across stone carved pillars. Treta Yuga Vedic mythic architecture, intense high-contrast cinematic realism, deep focus framing. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads in wide shot, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, multiple armed weapons, Expression: Regal arrogance, unyielding pride, formidable authority. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-01-1792665540244.png",
+        "seed": 603028029,
+        "elapsedMs": 15700
+      },
+      {
+        "index": 2,
+        "prompt": "A wide continuous tracking shot through the court of Lanka. Vibhishana steps forward from the crowd of rowdy generals into the center aisle. He folds his hands in a calm, dignified gesture, addressing King Ravana on his throne. The surrounding demon ministers slowly turn their heads in shock and disapproval as Vibhishana stands solitary in his moral conviction under ambient golden light from oil lamps hanging above. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera panning, stable terminal frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, flickering.",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_2_0f0d5fc3-455c-4364-9ae7-cc98d67a729a.mp4"
+      },
+      {
+        "index": 3,
+        "prompt": "Medium shot of Vibhishana in Ravana's court pointing out toward the balcony, where ominous black storm clouds and supernatural unquenchable red fires burn in Lanka's distant towers. Vibhishana speaks with earnest concern, his face expressing deep grief and moral righteousness. High tension composition framed through carved obsidian pillars with atmospheric smoke and embers. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-03-1792665634258.png",
+        "seed": 548249041,
+        "elapsedMs": 8885
+      },
+      {
+        "index": 4,
+        "prompt": "A dynamic low-angle video shot. Ravana violently rises from his elevated golden throne in extreme fury. His central head roars in anger while nine dark shadowy heads loom behind him. He slams his armored fist onto the throne rest, causing golden dust and fiery embers to rise around him. Shadows twist across the black stone walls of the royal court as he glares downward at Vibhishana. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, Expression: Regal arrogance, unyielding pride, formidable authority — never cartoonish. Temporal Constraints: No cuts, single motion, no morphing faces, no flickering, stable camera move, continuous lighting. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_4_14edb52c-e09a-4ada-bdfc-3976aa66971d.mp4"
+      },
+      {
+        "index": 5,
+        "prompt": "A dramatic high-contrast medium shot. Ravana points a harsh, commanding finger down toward Vibhishana, his face twisted in intense arrogance and anger. Vibhishana stands in the lower foreground, his head slightly lowered in sorrow but his posture firm as he is verbally kicked out and banished from the royal hall. Intense shadow play, blood-red and gold color palette, Treta Yuga grand palace interior. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: dominant majestic central head, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crown, Expression: Regal arrogance, unyielding pride. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-05-1792665719358.png",
+        "seed": 966847434,
+        "elapsedMs": 7849
+      },
+      {
+        "index": 6,
+        "prompt": "A poignant slow pedestal-down camera shot. Vibhishana stands alone on a cliff edge overlooking the stormy sea outside Lanka. With a solemn expression, he unclasps a heavy gold royal necklace and lets it drop to the stone floor at his feet. He turns his body away from Lanka toward the glowing horizon of the open ocean, taking a deep breath of resolve. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, continuous motion, no face shifting, smooth falling action of jewelry, clean final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_6_93ea7987-c706-469c-a180-e84b53a6b06c.mp4"
+      },
+      {
+        "index": 7,
+        "prompt": "Wide epic cinematic view of the night sky over a churning dark ocean. Vibhishana and his four loyal Rakshasa ministers (Anala, Sharabha, Sampati, Praghasa) fly through the storm clouds toward the mainland. Divine wind pulls their royal capes and silk antariyas. Moonlight cuts through breaking storm clouds, illuminating their path with ethereal silver light. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-07-1792665797660.png",
+        "seed": 1255588974,
+        "elapsedMs": 7457
+      },
+      {
+        "index": 8,
+        "prompt": "A low-angle forward tracking shot on the sandy beach shore of Mount Mahendra. Vibhishana and his four ministers descend from the sky and land gently on white sand. In the foreground, Vanara warriors step back in alert surprise, raising wooden bows and spears defensively. Vibhishana immediately kneels down on one knee, extending his empty palms outward in peace and total surrender. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, smooth landing motion, continuous camera tracking, stable final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_8_93683625-06ea-4cb5-88bf-e1c46ec5e57d.mp4"
+      },
+      {
+        "index": 9,
+        "prompt": "Over-the-shoulder medium shot facing Shri Rama. Sugriva, the formidable Vanara king with golden fur and royal ornaments, stands beside Shri Rama pointing toward Vibhishana on the distant beach. Sugriva speaks with an urgent, guarded expression, warning Rama that Vibhishana might be a deceptive spy sent by Ravana. Warm morning beach sunlight, tropical palm leaves in background. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, Hair: Long black hair tied in an ascetic knot, Attire: Ochre bark-cloth dhoti, no crown, bow and quiver, Expression: Serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-09-1792665890279.png",
+        "seed": 745720703,
+        "elapsedMs": 9254
+      },
+      {
+        "index": 10,
+        "prompt": "A slow camera push-in on Hanuman standing in the shore council circle. Hanuman folds his golden furred hands together reverently, speaking to Shri Rama with humble, intelligent eyes. He gestures gently toward Vibhishana, testifying with deep conviction about Vibhishana's pure intention, virtuous speech, and devotion to righteousness observed in Lanka. Warm sunrise glints on Hanuman's golden fur. Continuity Lock: Hanuman: Form: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, Attire: Simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), Expression: Deep devotional surrender, awe-inspiring strength, humble eyes. Temporal Constraints: No cuts, single continuous motion, no face drift, stable terminal frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_10_e5c58f4f-407b-4984-a4f9-c657ac275279.mp4"
+      },
+      {
+        "index": 11,
+        "prompt": "A breathtaking portrait of Shri Rama standing on the coastal shore. Shri Rama has a deep blue-dark complexion (\"shyama varna\"), long black hair in an ascetic knot, wearing saffron bark-cloth. He holds his legendary bow Kodanda in one hand while raising his right hand in the Abhaya Mudra gesture of divine protection. A soft celestial golden aura surrounds him as he smiles compassionately, making his sacred vow of refuge. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, never light or fair, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, long arms, Hair: Long black hair tied in an ascetic knot, Attire: Ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, Expression: Dignified, compassionate, serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-11-1792665983238.png",
+        "seed": 160138156,
+        "elapsedMs": 12814
+      },
+      {
+        "index": 12,
+        "prompt": "A slow vertical camera tilt down. Lakshmana pours sacred ocean water from an ornate golden vessel over the bowed head of Vibhishana in a ritual coronation ceremony on the beach. Water droplets glint like liquid gold under bright morning sunlight as water flows down Vibhishana's forehead and chest armor. Shri Rama stands nearby looking on with a serene, royal smile. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Long black hair tied in an ascetic knot, Attire: Saffron bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, expression radiating calm conviction and deep devotion. Temporal Constraints: No cuts, continuous fluid water motion, smooth camera tilt, stable end frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "video",
+        "duration": 8,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_12_48fe7208-edf9-4bb5-9a8c-372c4e069392.mp4"
+      },
+      {
+        "index": 13,
+        "prompt": "Low-angle emotional devotional shot. Vibhishana bows deeply, touching the lotus feet of Shri Rama on the ocean beach. Shri Rama, with deep blue-dark skin, gently reaches down with long arms to lift Vibhishana up into a warm, brotherly embrace. Golden rays of sunlight filter through beach palm leaves, casting a sacred warm glow over the emotional scene. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm eyes, Body: Tall, broad shoulders, long arms reaching knees, Hair: Long black hair in an ascetic knot, Attire: Ochre bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined facial features, wearing royal silk antariya, chest armor plate, expression radiating devotional surrender and deep peace. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-13-1792666081212.png",
+        "seed": 20348924,
+        "elapsedMs": 8123
+      },
+      {
+        "index": 14,
+        "prompt": "A cinematic orbital 360 camera move around Vibhishana as he stands majestically on the rocky coastline. On the left side of the frame, dark stormy clouds hover over distant Lanka in the ocean mist. On the right side, bright golden divine sunlight breaks through the clouds, illuminating Vibhishana's face with serene moral clarity and righteous strength as his red and gold antariya sways in the wind. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral victory, and deep devotion. Temporal Constraints: No cuts, smooth camera orbit, stable terminal composition, no face warping. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-14-1792666089371.png",
+        "seed": 674509759,
+        "elapsedMs": 7439
+      },
+      {
+        "index": 15,
+        "prompt": "A majestic wide closing image. Shri Rama (with deep blue-dark skin, in saffron bark-cloth with bow Kodanda) and Vibhishana stand side by side on the coastal shore at sunrise, looking out towards the ocean path (Ram Setu region). Surrounding them in reverence are Lakshmana, Hanuman, and Sugriva under a brilliant golden-orange Treta Yuga dawn sky. Divine, peaceful, heroic atmospheric composition. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Ascetic knot, Attire: Ochre bark-cloth, bow Kodanda, Expression: Serene divine majesty. Vibhishana: Tall, noble Rakshasa prince, wearing royal silk antariya, gold crown, chest armor plate, Expression: Calm conviction and devotion. Hanuman: Golden furred Vanara warrior in sacred loincloth, hands folded reverently. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-15-1792666724076.png",
+        "seed": 1428338936,
+        "elapsedMs": 7456
+      }
+    ],
+    "generatedAudio": [
+      {
+        "filename": "narration_hi_17ebbd34-8027-4d5d-b343-67bde88c12c0.wav",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/narration_hi_17ebbd34-8027-4d5d-b343-67bde88c12c0.wav",
+        "language": "hi",
+        "voice": "clone_0aaabd49-94d9-4ed7-9a40-90886a3042e6",
+        "provider": "chatterbox",
+        "sync": {
+          "version": 1,
+          "timingMode": "narration",
+          "planHash": "21e261efb035739e04549ad483871b0f43e11cbe974d15ee67b39e1abdbb17ec",
+          "sampleRate": 48000,
+          "totalSamples": 5317440,
+          "scenes": [
+            {
+              "sceneId": "scene_001",
+              "startSample": 0,
+              "endSample": 276000
+            },
+            {
+              "sceneId": "scene_002",
+              "startSample": 276000,
+              "endSample": 642240
+            },
+            {
+              "sceneId": "scene_003",
+              "startSample": 642240,
+              "endSample": 929760
+            },
+            {
+              "sceneId": "scene_004",
+              "startSample": 929760,
+              "endSample": 1449600
+            },
+            {
+              "sceneId": "scene_005",
+              "startSample": 1449600,
+              "endSample": 1772640
+            },
+            {
+              "sceneId": "scene_006",
+              "startSample": 1772640,
+              "endSample": 2071680
+            },
+            {
+              "sceneId": "scene_007",
+              "startSample": 2071680,
+              "endSample": 2335200
+            },
+            {
+              "sceneId": "scene_008",
+              "startSample": 2335200,
+              "endSample": 2727360
+            },
+            {
+              "sceneId": "scene_009",
+              "startSample": 2727360,
+              "endSample": 3047520
+            },
+            {
+              "sceneId": "scene_010",
+              "startSample": 3047520,
+              "endSample": 3331200
+            },
+            {
+              "sceneId": "scene_011",
+              "startSample": 3331200,
+              "endSample": 3626400
+            },
+            {
+              "sceneId": "scene_012",
+              "startSample": 3626400,
+              "endSample": 3984960
+            },
+            {
+              "sceneId": "scene_013",
+              "startSample": 3984960,
+              "endSample": 4344480
+            },
+            {
+              "sceneId": "scene_014",
+              "startSample": 4344480,
+              "endSample": 4824000
+            },
+            {
+              "sceneId": "scene_015",
+              "startSample": 4824000,
+              "endSample": 5099040
+            },
+            {
+              "sceneId": "scene_016",
+              "startSample": 5099040,
+              "endSample": 5317440
+            }
+          ]
+        },
+        "narrationText": "अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?\n\nलंका जलने के बाद, रावण ने अपनी राजसभा में युद्ध की रणनीति बनाने के लिए सभी सेनापतियों को बुलाया।\n\nजहाँ सभी राक्षस युद्ध की हुंकार भर रहे थे, वहीं विभीषण हाथ जोड़कर खड़े हुए।\n\nउन्होंने निडर होकर कहा, 'हे राजन, पराई स्त्री का हरण अधर्म है। सीता जी को आदर सहित लौटा दीजिए, वरना लंका का सर्वनाश निश्चित है।'\n\nअहंकार में अंधे रावण ने सत्य सुनने से इनकार कर दिया और विभीषण को कायर कह दिया।\n\nजब राजा अधर्म पर अड़ जाए, तो क्या कुल की रक्षा के नाम पर उसका साथ देना सही है?\n\nविभीषण ने भाई के मोह के ऊपर धर्म को चुना और लंका का त्याग कर दिया।\n\nवे अपने चार मंत्रियों—अनिल, शरभ, सम्पाती और प्रघस के साथ समुद्र पार कर श्री राम की खोज में निकले।\n\nसमुद्र तट पर पहुंचते ही वानर सेना ने शस्त्र उठा लिए, उन्हें रावण का गुप्तचर समझा गया।\n\nसुग्रीव ने चेतावनी दी कि शत्रु के भाई पर भरोसा करना भयानक भूल हो सकती है।\n\nलेकिन हनुमान जी ने गवाही दी कि विभीषण का मन कपट से मुक्त और धर्म में स्थिर है।\n\nतब श्री राम ने अपनी प्रसिद्ध प्रतिज्ञा ली—'जो भी एक बार मेरी शरण में आता है, मैं उसे अभय दान देता हूँ।'\n\nयुद्ध आरंभ होने से पहले ही, श्री राम ने समुद्र जल से विभीषण का लंकापति के रूप में राज्याभिषेक कर दिया।\n\nविभीषण सिंहासन नहीं, केवल सत्य का पक्ष चाहते थे। वाल्मीकि रामायण के अनुसार, वे देशद्रोही नहीं, धर्म के सच्चे रक्षक थे।\n\nजब राजा या परिवार अधर्म चुने, तो धर्म के साथ खड़े होना ही सर्वोच्च कर्तव्य है।\n\nजय श्री राम! धर्म की रक्षा के लिए चैनल से जुड़े रहें।"
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "response",
+        "label": "Response",
+        "status": "done",
+        "summary": "Assets extracted in the shared scene format",
+        "inputLog": "Why Vibhishana Left Lanka: Traitor or Defender of Dharma in the Ramayana?",
+        "outputPreview": "अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?\n\nलंका जलने के बाद, रावण ने अपनी राजसभा में युद्ध क"
+      }
+    ],
+    "editingProjectId": "1cb6a290-0414-482d-832b-d3c7a6dbc918",
+    "retentionPlan": {
+      "structure": "Intriguing question -> authentic traditional story -> clear explanation -> meaningful insight",
+      "viewerPromise": "Understand the scriptural and ethical reasons behind Vibhishana leaving Lanka and why Valmiki Ramayana presents his action as supreme adherence to Dharma rather than betrayal.",
+      "hooks": [
+        {
+          "openingLine": "अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?",
+          "openingVisual": "Vibhishana standing at the majestic golden gates of Lanka, looking back one last time before turning toward the stormy ocean.",
+          "curiosity": "Why did a prince abandon his own kingdom and bloodline during a war?",
+          "payoff": "A clear explanation of the confrontation between Ravana and Vibhishana in the royal court based on Valmiki Ramayana.",
+          "reason": "Directly addresses the primary question with strong narrative tension and immediate historical context."
+        },
+        {
+          "openingLine": "जब सगे भाई रावण ने दरबार में अपमानित करके निकाला, तब विभीषण ने क्या मार्ग चुना?",
+          "openingVisual": "Ravana rising furiously from his dark bronze throne, pointing toward the palace exit while Vibhishana bows calmly.",
+          "curiosity": "What exact words caused the irreversible split between the two brothers?",
+          "payoff": "Details the moral argument Vibhishana presented to Ravana regarding Sita and Dharma.",
+          "reason": "Focuses on the high-stakes dramatic turning point in the Lanka court."
+        },
+        {
+          "openingLine": "क्या विभीषण वास्तव में कुलद्रोही थे, या फिर धर्म के सच्चे रक्षक?",
+          "openingVisual": "Close-up of Vibhishana with solemn, tearful eyes framed against the towering spires of Lanka under twilight skies.",
+          "curiosity": "How do ancient texts evaluate Vibhishana's loyalty to Dharma versus family?",
+          "payoff": "Provides traditional scriptural perspective distinguishing adharma loyalty from eternal duty.",
+          "reason": "Hooks viewers intrigued by the ethical debate of traitor vs defender."
+        }
+      ],
+      "selectedHookIndex": 0,
+      "titles": [
+        "Why Vibhishana Left Lanka: Traitor or Defender of Dharma?",
+        "Ravana vs Vibhishana: The Truth Behind Lanka's Greatest Split",
+        "Did Vibhishana Betray Lanka? The Ramayana Decision Explained"
+      ],
+      "thumbnailConcept": "Dramatic split lighting composition: on the left, Ravana's dark shadow over Lanka's court; on the right, Vibhishana walking toward the ocean facing Lord Rama's distant camp, with text overlay 'Traitor or Righteous?'.",
+      "description": "Explore the story of Vibhishana from the Valmiki Ramayana. When Ravana kidnapped Sita, Vibhishana pleaded for righteousness and peace. After being rejected and exiled, he made the profound decision to seek refuge with Lord Rama. Was this treason or the ultimate loyalty to Dharma? We analyze the scriptural context and eternal moral lessons of this key moment in Indian history and philosophy.",
+      "tags": [
+        "Vibhishana",
+        "Ramayana",
+        "Ravana",
+        "Lord Rama",
+        "Dharma",
+        "Ancient Dharma",
+        "Hindu Philosophy",
+        "Valmiki Ramayana",
+        "Lanka",
+        "Indian History"
+      ],
+      "musicMood": "cinematic",
+      "version": 1,
+      "topic": "Why Vibhishana Left Lanka: Traitor or Defender of Dharma in the Ramayana?",
+      "createdAt": "2026-10-22T10:34:50.948Z",
+      "memoryEvidence": "No sufficiently sampled retention observations for this format and duration yet. Use editorial judgment; do not invent audience evidence or predicted retention scores."
+    },
+    "topicName": "Why Vibhishana Left Lanka: Traitor or Defender of Dharma in the Ramayana?",
+    "aiInstructions": "dont use complex hindi words that tts find hard to read write complex word in simpple but pronoucs should be same\nNarration language selected for this run: Hindi / Hinglish. Write all spoken narration in this language.",
+    "researchData": "### 1. Verified Facts, Background & Key Data\n\n* **Primary Scriptural Source**: *Valmiki Ramayana*, *Yuddha Kanda* (specifically Sargas 9 through 19).\n* **Historical/Narrative Context**: Following Hanuman’s reconnaissance mission and the burning of Lanka in *Sundara Kanda*, King Ravana summons his high council of ministers, generals, and family members in the golden royal assembly hall (*Sabha*) of Lanka to decide their war strategy.\n* **The Royal Council Debate**:\n  * **Sycophants & War Faction**: Generals like Prahasta, Nikumbha, Vajrahanu, and Ravana's son Indrajit brag of their military invincibility and urge immediate war against Shri Rama's army.\n  * **Vibhishana’s Intervention**: Vibhishana (Ravana’s youngest half-brother) steps forward and delivers a calm, reasoned plea grounded in *Dharma* and *Niti* (ethical governance). He cites terrible omens across Lanka (unquenchable domestic fires, serpents in kitchens, dried cow's milk) caused by the adharmic abduction of Mata Sita. He explicitly counsels Ravana: return Sita to Shri Rama with full honor to save the Rakshasa race from total annihilation.\n* **The Confrontation & Expulsion**:\n  * Ravana, consumed by pride (*Ahamkara*) and lust, rejects the counsel. He publicly humiliates Vibhishana, accusing him of envy, cowardice, and covertly aiding the enemy.\n  * Ravana verbally casts him out and, according to traditional recountings, kicks or physically banishes him from the assembly.\n* **Vibhishana’s Departure**:\n  * Vibhishana realizes that when a monarch persists in *Adharma*, remaining loyal to blood over righteousness makes one complicit in destruction.\n  * He leaves Lanka immediately, taking four loyal ministers with him (**Anala, Sharabha, Sampati, and Praghasa**).\n  * They fly across the ocean toward the mainland shore where Shri Rama’s army is encamped near Mount Mahendra.\n* **Arrival at Rama's Camp & The Sharanagati Vow**:\n  * **Vanara Suspicion**: Sugriva and main commanders view Vibhishana as Ravana's spy and advise executing or imprisoning him.\n  * **Hanuman's Testimony**: Hanuman defends Vibhishana, testifying to his noble speech, purity of intent, and moral character observed during Hanuman's time in Lanka.\n  * **Shri Rama’s Vow (*Abhaya Vrata*)**: Shri Rama delivers his famous declaration: *\"Even if an enemy seeks refuge with folded hands, I shall grant him protection.\"*\n  * **Consecration**: Shri Rama embraces Vibhishana and instructs Lakshmana to perform an immediate *Abhisheka* (coronation ceremony) using ocean water, declaring Vibhishana the rightful King of Lanka even before the war begins.\n* **Ethical Payoff (Traitor vs. Defender of Dharma)**:\n  * In Valmiki’s framework, *Dharma* (cosmic moral order and righteousness) supersedes *Kula-Dharma* (family loyalty) when the leader turns evil.\n  * Vibhishana did not betray Lanka; he attempted to save it from Ravana’s moral ruin. When Ravana refused reform, Vibhishana chose allegiance to Divine Righteousness over family lineage.\n\n---\n\n### 2. Chronological Story Arc & Scene Beats (~90s)\n\n| Time Beat | Narrative Stage | Core Story Content & Visual Beats | Dramatic Focus / Emotional Shift |\n| :--- | :--- | :--- | :--- |\n| **00:00 - 00:12** | **Intriguing Hook** | **Opening Narration**: \"अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?\"<br>**Visual**: Vibhishana at Lanka’s golden gates looking back at the glowing city, then turning toward the dark, stormy ocean. | High curiosity, emotional gravity; establishing high ethical stakes. |\n| **00:12 - 00:28** | **Setup & Royal Court Conflict** | Ravana convenes his grand assembly after Lanka’s initial burning. Sycophant generals urge destruction, but Vibhishana steps forward with joined hands. He warns Ravana that abducting Sita is *Adharma* bringing doom upon Lanka. | Tension builds; contrast between blind military arrogance and calm moral truth. |\n| **00:28 - 00:46** | **Escalation & Exile** | Ravana explodes in rage, calling Vibhishana a coward and traitor. Ravana insults and banishes him from the royal court. Vibhishana makes his pivotal decision: standing with a wicked king is complicity in sin. | Shock, betrayal, decisive break from royal blood ties. |\n| **00:46 - 01:05** | **Flight & Sharanagati** | Vibhishana flies across the ocean with his 4 ministers. At Rama's camp, Sugriva suspects a spy, but Hanuman defends Vibhishana’s purity. Shri Rama steps forward and pledges eternal protection (*Sharanagati*). | Shift from mistrust to divine grace and acceptance. |\n| **01:05 - 01:25** | **Earned Payoff & Consecration** | Shri Rama instructs Lakshmana to anoint Vibhishana with ocean water as the future King of Lanka. The core ethical truth is revealed: Vibhishana did not betray his brother; he upheld *Dharma* when his brother abandoned it. | Heroic resolution, spiritual clarity, vindication. |\n| **01:25 - 01:30** | **Insight & CTA** | Final thought-provoking summary: True loyalty belongs to righteousness, not to a tyrant. Closing prompt for viewer engagement. | Final impactful takeaway. |\n\n---\n\n### 3. Visual & World-Building Canon\n\n* **Setting & Era**: Treta Yuga Vedic mythic realism. Ancient Indian heroic architecture, grand oceanic coastlines, and pristine wilderness.\n* **Architecture & Environment**:\n  * **Lanka Royal Sabha**: Massive dark stone and polished gold pillars, towering arches, intricate demon-motif carvings, burning brass braziers, opulent carpets, dramatic throne elevated on steps.\n  * **Lanka City Gates**: Colossal gold and iron gates overlooking steep sea cliffs, with smoke rising in distant quarters post-Hanuman's raid.\n  * **Ocean / Flight**: Swirling dark thunderclouds over the vast expanse of the Southern Sea (*Sethu* region), wind-whipped ocean waves below.\n  * **Rama's Army Camp (Mahendra Shore)**: Natural sea beach with rocky outcrops, simple wooden bowers, banners bearing lotus/sun motifs, white sand under warm gold sunlight.\n* **Character Designs & wardrobe**:\n  * **Vibhishana**: Tall, noble Rakshasa prince with refined, serene facial features (unlike wild demons). Wears dignified royal silk antariya (dhotis), gold crown (*Mukuta*), chest armor plate, gold armlets. Expressions radiate calm conviction, sadness, and deep devotion.\n  * **Ravana**: Imposing, towering physique, 10 heads/shadowed multi-visage presence, ornate dark-gold armor, fiery glowing eyes, crown studded with rubies, expression of intense arrogance (*Ahamkara*) and fury.\n  * **Shri Rama**: Royal exilic attire (bark-cloth/silk, simple leather wrist guards), calm divine radiance (*Tejas*), holding a bow (*Kodanda*), soft compassionate demeanor, noble posture.\n  * **Hanuman**: Muscular Vanara hero, golden-tan fur, simple dhoti, hands folded in respect, intelligent watchful eyes.\n* **Lighting & Weather Mood**:\n  * **Lanka Scenes**: High contrast chiaroscuro—deep shadows, fiery red and yellow brazier lighting, harsh dramatic downlights creating an oppressive atmosphere.\n  * **Transition/Ocean**: Stormy blues, cool grays, atmospheric sea mist.\n  * **Rama’s Camp**: Bright, warm, golden divine sunlight, clean oceanic atmosphere symbolizing hope, clarity, and *Dharma*.\n\n---\n\n### 4. Scriptwriter Directives\n\n1. **TTS Readability & Phonetic Simplicity (Mandatory Rule)**:\n   * **Simple Spoken Hindi/Hinglish**: Avoid tongue-twisting Sanskritic compounds that Text-to-Speech (TTS) engines mispronounce or stumble over.\n   * *Example*: Use simple terms like **\"धर्म\" (Dharm)**, **\"अधर्म\" (Adharm)**, **\"रावण\" (Ravan)**, **\"विभीषण\" (Vibhishan)**, **\"शरण\" (Sharan)**, **\"राजसभा\" (Rajsabha)**, **\"वचन\" (Vachan)**.\n   * Do NOT use obscure Hindi words like \"भ्रातृद्रोह\" or \"अधर्मनिष्ठा\". Keep sentence structures natural, rhythmic, and clear for voiceover engines.\n\n2. **Strict Narrative Alignment with Valmiki Ramayana**:\n   * Frame Vibhishana's exit not as a desire for Lanka’s throne, but as a painful moral obligation after his righteous advice was rejected and he was publicly insulted.\n   * Ensure the confrontation in Ravana's court highlights the key ethical dilemma: *Is standing against an adharmic brother treason, or is it the ultimate duty of Dharma?*\n\n3. **Opening & Visual Prompts Alignment**:\n   * Must open exactly with the required narration line: `अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?`\n   * Visual descriptions must clearly distinguish between static emotional weight (images) and dynamic narrative motion (video generation clips) across the timeline.",
+    "researchSources": [
+      {
+        "title": "sanskritdocuments.org",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFzVaT8V2zRZpHi533okMxoe24QXqub05eAnxBev7h6iCIs53-aG-GF-fd3q6eUikwxml7BMs5GKN-HRNzj2kO3vCiNQpnR72MJA0VrqitNn6T5QxHEFiYjK3yCb6cwucnRTU_7560d_aJJqQq1Wair2T0V-apnqmR_UN1y0rJXlQ5saDI5mzM-AxrCuEQ="
+      },
+      {
+        "title": "valmikiramayan.net",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHpj94Nj1C1ktcPgvuvIyCs9FLDJTkiPq2X-tlt8dtRdcHV7MrM5RU400e9i-8SsDRL6lUtxQ1YF9V3BOdnhhwnhoEDNYHEOxzS48RSEu_CoMvsqP-UtHCCwdRit_8JTM3IZNI4KEOeqIpNL0JJ67zALMm26jwC2qa1"
+      },
+      {
+        "title": "youtube.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHeOX5e_Ecbu918AO3jGiVkC6Wn_n4U0ds--i1zy9JIh-dnzHkq2-kJx5R4a0xpAY9dn5ri9PnqMUv8twy1EJZJzx7YS7dchov_9BqIAlgu1iiL6jDJGU0gAZL764Jc2VVStGdY"
+      },
+      {
+        "title": "indianetzone.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHkMfHVtApkc89CIpVaMj5s38PRo3daKQyrcIG4u8E9IuIV87WecrjTbW_PwQcpb0AMeAM_Mos_eT1AYoPQgS5zpUnPwi2U-DKxu-8lHsy19NDFU_OwamkxByQMFchhcgHXryoZfZZ7Pxa7FapbRg=="
+      },
+      {
+        "title": "sanskritdocuments.org",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEXun76SZbaDBzbSzuxbylGFJQmzXMoVrN2pSxzwDoIdTgnWC2G0Jc9jBrjTpYF61CZhpcoSTsCVhXaYlQlxOoGf1S-TU1uKmwQcg3SmDHzMMwcSOzwmMOiAPQkDxK_SZy-pPZTiP2rcDYj4nNAyOWn07FwRnZkhLXaqvYDJ4GuiPgBn5PgXhohL5Lq6bgF4g=="
+      },
+      {
+        "title": "sssbalvikas.in",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGhTiVKxwxa6psVIsWZryV-fnz8QCgwOeWg2rKo4eAntIdWXyc0aSNYwicW3CTgISWzPepGRrdQ1XZCeV2d-YwoKzhzwCk6Gi0nF2z1vcQRA3ibz3OiSUhU7ud_0ZueoOfjVeFdyaSj7DZxgRTc2l9Y3AKJzvtmzriOQ8Rm8jQwwuFKOWXyq7VJVvxRPFNFJ0IzIBgOfxuhqKl1yPe4Z3E="
+      },
+      {
+        "title": "valmikiramayan.net",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFjLuiIFHVsUbahyJ9_r49USdqTfQT5lGSOXjOA3ULLKfIYdhB3EYXvS7g9wEs8sLaqpZrXfajTY7dX0D5uyj7mrGXbDFi_6vNPp_ggvcRyagP-PYum66y0PNVKyw0QI8kuAQ-Ge3LLao6zqMhBY4Zf7NxPFvV5VdLQwqeDgUopGw=="
+      },
+      {
+        "title": "mythoworld.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE2RjmU8NOiGUuYjMTm9Zsnqf5ySLNUEx3YW3rKIvRN9afn-PfLlxQbAuEYwA8l3vHgyEcjcL_hTpxPTa7dX7ytKsl-G25yR7pg-fc4EjO6T-oZipgksBZkcjSrJsEzny2zP15Cdn33HqVQ0-_CwfR2zHA9398ORdg="
+      }
+    ],
+    "retentionEdit": {
+      "sourceHash": "2131f07b22088642aba8620f7468ab77c2050c07d15c235548a4d09656b7595e",
+      "plan": {
+        "version": 1,
+        "title": "Generated Episode",
+        "thumbnailPrompt": "Dramatic split lighting composition: on the left, Ravana's dark shadow over Lanka's court; on the right, Vibhishana walking toward the ocean facing Lord Rama's distant camp, with text overlay 'Traitor or Righteous?'.",
+        "scenes": [
+          {
+            "id": "scene_001",
+            "chapter": "The Duality of Lanka",
+            "role": "story",
+            "narration": "अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "A majestic continuous cinematic shot in Treta Yuga setting. Vibhishana stands atop a rocky cliff edge at the colossal golden sea gates of Lanka. Lanka's dark stone towers behind him glow with fiery red oil torches under a stormy night sky. Vibhishana slowly turns his head away from the burning city, looking down toward the dark, churning ocean waves crashing against jagged sea cliffs below. He takes one slow, heavy step forward toward the edge. Atmospheric sea mist, dark bronze lighting, high dynamic cinematic motion. Smooth camera push-in. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera motion, stable ending frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, camera jitter.",
+            "videoPrompt": "A majestic continuous cinematic shot in Treta Yuga setting. Vibhishana stands atop a rocky cliff edge at the colossal golden sea gates of Lanka. Lanka's dark stone towers behind him glow with fiery red oil torches under a stormy night sky. Vibhishana slowly turns his head away from the burning city, looking down toward the dark, churning ocean waves crashing against jagged sea cliffs below. He takes one slow, heavy step forward toward the edge. Atmospheric sea mist, dark bronze lighting, high dynamic cinematic motion. Smooth camera push-in. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera motion, stable ending frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, camera jitter."
+          },
+          {
+            "id": "scene_002",
+            "chapter": "The War Council of Ravana",
+            "role": "story",
+            "narration": "लंका जलने के बाद, रावण ने अपनी राजसभा में युद्ध की रणनीति बनाने के लिए सभी सेनापतियों को बुलाया।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Inside the grand court assembly hall (Sabha) of Lanka. Ravana sits on an elevated black stone and gold throne carved with demon motifs. Surrounding him are muscular Rakshasa military commanders shouting aggressively, waving ancient spears and swords. Fiery crimson lighting from massive bronze braziers casts long dramatic shadows across stone carved pillars. Treta Yuga Vedic mythic architecture, intense high-contrast cinematic realism, deep focus framing. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads in wide shot, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, multiple armed weapons, Expression: Regal arrogance, unyielding pride, formidable authority. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+          },
+          {
+            "id": "scene_003",
+            "chapter": "Vibhishana's Plea in Court",
+            "role": "story",
+            "narration": "जहाँ सभी राक्षस युद्ध की हुंकार भर रहे थे, वहीं विभीषण हाथ जोड़कर खड़े हुए।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "A wide continuous tracking shot through the court of Lanka. Vibhishana steps forward from the crowd of rowdy generals into the center aisle. He folds his hands in a calm, dignified gesture, addressing King Ravana on his throne. The surrounding demon ministers slowly turn their heads in shock and disapproval as Vibhishana stands solitary in his moral conviction under ambient golden light from oil lamps hanging above. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera panning, stable terminal frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, flickering.",
+            "videoPrompt": "A wide continuous tracking shot through the court of Lanka. Vibhishana steps forward from the crowd of rowdy generals into the center aisle. He folds his hands in a calm, dignified gesture, addressing King Ravana on his throne. The surrounding demon ministers slowly turn their heads in shock and disapproval as Vibhishana stands solitary in his moral conviction under ambient golden light from oil lamps hanging above. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera panning, stable terminal frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, flickering."
+          },
+          {
+            "id": "scene_004",
+            "chapter": "The Warning of Destruction",
+            "role": "story",
+            "narration": "उन्होंने निडर होकर कहा, 'हे राजन, पराई स्त्री का हरण अधर्म है। सीता जी को आदर सहित लौटा दीजिए, वरना लंका का सर्वनाश निश्चित है।'",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Medium shot of Vibhishana in Ravana's court pointing out toward the balcony, where ominous black storm clouds and supernatural unquenchable red fires burn in Lanka's distant towers. Vibhishana speaks with earnest concern, his face expressing deep grief and moral righteousness. High tension composition framed through carved obsidian pillars with atmospheric smoke and embers. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+          },
+          {
+            "id": "scene_005",
+            "chapter": "Ravana's Explosive Anger",
+            "role": "story",
+            "narration": "अहंकार में अंधे रावण ने सत्य सुनने से इनकार कर दिया और विभीषण को कायर कह दिया।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "A dynamic low-angle video shot. Ravana violently rises from his elevated golden throne in extreme fury. His central head roars in anger while nine dark shadowy heads loom behind him. He slams his armored fist onto the throne rest, causing golden dust and fiery embers to rise around him. Shadows twist across the black stone walls of the royal court as he glares downward at Vibhishana. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, Expression: Regal arrogance, unyielding pride, formidable authority — never cartoonish. Temporal Constraints: No cuts, single motion, no morphing faces, no flickering, stable camera move, continuous lighting. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+            "videoPrompt": "A dynamic low-angle video shot. Ravana violently rises from his elevated golden throne in extreme fury. His central head roars in anger while nine dark shadowy heads loom behind him. He slams his armored fist onto the throne rest, causing golden dust and fiery embers to rise around him. Shadows twist across the black stone walls of the royal court as he glares downward at Vibhishana. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, Expression: Regal arrogance, unyielding pride, formidable authority — never cartoonish. Temporal Constraints: No cuts, single motion, no morphing faces, no flickering, stable camera move, continuous lighting. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_006",
+            "chapter": "The Public Banishment",
+            "role": "story",
+            "narration": "जब राजा अधर्म पर अड़ जाए, तो क्या कुल की रक्षा के नाम पर उसका साथ देना सही है?",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "A dramatic high-contrast medium shot. Ravana points a harsh, commanding finger down toward Vibhishana, his face twisted in intense arrogance and anger. Vibhishana stands in the lower foreground, his head slightly lowered in sorrow but his posture firm as he is verbally kicked out and banished from the royal hall. Intense shadow play, blood-red and gold color palette, Treta Yuga grand palace interior. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: dominant majestic central head, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crown, Expression: Regal arrogance, unyielding pride. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_007",
+            "chapter": "The Ethical Choice",
+            "role": "story",
+            "narration": "विभीषण ने भाई के मोह के ऊपर धर्म को चुना और लंका का त्याग कर दिया।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "A poignant slow pedestal-down camera shot. Vibhishana stands alone on a cliff edge overlooking the stormy sea outside Lanka. With a solemn expression, he unclasps a heavy gold royal necklace and lets it drop to the stone floor at his feet. He turns his body away from Lanka toward the glowing horizon of the open ocean, taking a deep breath of resolve. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, continuous motion, no face shifting, smooth falling action of jewelry, clean final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+            "videoPrompt": "A poignant slow pedestal-down camera shot. Vibhishana stands alone on a cliff edge overlooking the stormy sea outside Lanka. With a solemn expression, he unclasps a heavy gold royal necklace and lets it drop to the stone floor at his feet. He turns his body away from Lanka toward the glowing horizon of the open ocean, taking a deep breath of resolve. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, continuous motion, no face shifting, smooth falling action of jewelry, clean final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_008",
+            "chapter": "Flight Across the Ocean",
+            "role": "story",
+            "narration": "वे अपने चार मंत्रियों—अनिल, शरभ, सम्पाती और प्रघस के साथ समुद्र पार कर श्री राम की खोज में निकले।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Wide epic cinematic view of the night sky over a churning dark ocean. Vibhishana and his four loyal Rakshasa ministers (Anala, Sharabha, Sampati, Praghasa) fly through the storm clouds toward the mainland. Divine wind pulls their royal capes and silk antariyas. Moonlight cuts through breaking storm clouds, illuminating their path with ethereal silver light. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_009",
+            "chapter": "Arrival at Rama's Camp",
+            "role": "story",
+            "narration": "समुद्र तट पर पहुंचते ही वानर सेना ने शस्त्र उठा लिए, उन्हें रावण का गुप्तचर समझा गया।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "A low-angle forward tracking shot on the sandy beach shore of Mount Mahendra. Vibhishana and his four ministers descend from the sky and land gently on white sand. In the foreground, Vanara warriors step back in alert surprise, raising wooden bows and spears defensively. Vibhishana immediately kneels down on one knee, extending his empty palms outward in peace and total surrender. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, smooth landing motion, continuous camera tracking, stable final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+            "videoPrompt": "A low-angle forward tracking shot on the sandy beach shore of Mount Mahendra. Vibhishana and his four ministers descend from the sky and land gently on white sand. In the foreground, Vanara warriors step back in alert surprise, raising wooden bows and spears defensively. Vibhishana immediately kneels down on one knee, extending his empty palms outward in peace and total surrender. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, smooth landing motion, continuous camera tracking, stable final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_010",
+            "chapter": "Sugriva's Warning",
+            "role": "story",
+            "narration": "सुग्रीव ने चेतावनी दी कि शत्रु के भाई पर भरोसा करना भयानक भूल हो सकती है।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Over-the-shoulder medium shot facing Shri Rama. Sugriva, the formidable Vanara king with golden fur and royal ornaments, stands beside Shri Rama pointing toward Vibhishana on the distant beach. Sugriva speaks with an urgent, guarded expression, warning Rama that Vibhishana might be a deceptive spy sent by Ravana. Warm morning beach sunlight, tropical palm leaves in background. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, Hair: Long black hair tied in an ascetic knot, Attire: Ochre bark-cloth dhoti, no crown, bow and quiver, Expression: Serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_011",
+            "chapter": "Hanuman's Advocacy",
+            "role": "story",
+            "narration": "लेकिन हनुमान जी ने गवाही दी कि विभीषण का मन कपट से मुक्त और धर्म में स्थिर है।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "A slow camera push-in on Hanuman standing in the shore council circle. Hanuman folds his golden furred hands together reverently, speaking to Shri Rama with humble, intelligent eyes. He gestures gently toward Vibhishana, testifying with deep conviction about Vibhishana's pure intention, virtuous speech, and devotion to righteousness observed in Lanka. Warm sunrise glints on Hanuman's golden fur. Continuity Lock: Hanuman: Form: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, Attire: Simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), Expression: Deep devotional surrender, awe-inspiring strength, humble eyes. Temporal Constraints: No cuts, single continuous motion, no face drift, stable terminal frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+            "videoPrompt": "A slow camera push-in on Hanuman standing in the shore council circle. Hanuman folds his golden furred hands together reverently, speaking to Shri Rama with humble, intelligent eyes. He gestures gently toward Vibhishana, testifying with deep conviction about Vibhishana's pure intention, virtuous speech, and devotion to righteousness observed in Lanka. Warm sunrise glints on Hanuman's golden fur. Continuity Lock: Hanuman: Form: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, Attire: Simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), Expression: Deep devotional surrender, awe-inspiring strength, humble eyes. Temporal Constraints: No cuts, single continuous motion, no face drift, stable terminal frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_012",
+            "chapter": "The Divine Sharanagati Vow",
+            "role": "story",
+            "narration": "तब श्री राम ने अपनी प्रसिद्ध प्रतिज्ञा ली—'जो भी एक बार मेरी शरण में आता है, मैं उसे अभय दान देता हूँ।'",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "A breathtaking portrait of Shri Rama standing on the coastal shore. Shri Rama has a deep blue-dark complexion (\"shyama varna\"), long black hair in an ascetic knot, wearing saffron bark-cloth. He holds his legendary bow Kodanda in one hand while raising his right hand in the Abhaya Mudra gesture of divine protection. A soft celestial golden aura surrounds him as he smiles compassionately, making his sacred vow of refuge. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, never light or fair, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, long arms, Hair: Long black hair tied in an ascetic knot, Attire: Ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, Expression: Dignified, compassionate, serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_013",
+            "chapter": "The Pre-War Coronation",
+            "role": "story",
+            "narration": "युद्ध आरंभ होने से पहले ही, श्री राम ने समुद्र जल से विभीषण का लंकापति के रूप में राज्याभिषेक कर दिया।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "A slow vertical camera tilt down. Lakshmana pours sacred ocean water from an ornate golden vessel over the bowed head of Vibhishana in a ritual coronation ceremony on the beach. Water droplets glint like liquid gold under bright morning sunlight as water flows down Vibhishana's forehead and chest armor. Shri Rama stands nearby looking on with a serene, royal smile. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Long black hair tied in an ascetic knot, Attire: Saffron bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, expression radiating calm conviction and deep devotion. Temporal Constraints: No cuts, continuous fluid water motion, smooth camera tilt, stable end frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+            "videoPrompt": "A slow vertical camera tilt down. Lakshmana pours sacred ocean water from an ornate golden vessel over the bowed head of Vibhishana in a ritual coronation ceremony on the beach. Water droplets glint like liquid gold under bright morning sunlight as water flows down Vibhishana's forehead and chest armor. Shri Rama stands nearby looking on with a serene, royal smile. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Long black hair tied in an ascetic knot, Attire: Saffron bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, expression radiating calm conviction and deep devotion. Temporal Constraints: No cuts, continuous fluid water motion, smooth camera tilt, stable end frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_014",
+            "chapter": "Devotional Bond",
+            "role": "story",
+            "narration": "विभीषण सिंहासन नहीं, केवल सत्य का पक्ष चाहते थे। वाल्मीकि रामायण के अनुसार, वे देशद्रोही नहीं, धर्म के सच्चे रक्षक थे।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Low-angle emotional devotional shot. Vibhishana bows deeply, touching the lotus feet of Shri Rama on the ocean beach. Shri Rama, with deep blue-dark skin, gently reaches down with long arms to lift Vibhishana up into a warm, brotherly embrace. Golden rays of sunlight filter through beach palm leaves, casting a sacred warm glow over the emotional scene. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm eyes, Body: Tall, broad shoulders, long arms reaching knees, Hair: Long black hair in an ascetic knot, Attire: Ochre bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined facial features, wearing royal silk antariya, chest armor plate, expression radiating devotional surrender and deep peace. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_015",
+            "chapter": "Traitor or Defender of Dharma?",
+            "role": "story",
+            "narration": "जब राजा या परिवार अधर्म चुने, तो धर्म के साथ खड़े होना ही सर्वोच्च कर्तव्य है।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "A cinematic orbital 360 camera move around Vibhishana as he stands majestically on the rocky coastline. On the left side of the frame, dark stormy clouds hover over distant Lanka in the ocean mist. On the right side, bright golden divine sunlight breaks through the clouds, illuminating Vibhishana's face with serene moral clarity and righteous strength as his red and gold antariya sways in the wind. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral victory, and deep devotion. Temporal Constraints: No cuts, smooth camera orbit, stable terminal composition, no face warping. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+            "videoPrompt": "A cinematic orbital 360 camera move around Vibhishana as he stands majestically on the rocky coastline. On the left side of the frame, dark stormy clouds hover over distant Lanka in the ocean mist. On the right side, bright golden divine sunlight breaks through the clouds, illuminating Vibhishana's face with serene moral clarity and righteous strength as his red and gold antariya sways in the wind. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral victory, and deep devotion. Temporal Constraints: No cuts, smooth camera orbit, stable terminal composition, no face warping. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          },
+          {
+            "id": "scene_016",
+            "chapter": "Final Blessing & CTA",
+            "role": "story",
+            "narration": "जय श्री राम! धर्म की रक्षा के लिए चैनल से जुड़े रहें।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "A majestic wide closing image. Shri Rama (with deep blue-dark skin, in saffron bark-cloth with bow Kodanda) and Vibhishana stand side by side on the coastal shore at sunrise, looking out towards the ocean path (Ram Setu region). Surrounding them in reverence are Lakshmana, Hanuman, and Sugriva under a brilliant golden-orange Treta Yuga dawn sky. Divine, peaceful, heroic atmospheric composition. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Ascetic knot, Attire: Ochre bark-cloth, bow Kodanda, Expression: Serene divine majesty. Vibhishana: Tall, noble Rakshasa prince, wearing royal silk antariya, gold crown, chest armor plate, Expression: Calm conviction and devotion. Hanuman: Golden furred Vanara warrior in sacred loincloth, hands folded reverently. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+          }
+        ],
+        "supportingNotes": "---\n\n### SECTION 4 — HINDI TEXT OVERLAYS\n\n- **Thumbnail Text**: देशद्रोही या धर्मरक्षक?\n- **Opening Frame Text**: विभीषण का धर्मसंकट\n- **Scene Lower-Thirds**:\n  - `00:11`: लंका राजसभा\n  - `00:33`: धर्म का चुनाव\n  - `01:01`: श्री राम का अभय दान\n  - `01:07`: लंकापति विभीषण\n- **Follow Frame Text**: ❤️ लाइक करें | 💬 कमेंट — जय श्री राम 🙏 | 🔔 जुड़े रहें\n- **End Card Text**: जय श्री राम 🙏\n\n---\n\n### SECTION 5 — THE REFLECTION ENGINE\n\n> **\"जब परिवार या देश का राजा अधर्म का रास्ता चुन ले, तो क्या धर्म का साथ देना सही है या अपनों का? आपकी क्या राय है, कमेंट्स में ज़रूर बताएं। जय श्री राम!\"**"
+      },
+      "notes": [
+        "Preserved exact opening hook: 'अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?'",
+        "Streamlined court debate narration to eliminate repetition and maintain momentum.",
+        "Maintained exact 50/50 alternating video/image media split across all 16 scenes.",
+        "Resolved the core ethical payoff—Valmiki Ramayana's principle of Dharma over blood loyalty—before the final closing blessing."
+      ],
+      "sceneDirections": [
+        {
+          "sceneId": "scene_001",
+          "purpose": "Hook the viewer with Vibhishana's dramatic moral dilemma at the gates of Lanka.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_002",
+          "purpose": "Establish the aggressive, arrogant atmosphere of Ravana's war council.",
+          "motion": "hold",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_003",
+          "purpose": "Show Vibhishana stepping forward as a solitary voice of reason amidst warmongers.",
+          "motion": "drift-left",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_004",
+          "purpose": "Reveal Vibhishana's ethical warning based on Valmiki Ramayana Niti.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_005",
+          "purpose": "Capture Ravana's violent rejection of truth and explosive rage.",
+          "motion": "drift-right",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_006",
+          "purpose": "Present the core moral dilemma of complicity versus standing for righteousness.",
+          "motion": "hold",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_007",
+          "purpose": "Depict Vibhishana's pivotal decision to abandon royal status for Dharma.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_008",
+          "purpose": "Show the physical journey and exile across the stormy ocean.",
+          "motion": "drift-right",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_009",
+          "purpose": "Introduce tactical suspicion and conflict upon arrival at the mainland camp.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_010",
+          "purpose": "Detail Sugriva's strategic caution against accepting the enemy's brother.",
+          "motion": "hold",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_011",
+          "purpose": "Show Hanuman's decisive testimonial validating Vibhishana's moral purity.",
+          "motion": "drift-left",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_012",
+          "purpose": "Deliver the climax of Divine Grace—Rama's famous Abhaya Vrata vow.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_013",
+          "purpose": "Show the pre-war consecration sealing Vibhishana's righteous kingship.",
+          "motion": "drift-right",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_014",
+          "purpose": "Fulfill the title promise: vindicate Vibhishana as a defender of Dharma.",
+          "motion": "hold",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_015",
+          "purpose": "Provide the core philosophical takeaway of the story.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_016",
+          "purpose": "Deliver earned final blessing line and standard brief call to action.",
+          "motion": "hold",
+          "transition": "dissolve"
+        }
+      ],
+      "editedAt": "2026-10-22T10:37:48.078Z"
+    },
+    "scenePlan": {
+      "version": 1,
+      "title": "Generated Episode",
+      "thumbnailPrompt": "Dramatic split lighting composition: on the left, Ravana's dark shadow over Lanka's court; on the right, Vibhishana walking toward the ocean facing Lord Rama's distant camp, with text overlay 'Traitor or Righteous?'.",
+      "scenes": [
+        {
+          "id": "scene_001",
+          "chapter": "The Duality of Lanka",
+          "role": "story",
+          "narration": "अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "A majestic continuous cinematic shot in Treta Yuga setting. Vibhishana stands atop a rocky cliff edge at the colossal golden sea gates of Lanka. Lanka's dark stone towers behind him glow with fiery red oil torches under a stormy night sky. Vibhishana slowly turns his head away from the burning city, looking down toward the dark, churning ocean waves crashing against jagged sea cliffs below. He takes one slow, heavy step forward toward the edge. Atmospheric sea mist, dark bronze lighting, high dynamic cinematic motion. Smooth camera push-in. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera motion, stable ending frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, camera jitter.",
+          "videoPrompt": "A majestic continuous cinematic shot in Treta Yuga setting. Vibhishana stands atop a rocky cliff edge at the colossal golden sea gates of Lanka. Lanka's dark stone towers behind him glow with fiery red oil torches under a stormy night sky. Vibhishana slowly turns his head away from the burning city, looking down toward the dark, churning ocean waves crashing against jagged sea cliffs below. He takes one slow, heavy step forward toward the edge. Atmospheric sea mist, dark bronze lighting, high dynamic cinematic motion. Smooth camera push-in. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera motion, stable ending frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, camera jitter."
+        },
+        {
+          "id": "scene_002",
+          "chapter": "The War Council of Ravana",
+          "role": "story",
+          "narration": "लंका जलने के बाद, रावण ने अपनी राजसभा में युद्ध की रणनीति बनाने के लिए सभी सेनापतियों को बुलाया।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "Inside the grand court assembly hall (Sabha) of Lanka. Ravana sits on an elevated black stone and gold throne carved with demon motifs. Surrounding him are muscular Rakshasa military commanders shouting aggressively, waving ancient spears and swords. Fiery crimson lighting from massive bronze braziers casts long dramatic shadows across stone carved pillars. Treta Yuga Vedic mythic architecture, intense high-contrast cinematic realism, deep focus framing. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads in wide shot, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, multiple armed weapons, Expression: Regal arrogance, unyielding pride, formidable authority. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+        },
+        {
+          "id": "scene_003",
+          "chapter": "Vibhishana's Plea in Court",
+          "role": "story",
+          "narration": "जहाँ सभी राक्षस युद्ध की हुंकार भर रहे थे, वहीं विभीषण हाथ जोड़कर खड़े हुए।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "A wide continuous tracking shot through the court of Lanka. Vibhishana steps forward from the crowd of rowdy generals into the center aisle. He folds his hands in a calm, dignified gesture, addressing King Ravana on his throne. The surrounding demon ministers slowly turn their heads in shock and disapproval as Vibhishana stands solitary in his moral conviction under ambient golden light from oil lamps hanging above. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera panning, stable terminal frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, flickering.",
+          "videoPrompt": "A wide continuous tracking shot through the court of Lanka. Vibhishana steps forward from the crowd of rowdy generals into the center aisle. He folds his hands in a calm, dignified gesture, addressing King Ravana on his throne. The surrounding demon ministers slowly turn their heads in shock and disapproval as Vibhishana stands solitary in his moral conviction under ambient golden light from oil lamps hanging above. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera panning, stable terminal frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, flickering."
+        },
+        {
+          "id": "scene_004",
+          "chapter": "The Warning of Destruction",
+          "role": "story",
+          "narration": "उन्होंने निडर होकर कहा, 'हे राजन, पराई स्त्री का हरण अधर्म है। सीता जी को आदर सहित लौटा दीजिए, वरना लंका का सर्वनाश निश्चित है।'",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "Medium shot of Vibhishana in Ravana's court pointing out toward the balcony, where ominous black storm clouds and supernatural unquenchable red fires burn in Lanka's distant towers. Vibhishana speaks with earnest concern, his face expressing deep grief and moral righteousness. High tension composition framed through carved obsidian pillars with atmospheric smoke and embers. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+        },
+        {
+          "id": "scene_005",
+          "chapter": "Ravana's Explosive Anger",
+          "role": "story",
+          "narration": "अहंकार में अंधे रावण ने सत्य सुनने से इनकार कर दिया और विभीषण को कायर कह दिया।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "A dynamic low-angle video shot. Ravana violently rises from his elevated golden throne in extreme fury. His central head roars in anger while nine dark shadowy heads loom behind him. He slams his armored fist onto the throne rest, causing golden dust and fiery embers to rise around him. Shadows twist across the black stone walls of the royal court as he glares downward at Vibhishana. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, Expression: Regal arrogance, unyielding pride, formidable authority — never cartoonish. Temporal Constraints: No cuts, single motion, no morphing faces, no flickering, stable camera move, continuous lighting. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+          "videoPrompt": "A dynamic low-angle video shot. Ravana violently rises from his elevated golden throne in extreme fury. His central head roars in anger while nine dark shadowy heads loom behind him. He slams his armored fist onto the throne rest, causing golden dust and fiery embers to rise around him. Shadows twist across the black stone walls of the royal court as he glares downward at Vibhishana. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, Expression: Regal arrogance, unyielding pride, formidable authority — never cartoonish. Temporal Constraints: No cuts, single motion, no morphing faces, no flickering, stable camera move, continuous lighting. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_006",
+          "chapter": "The Public Banishment",
+          "role": "story",
+          "narration": "जब राजा अधर्म पर अड़ जाए, तो क्या कुल की रक्षा के नाम पर उसका साथ देना सही है?",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "A dramatic high-contrast medium shot. Ravana points a harsh, commanding finger down toward Vibhishana, his face twisted in intense arrogance and anger. Vibhishana stands in the lower foreground, his head slightly lowered in sorrow but his posture firm as he is verbally kicked out and banished from the royal hall. Intense shadow play, blood-red and gold color palette, Treta Yuga grand palace interior. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: dominant majestic central head, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crown, Expression: Regal arrogance, unyielding pride. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_007",
+          "chapter": "The Ethical Choice",
+          "role": "story",
+          "narration": "विभीषण ने भाई के मोह के ऊपर धर्म को चुना और लंका का त्याग कर दिया।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "A poignant slow pedestal-down camera shot. Vibhishana stands alone on a cliff edge overlooking the stormy sea outside Lanka. With a solemn expression, he unclasps a heavy gold royal necklace and lets it drop to the stone floor at his feet. He turns his body away from Lanka toward the glowing horizon of the open ocean, taking a deep breath of resolve. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, continuous motion, no face shifting, smooth falling action of jewelry, clean final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+          "videoPrompt": "A poignant slow pedestal-down camera shot. Vibhishana stands alone on a cliff edge overlooking the stormy sea outside Lanka. With a solemn expression, he unclasps a heavy gold royal necklace and lets it drop to the stone floor at his feet. He turns his body away from Lanka toward the glowing horizon of the open ocean, taking a deep breath of resolve. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, continuous motion, no face shifting, smooth falling action of jewelry, clean final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_008",
+          "chapter": "Flight Across the Ocean",
+          "role": "story",
+          "narration": "वे अपने चार मंत्रियों—अनिल, शरभ, सम्पाती और प्रघस के साथ समुद्र पार कर श्री राम की खोज में निकले।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "Wide epic cinematic view of the night sky over a churning dark ocean. Vibhishana and his four loyal Rakshasa ministers (Anala, Sharabha, Sampati, Praghasa) fly through the storm clouds toward the mainland. Divine wind pulls their royal capes and silk antariyas. Moonlight cuts through breaking storm clouds, illuminating their path with ethereal silver light. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_009",
+          "chapter": "Arrival at Rama's Camp",
+          "role": "story",
+          "narration": "समुद्र तट पर पहुंचते ही वानर सेना ने शस्त्र उठा लिए, उन्हें रावण का गुप्तचर समझा गया।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "A low-angle forward tracking shot on the sandy beach shore of Mount Mahendra. Vibhishana and his four ministers descend from the sky and land gently on white sand. In the foreground, Vanara warriors step back in alert surprise, raising wooden bows and spears defensively. Vibhishana immediately kneels down on one knee, extending his empty palms outward in peace and total surrender. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, smooth landing motion, continuous camera tracking, stable final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+          "videoPrompt": "A low-angle forward tracking shot on the sandy beach shore of Mount Mahendra. Vibhishana and his four ministers descend from the sky and land gently on white sand. In the foreground, Vanara warriors step back in alert surprise, raising wooden bows and spears defensively. Vibhishana immediately kneels down on one knee, extending his empty palms outward in peace and total surrender. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, smooth landing motion, continuous camera tracking, stable final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_010",
+          "chapter": "Sugriva's Warning",
+          "role": "story",
+          "narration": "सुग्रीव ने चेतावनी दी कि शत्रु के भाई पर भरोसा करना भयानक भूल हो सकती है।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "Over-the-shoulder medium shot facing Shri Rama. Sugriva, the formidable Vanara king with golden fur and royal ornaments, stands beside Shri Rama pointing toward Vibhishana on the distant beach. Sugriva speaks with an urgent, guarded expression, warning Rama that Vibhishana might be a deceptive spy sent by Ravana. Warm morning beach sunlight, tropical palm leaves in background. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, Hair: Long black hair tied in an ascetic knot, Attire: Ochre bark-cloth dhoti, no crown, bow and quiver, Expression: Serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_011",
+          "chapter": "Hanuman's Advocacy",
+          "role": "story",
+          "narration": "लेकिन हनुमान जी ने गवाही दी कि विभीषण का मन कपट से मुक्त और धर्म में स्थिर है।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "A slow camera push-in on Hanuman standing in the shore council circle. Hanuman folds his golden furred hands together reverently, speaking to Shri Rama with humble, intelligent eyes. He gestures gently toward Vibhishana, testifying with deep conviction about Vibhishana's pure intention, virtuous speech, and devotion to righteousness observed in Lanka. Warm sunrise glints on Hanuman's golden fur. Continuity Lock: Hanuman: Form: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, Attire: Simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), Expression: Deep devotional surrender, awe-inspiring strength, humble eyes. Temporal Constraints: No cuts, single continuous motion, no face drift, stable terminal frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+          "videoPrompt": "A slow camera push-in on Hanuman standing in the shore council circle. Hanuman folds his golden furred hands together reverently, speaking to Shri Rama with humble, intelligent eyes. He gestures gently toward Vibhishana, testifying with deep conviction about Vibhishana's pure intention, virtuous speech, and devotion to righteousness observed in Lanka. Warm sunrise glints on Hanuman's golden fur. Continuity Lock: Hanuman: Form: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, Attire: Simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), Expression: Deep devotional surrender, awe-inspiring strength, humble eyes. Temporal Constraints: No cuts, single continuous motion, no face drift, stable terminal frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_012",
+          "chapter": "The Divine Sharanagati Vow",
+          "role": "story",
+          "narration": "तब श्री राम ने अपनी प्रसिद्ध प्रतिज्ञा ली—'जो भी एक बार मेरी शरण में आता है, मैं उसे अभय दान देता हूँ।'",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "A breathtaking portrait of Shri Rama standing on the coastal shore. Shri Rama has a deep blue-dark complexion (\"shyama varna\"), long black hair in an ascetic knot, wearing saffron bark-cloth. He holds his legendary bow Kodanda in one hand while raising his right hand in the Abhaya Mudra gesture of divine protection. A soft celestial golden aura surrounds him as he smiles compassionately, making his sacred vow of refuge. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, never light or fair, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, long arms, Hair: Long black hair tied in an ascetic knot, Attire: Ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, Expression: Dignified, compassionate, serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_013",
+          "chapter": "The Pre-War Coronation",
+          "role": "story",
+          "narration": "युद्ध आरंभ होने से पहले ही, श्री राम ने समुद्र जल से विभीषण का लंकापति के रूप में राज्याभिषेक कर दिया।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "A slow vertical camera tilt down. Lakshmana pours sacred ocean water from an ornate golden vessel over the bowed head of Vibhishana in a ritual coronation ceremony on the beach. Water droplets glint like liquid gold under bright morning sunlight as water flows down Vibhishana's forehead and chest armor. Shri Rama stands nearby looking on with a serene, royal smile. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Long black hair tied in an ascetic knot, Attire: Saffron bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, expression radiating calm conviction and deep devotion. Temporal Constraints: No cuts, continuous fluid water motion, smooth camera tilt, stable end frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+          "videoPrompt": "A slow vertical camera tilt down. Lakshmana pours sacred ocean water from an ornate golden vessel over the bowed head of Vibhishana in a ritual coronation ceremony on the beach. Water droplets glint like liquid gold under bright morning sunlight as water flows down Vibhishana's forehead and chest armor. Shri Rama stands nearby looking on with a serene, royal smile. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Long black hair tied in an ascetic knot, Attire: Saffron bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, expression radiating calm conviction and deep devotion. Temporal Constraints: No cuts, continuous fluid water motion, smooth camera tilt, stable end frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_014",
+          "chapter": "Devotional Bond",
+          "role": "story",
+          "narration": "विभीषण सिंहासन नहीं, केवल सत्य का पक्ष चाहते थे। वाल्मीकि रामायण के अनुसार, वे देशद्रोही नहीं, धर्म के सच्चे रक्षक थे।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "Low-angle emotional devotional shot. Vibhishana bows deeply, touching the lotus feet of Shri Rama on the ocean beach. Shri Rama, with deep blue-dark skin, gently reaches down with long arms to lift Vibhishana up into a warm, brotherly embrace. Golden rays of sunlight filter through beach palm leaves, casting a sacred warm glow over the emotional scene. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm eyes, Body: Tall, broad shoulders, long arms reaching knees, Hair: Long black hair in an ascetic knot, Attire: Ochre bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined facial features, wearing royal silk antariya, chest armor plate, expression radiating devotional surrender and deep peace. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_015",
+          "chapter": "Traitor or Defender of Dharma?",
+          "role": "story",
+          "narration": "जब राजा या परिवार अधर्म चुने, तो धर्म के साथ खड़े होना ही सर्वोच्च कर्तव्य है।",
+          "mediaType": "image",
+          "duration": 8,
+          "imagePrompt": "A cinematic orbital 360 camera move around Vibhishana as he stands majestically on the rocky coastline. On the left side of the frame, dark stormy clouds hover over distant Lanka in the ocean mist. On the right side, bright golden divine sunlight breaks through the clouds, illuminating Vibhishana's face with serene moral clarity and righteous strength as his red and gold antariya sways in the wind. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral victory, and deep devotion. Temporal Constraints: No cuts, smooth camera orbit, stable terminal composition, no face warping. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+          "videoPrompt": "A cinematic orbital 360 camera move around Vibhishana as he stands majestically on the rocky coastline. On the left side of the frame, dark stormy clouds hover over distant Lanka in the ocean mist. On the right side, bright golden divine sunlight breaks through the clouds, illuminating Vibhishana's face with serene moral clarity and righteous strength as his red and gold antariya sways in the wind. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral victory, and deep devotion. Temporal Constraints: No cuts, smooth camera orbit, stable terminal composition, no face warping. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        },
+        {
+          "id": "scene_016",
+          "chapter": "Final Blessing & CTA",
+          "role": "story",
+          "narration": "जय श्री राम! धर्म की रक्षा के लिए चैनल से जुड़े रहें।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "A majestic wide closing image. Shri Rama (with deep blue-dark skin, in saffron bark-cloth with bow Kodanda) and Vibhishana stand side by side on the coastal shore at sunrise, looking out towards the ocean path (Ram Setu region). Surrounding them in reverence are Lakshmana, Hanuman, and Sugriva under a brilliant golden-orange Treta Yuga dawn sky. Divine, peaceful, heroic atmospheric composition. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Ascetic knot, Attire: Ochre bark-cloth, bow Kodanda, Expression: Serene divine majesty. Vibhishana: Tall, noble Rakshasa prince, wearing royal silk antariya, gold crown, chest armor plate, Expression: Calm conviction and devotion. Hanuman: Golden furred Vanara warrior in sacred loincloth, hands folded reverently. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands."
+        }
+      ],
+      "supportingNotes": "---\n\n### SECTION 4 — HINDI TEXT OVERLAYS\n\n- **Thumbnail Text**: देशद्रोही या धर्मरक्षक?\n- **Opening Frame Text**: विभीषण का धर्मसंकट\n- **Scene Lower-Thirds**:\n  - `00:11`: लंका राजसभा\n  - `00:33`: धर्म का चुनाव\n  - `01:01`: श्री राम का अभय दान\n  - `01:07`: लंकापति विभीषण\n- **Follow Frame Text**: ❤️ लाइक करें | 💬 कमेंट — जय श्री राम 🙏 | 🔔 जुड़े रहें\n- **End Card Text**: जय श्री राम 🙏\n\n---\n\n### SECTION 5 — THE REFLECTION ENGINE\n\n> **\"जब परिवार या देश का राजा अधर्म का रास्ता चुन ले, तो क्या धर्म का साथ देना सही है या अपनों का? आपकी क्या राय है, कमेंट्स में ज़रूर बताएं। जय श्री राम!\"**"
+    },
+    "sceneAnalysis": {
+      "transitions": [
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve"
+      ],
+      "effects": [
+        "slow-zoom-in",
+        "hold",
+        "drift-left",
+        "slow-zoom-in",
+        "drift-right",
+        "hold",
+        "slow-zoom-in",
+        "drift-right",
+        "slow-zoom-in",
+        "hold",
+        "drift-left",
+        "slow-zoom-in",
+        "drift-right",
+        "hold",
+        "slow-zoom-in",
+        "hold"
+      ],
+      "timings": [],
+      "mood": "cinematic",
+      "colorGrade": "warm-vintage"
+    },
+    "referenceFrames": {
+      "0": {
+        "index": 0,
+        "prompt": "A majestic continuous cinematic shot in Treta Yuga setting. Vibhishana stands atop a rocky cliff edge at the colossal golden sea gates of Lanka. Lanka's dark stone towers behind him glow with fiery red oil torches under a stormy night sky. Vibhishana slowly turns his head away from the burning city, looking down toward the dark, churning ocean waves crashing against jagged sea cliffs below. He takes one slow, heavy step forward toward the edge. Atmospheric sea mist, dark bronze lighting, high dynamic cinematic motion. Smooth camera push-in. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera motion, stable ending frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, camera jitter.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-00-1792665468166.png",
+        "seed": 168978817,
+        "elapsedMs": 7825,
+        "createdAt": "2026-10-22T10:37:55.993Z"
+      },
+      "1": {
+        "index": 1,
+        "prompt": "Inside the grand court assembly hall (Sabha) of Lanka. Ravana sits on an elevated black stone and gold throne carved with demon motifs. Surrounding him are muscular Rakshasa military commanders shouting aggressively, waving ancient spears and swords. Fiery crimson lighting from massive bronze braziers casts long dramatic shadows across stone carved pillars. Treta Yuga Vedic mythic architecture, intense high-contrast cinematic realism, deep focus framing. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads in wide shot, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, multiple armed weapons, Expression: Regal arrogance, unyielding pride, formidable authority. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-01-1792665540244.png",
+        "seed": 603028029,
+        "elapsedMs": 15700,
+        "createdAt": "2026-10-22T10:39:15.946Z"
+      },
+      "2": {
+        "index": 2,
+        "prompt": "A wide continuous tracking shot through the court of Lanka. Vibhishana steps forward from the crowd of rowdy generals into the center aisle. He folds his hands in a calm, dignified gesture, addressing King Ravana on his throne. The surrounding demon ministers slowly turn their heads in shock and disapproval as Vibhishana stands solitary in his moral conviction under ambient golden light from oil lamps hanging above. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, no morphing, no face drift, no limb glitches, smooth camera panning, stable terminal frame, no text. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, flickering.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-02-1792665555978.png",
+        "seed": 1806939780,
+        "elapsedMs": 8234,
+        "createdAt": "2026-10-22T10:39:24.214Z"
+      },
+      "3": {
+        "index": 3,
+        "prompt": "Medium shot of Vibhishana in Ravana's court pointing out toward the balcony, where ominous black storm clouds and supernatural unquenchable red fires burn in Lanka's distant towers. Vibhishana speaks with earnest concern, his face expressing deep grief and moral righteousness. High tension composition framed through carved obsidian pillars with atmospheric smoke and embers. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-03-1792665634258.png",
+        "seed": 548249041,
+        "elapsedMs": 8885,
+        "createdAt": "2026-10-22T10:40:43.145Z"
+      },
+      "4": {
+        "index": 4,
+        "prompt": "A dynamic low-angle video shot. Ravana violently rises from his elevated golden throne in extreme fury. His central head roars in anger while nine dark shadowy heads loom behind him. He slams his armored fist onto the throne rest, causing golden dust and fiery embers to rise around him. Shadows twist across the black stone walls of the royal court as he glares downward at Vibhishana. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: Ten heads, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, Expression: Regal arrogance, unyielding pride, formidable authority — never cartoonish. Temporal Constraints: No cuts, single motion, no morphing faces, no flickering, stable camera move, continuous lighting. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-04-1792665643181.png",
+        "seed": 2086645102,
+        "elapsedMs": 12717,
+        "createdAt": "2026-10-22T10:40:55.900Z"
+      },
+      "5": {
+        "index": 5,
+        "prompt": "A dramatic high-contrast medium shot. Ravana points a harsh, commanding finger down toward Vibhishana, his face twisted in intense arrogance and anger. Vibhishana stands in the lower foreground, his head slightly lowered in sorrow but his posture firm as he is verbally kicked out and banished from the royal hall. Intense shadow play, blood-red and gold color palette, Treta Yuga grand palace interior. Continuity Lock: Ravana: Age: 40–50 years old appearance — imposing sovereign, Skin: Dark bronze with fiery crimson undertone, Face: dominant majestic central head, Attire: Black and blood-red royal silk, heavy gold armor, jeweled crown, Expression: Regal arrogance, unyielding pride. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-05-1792665719358.png",
+        "seed": 966847434,
+        "elapsedMs": 7849,
+        "createdAt": "2026-10-22T10:42:07.210Z"
+      },
+      "6": {
+        "index": 6,
+        "prompt": "A poignant slow pedestal-down camera shot. Vibhishana stands alone on a cliff edge overlooking the stormy sea outside Lanka. With a solemn expression, he unclasps a heavy gold royal necklace and lets it drop to the stone floor at his feet. He turns his body away from Lanka toward the glowing horizon of the open ocean, taking a deep breath of resolve. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, continuous motion, no face shifting, smooth falling action of jewelry, clean final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-06-1792665727242.png",
+        "seed": 1358439364,
+        "elapsedMs": 7131,
+        "createdAt": "2026-10-22T10:42:14.374Z"
+      },
+      "7": {
+        "index": 7,
+        "prompt": "Wide epic cinematic view of the night sky over a churning dark ocean. Vibhishana and his four loyal Rakshasa ministers (Anala, Sharabha, Sampati, Praghasa) fly through the storm clouds toward the mainland. Divine wind pulls their royal capes and silk antariyas. Moonlight cuts through breaking storm clouds, illuminating their path with ethereal silver light. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-07-1792665797660.png",
+        "seed": 1255588974,
+        "elapsedMs": 7457,
+        "createdAt": "2026-10-22T10:43:25.120Z"
+      },
+      "8": {
+        "index": 8,
+        "prompt": "A low-angle forward tracking shot on the sandy beach shore of Mount Mahendra. Vibhishana and his four ministers descend from the sky and land gently on white sand. In the foreground, Vanara warriors step back in alert surprise, raising wooden bows and spears defensively. Vibhishana immediately kneels down on one knee, extending his empty palms outward in peace and total surrender. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, ornate gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral sadness, and deep devotion. Temporal Constraints: No cuts, smooth landing motion, continuous camera tracking, stable final frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-08-1792665805158.png",
+        "seed": 1498788486,
+        "elapsedMs": 15710,
+        "createdAt": "2026-10-22T10:43:40.870Z"
+      },
+      "9": {
+        "index": 9,
+        "prompt": "Over-the-shoulder medium shot facing Shri Rama. Sugriva, the formidable Vanara king with golden fur and royal ornaments, stands beside Shri Rama pointing toward Vibhishana on the distant beach. Sugriva speaks with an urgent, guarded expression, warning Rama that Vibhishana might be a deceptive spy sent by Ravana. Warm morning beach sunlight, tropical palm leaves in background. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, Hair: Long black hair tied in an ascetic knot, Attire: Ochre bark-cloth dhoti, no crown, bow and quiver, Expression: Serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-09-1792665890279.png",
+        "seed": 745720703,
+        "elapsedMs": 9254,
+        "createdAt": "2026-10-22T10:44:59.535Z"
+      },
+      "10": {
+        "index": 10,
+        "prompt": "A slow camera push-in on Hanuman standing in the shore council circle. Hanuman folds his golden furred hands together reverently, speaking to Shri Rama with humble, intelligent eyes. He gestures gently toward Vibhishana, testifying with deep conviction about Vibhishana's pure intention, virtuous speech, and devotion to righteousness observed in Lanka. Warm sunrise glints on Hanuman's golden fur. Continuity Lock: Hanuman: Form: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, Attire: Simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), Expression: Deep devotional surrender, awe-inspiring strength, humble eyes. Temporal Constraints: No cuts, single continuous motion, no face drift, stable terminal frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-10-1792665899571.png",
+        "seed": 1942023693,
+        "elapsedMs": 9343,
+        "createdAt": "2026-10-22T10:45:08.916Z"
+      },
+      "11": {
+        "index": 11,
+        "prompt": "A breathtaking portrait of Shri Rama standing on the coastal shore. Shri Rama has a deep blue-dark complexion (\"shyama varna\"), long black hair in an ascetic knot, wearing saffron bark-cloth. He holds his legendary bow Kodanda in one hand while raising his right hand in the Abhaya Mudra gesture of divine protection. A soft celestial golden aura surrounds him as he smiles compassionately, making his sacred vow of refuge. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, never light or fair, Face: Strong jaw, high forehead, calm and powerful eyes, Body: Tall, broad shoulders, long arms, Hair: Long black hair tied in an ascetic knot, Attire: Ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, Expression: Dignified, compassionate, serene, divine majesty. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-11-1792665983238.png",
+        "seed": 160138156,
+        "elapsedMs": 12814,
+        "createdAt": "2026-10-22T10:46:36.055Z"
+      },
+      "12": {
+        "index": 12,
+        "prompt": "A slow vertical camera tilt down. Lakshmana pours sacred ocean water from an ornate golden vessel over the bowed head of Vibhishana in a ritual coronation ceremony on the beach. Water droplets glint like liquid gold under bright morning sunlight as water flows down Vibhishana's forehead and chest armor. Shri Rama stands nearby looking on with a serene, royal smile. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Long black hair tied in an ascetic knot, Attire: Saffron bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, expression radiating calm conviction and deep devotion. Temporal Constraints: No cuts, continuous fluid water motion, smooth camera tilt, stable end frame. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-12-1792665996085.png",
+        "seed": 1988920601,
+        "elapsedMs": 13940,
+        "createdAt": "2026-10-22T10:46:50.027Z"
+      },
+      "13": {
+        "index": 13,
+        "prompt": "Low-angle emotional devotional shot. Vibhishana bows deeply, touching the lotus feet of Shri Rama on the ocean beach. Shri Rama, with deep blue-dark skin, gently reaches down with long arms to lift Vibhishana up into a warm, brotherly embrace. Golden rays of sunlight filter through beach palm leaves, casting a sacred warm glow over the emotional scene. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, Face: Strong jaw, high forehead, calm eyes, Body: Tall, broad shoulders, long arms reaching knees, Hair: Long black hair in an ascetic knot, Attire: Ochre bark-cloth dhoti, Expression: Dignified, compassionate, serene. Vibhishana: Tall, noble Rakshasa prince with refined facial features, wearing royal silk antariya, chest armor plate, expression radiating devotional surrender and deep peace. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-13-1792666081212.png",
+        "seed": 20348924,
+        "elapsedMs": 8123,
+        "createdAt": "2026-10-22T10:48:09.337Z"
+      },
+      "14": {
+        "index": 14,
+        "prompt": "A cinematic orbital 360 camera move around Vibhishana as he stands majestically on the rocky coastline. On the left side of the frame, dark stormy clouds hover over distant Lanka in the ocean mist. On the right side, bright golden divine sunlight breaks through the clouds, illuminating Vibhishana's face with serene moral clarity and righteous strength as his red and gold antariya sways in the wind. Continuity Lock: Vibhishana: Tall, noble Rakshasa prince with refined, serene facial features, wearing dignified royal silk antariya, gold crown, chest armor plate, gold armlets, expression radiating calm conviction, moral victory, and deep devotion. Temporal Constraints: No cuts, smooth camera orbit, stable terminal composition, no face warping. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-14-1792666089371.png",
+        "seed": 674509759,
+        "elapsedMs": 7439,
+        "createdAt": "2026-10-22T10:48:16.811Z"
+      },
+      "15": {
+        "index": 15,
+        "prompt": "A majestic wide closing image. Shri Rama (with deep blue-dark skin, in saffron bark-cloth with bow Kodanda) and Vibhishana stand side by side on the coastal shore at sunrise, looking out towards the ocean path (Ram Setu region). Surrounding them in reverence are Lakshmana, Hanuman, and Sugriva under a brilliant golden-orange Treta Yuga dawn sky. Divine, peaceful, heroic atmospheric composition. Continuity Lock: Rama: Age: 25–30 years old, Skin: Deep blue-dark complexion (\"shyama varna\"), Hair: Ascetic knot, Attire: Ochre bark-cloth, bow Kodanda, Expression: Serene divine majesty. Vibhishana: Tall, noble Rakshasa prince, wearing royal silk antariya, gold crown, chest armor plate, Expression: Calm conviction and devotion. Hanuman: Golden furred Vanara warrior in sacred loincloth, hands folded reverently. Negative Prompt: cartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama, light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-15-1792666724076.png",
+        "seed": 1428338936,
+        "elapsedMs": 7456,
+        "createdAt": "2026-10-22T10:58:51.534Z"
+      }
+    },
+    "retentionReview": {
+      "summary": "Batch 1: The video successfully explores why Vibhishana left Lanka according to the Valmiki Ramayana, directly answering the viewer's promise. The audio is clear, visuals match the narration well, and captions are readable and properly formatted with progressive chunking. No technical defects or clipping issues were observed in the reviewed frames.\nBatch 2: The sampled video sequence successfully illustrates the narrative about Vibhishana and Ravana with accurate visuals, clear Hindi voiceover, and legible captions synchronized well with the narration. No rendering defects, overlapping, or clipping issues were observed in the sampled range.\nBatch 3: The video sample from 34.92s to 54.73s demonstrates clear narration, appropriate visual context matching the story of Vibhishana, good voice intelligibility, and correct sync. Captions are readable, non-overlapping, and follow progressive chunking properly without clipping or truncation defects.\nBatch 4: The reviewed video segment adheres well to the scriptural topic with high visual quality, clear narration, and correctly timed progressive captioning. No major blocking defects or text clipping issues were found in the sampled frames.\nBatch 5: The video sample successfully matches the scriptural narration and viewer promise with clear, high-quality AI-generated imagery and accurate Hindi voiceover. Captions are properly synchronized, fully legible, and do not suffer from spatial clipping or overlapping issues.\nBatch 6: The final segment of the video (94.50 to 110.80 seconds) maintains high visual quality and accurate alignment with the narration. Captions are clear, readable, non-overlapping, and properly synchronized with the spoken phrases without any clipping or readability defects.\nBatch 7: The video successfully adheres to the viewer's promise, maintaining clear narrative tension and a strong conclusion based on the Valmiki Ramayana. Visuals support the narration well, audio is clear and intelligible, and captions are readable and properly formatted without any overlapping or clipping defects in the inspected sample.",
+      "findings": [],
+      "status": "passed",
+      "reviewedAt": "2026-10-22T11:07:44.646Z",
+      "videoFilename": "final_03570b0b-42bc-47cb-a45b-b71fcdf59506.mp4",
+      "renderHash": "08b9e664599783184ab0d2c87be519cb39147af31a3747ed468bce0d35fc92da",
+      "productionHash": "1f11b5c7b42e6402a4757a3be57b27d64fa5c26fd7afe8f5038465c61d8bb5ec",
+      "duration": 110.798372,
+      "sampleTimes": [
+        0,
+        1.5,
+        2.875,
+        4,
+        4.888,
+        9.565,
+        12.236,
+        16.375,
+        18.472,
+        24.785,
+        28.575,
+        33.565,
+        35.921,
+        40.045,
+        42.226,
+        45.905,
+        47.826,
+        52.735,
+        55.399,
+        55.595,
+        60.155,
+        62.49,
+        66.445,
+        68.514,
+        72.475,
+        74.628,
+        79.285,
+        81.899,
+        86.765,
+        89.387,
+        95.505,
+        99.002,
+        103.365,
+        105.371,
+        108.505,
+        109.798,
+        110.098
+      ]
+    },
+    "retentionProduction": {
+      "hook": "अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?",
+      "structure": "Intriguing question -> authentic traditional story -> clear explanation -> meaningful insight",
+      "title": "Why Vibhishana Left Lanka: Traitor or Defender of Dharma?",
+      "duration": 110.798372,
+      "musicMood": "cinematic",
+      "scenes": [
+        {
+          "sceneId": "scene_001",
+          "start": 0,
+          "end": 5.75,
+          "purpose": "Hook the viewer with Vibhishana's dramatic moral dilemma at the gates of Lanka."
+        },
+        {
+          "sceneId": "scene_002",
+          "start": 5.75,
+          "end": 13.38,
+          "purpose": "Establish the aggressive, arrogant atmosphere of Ravana's war council."
+        },
+        {
+          "sceneId": "scene_003",
+          "start": 13.38,
+          "end": 19.37,
+          "purpose": "Show Vibhishana stepping forward as a solitary voice of reason amidst warmongers."
+        },
+        {
+          "sceneId": "scene_004",
+          "start": 19.37,
+          "end": 30.2,
+          "purpose": "Reveal Vibhishana's ethical warning based on Valmiki Ramayana Niti."
+        },
+        {
+          "sceneId": "scene_005",
+          "start": 30.2,
+          "end": 36.93,
+          "purpose": "Capture Ravana's violent rejection of truth and explosive rage."
+        },
+        {
+          "sceneId": "scene_006",
+          "start": 36.93,
+          "end": 43.16,
+          "purpose": "Present the core moral dilemma of complicity versus standing for righteousness."
+        },
+        {
+          "sceneId": "scene_007",
+          "start": 43.16,
+          "end": 48.65,
+          "purpose": "Depict Vibhishana's pivotal decision to abandon royal status for Dharma."
+        },
+        {
+          "sceneId": "scene_008",
+          "start": 48.65,
+          "end": 56.82,
+          "purpose": "Show the physical journey and exile across the stormy ocean."
+        },
+        {
+          "sceneId": "scene_009",
+          "start": 56.82,
+          "end": 63.49,
+          "purpose": "Introduce tactical suspicion and conflict upon arrival at the mainland camp."
+        },
+        {
+          "sceneId": "scene_010",
+          "start": 63.49,
+          "end": 69.4,
+          "purpose": "Detail Sugriva's strategic caution against accepting the enemy's brother."
+        },
+        {
+          "sceneId": "scene_011",
+          "start": 69.4,
+          "end": 75.55,
+          "purpose": "Show Hanuman's decisive testimonial validating Vibhishana's moral purity."
+        },
+        {
+          "sceneId": "scene_012",
+          "start": 75.55,
+          "end": 83.02,
+          "purpose": "Deliver the climax of Divine Grace—Rama's famous Abhaya Vrata vow."
+        },
+        {
+          "sceneId": "scene_013",
+          "start": 83.02,
+          "end": 90.51,
+          "purpose": "Show the pre-war consecration sealing Vibhishana's righteous kingship."
+        },
+        {
+          "sceneId": "scene_014",
+          "start": 90.51,
+          "end": 100.5,
+          "purpose": "Fulfill the title promise: vindicate Vibhishana as a defender of Dharma."
+        },
+        {
+          "sceneId": "scene_015",
+          "start": 100.5,
+          "end": 106.23,
+          "purpose": "Provide the core philosophical takeaway of the story."
+        },
+        {
+          "sceneId": "scene_016",
+          "start": 106.23,
+          "end": 110.78,
+          "purpose": "Deliver earned final blessing line and standard brief call to action."
+        }
+      ]
+    },
+    "youtubeExport": {
+      "title": "Why Vibhishana Left Lanka: Traitor or Defender of Dharma?",
+      "description": "Explore the story of Vibhishana from the Valmiki Ramayana. When Ravana kidnapped Sita, Vibhishana pleaded for righteousness and peace. After being rejected and exiled, he made the profound decision to seek refuge with Lord Rama. Was this treason or the ultimate loyalty to Dharma? We analyze the scriptural context and eternal moral lessons of this key moment in Indian history and philosophy.",
+      "tags": [
+        "Vibhishana",
+        "Ramayana",
+        "Ravana",
+        "Lord Rama",
+        "Dharma",
+        "Ancient Dharma",
+        "Hindu Philosophy",
+        "Valmiki Ramayana",
+        "Lanka",
+        "Indian History"
+      ],
+      "privacyStatus": "private",
+      "uploadedVideoId": "9J9MJrgmba4",
+      "uploadedVideoUrl": "https://youtu.be/9J9MJrgmba4",
+      "uploadedAt": "2026-10-22T11:07:50.587Z"
+    }
   },
   {
     "id": "test_e2e_video",

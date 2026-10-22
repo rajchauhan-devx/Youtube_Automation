@@ -71,7 +71,7 @@ if ($LASTEXITCODE -ne 0) {
 & $venvPython -c "import torch, fastapi, uvicorn; from chatterbox.mtl_tts import ChatterboxMultilingualTTS; print('Chatterbox dependencies OK'); print('CUDA:', torch.cuda.is_available()); print('Torch:', torch.__version__)"
 
 if (-not $SkipModelDownload) {
-    Write-Host 'Downloading Chatterbox Multilingual V3 model files (one-time download)...'
+    Write-Host 'Downloading pretrained Chatterbox Hindi and Multilingual V3 model files (one-time download, no training)...'
     & $venvPython (Join-Path $serviceDir 'prefetch.py')
 }
 

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "timingMode": "narration",
+  "planHash": "b694530b818bc2adaec87ed8210de425460f028c26f3520c796e9fa09c40fd98",
+  "sampleRate": 48000,
+  "totalSamples": 213648,
+  "scenes": [
+    {
+      "sceneId": "C01_S001",
+      "startSample": 0,
+      "endSample": 54576
+    },
+    {
+      "sceneId": "C01_S002",
+      "startSample": 54576,
+      "endSample": 162240
+    },
+    {
+      "sceneId": "C02_S001",
+      "startSample": 162240,
+      "endSample": 213648
+    }
+  ],
+  "audioHash": "275b9fd9ced86cb8976acda88f21648b0a321e56f14ca480b3e8981c9c68886b"
+}

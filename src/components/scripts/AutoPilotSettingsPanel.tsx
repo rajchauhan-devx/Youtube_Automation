@@ -3,6 +3,7 @@ import { Play, Square, Loader2 } from 'lucide-react';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import { preferredVoice, rememberVoice, VOICES_CHANGED, type SavedVoice } from '../../services/voiceLibrary';
 import { narrationOptions, type AutoPilotSettings } from '../../../server/src/services/autopilot-settings';
+import { NATURAL_CHATTERBOX_OPTIONS } from '../../../server/src/services/chatterbox-options';
 import { editingPreset, type EditingSettings } from '../../../server/src/services/auto-edit';
 import { GEMINI_MODELS } from '../../data';
 
@@ -62,7 +63,8 @@ export function AutoPilotSettingsPanel({ value, onChange, onVoiceReady }: { valu
       setVoices(list);
       const current = latest.current.value;
       const preferred = preferredVoice(account.id, language, data.provider || '');
-      const selected = list.find(v => v.id === current.voice.voiceId) || list.find(v => v.id === preferred) || list.find(v => v.source === 'clone') || list[0];
+      const selected = list.find(v => v.id === current.voice.voiceId) || list.find(v => v.id === preferred)
+        || (language === 'en' ? list.find(v => v.source === 'clone') : undefined) || list[0];
       if (selected && selected.id !== current.voice.voiceId) latest.current.onChange({ ...current, voice: { ...current.voice, voiceId: selected.id } });
     }).catch(error => { if (!controller.signal.aborted) setVoiceError(error.message); }).finally(() => { if (!controller.signal.aborted) setVoiceLoading(false); });
     const refresh = () => setReload(n => n + 1);
@@ -115,6 +117,8 @@ export function AutoPilotSettingsPanel({ value, onChange, onVoiceReady }: { valu
       {!configured && <p role="alert" className="text-xs text-amber-300">Add this engine’s API key in Setup before running.</p>}
       {voiceError && <p role="alert" className="text-xs text-red-300">{voiceError}</p>}
       {value.voice.language === 'auto' && <p className="text-xs text-muted">The matching Hindi voice library is resolved before synthesis if the script is in Hindi. Choose Hindi explicitly to select a particular Hindi voice.</p>}
+      {effectiveProvider === 'chatterbox' && <button type="button" className="studio-btn-ghost text-xs" onClick={() => { stopPreview(); patch('voice', { ...NATURAL_CHATTERBOX_OPTIONS, rate: 0, pitch: 0, speed: 1 }); }}>Use natural delivery</button>}
+      {effectiveProvider === 'chatterbox' && <button type="button" className="studio-btn-ghost text-xs" onClick={() => { stopPreview(); patch('voice', { language: 'hi', voiceId: 'builtin', ...NATURAL_CHATTERBOX_OPTIONS, rate: 0, pitch: 0, speed: 1, seed: 42 }); rememberVoice(account.id, 'hi', providerName, 'builtin'); }}>Start fresh with native Hindi</button>}
       <details><summary className="cursor-pointer text-xs text-accent">Voice tuning</summary><div className="mt-3 grid gap-3 sm:grid-cols-2">
         {effectiveProvider === 'chatterbox' && <><NumberInput label="Expression" min={0.25} max={1.2} step={0.05} value={value.voice.exaggeration} onChange={exaggeration => patch('voice', { exaggeration })} /><NumberInput label="Pace guidance" min={0.2} max={0.8} step={0.01} value={value.voice.cfgWeight} onChange={cfgWeight => patch('voice', { cfgWeight })} /><NumberInput label="Voice temperature" min={0.4} max={1.2} step={0.01} value={value.voice.temperature} onChange={temperature => patch('voice', { temperature })} /><NumberInput label="Voice seed" min={0} max={2147483647} value={value.voice.seed} onChange={seed => patch('voice', { seed })} /></>}
         {effectiveProvider === 'edge' && <><NumberInput label="Speech rate (%)" min={-25} max={35} value={value.voice.rate} onChange={rate => patch('voice', { rate })} /><NumberInput label="Pitch (Hz)" min={-12} max={12} value={value.voice.pitch} onChange={pitch => patch('voice', { pitch })} /></>}

@@ -1,4 +1,5 @@
 import { useWorkspaceApi } from '../../services/workspaceApi';
+import { NATURAL_CHATTERBOX_OPTIONS } from '../../../server/src/services/chatterbox-options';
 import { useState, useEffect, useRef } from 'react';
 import {
   Play,
@@ -26,6 +27,7 @@ import { type Script, type GeneratedImage, type GeneratedAudio, getChannelLoraPr
 import { ErrorBoundary } from '../ErrorBoundary';
 import { MixedMediaContent } from './MixedMediaContent';
 import { GenerationDisclosure } from './GenerationDisclosure';
+import { HindiPronunciationEditor } from './HindiPronunciationEditor';
 import { CloudflareImagePanel, type ImageProviderMode } from './CloudflareImagePanel';
 import { saveVoiceReference, rememberVoice, preferredVoice, VOICES_CHANGED } from '../../services/voiceLibrary';
 import { normalizeNarration, spokenText, syncScenePlanNarration } from '../../../server/src/services/scene-plan';
@@ -700,6 +702,7 @@ interface VoiceItem {
   tags?: string[];
   source?: 'builtin' | 'clone' | 'provider';
   deletable?: boolean;
+  referenceRevision?: string;
 }
 
 function AudioGenerationContent({
@@ -729,12 +732,11 @@ function AudioGenerationContent({
   // Voice Customization Controls
   const [rateOffset, setRateOffset] = useState<number>(0); // -25% to +35%
   const [pitchOffset, setPitchOffset] = useState<number>(0); // -12Hz to +12Hz
-  const [stylePreset, setStylePreset] = useState<'natural' | 'cinematic' | 'shorts' | 'tech' | 'vlog' | 'custom'>('cinematic');
-  const [exaggeration, setExaggeration] = useState(0.65);
-  const [cfgWeight, setCfgWeight] = useState(0.32);
-  const [temperature, setTemperature] = useState(0.72);
-  // Locked seed keeps preview and final render in the same voice. Seed 0 used
-  // to sound different every time and drift mid-episode.
+  const [stylePreset, setStylePreset] = useState<'natural' | 'cinematic' | 'shorts' | 'tech' | 'vlog' | 'custom'>('natural');
+  const [exaggeration, setExaggeration] = useState<number>(NATURAL_CHATTERBOX_OPTIONS.exaggeration);
+  const [cfgWeight, setCfgWeight] = useState<number>(NATURAL_CHATTERBOX_OPTIONS.cfgWeight);
+  const [temperature, setTemperature] = useState<number>(NATURAL_CHATTERBOX_OPTIONS.temperature);
+  // A fixed seed makes comparisons reproducible; the reference determines the voice.
   const [ttsSeed] = useState(42);
   const [voiceFile, setVoiceFile] = useState<File | null>(null);
   const [voiceName, setVoiceName] = useState('');
@@ -855,9 +857,9 @@ function AudioGenerationContent({
     if (preset === 'natural') {
       setRateOffset(0);
       setPitchOffset(0);
-      setExaggeration(0.62);
-      setCfgWeight(0.35);
-      setTemperature(0.75);
+      setExaggeration(NATURAL_CHATTERBOX_OPTIONS.exaggeration);
+      setCfgWeight(NATURAL_CHATTERBOX_OPTIONS.cfgWeight);
+      setTemperature(NATURAL_CHATTERBOX_OPTIONS.temperature);
     } else if (preset === 'cinematic') {
       setRateOffset(0);
       setPitchOffset(-2);
@@ -1028,14 +1030,13 @@ function AudioGenerationContent({
       const voiceId = (voice: VoiceItem | string) => typeof voice === 'string' ? voice : voice?.id || '';
       const preferredVoiceItem = voiceList.find((voice: VoiceItem) => voiceId(voice) === preferred);
       const currentVoiceItem = voiceList.find((voice: VoiceItem) => voiceId(voice) === selectedVoice);
-      // Existing profiles may have been saved before the preference key was
-      // introduced. Prefer a saved local clone over the built-in narrator in
-      // that case, so the profile voice is actually used on first visit.
+      // Hindi starts from the native narrator unless a reference was explicitly
+      // selected. A legacy clone may contain an English/synthetic accent.
       const firstSavedVoice = voiceList.find((voice: VoiceItem) => typeof voice === 'object' && voice?.source === 'clone');
       setSelectedVoice((prev) => {
         if (preferredVoiceItem) return voiceId(preferredVoiceItem);
         if (currentVoiceItem && voiceId(currentVoiceItem) === prev) return prev;
-        if (firstSavedVoice) return voiceId(firstSavedVoice);
+        if (lang !== 'hi' && firstSavedVoice) return voiceId(firstSavedVoice);
         return voiceId(voiceList[0] || '');
       });
     } catch (err) {
@@ -1069,20 +1070,6 @@ function AudioGenerationContent({
     setPreviewError('');
     setError('');
     setSelectedLanguage(lang);
-    // Hindi storytelling wants a touch more expression and warmth than
-    // English documentary delivery. Only nudge the cinematic default so manual
-    // tweaks are never overwritten mid-session.
-    if (stylePreset === 'cinematic') {
-      if (lang === 'hi') {
-        setExaggeration(0.7);
-        setCfgWeight(0.3);
-        setTemperature(0.75);
-      } else {
-        setExaggeration(0.65);
-        setCfgWeight(0.32);
-        setTemperature(0.72);
-      }
-    }
   }
 
   async function handlePreviewVoice(v: VoiceItem, e: React.MouseEvent) {
@@ -1719,7 +1706,7 @@ function AudioGenerationContent({
                 <Mic2 className="h-4 w-4 text-accent" />
                 <div>
                   <p className="text-xs font-semibold text-gray-200">Add a local reference voice</p>
-                  <p className="text-[10px] text-gray-500">Use a clean 8–15 second recording with no music or background noise.</p>
+                  <p className="text-[10px] text-gray-500">Use 8–12 seconds of natural {selectedLanguage === 'hi' ? 'native Hindi' : 'English'} speech with no music, echo or voice effects. Start speaking immediately; the opening determines pronunciation and accent.</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.2fr_auto]">
@@ -1759,6 +1746,12 @@ function AudioGenerationContent({
 
         {/* Step 3: Voice Customization & Style Controls */}
         <GenerationDisclosure title="Voice settings" hint={`${stylePreset === 'custom' ? 'Custom' : stylePreset.charAt(0).toUpperCase() + stylePreset.slice(1)} delivery`} className="mb-4">
+          {isChatterbox && selectedLanguage === 'hi' && <div className="mb-3 rounded-md border border-accent/25 bg-accent/5 p-3">
+            <button type="button" disabled={generating || Boolean(previewLoadingId)} onClick={() => { applyStylePreset('natural'); selectVoice('builtin'); setPreviewError(''); }} className="studio-btn-ghost text-xs">Start fresh with native Hindi</button>
+            <p className="mt-2 text-xs text-gray-400">Uses the native Hindi reference and neutral delivery. Your saved voices stay available. Test a few sentences from your script before generating the full narration.</p>
+            {activeVoiceObj?.source === 'clone' && activeVoiceObj.referenceRevision !== 'clean-reference-v1' && <p className="mt-2 text-xs text-amber-300">This saved reference used the older audio processing. Re-upload the original native Hindi recording to preserve more of its consonants and natural voice.</p>}
+            <HindiPronunciationEditor key={account.id} disabled={generating || Boolean(previewLoadingId)} onSaved={stopPreview} />
+          </div>}
           <label className="mb-4 flex flex-wrap items-center gap-3 text-xs text-gray-400">Delivery style
             <select aria-label="Voice delivery style" value={stylePreset} disabled={generating} onChange={e => { const value = e.target.value as typeof stylePreset; if (value === 'custom') setStylePreset(value); else applyStylePreset(value); }} className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-white">
               <option value="natural">Natural conversation</option><option value="cinematic">Storyteller</option><option value="shorts">Viral Shorts</option><option value="tech">Tech news</option><option value="vlog">Vlog</option><option value="custom">Custom</option>
@@ -1803,7 +1796,7 @@ function AudioGenerationContent({
 
               <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
                 <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="font-medium text-gray-300">Pace Guidance</span>
+                  <span className="font-medium text-gray-300">Text Guidance (CFG)</span>
                   <span className="font-mono font-semibold text-accent">{cfgWeight.toFixed(2)}</span>
                 </div>
                 <input
@@ -1819,7 +1812,7 @@ function AudioGenerationContent({
                   }}
                   className="w-full cursor-pointer accent-accent"
                 />
-                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Expressive</span><span>Measured</span></div>
+                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Lower guidance</span><span>Higher guidance</span></div>
               </div>
 
               <div className="rounded-md border border-border/50 bg-surface2/40 p-3">

@@ -210,10 +210,158 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
   // -------------------------------------------------------------------------
   // HEALING RULE 2: Stale Motion Graphics / Project Revision Conflict
   // -------------------------------------------------------------------------
-  if (/saved motion graphics use older|older media or narration|REVISION_CONFLICT|STALE_INPUT|MISSING_SCENE|Saved motion graphics require/i.test(errMsg)) {
-    // A narration/media edit needs a fresh visual plan. Never "heal" it by
-    // replacing the requested documentary edit with captions or detaching it.
-    return { healed: false, error: 'Documentary media or revision changed. Regenerate the visual edit with the current media; caption-only recovery is disabled.' };
+  if (/saved motion graphics|older media or narration|REVISION_CONFLICT|STALE_INPUT|MISSING_SCENE|Saved motion graphics require|motion graphics timing differs|scene map does not match the timeline|Select the narration used to generate the saved motion graphics|Saved visual inputs changed|framing or camera movement obscures a saved spotlight|timing moved a spotlight/i.test(errMsg)) {
+    ctx.addLog(ctx.stage, '[SUPERVISOR] 🛠️ Healing Action: Re-synchronizing visual edit and motion graphics with current media and narration...', 'gemini');
+    ctx.setStatus('Gemini Supervisor: Self-healing visual edit with current media...');
+
+    try {
+      const freshRes = await ctx.fetch(`/api/scripts/${encodeURIComponent(ctx.scriptId)}`);
+      if (!freshRes.ok) throw new Error('Could not reload the production for visual edit healing.');
+      const script = await freshRes.json();
+
+      const audioFilename = script.generatedAudio?.[0]?.filename;
+      const readyImageIndexes = (script.generatedImages || [])
+        .filter((img: any) => img.url && img.status === 'done')
+        .map((img: any) => img.index);
+
+      if (!audioFilename || !readyImageIndexes.length) {
+        return { healed: false, error: 'Cannot regenerate visual edit: missing audio or scene visuals.' };
+      }
+
+      const settings = ctx.autoPilotSettings || script.autoPilotSettings;
+      const graphicsEnabled = Boolean(settings?.graphics?.enabled);
+      const captionsMode = settings?.captions;
+
+      // If neither motion graphics nor motion captions are enabled, clear editingProjectId so render is not blocked
+      if (!graphicsEnabled && captionsMode !== 'motion') {
+        ctx.patchScript(ctx.scriptId, { editingProjectId: null });
+        await ctx.persistScript(ctx.scriptId, { editingProjectId: null });
+        ctx.addLog(ctx.stage, '[SUPERVISOR] ✅ Cleared stale visual edit (motion graphics and motion captions are disabled).', 'success');
+        return { healed: true, actionTaken: 'Detached unused stale visual edit' };
+      }
+
+      // Create a fresh visual project snapshot with current media & narration
+      const projectInputs = {
+        scriptId: ctx.scriptId,
+        audioFilename,
+        language: script.generatedAudio?.[0]?.language || 'en',
+        imageIndexes: readyImageIndexes,
+        aspect: ctx.section === 'shorts' ? '9:16' : '16:9',
+        fps: 30,
+        settings: {
+          stylePreference: settings?.graphics?.style || '',
+          density: settings?.graphics?.density || 'balanced',
+          documentary: graphicsEnabled && settings?.graphics?.mode === 'images',
+          treatment: settings?.graphics?.treatment,
+          visualReview: true,
+          maxGeneratedAssets: 3,
+          maxProviderCalls: 40,
+          ...(settings?.graphics?.model ? { aiModel: settings.graphics.model } : {}),
+        },
+      };
+
+      const created = await editingRequest<EditingPayload>(ctx.fetch, '/projects', projectInputs);
+      if (!created?.project?.id) {
+        throw new Error('Failed to create updated visual project');
+      }
+
+      ctx.patchScript(ctx.scriptId, { editingProjectId: created.project.id });
+      await ctx.persistScript(ctx.scriptId, { editingProjectId: created.project.id });
+
+      if (graphicsEnabled) {
+        ctx.setStatus('Gemini Supervisor: Generating documentary motion graphics...');
+        const started = await editingRequest<{ jobId: string }>(
+          ctx.fetch,
+          `/projects/${created.project.id}/generate`,
+          { expectedRevisionId: created.project.revisionId },
+          'POST'
+        );
+        let visualsComplete = false;
+        try {
+          while (!visualsComplete) {
+            await ctx.checkPauseOrAbort();
+            const visualJob = await editingRequest<{ state: string; stage: string; error?: string }>(
+              ctx.fetch,
+              `/jobs/${started.jobId}`,
+              undefined,
+              'GET'
+            );
+            if (['succeeded', 'partial'].includes(visualJob.state)) {
+              visualsComplete = true;
+            } else if (['failed', 'needs_configuration', 'interrupted', 'cancelled'].includes(visualJob.state)) {
+              if (visualJob.error?.includes('DOCUMENTARY_VISUALS_REQUIRED') || visualJob.error?.includes('no enabled image compositions')) {
+                visualsComplete = true;
+                break;
+              }
+              throw new Error(visualJob.error || `Documentary visuals ${visualJob.state}`);
+            } else {
+              ctx.setStatus(`Gemini Supervisor: ${visualJob.stage}`);
+              await new Promise((resolve) => setTimeout(resolve, 1500));
+            }
+          }
+        } finally {
+          if (!visualsComplete) await editingRequest(ctx.fetch, `/jobs/${started.jobId}/cancel`, {}).catch(() => {});
+        }
+      }
+
+      let directed = await editingRequest<EditingPayload>(ctx.fetch, `/projects/${created.project.id}`);
+      if (captionsMode === 'motion') {
+        ctx.setStatus('Gemini Supervisor: Generating synchronized motion captions...');
+        await editingRequest<EditingPayload>(
+          ctx.fetch,
+          `/projects/${directed.project.id}/captions`,
+          { expectedRevisionId: directed.project.revisionId }
+        );
+      }
+
+      const verified = await editingRequest<EditingPayload>(ctx.fetch, `/projects/${created.project.id}`);
+      assertGraphicsReviewed(verified.project);
+
+      ctx.addLog(ctx.stage, '[SUPERVISOR] ✅ Visual edit & captions regenerated with current media. Resuming pipeline.', 'success');
+      return { healed: true, actionTaken: 'Regenerated visual edit with current media and narration' };
+    } catch (healErr) {
+      if (healErr instanceof Error && (healErr.name === 'AbortError' || healErr.message.includes('Aborted by user'))) throw healErr;
+      console.error('[Supervisor] Visual edit healing failed:', healErr);
+      return { healed: false, error: healErr instanceof Error ? healErr.message : String(healErr) };
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // HEALING RULE: Footage Duration Shorter Than Narration (Allow Image Fallback)
+  // -------------------------------------------------------------------------
+  if (/cannot cover .* of narration naturally|Import a longer clip for this scene|footage cannot cover/i.test(errMsg)) {
+    const sceneMatch = errMsg.match(/Scene\s+([a-zA-Z0-9_-]+)/i);
+    const sceneId = sceneMatch ? sceneMatch[1] : null;
+    ctx.addLog(ctx.stage, `[SUPERVISOR] 🛠️ Healing Action: Resolving footage length mismatch${sceneId ? ` for ${sceneId}` : ''} with cinematic image fallback...`, 'gemini');
+    ctx.setStatus('Gemini Supervisor: Self-healing video scene duration with image fallback...');
+
+    try {
+      const freshRes = await ctx.fetch(`/api/scripts/${encodeURIComponent(ctx.scriptId)}`);
+      if (freshRes.ok) {
+        const script = await freshRes.json();
+        const scenes = script.scenePlan?.scenes || [];
+        const targetSceneIndex = sceneId ? scenes.findIndex((s: any) => s.id === sceneId) : -1;
+
+        if (targetSceneIndex >= 0) {
+          scenes[targetSceneIndex].mediaType = 'image';
+          const asset = script.generatedImages?.find((g: any) => g.index === targetSceneIndex);
+          if (asset) asset.mediaType = 'image';
+        } else {
+          scenes.forEach((s: any, idx: number) => {
+            s.mediaType = 'image';
+            const asset = script.generatedImages?.find((g: any) => g.index === idx);
+            if (asset) asset.mediaType = 'image';
+          });
+        }
+
+        ctx.patchScript(ctx.scriptId, { scenePlan: script.scenePlan, generatedImages: script.generatedImages });
+        await ctx.persistScript(ctx.scriptId, { scenePlan: script.scenePlan, generatedImages: script.generatedImages });
+        ctx.addLog(ctx.stage, '[SUPERVISOR] ✅ Scene media type adjusted to full-duration image keyframe. Resuming pipeline.', 'success');
+        return { healed: true, actionTaken: 'Adjusted video scene to full-duration cinematic keyframe' };
+      }
+    } catch (healErr) {
+      console.error('[Supervisor] Footage duration healing failed:', healErr);
+    }
   }
 
   // -------------------------------------------------------------------------

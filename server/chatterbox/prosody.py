@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 import numpy as np
 
-REVISION = "natural-v1"
+REVISION = "hindi-pronunciation-v1"
 _ABBREVIATION = re.compile(r"(?:\b(?:Mr|Mrs|Ms|Dr|Prof|Sr|Jr|St|vs|etc)|\b[A-Za-z])\.$", re.I)
 
 
@@ -228,6 +229,8 @@ def _hindi_cardinal(n: int) -> str:
 
 
 def _hindi_year(year: int) -> str:
+    if 2000 <= year <= 2099:
+        return _hindi_cardinal(year)
     if 1000 <= year <= 2099:
         first, second = year // 100, year % 100
         head = _hindi_cardinal(first)
@@ -239,21 +242,63 @@ def _hindi_year(year: int) -> str:
 
 _HI_UNITS = {"km": " किलोमीटर", "ml": " मिलीलीटर", "kg": " किलोग्राम", "cm": " सेंटीमीटर"}
 
+# Only unambiguous initialisms: preserve normal English words and Hindi names.
+# The multilingual tokenizer lowercases Latin input, losing the distinction
+# between AI (letters) and ai (a word) unless we expand it before tokenization.
+_HI_INITIALISMS = {
+    "AI": "ए आई", "API": "ए पी आई", "CPU": "सी पी यू", "GPU": "जी पी यू",
+    "TTS": "टी टी एस", "USB": "यू एस बी", "UPI": "यू पी आई", "URL": "यू आर एल",
+    "PDF": "पी डी एफ", "OTP": "ओ टी पी", "ATM": "ए टी एम", "EMI": "ई एम आई",
+    "DNA": "डी एन ए", "RNA": "आर एन ए", "ISRO": "इसरो", "NASA": "नासा",
+}
+_HI_INITIALISM_PATTERN = re.compile(
+    r"(?<![\w\u0900-\u0903\u093a-\u094f\u0951-\u0957\u0962\u0963])(?:"
+    + "|".join(_HI_INITIALISMS) + r")(?![\w\u0900-\u0903\u093a-\u094f\u0951-\u0957\u0962\u0963])"
+)
+
+
+def _hindi_decimal(number: str) -> str:
+    whole, separator, fraction = number.partition(".")
+    spoken = _hindi_cardinal(int(whole))
+    if separator:
+        spoken += " दशमलव " + " ".join(_HI_ONES[int(digit)] for digit in fraction)
+    return spoken
+
+
+def _hindi_currency(number: str) -> str:
+    whole, separator, fraction = number.partition(".")
+    if len(fraction) > 2:
+        return _hindi_decimal(number) + " रुपये"
+    spoken = _hindi_cardinal(int(whole)) + " रुपये"
+    if separator and int(fraction):
+        spoken += " और " + _hindi_cardinal(int(fraction.ljust(2, "0"))) + " पैसे"
+    return spoken
+
 
 def normalize_for_speech(text: str, language: str = "en") -> str:
     """Expand what TTS models otherwise spell out literally.
 
-    Runs at synthesis time (not inside segmentation) so chunk-boundary unit
-    tests stay exact. Devanagari wording is preserved; Arabic numerals inside
-    Hindi get Hindi words, Latin patterns get English equivalents.
+    Normalize before the model's chunk limit is applied. Devanagari wording is
+    preserved; numbers and selected initialisms inside Hindi get Hindi forms.
     """
-    out = str(text)
+    out = unicodedata.normalize('NFC', str(text))
     if language == "hi":
+        # Invisible shaping/bidi controls aren't speech tokens. Preserve every
+        # vowel sign, nukta and virama; never guess phonetic rewrites of names.
+        out = re.sub(r"[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]", "", out)
+        out = _HI_INITIALISM_PATTERN.sub(lambda m: _HI_INITIALISMS[m.group(0)], out)
+        out = out.translate(str.maketrans("०१२३४५६७८९", "0123456789"))
+        # Remove valid Indian/Western grouping before currency, decimal and unit
+        # expansion, so ₹1,250.50 and 1,00,000 retain their full spoken value.
+        out = re.sub(r"(?<![\d,])\d{1,3}(?:,\d{2,3})*,\d{3}(?![\d,])",
+                     lambda m: m.group(0).replace(",", ""), out)
+        out = re.sub(r"(?<!\w)(?:डॉ|Dr)\.", "डॉक्टर", out, flags=re.IGNORECASE)
+        out = re.sub(r"!{2,}", "!", out)
+        out = re.sub(r"\?{2,}", "?", out)
         out = out.replace("&", " और ")
-        out = re.sub(r"\b(\d{1,3}(?:,\d{3})+)\b", lambda m: _hindi_cardinal(int(m.group(1).replace(",", ""))), out)
         out = re.sub(r"(?:₹|Rs\.?|रु\.?)\s*(\d+(?:\.\d+)?)\b",
-                     lambda m: _hindi_cardinal(int(float(m.group(1)))) + " रुपये", out)
-        out = re.sub(r"\b(\d+(?:\.\d+)?)%", lambda m: _hindi_cardinal(int(float(m.group(1)))) + " प्रतिशत", out)
+                     lambda m: _hindi_currency(m.group(1)), out)
+        out = re.sub(r"\b(\d+(?:\.\d+)?)%", lambda m: _hindi_decimal(m.group(1)) + " प्रतिशत", out)
         out = re.sub(r"\b(\d{1,2}):(\d{2})\b",
                      lambda m: _hindi_cardinal(int(m.group(1))) + " बजकर " + _hindi_cardinal(int(m.group(2))) + " मिनट"
                      if int(m.group(2)) != 0 else _hindi_cardinal(int(m.group(1))) + " बजे", out)
@@ -292,7 +337,7 @@ def _split_long_piece(text: str, max_chars: int) -> list[str]:
     return split_phrases(text, max_chars)
 
 
-def _segments(text: str, max_chars: int = 420, language: str = "en") -> list[tuple[str, str | int]]:
+def _segments(text: str, max_chars: int = 420, language: str = "en", normalize: bool = False) -> list[tuple[str, str | int]]:
     result: list[tuple[str, str | int]] = []
     cursor = 0
     text = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -300,13 +345,17 @@ def _segments(text: str, max_chars: int = 420, language: str = "en") -> list[tup
     # Hindi devotional pacing breathes slightly longer between thoughts.
     para_pause = " [pause 0.55s] " if language == "hi" else " [pause 0.45s] "
     text = re.sub(r"\n[ \t]*\n+", para_pause, text)
+    def spoken_chunks(value: str) -> list[tuple[str, str]]:
+        spoken = _clean_spoken_text(value)
+        if normalize:
+            spoken = normalize_for_speech(spoken, language)
+        return [("text", chunk) for chunk in _split_long_piece(spoken, max_chars)]
+
     for match in _PAUSE_PATTERN.finditer(text):
-        spoken = _clean_spoken_text(text[cursor : match.start()])
-        result.extend(("text", chunk) for chunk in _split_long_piece(spoken, max_chars))
+        result.extend(spoken_chunks(text[cursor : match.start()]))
         result.append(("pause", _pause_ms(match)))
         cursor = match.end()
-    spoken = _clean_spoken_text(text[cursor:])
-    result.extend(("text", chunk) for chunk in _split_long_piece(spoken, max_chars))
+    result.extend(spoken_chunks(text[cursor:]))
 
     compact: list[tuple[str, str | int]] = []
     for kind, value in result:

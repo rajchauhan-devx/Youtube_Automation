@@ -8,6 +8,9 @@ import { TtsError, type VoiceInfo } from './tts-shared.js';
 import { containedFile } from './paths.js';
 import { presenterState } from './presenter-state.js';
 import { accountDir, currentWorkspace, ROOT_DATA } from './workspace.js';
+import { NATURAL_CHATTERBOX_OPTIONS } from './chatterbox-options.js';
+import { applyHindiPronunciations, hindiPronunciationFingerprint, HINDI_SYNTHESIS_REVISION } from './hindi-pronunciation.js';
+import { inspectVoiceReference } from './voice-reference.js';
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -155,6 +158,7 @@ function readVoiceEntries(dir: string, language: 'hi' | 'en', prefix: 'clone_' |
             : ['Local Clone', 'Private'],
         source: isPreset ? 'builtin' : 'clone',
         deletable: isPreset ? false : Boolean(metadata.deletable ?? true),
+        referenceRevision: typeof metadata.referenceRevision === 'string' ? metadata.referenceRevision : undefined,
       });
     } catch {
       // Invalid metadata is ignored rather than breaking all voice selection.
@@ -169,7 +173,11 @@ function readLocalVoiceMetadata(language: 'hi' | 'en'): VoiceInfo[] {
     {
       ...BUILTIN_VOICE,
       language,
-      name: language === 'hi' ? 'Chatterbox Natural — Hindi' : 'Chatterbox Natural — English',
+      name: language === 'hi' ? 'Chatterbox Hindi — Native Narrator' : 'Chatterbox Natural — English',
+      description: language === 'hi'
+        ? 'Hindi narration using the official Hindi-specific checkpoint and a native Hindi reference voice.'
+        : BUILTIN_VOICE.description,
+      tags: language === 'hi' ? ['Local', 'Hindi', 'Indian'] : BUILTIN_VOICE.tags,
       sampleText:
         language === 'hi'
           ? 'क्या आपने कभी सोचा है कि हमारी सबसे महान कहानियों के पीछे कौन से रहस्य छिपे हैं?'
@@ -188,6 +196,15 @@ function voiceFileFor(voice: string): string | null {
   const dir = voice.startsWith('preset_') ? SHARED_VOICE_DIR : voiceLibraryDir();
   const file = containedFile(dir, `${voice}.wav`);
   return fs.existsSync(file) ? file : null;
+}
+
+export function chatterboxCacheIdentity(language: 'hi' | 'en', voice = 'builtin'): string {
+  const reference = voiceFileFor(voice) || (language === 'hi'
+    ? process.env.CHATTERBOX_HINDI_REFERENCE || path.join(ROOT_DATA, 'model-cache', 'hindi', 'native-hi-female.flac')
+    : undefined);
+  const stat = reference && fs.existsSync(reference) ? fs.statSync(reference) : undefined;
+  return JSON.stringify([HINDI_SYNTHESIS_REVISION, language, reference, stat?.mtimeMs, stat?.size,
+    language === 'hi' ? hindiPronunciationFingerprint() : null]);
 }
 
 export async function getChatterboxStatus(): Promise<ChatterboxStatus> {
@@ -210,7 +227,7 @@ export async function getChatterboxStatus(): Promise<ChatterboxStatus> {
       provider: 'chatterbox',
       model: String(data.model || 'chatterbox-multilingual-v3'),
       device: data.device ? String(data.device) : undefined,
-      message: state === 'loading' ? 'Loading Chatterbox Multilingual V3. The first run may also download model files.' : undefined,
+      message: state === 'loading' ? 'Loading the Chatterbox voice model. The first setup may also download model files.' : undefined,
       error: data.error ? String(data.error) : undefined,
       gpu: data.gpu || null,
     };
@@ -368,6 +385,12 @@ export async function synthesizeChatterbox(
   options: ChatterboxOptions = {},
 ): Promise<Buffer> {
   validateVoiceSelection(voice, language);
+  // Snapshot corrections before any asynchronous work so the generated audio
+  // uses the same dictionary revision as its preview/scene cache identity.
+  const input = language === 'hi' ? applyHindiPronunciations(text) : text;
+  if (!input.trim() || input.length > 50_000) {
+    throw new TtsError('VALIDATION', 'Spoken narration must contain 1–50,000 characters after pronunciation corrections.');
+  }
   if (presenterState.busy) throw new TtsError('NOT_READY', 'Wait for presenter generation to finish.');
   presenterState.speechRequests++;
   try {
@@ -402,17 +425,17 @@ export async function synthesizeChatterbox(
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
       body: JSON.stringify({
-        model: 'chatterbox-multilingual-v3',
-        input: text,
+        model: language === 'hi' ? 'chatterbox-hindi-v3' : 'chatterbox-multilingual-v3',
+        input,
         voice: (!voice || voice === 'default') ? 'builtin' : voice,
         // The engine keeps one shared preset directory, so the active account's
         // private reference is passed explicitly instead of being looked up there.
         ...(voicePath ? { voice_path: voicePath } : {}),
         language,
         response_format: 'wav',
-        exaggeration: clamp(options.exaggeration, 0.25, 1.5, 0.68),
-        cfg_weight: clamp(options.cfgWeight, 0, 1, 0.32),
-        temperature: clamp(options.temperature, 0.05, 2, 0.75),
+        exaggeration: clamp(options.exaggeration, 0.25, 1.5, NATURAL_CHATTERBOX_OPTIONS.exaggeration),
+        cfg_weight: clamp(options.cfgWeight, 0, 1, NATURAL_CHATTERBOX_OPTIONS.cfgWeight),
+        temperature: clamp(options.temperature, 0.05, 2, NATURAL_CHATTERBOX_OPTIONS.temperature),
         seed: Math.max(0, Math.floor(options.seed ?? 42)),
       }),
     });
@@ -451,7 +474,7 @@ export async function previewChatterbox(
   options: ChatterboxOptions = {},
 ): Promise<Buffer> {
   validateVoiceSelection(voice, language);
-  const cacheKey = JSON.stringify([voice || 'builtin', voice ? voiceFileFor(voice) : null, language, options, text]);
+  const cacheKey = JSON.stringify([voice || 'builtin', chatterboxCacheIdentity(language, voice), language, options, text]);
   const cached = previewCache.get(cacheKey);
   if (cached) return cached;
   const audio = await synthesizeChatterbox(text, voice, language, options);
@@ -487,69 +510,23 @@ export async function createChatterboxVoice(params: {
   fs.writeFileSync(inputPath, input, { flag: 'wx' });
 
   try {
-    // Cleaning chain tuned for studio references (ElevenLabs exports included).
-    // Falls back to plain conversion for edge cases (e.g. near-silence test
-    // fixtures) so library flows never break on filter quirks.
-    let cleaned = false;
-    try {
-      await execFileAsync('ffmpeg', [
-        '-hide_banner',
-        '-loglevel', 'error',
-        '-y',
-        '-i', inputPath,
-        '-t', '30',
-        '-ac', '1',
-        '-ar', '24000',
-        '-af', 'highpass=f=70,afftdn=nf=-25,loudnorm=I=-16:TP=-1.5:LRA=11,silenceremove=start_periods=1:start_duration=0.15:start_threshold=-50dB,atrim=duration=25',
-        '-c:a', 'pcm_s16le',
-        wavPath,
-      ], { windowsHide: true, timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });
-      cleaned = fs.existsSync(wavPath) && fs.statSync(wavPath).size >= 24_000;
-    } catch {
-      cleaned = false;
-    }
-    if (!cleaned) {
-      await execFileAsync('ffmpeg', [
-        '-hide_banner',
-        '-loglevel', 'error',
-        '-y',
-        '-i', inputPath,
-        '-t', '30',
-        '-ac', '1',
-        '-ar', '24000',
-        '-c:a', 'pcm_s16le',
-        wavPath,
-      ], { windowsHide: true, timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });
-    }
-
-    const stats = fs.statSync(wavPath);
-    if (stats.size < 24_000) throw new Error('Reference must contain at least about half a second of valid speech.');
-    // QA: hard-reject only corrupt/empty results (<0.8s). Short but valid clips
-    // (<8s) still save so existing flows keep working, but clone quality will
-    // be lower — prefer a 15-30s ElevenLabs export for hero voices.
-    try {
-      const { stdout } = await execFileAsync('ffprobe', [
-        '-v', 'error',
-        '-show_entries', 'format=duration',
-        '-of', 'default=noprint_wrappers=1:nokey=1',
-        wavPath,
-      ], { windowsHide: true, timeout: 15_000 });
-      const durationSec = Number.parseFloat(String(stdout).trim());
-      if (Number.isFinite(durationSec) && durationSec < 0.8) {
-        throw new Error('Voice reference has no usable speech after cleaning — upload a clear 15-30s recording.');
-      }
-      if (Number.isFinite(durationSec) && durationSec < 8) {
-        console.warn(`Short voice reference (${durationSec.toFixed(1)}s) for "${name}" — 15-30s clones noticeably better.`);
-      }
-    } catch (error) {
-      if (error instanceof TtsError) throw error;
-      // If ffprobe is missing, keep the file — size check above already ran.
-    }
+    // Preserve consonants, breaths and the speaker's natural dynamics. A clean
+    // reference does not benefit from unconditional denoising/compression.
+    // Keep the opening useful: Chatterbox conditions on its first 6–10 seconds.
+    await execFileAsync('ffmpeg', [
+      '-hide_banner', '-loglevel', 'error', '-y', '-i', inputPath,
+      '-t', '30', '-ac', '1', '-ar', '24000',
+      '-af', 'silenceremove=start_periods=1:start_duration=0.1:start_threshold=-45dB:start_silence=0.08,atrim=duration=12',
+      '-c:a', 'pcm_s16le', wavPath,
+    ], { windowsHide: true, timeout: 60_000, maxBuffer: 2 * 1024 * 1024 });
+    const { durationSeconds } = inspectVoiceReference(fs.readFileSync(wavPath));
     fs.writeFileSync(metadataPath, JSON.stringify({
       id,
       name,
       language: params.language,
       gender: normalizeGender(params.gender),
+      referenceRevision: 'clean-reference-v1',
+      durationSeconds,
       createdAt: new Date().toISOString(),
     }, null, 2), { encoding: 'utf8', flag: 'wx' });
   } catch (error) {

@@ -57,3 +57,60 @@ test('an unrecoverable diagnosis is respected and an ordinary retry is not repor
   await executeSupervisedStage('research_script', async () => { if (!calls++) throw new Error('Temporary failure.'); }, context);
   assert.ok(logs.some(text => text.includes('No repair has been verified yet.')));
 });
+
+test('supervisor heals stale motion graphics by creating updated visual project with current media and narration', async () => {
+  const requests = [], logs = [];
+  let patchedId = null;
+  const context = {
+    scriptId: 'test-script',
+    section: 'shorts',
+    addLog: (_, text) => logs.push(text),
+    setStatus() {},
+    patchScript: (_, patch) => { if (patch.editingProjectId) patchedId = patch.editingProjectId; },
+    persistScript: async (_, patch) => { if (patch.editingProjectId) patchedId = patch.editingProjectId; },
+    async checkPauseOrAbort() {},
+    autoPilotSettings: {
+      captions: 'motion',
+      graphics: { enabled: false, style: '', density: 'subtle', mode: 'images' },
+    },
+    fetch: async (url, options) => {
+      requests.push([url, options?.method || 'GET']);
+      if (url === '/api/scripts/test-script') {
+        return Response.json({
+          id: 'test-script',
+          generatedAudio: [{ filename: 'new_audio.wav', language: 'en' }],
+          generatedImages: [{ index: 0, url: '/img0.png', status: 'done' }, { index: 1, url: '/img1.png', status: 'done' }],
+          editingProjectId: 'stale-proj',
+        });
+      }
+      if (url === '/api/editing/projects' && options?.method === 'POST') {
+        return Response.json({
+          project: { id: 'healed-proj', revisionId: 'rev-1', settings: { visualReview: true }, artifacts: [] },
+        });
+      }
+      if (url === '/api/editing/projects/healed-proj') {
+        return Response.json({
+          project: { id: 'healed-proj', revisionId: 'rev-2', settings: { visualReview: true }, artifacts: [{ enabled: true, graphic: { kind: 'caption' } }] },
+        });
+      }
+      if (url === '/api/editing/projects/healed-proj/captions' && options?.method === 'POST') {
+        return Response.json({
+          project: { id: 'healed-proj', revisionId: 'rev-2', settings: { visualReview: true }, artifacts: [{ enabled: true, graphic: { kind: 'caption' } }] },
+        });
+      }
+      throw new Error(`Unexpected request: ${url}`);
+    },
+  };
+
+  const result = await diagnoseAndHealError({
+    ...context,
+    stage: 'render_video',
+    attempt: 1,
+    error: 'The saved motion graphics use older media or narration. Generate a new revision in Artifacts before rendering.',
+  });
+
+  assert.equal(result.healed, true);
+  assert.equal(patchedId, 'healed-proj');
+  assert.ok(logs.some(t => t.includes('Re-synchronizing visual edit and motion graphics')));
+  assert.ok(logs.some(t => t.includes('Visual edit & captions regenerated')));
+});

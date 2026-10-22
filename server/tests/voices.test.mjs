@@ -10,11 +10,12 @@ const id = `voices-test-${Date.now()}`;
 const directory = path.join(serverRoot, 'data', id);
 process.env.CHATTERBOX_VOICE_DIR = directory;
 process.env.TTS_PROVIDER = 'chatterbox';
-const wav = Buffer.alloc(44 + 24000 * 2);
+const wav = Buffer.alloc(44 + 24000 * 2 * 8);
 wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8);
 wav.writeUInt32LE(16, 16); wav.writeUInt16LE(1, 20); wav.writeUInt16LE(1, 22);
 wav.writeUInt32LE(24000, 24); wav.writeUInt32LE(48000, 28); wav.writeUInt16LE(2, 32);
 wav.writeUInt16LE(16, 34); wav.write('data', 36); wav.writeUInt32LE(wav.length - 44, 40);
+for (let i = 0; i < 24000 * 8; i++) wav.writeInt16LE(Math.round(6000 * Math.sin(2 * Math.PI * 220 * i / 24000)), 44 + i * 2);
 const submitted = [];
 const engineApp = express(); engineApp.use(express.json());
 engineApp.get('/health', (_req, res) => res.json({ ready: true, state: 'ready' }));
@@ -37,6 +38,7 @@ test('English/Hindi references persist, play, and select the exact voice for gen
     assert.equal(voices[language].language, language);
     const metadata = JSON.parse(fs.readFileSync(path.join(directory, `${voices[language].id}.json`), 'utf8'));
     assert.equal(metadata.language, language);
+    assert.equal(metadata.referenceRevision, 'clean-reference-v1');
     const playback = await fetch(`${base}/voices/${voices[language].id}/reference`, { headers: { Range: 'bytes=0-43' } });
     assert.equal(playback.status, 206);
     assert.equal(Buffer.from(await playback.arrayBuffer()).toString('ascii', 0, 4), 'RIFF');
@@ -52,6 +54,7 @@ test('English/Hindi references persist, play, and select the exact voice for gen
     assert.equal(result.status, 200);
     assert.equal(submitted.at(-1).voice, voices[language].id);
     assert.equal(submitted.at(-1).language, language);
+    assert.equal(submitted.at(-1).model, language === 'hi' ? 'chatterbox-hindi-v3' : 'chatterbox-multilingual-v3');
     const output = await result.json();
     assert.ok(fs.existsSync(path.join(serverRoot, 'data', 'generated', id, output.filename)));
   }
@@ -62,8 +65,9 @@ test('English/Hindi references persist, play, and select the exact voice for gen
   const customPreview = await request('/preview', { language: 'en', voice: voices.en.id, text: 'A quiet moment... and then a surprise.', seed: 42 });
   assert.equal(customPreview.status, 200);
   assert.equal(submitted.at(-1).input, 'A quiet moment... and then a surprise.');
-  assert.equal(submitted.at(-1).exaggeration, 0.68);
-  assert.equal(submitted.at(-1).cfg_weight, 0.32);
+  assert.equal(submitted.at(-1).exaggeration, 0.5);
+  assert.equal(submitted.at(-1).cfg_weight, 0.5);
+  assert.equal(submitted.at(-1).temperature, 0.7);
   assert.equal(submitted.at(-1).seed, 42);
   assert.equal((await request('/preview', { language: 'en', text: 'x'.repeat(501) })).status, 400);
   assert.equal((await fetch(`${base}/voices/${voices.en.id}`, { method: 'DELETE' })).status, 200);
@@ -79,6 +83,9 @@ test('invalid language and corrupt recordings fail without adding library entrie
   const invalid = `data:audio/wav;base64,${Buffer.alloc(2048, 65).toString('base64')}`;
   assert.equal((await request('/voices', { name: 'Corrupt', language: 'en', dataUrl: invalid })).status, 400);
   assert.deepEqual(fs.readdirSync(directory), before);
+  const silent = Buffer.from(wav); silent.fill(0, 44);
+  assert.equal((await request('/voices', { name: 'Silence', language: 'hi', dataUrl: `data:audio/wav;base64,${silent.toString('base64')}` })).status, 400);
+  assert.deepEqual(fs.readdirSync(directory), before, 'rejected recordings leave no library files');
 });
 
 test.after(async () => {

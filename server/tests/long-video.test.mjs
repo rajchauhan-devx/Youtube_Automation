@@ -66,6 +66,22 @@ test('scene synthesis records exact samples, reuses cache, and detects modified 
   assert.throws(() => assertNarrationCurrent(script, second.filename), /audio changed/);
 }));
 
+test('Hindi scene audio regenerates when saved pronunciations change and preserves the written plan', async () => ws.workspaceContext.run(scope, async () => {
+  const { saveHindiPronunciations } = await import('../dist/services/hindi-pronunciation.js');
+  const options = { scriptId: 'pronunciation-cache', language: 'hi', voice: 'builtin', provider: 'chatterbox' };
+  const written = JSON.stringify(plan);
+  const before = synthCalls;
+  try {
+    await assembleNarration(plan, options, new AbortController().signal, () => {}, fakeTts);
+    await assembleNarration(plan, options, new AbortController().signal, () => {}, fakeTts);
+    assert.equal(synthCalls, before + 3);
+    saveHindiPronunciations({ महादेव: 'महा देव' });
+    await assembleNarration(plan, options, new AbortController().signal, () => {}, fakeTts);
+    assert.equal(synthCalls, before + 6, 'old speech is not reused after pronunciation changes');
+    assert.equal(JSON.stringify(plan), written);
+  } finally { saveHindiPronunciations({}); }
+}));
+
 test('160 scenes over twenty minutes retain absolute frame boundaries without cumulative drift', () => {
   const count = 160;
   const samples = Array.from({ length: count }, (_, i) => 300001 + i * 987);

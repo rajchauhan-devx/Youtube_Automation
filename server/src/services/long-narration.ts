@@ -6,6 +6,7 @@ import { generatedDir, mediaUrl, workspaceKey } from './workspace.js';
 import { containedFile } from './paths.js';
 import { store } from './store.js';
 import { generateTTS, resolveTtsProvider, ttsProviderName } from './omnivoice.js';
+import { chatterboxCacheIdentity } from './chatterbox-tts.js';
 import { runMedia } from './media-process.js';
 import { writeNarrationMetadata } from './editing/media.js';
 import { normalizeNarration, spokenText, syncScenePlanNarration, validateScenePlan, validateSync, type ScenePlan, type NarrationSync } from './scene-plan.js';
@@ -60,7 +61,10 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
   try {
     for (const scene of plan.scenes) {
       signal.throwIfAborted();
-      const key = hash({ version: 2, provider: ttsProviderName(resolveTtsProvider(options.provider)), options, text: scene.narration });
+      const provider = resolveTtsProvider(options.provider);
+      const key = hash({ version: provider === 'chatterbox' ? 4 : 2, provider: ttsProviderName(provider),
+        synthesis: provider === 'chatterbox' ? chatterboxCacheIdentity(options.language, options.voice) : undefined,
+        options, text: scene.narration });
       const pcm = containedFile(cache, `${key}.pcm`);
       const meta = `${pcm}.json`;
       let valid = false;

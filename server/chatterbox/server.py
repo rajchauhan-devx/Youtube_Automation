@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import io
 import json
 import logging
@@ -23,7 +24,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-from prosody import _segments, prepare_audio, gap_samples, boundary_pause, normalize_for_speech, REVISION
+from prosody import _segments, prepare_audio, gap_samples, boundary_pause, REVISION
+from model_assets import load_model, model_id, HINDI_REPO, HINDI_REVISION
 
 
 logging.basicConfig(
@@ -45,6 +47,7 @@ MAX_INPUT_CHARS = int(os.getenv("CHATTERBOX_MAX_INPUT_CHARS", "50000"))
 MAX_CHUNK_CHARS = int(os.getenv("CHATTERBOX_MAX_CHUNK_CHARS", "420"))
 
 MODEL: ChatterboxMultilingualTTS | None = None
+MODEL_LANGUAGE: str | None = None
 BUILTIN_CONDITIONALS = None
 MODEL_STATE: Literal["loading", "ready", "error"] = "loading"
 MODEL_ERROR: str | None = None
@@ -64,7 +67,7 @@ class SpeechRequest(BaseModel):
     response_format: Literal["wav"] = "wav"
     exaggeration: float = Field(default=0.5, ge=0.25, le=1.5)
     cfg_weight: float = Field(default=0.5, ge=0.0, le=1.0)
-    temperature: float = Field(default=0.8, ge=0.05, le=2.0)
+    temperature: float = Field(default=0.7, ge=0.05, le=2.0)
     seed: int = Field(default=0, ge=0, le=2_147_483_647)
     repetition_penalty: float = Field(default=1.2, ge=1.0, le=2.0)
 
@@ -92,39 +95,49 @@ def _select_device() -> str:
     return "cpu"
 
 
-def _load_model() -> None:
-    global MODEL, BUILTIN_CONDITIONALS, MODEL_STATE, MODEL_ERROR, ACTIVE_DEVICE, MODEL_READY_AT
+def _load_model(language: str = "hi") -> None:
+    global MODEL, MODEL_LANGUAGE, BUILTIN_CONDITIONALS, MODEL_STATE, MODEL_ERROR, ACTIVE_DEVICE, MODEL_READY_AT
     with MODEL_LOCK:
-        if MODEL is not None or MODEL_STATE == "ready":
+        if MODEL is not None and MODEL_LANGUAGE == language:
             return
         try:
+            MODEL_STATE = "loading"
+            # Keep only one full model resident so switching languages also works
+            # on Macs with limited unified memory. Generation holds its own lock.
+            MODEL = None
+            MODEL_LANGUAGE = None
+            BUILTIN_CONDITIONALS = None
+            gc.collect()
+            if ACTIVE_DEVICE == "cuda":
+                torch.cuda.empty_cache()
+            elif ACTIVE_DEVICE == "mps":
+                torch.mps.empty_cache()
             ACTIVE_DEVICE = _select_device()
             if ACTIVE_DEVICE == "cuda":
                 torch.backends.cuda.matmul.allow_tf32 = True
                 gpu_name = torch.cuda.get_device_name(0)
                 free_bytes, total_bytes = torch.cuda.mem_get_info(0)
                 LOGGER.info(
-                    "Loading Chatterbox Multilingual %s on %s (%.1f/%.1f GiB free)",
-                    MODEL_VERSION,
+                    "Loading %s on %s (%.1f/%.1f GiB free)",
+                    model_id(language, MODEL_VERSION),
                     gpu_name,
                     free_bytes / (1024**3),
                     total_bytes / (1024**3),
                 )
             elif ACTIVE_DEVICE == "mps":
-                LOGGER.info("Loading Chatterbox Multilingual %s on Apple Silicon MPS", MODEL_VERSION)
+                LOGGER.info("Loading %s on Apple Silicon MPS", model_id(language, MODEL_VERSION))
             else:
                 LOGGER.warning("GPU acceleration is unavailable; Chatterbox will run on CPU and may be slow")
 
-            loaded = ChatterboxMultilingualTTS.from_pretrained(
-                device=ACTIVE_DEVICE,
-                t3_model=MODEL_VERSION,
-            )
+            LOGGER.info("Loading pretrained %s", model_id(language, MODEL_VERSION))
+            loaded = load_model(language, ACTIVE_DEVICE, MODEL_VERSION)
             MODEL = loaded
+            MODEL_LANGUAGE = language
             BUILTIN_CONDITIONALS = loaded.conds
             MODEL_STATE = "ready"
             MODEL_ERROR = None
             MODEL_READY_AT = time.time()
-            LOGGER.info("Chatterbox is ready on %s", ACTIVE_DEVICE)
+            LOGGER.info("%s is ready on %s", model_id(language, MODEL_VERSION), ACTIVE_DEVICE)
         except Exception as exc:  # startup failure must remain visible through /health
             MODEL = None
             MODEL_STATE = "error"
@@ -220,17 +233,23 @@ def _terminated(chunk: str, language: str) -> str:
     return text + "."
 
 
+@torch.inference_mode()
 def _generate(request: SpeechRequest) -> tuple[bytes, int]:
     global MODEL
     if MODEL_STATE != "ready" or MODEL is None:
         raise RuntimeError(MODEL_ERROR or f"Model is {MODEL_STATE}")
 
-    parsed = _segments(request.input, MAX_CHUNK_CHARS, request.language)
+    # Expand Hindi numbers/initialisms before chunking: expansion can make a
+    # short source much longer, and Dr. must not become a sentence boundary.
+    parsed = _segments(request.input, MAX_CHUNK_CHARS, request.language, normalize=True)
     text_count = sum(1 for kind, _ in parsed if kind == "text")
     if text_count == 0:
         raise ValueError("Input contains no speakable text")
 
     with GENERATION_LOCK:
+        _load_model(request.language)
+        if MODEL_STATE != "ready" or MODEL is None:
+            raise RuntimeError(MODEL_ERROR or f"Chatterbox model is {MODEL_STATE}")
         # A fixed seed keeps the whole episode in one voice. Seed 0 used to
         # mean "random every chunk" so timbre drifted mid-sentence. Now a
         # single random base is drawn per request and derived per chunk.
@@ -257,7 +276,7 @@ def _generate(request: SpeechRequest) -> tuple[bytes, int]:
             text_index += 1
             _seed_everything(base_seed + text_index - 1)
             LOGGER.info("Generating chunk %d/%d (%d chars)", text_index, text_count, len(str(value)))
-            spoken = normalize_for_speech(_terminated(value, request.language), request.language)
+            spoken = _terminated(value, request.language)
             # Hindi repeats है/का/में constantly; the default 1.2 penalty can
             # skip or garble them. 1.15 keeps Hindi stable without dulling English.
             rp = 1.15 if request.language == "hi" and request.repetition_penalty >= 1.2 else request.repetition_penalty
@@ -338,7 +357,9 @@ def health() -> dict:
         "error": MODEL_ERROR,
         "provider": "chatterbox",
         "synthesis_revision": REVISION,
-        "model": f"chatterbox-multilingual-{MODEL_VERSION}",
+        "model": model_id(MODEL_LANGUAGE or "hi", MODEL_VERSION),
+        "active_language": MODEL_LANGUAGE,
+        "hindi_checkpoint": {"repo": HINDI_REPO, "revision": HINDI_REVISION},
         "device": ACTIVE_DEVICE,
         "gpu": gpu,
         "load_elapsed_seconds": round(time.time() - MODEL_LOAD_STARTED_AT, 1),
@@ -352,10 +373,18 @@ def models() -> dict:
         "object": "list",
         "data": [
             {
+                "id": model_id("hi"),
+                "object": "model",
+                "owned_by": "ResembleAI",
+                "language": "hi",
+                "ready": MODEL_STATE == "ready" and MODEL_LANGUAGE == "hi",
+            },
+            {
                 "id": f"chatterbox-multilingual-{MODEL_VERSION}",
                 "object": "model",
                 "owned_by": "ResembleAI",
-                "ready": MODEL_STATE == "ready",
+                "language": "en",
+                "ready": MODEL_STATE == "ready" and MODEL_LANGUAGE == "en",
             }
         ],
     }
@@ -392,6 +421,7 @@ def speech(request: SpeechRequest) -> Response:
         headers={
             "Content-Disposition": 'inline; filename="speech.wav"',
             "X-TTS-Chunks": str(chunks),
+            "X-TTS-Model": model_id(request.language, MODEL_VERSION),
             "X-Generation-Milliseconds": str(round((time.perf_counter() - started) * 1000)),
         },
     )

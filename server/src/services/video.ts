@@ -377,17 +377,18 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
       const frames = end - start;
       if (frames < 1) throw new Error('A narration scene is too short for one video frame.');
       let videoTiming = '';
+      let holdDuration = 2.1;
       if (scenePlan.scenes[i].mediaType === 'video') {
         const sourceDuration = await probeAudioDuration(resolveInputPath(opts.imagePaths[i], opts.scriptId));
         const targetDuration = frames / FPS;
         if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) throw new Error(`Scene ${scenePlan.scenes[i].id}: cannot measure video duration.`);
-        // Trim longer footage; slow shorter footage by at most 20%, then hold
-        // the final frame for at most two seconds. Never repeat an action.
+        // Trim longer footage; slow shorter footage gently (up to 25%), then hold
+        // the final frame cleanly until the narration scene completes. Never repeat an action.
         const stretch = Math.min(1.25, Math.max(1, targetDuration / sourceDuration));
-        if (targetDuration > sourceDuration * stretch + 2 + 1 / FPS) throw new Error(`Scene ${scenePlan.scenes[i].id}: ${sourceDuration.toFixed(1)}s of footage cannot cover ${targetDuration.toFixed(1)}s of narration naturally. Import a longer clip for this scene. Narration was not cut.`);
+        holdDuration = Math.max(2.1, (targetDuration - sourceDuration * stretch) + 1.0);
         videoTiming = `setpts=(PTS-STARTPTS)*${stretch}`;
       }
-      const fitVideo = (framing: string) => `${videoTiming},${framing},setsar=1,fps=${FPS},tpad=stop_mode=clone:stop_duration=2.1,trim=duration=${frames / FPS}`;
+      const fitVideo = (framing: string) => `${videoTiming},${framing},setsar=1,fps=${FPS},tpad=stop_mode=clone:stop_duration=${holdDuration.toFixed(2)},trim=duration=${frames / FPS}`;
       let filter = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,${buildZoompanExpression(opts.sceneAnalysis?.effects?.[i] || 'zoom-in', frames, width, height, opts.zoomFactor ?? 1.1)}`;
       if (scenePlan.scenes[i].mediaType === 'video') {
         filter = fitVideo(`scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`);

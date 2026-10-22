@@ -6,6 +6,7 @@ import { safeSegment } from '../services/paths.js';
 import { startNarration, narrationStatus, cancelNarration } from '../services/long-narration.js';
 import { clearScriptVideo } from './render.js';
 import { getChatterboxVoiceReference } from '../services/chatterbox-tts.js';
+import { getHindiPronunciations, saveHindiPronunciations } from '../services/hindi-pronunciation.js';
 import {
   createLocalVoice,
   deleteLocalVoice,
@@ -84,6 +85,17 @@ function errorMessage(error: unknown, fallback: string): string {
 
 ttsRouter.get('/status', async (req, res) => {
   res.json(await getTtsProviderStatus(req.query.provider as string | undefined));
+});
+
+ttsRouter.get('/pronunciations/hi', (_req, res, next) => {
+  try { res.json({ entries: getHindiPronunciations() }); } catch (error) { next(error); }
+});
+ttsRouter.put('/pronunciations/hi', (req, res, next) => {
+  try { res.json({ entries: saveHindiPronunciations(req.body?.entries) }); }
+  catch (error) {
+    if (error instanceof TtsError) { res.status(400).json({ error: error.message }); return; }
+    next(error);
+  }
 });
 
 ttsRouter.get('/voices', async (req, res, next) => {

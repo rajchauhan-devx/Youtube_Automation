@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "owner": "f9bc2d93-5547-4f66-99f9-80e002550b24",
+  "scriptId": "shorts_images_videos",
+  "status": "done",
+  "progress": 100,
+  "request": {
+    "scriptId": "shorts_images_videos",
+    "imagePaths": [
+      "import_0_b0453d3f-268e-4117-8fed-f80034cbe3be.mp4",
+      "image-01-1792665540244.png",
+      "import_2_0f0d5fc3-455c-4364-9ae7-cc98d67a729a.mp4",
+      "image-03-1792665634258.png",
+      "import_4_14edb52c-e09a-4ada-bdfc-3976aa66971d.mp4",
+      "image-05-1792665719358.png",
+      "import_6_93ea7987-c706-469c-a180-e84b53a6b06c.mp4",
+      "image-07-1792665797660.png",
+      "import_8_93683625-06ea-4cb5-88bf-e1c46ec5e57d.mp4",
+      "image-09-1792665890279.png",
+      "import_10_e5c58f4f-407b-4984-a4f9-c657ac275279.mp4",
+      "image-11-1792665983238.png",
+      "import_12_48fe7208-edf9-4bb5-9a8c-372c4e069392.mp4",
+      "image-13-1792666081212.png",
+      "image-14-1792666089371.png",
+      "image-15-1792666724076.png"
+    ],
+    "audioPath": "narration_hi_17ebbd34-8027-4d5d-b343-67bde88c12c0.wav",
+    "narration": "अपने ही भाई रावण का राज्य छोड़कर विभीषण श्री राम की शरण में क्यों आए?\n\nलंका जलने के बाद, रावण ने अपनी राजसभा में युद्ध की रणनीति बनाने के लिए सभी सेनापतियों को बुलाया।\n\nजहाँ सभी राक्षस युद्ध की हुंकार भर रहे थे, वहीं विभीषण हाथ जोड़कर खड़े हुए।\n\nउन्होंने निडर होकर कहा, 'हे राजन, पराई स्त्री का हरण अधर्म है। सीता जी को आदर सहित लौटा दीजिए, वरना लंका का सर्वनाश निश्चित है।'\n\nअहंकार में अंधे रावण ने सत्य सुनने से इनकार कर दिया और विभीषण को कायर कह दिया।\n\nजब राजा अधर्म पर अड़ जाए, तो क्या कुल की रक्षा के नाम पर उसका साथ देना सही है?\n\nविभीषण ने भाई के मोह के ऊपर धर्म को चुना और लंका का त्याग कर दिया।\n\nवे अपने चार मंत्रियों—अनिल, शरभ, सम्पाती और प्रघस के साथ समुद्र पार कर श्री राम की खोज में निकले।\n\nसमुद्र तट पर पहुंचते ही वानर सेना ने शस्त्र उठा लिए, उन्हें रावण का गुप्तचर समझा गया।\n\nसुग्रीव ने चेतावनी दी कि शत्रु के भाई पर भरोसा करना भयानक भूल हो सकती है।\n\nलेकिन हनुमान जी ने गवाही दी कि विभीषण का मन कपट से मुक्त और धर्म में स्थिर है।\n\nतब श्री राम ने अपनी प्रसिद्ध प्रतिज्ञा ली—'जो भी एक बार मेरी शरण में आता है, मैं उसे अभय दान देता हूँ।'\n\nयुद्ध आरंभ होने से पहले ही, श्री राम ने समुद्र जल से विभीषण का लंकापति के रूप में राज्याभिषेक कर दिया।\n\nविभीषण सिंहासन नहीं, केवल सत्य का पक्ष चाहते थे। वाल्मीकि रामायण के अनुसार, वे देशद्रोही नहीं, धर्म के सच्चे रक्षक थे।\n\nजब राजा या परिवार अधर्म चुने, तो धर्म के साथ खड़े होना ही सर्वोच्च कर्तव्य है।\n\nजय श्री राम! धर्म की रक्षा के लिए चैनल से जुड़े रहें।",
+    "duration": 90,
+    "resolution": {
+      "width": 1080,
+      "height": 1920
+    },
+    "zoomFactor": 1.08,
+    "transitionDuration": 0.2,
+    "sceneAnalysis": {
+      "transitions": [
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve",
+        "none",
+        "none",
+        "none",
+        "none",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve"
+      ],
+      "effects": [
+        "slow-zoom-in",
+        "hold",
+        "drift-left",
+        "slow-zoom-in",
+        "drift-right",
+        "hold",
+        "slow-zoom-in",
+        "drift-right",
+        "slow-zoom-in",
+        "hold",
+        "drift-left",
+        "slow-zoom-in",
+        "drift-right",
+        "hold",
+        "slow-zoom-in",
+        "hold"
+      ],
+      "timings": [],
+      "mood": "cinematic",
+      "colorGrade": "warm-vintage"
+    },
+    "enableSubtitles": true,
+    "bgmTrack": "cinematic",
+    "bgmVolume": 0.1,
+    "ttsVolume": 1,
+    "colorGrade": "none",
+    "enableVignette": false,
+    "enableSfx": false,
+    "presenter": {
+      "enabled": false
+    }
+  },
+  "revision": "6cc46abf72fd97d2df7e163c0e340f296373f6c303bd9c3fecbfd88db51d60a0",
+  "stage": "Rendering story scenes",
+  "updatedAt": "2026-10-22T11:06:14.789Z",
+  "outputFilename": "final_03570b0b-42bc-47cb-a45b-b71fcdf59506.mp4"
+}

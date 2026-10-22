@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "b08308521f5d4ecd7159cfe7d3bb446d4b94cfb02a65c035dbe499fad20de551",
+  "scriptId": "shorts_images_videos",
+  "videoFilename": "final_03570b0b-42bc-47cb-a45b-b71fcdf59506.mp4",
+  "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+  "pid": 43380,
+  "owner": "720fcb91-559e-41fc-a5a2-9534e956a6c7",
+  "status": "completed",
+  "startedAt": "2026-10-22T11:07:45.269Z",
+  "updatedAt": "2026-10-22T11:07:50.593Z",
+  "result": {
+    "accountId": "default",
+    "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+    "success": true,
+    "topicHistorySaved": true,
+    "videoId": "9J9MJrgmba4",
+    "videoUrl": "https://youtu.be/9J9MJrgmba4",
+    "title": "Why Vibhishana Left Lanka: Traitor or Defender of Dharma?",
+    "privacyStatus": "private",
+    "scheduled": false,
+    "uploadedAt": "2026-10-22T11:07:50.587Z"
+  }
+}

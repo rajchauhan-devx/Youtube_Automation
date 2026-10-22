@@ -21,6 +21,7 @@ export interface VoiceInfo {
   style?: string;
   source?: 'builtin' | 'clone' | 'provider';
   deletable?: boolean;
+  referenceRevision?: string;
 }
 
 /**

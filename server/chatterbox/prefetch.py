@@ -1,27 +1,34 @@
+"""Download pretrained inference assets only; this script never trains a model."""
+import argparse
 import os
 from pathlib import Path
 
-from huggingface_hub import snapshot_download
-from spacy_pkuseg import pkuseg
-
-
-pkuseg_home = Path(os.environ["PKUSEG_HOME"])
-pkuseg_home.mkdir(parents=True, exist_ok=True)
-pkuseg()
-print(f"pkuseg tokenizer cached at: {pkuseg_home}")
-
-
-snapshot_path = snapshot_download(
-    repo_id="ResembleAI/chatterbox",
-    repo_type="model",
-    revision="main",
-    allow_patterns=[
-        "ve.pt",
-        "t3_mtl23ls_v3.safetensors",
-        "s3gen.pt",
-        "grapheme_mtl_merged_expanded_v1.json",
-        "conds.pt",
-        "Cangjie5_TC.json",
-    ],
+from model_assets import (
+    BASE_REPO, BASE_REVISION, HINDI_REPO, HINDI_REVISION, HINDI_FILES,
+    TOKENIZER_FILE, asset, hindi_reference, verify_hindi_weights,
 )
-print(f"Chatterbox Multilingual V3 cached at: {snapshot_path}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--verify", action="store_true", help="Verify the official Hindi weight SHA256 hashes")
+    args = parser.parse_args()
+
+    from spacy_pkuseg import pkuseg
+    pkuseg_home = Path(os.environ.setdefault("PKUSEG_HOME", str(Path(__file__).resolve().parent.parent / "data/model-cache/pkuseg")))
+    pkuseg_home.mkdir(parents=True, exist_ok=True)
+    pkuseg()
+
+    for filename in ("ve.pt", "t3_mtl23ls_v3.safetensors", "s3gen.pt", TOKENIZER_FILE, "conds.pt", "Cangjie5_TC.json"):
+        print(f"English/shared: {asset(BASE_REPO, filename, BASE_REVISION)}", flush=True)
+    for filename in (*HINDI_FILES, TOKENIZER_FILE):
+        print(f"Hindi: {asset(HINDI_REPO, filename, HINDI_REVISION)}", flush=True)
+    print(f"Native Hindi reference: {hindi_reference()}", flush=True)
+    if args.verify:
+        verify_hindi_weights()
+        print("Official Hindi checkpoint SHA256 hashes verified.", flush=True)
+    print("Pretrained Hindi and English voiceover assets are ready. No training required.")
+
+
+if __name__ == "__main__":
+    main()
