@@ -1,167 +1,35 @@
 import { z } from "zod";
+export * from "./primitives.js";
+export * from "./scene-graph.js";
+
+import {
+  Id,
+  UUID,
+  Hash,
+  num,
+  positive,
+  unit,
+  Frame,
+  Point,
+  Rect,
+  Crop,
+  Color,
+  Transform,
+  identity,
+  Easing,
+  Track,
+  PathCommand,
+  Geometry,
+  Paint,
+  Clip,
+  Anchor,
+  TextStyle,
+} from "./primitives.js";
+import { SceneGraph } from "./scene-graph.js";
 
 export const SCHEMA_VERSION = 1;
 export const RENDERER_VERSION = "5.0.1";
-export const Id = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/);
-export const UUID = z.uuid();
-export const Hash = z.string().regex(/^[a-f0-9]{64}$/);
-const num = z.number().finite().min(-100000).max(100000);
-const positive = z.number().finite().positive().max(100000);
-const unit = z.number().min(0).max(1);
-export const Frame = z.number().int().min(0).max(216000);
-export const Point = z.strictObject({ x: num, y: num });
-export const Rect = z.strictObject({
-  x: num,
-  y: num,
-  width: positive,
-  height: positive,
-});
-export const Crop = z
-  .strictObject({ x: unit, y: unit, width: unit.gt(0), height: unit.gt(0) })
-  .refine(
-    (r) => r.x + r.width <= 1.000001 && r.y + r.height <= 1.000001,
-    "Crop exceeds source bounds",
-  );
-export const Color = z.string().regex(/^#[a-fA-F0-9]{6}([a-fA-F0-9]{2})?$/);
-export const Transform = z.strictObject({
-  x: num,
-  y: num,
-  scaleX: z.number().min(0.01).max(100),
-  scaleY: z.number().min(0.01).max(100),
-  rotation: num,
-  pivot: Point,
-});
-export const identity = () => ({
-  x: 0,
-  y: 0,
-  scaleX: 1,
-  scaleY: 1,
-  rotation: 0,
-  pivot: { x: 0, y: 0 },
-});
-export const Easing = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("linear") }),
-  z.strictObject({
-    kind: z.literal("bezier"),
-    x1: unit,
-    y1: unit,
-    x2: unit,
-    y2: unit,
-  }),
-  z.strictObject({
-    kind: z.literal("spring"),
-    stiffness: z.number().min(1).max(500),
-    damping: z.number().min(1).max(100),
-    mass: z.number().min(0.1).max(10),
-  }),
-]);
-export const Track = z.strictObject({
-  property: z.enum([
-    "x",
-    "y",
-    "scaleX",
-    "scaleY",
-    "rotation",
-    "opacity",
-    "strokeProgress",
-    "clipProgress",
-  ]),
-  keyframes: z
-    .array(z.strictObject({ frame: Frame, value: num, easing: Easing }))
-    .min(1)
-    .max(120),
-});
-export const PathCommand = z.discriminatedUnion("op", [
-  z.strictObject({ op: z.literal("M"), x: num, y: num }),
-  z.strictObject({ op: z.literal("L"), x: num, y: num }),
-  z.strictObject({ op: z.literal("Q"), x1: num, y1: num, x: num, y: num }),
-  z.strictObject({
-    op: z.literal("C"),
-    x1: num,
-    y1: num,
-    x2: num,
-    y2: num,
-    x: num,
-    y: num,
-  }),
-  z.strictObject({ op: z.literal("Z") }),
-]);
-export const Geometry = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("rect"),
-    bounds: Rect,
-    radius: z.number().min(0).max(1000),
-  }),
-  z.strictObject({ kind: z.literal("ellipse"), bounds: Rect }),
-  z.strictObject({
-    kind: z.literal("polygon"),
-    points: z.array(Point).min(3).max(128),
-  }),
-]);
-export const Paint = z.strictObject({
-  fill: Color.nullable(),
-  stroke: Color.nullable(),
-  strokeWidth: z.number().min(0).max(100),
-  dash: z.array(z.number().positive().max(1000)).max(12),
-  gradient: z
-    .strictObject({
-      angle: num,
-      stops: z
-        .array(z.strictObject({ offset: unit, color: Color }))
-        .min(2)
-        .max(8),
-    })
-    .optional(),
-  shadow: z
-    .strictObject({
-      color: Color,
-      blur: z.number().min(0).max(30),
-      x: num,
-      y: num,
-    })
-    .optional(),
-});
-export const Clip = z.discriminatedUnion("kind", [
-  z.strictObject({
-    kind: z.literal("geometry"),
-    space: z.enum(["screen", "source-image", "parent"]),
-    geometry: Geometry,
-  }),
-  z.strictObject({
-    kind: z.literal("path"),
-    space: z.enum(["screen", "source-image", "parent"]),
-    commands: z.array(PathCommand).min(1).max(256),
-  }),
-  z.strictObject({
-    kind: z.literal("mask"),
-    space: z.enum(["screen", "source-image", "parent"]),
-    assetId: Id,
-    bounds: Rect,
-    mode: z.enum(["alpha", "luminance"]),
-  }),
-]);
-export const Anchor = z.discriminatedUnion("kind", [
-  z.strictObject({ kind: z.literal("screen"), point: Point }),
-  z.strictObject({
-    kind: z.literal("source"),
-    sceneId: Id,
-    assetId: Id,
-    point: z.strictObject({ x: unit, y: unit }),
-    offset: Point,
-  }),
-  z.strictObject({
-    kind: z.literal("object"),
-    sceneId: Id,
-    objectId: Id,
-    offset: Point,
-  }),
-  z.strictObject({
-    kind: z.literal("node"),
-    nodeId: Id,
-    point: z.strictObject({ x: unit, y: unit }),
-    offset: Point,
-  }),
-]);
+
 const nodeBase = {
   id: Id,
   parentId: Id.optional(),
@@ -172,15 +40,6 @@ const nodeBase = {
   clip: Clip.optional(),
   tracks: z.array(Track).max(8),
 };
-export const TextStyle = z.strictObject({
-  fontAssetId: Id,
-  fontSize: z.number().min(12).max(300),
-  fontWeight: z.enum(["400", "700"]),
-  color: Color,
-  align: z.enum(["left", "center", "right"]),
-  lineHeight: z.number().min(1).max(2),
-  background: Color.optional(),
-});
 export const Node = z.discriminatedUnion("kind", [
   z.strictObject({ ...nodeBase, kind: z.literal("group") }),
   z.strictObject({
@@ -313,6 +172,7 @@ export const Artifact = z.strictObject({
   assetRequestIds: z.array(Id).max(20),
   revisionInstruction: z.string().max(2000).optional(),
   graphic: MotionGraphic.optional(),
+  sceneGraph: SceneGraph.optional(),
   visualReview: z.strictObject({
     status: z.enum(['pending', 'passed', 'unavailable', 'rejected']),
     attempts: z.number().int().min(0).max(2),
@@ -513,7 +373,7 @@ export const Settings = z.strictObject({
 });
 export const Project = z.strictObject({
   id: UUID,
-  schemaVersion: z.literal(1),
+  schemaVersion: z.union([z.literal(1), z.literal(2)]).default(1),
   scriptId: Id,
   revisionId: UUID,
   parentRevisionId: UUID.optional(),
@@ -620,19 +480,78 @@ export function assertGraphicsReviewed(project: EditingProject) {
   const pending = project.artifacts.filter(a => a.enabled && a.graphic && a.graphic.kind !== 'caption' && a.visualReview?.status !== 'passed');
   if (pending.length) throw new Error(`Rendered vision review has not passed for ${pending.length} motion graphic(s). Retry visual review before exporting.`);
 }
+export type ArtifactRepresentation = 'legacy-nodes' | 'legacy-graphic' | 'scene-graph' | 'empty';
+
+export function artifactRepresentation(artifact: z.infer<typeof Artifact>): ArtifactRepresentation {
+  const hasLegacyNodes = artifact.nodes && artifact.nodes.length > 0;
+  const hasGraphic = !!artifact.graphic;
+  const hasSceneGraph = !!artifact.sceneGraph;
+
+  const count = (hasLegacyNodes ? 1 : 0) + (hasGraphic ? 1 : 0) + (hasSceneGraph ? 1 : 0);
+  if (count > 1) {
+    throw new Error(`Artifact ${artifact.id} has multiple conflicting representations: legacy-nodes=${hasLegacyNodes}, graphic=${hasGraphic}, scene-graph=${hasSceneGraph}`);
+  }
+  if (hasSceneGraph) return 'scene-graph';
+  if (hasGraphic) return 'legacy-graphic';
+  if (hasLegacyNodes) return 'legacy-nodes';
+  return 'empty';
+}
+
+export function isRenderableArtifact(artifact: z.infer<typeof Artifact>): boolean {
+  if (!artifact.enabled) return false;
+  const rep = artifactRepresentation(artifact);
+  return rep !== 'empty';
+}
+
+export function collectArtifactAssets(artifact: z.infer<typeof Artifact>): string[] {
+  const assets: string[] = [];
+  if (artifact.graphic?.composition) {
+    artifact.graphic.composition.layers.forEach(l => assets.push(l.assetId));
+    if (artifact.graphic.composition.editorial?.subjectAssetId) {
+      assets.push(artifact.graphic.composition.editorial.subjectAssetId);
+    }
+  }
+  if (artifact.sceneGraph) {
+    for (const node of artifact.sceneGraph.nodes) {
+      if (node.kind === 'image') assets.push(node.assetId);
+      if (node.kind === 'text' && node.style?.fontAssetId) assets.push(node.style.fontAssetId);
+      if (node.kind === 'metric' && node.style?.fontAssetId) assets.push(node.style.fontAssetId);
+    }
+    for (const cue of artifact.sceneGraph.soundCues) {
+      assets.push(cue.assetId);
+    }
+  }
+  if (artifact.nodes) {
+    for (const node of artifact.nodes) {
+      if (node.kind === 'image' || node.kind === 'lottie' || node.kind === 'audio') {
+        assets.push(node.assetId);
+      }
+      if (node.kind === 'text') {
+        assets.push(node.style.fontAssetId);
+      }
+    }
+  }
+  return [...new Set(assets)];
+}
+
 /** Read old revisions without displaying retired captions, stickers or generated assets.
  * Saved revisions remain intact; new revisions and exports use only the native graphics. */
 export function motionProject(input: EditingProject): EditingProject {
   const p = structuredClone(input);
   // Graphics are optional, including in saved projects from the old quota-based planner.
   delete p.documentaryRequirement;
-  p.artifacts = p.artifacts.filter(a => a.graphic);
+  p.artifacts = p.artifacts.filter(a => isRenderableArtifact(a));
   p.analyses = [];
   p.scenes.forEach(s => { delete s.analysisId; });
   p.style.textureAssetIds = [];
-  p.assetIds = [...new Set([p.inputs.audioAssetId, ...p.inputs.imageAssets.map(a => a.assetId), ...p.style.fontAssetIds,
-    ...p.artifacts.flatMap(a => a.graphic?.composition?.layers.map(layer => layer.assetId) || [])])];
-  p.assetIds = [...new Set([...p.assetIds, ...p.artifacts.flatMap(a => a.graphic?.composition?.editorial?.subjectAssetId ? [a.graphic.composition.editorial.subjectAssetId] : [])])];
+  
+  const artifactAssets = p.artifacts.flatMap(a => collectArtifactAssets(a));
+  p.assetIds = [...new Set([
+    p.inputs.audioAssetId,
+    ...p.inputs.imageAssets.map(a => a.assetId),
+    ...p.style.fontAssetIds,
+    ...artifactAssets,
+  ])];
   p.sceneOutcomes = p.sceneOutcomes?.map(s => ({ ...s, artifactIds: s.artifactIds.filter(id => p.artifacts.some(a => a.id === id)) }));
   return p;
 }
@@ -786,6 +705,52 @@ export function validateProject(value: unknown): EditingProject {
       if (!tokens.has(r) || !scene!.narrativeRefs.includes(r))
         fail(`Unresolved artifact narrative ${r}`);
     });
+    // Validate artifact representation exclusivity
+    artifactRepresentation(a);
+
+    if (a.sceneGraph) {
+      const b = a.sceneGraph.bounds;
+      if (!a.narrativeRefs.length) fail("Scene graph requires narration evidence");
+      if (b.x < 0 || b.y < 0 || b.x + b.width > p.inputs.width || b.y + b.height > p.inputs.height)
+        fail("Scene graph exceeds the output canvas");
+      unique(a.sceneGraph.nodes.map(n => n.id), "scene graph node ID");
+
+      const nodeMap = new Map(a.sceneGraph.nodes.map(n => [n.id, n]));
+      for (const node of a.sceneGraph.nodes) {
+        if (node.kind === 'image') asset(node.assetId);
+        if (node.kind === 'text' && node.style?.fontAssetId) asset(node.style.fontAssetId);
+        if (node.kind === 'metric' && node.style?.fontAssetId) asset(node.style.fontAssetId);
+
+        // Check parent cycles & depth
+        let depth = 0;
+        let curr = node.parentId;
+        const seen = new Set<string>([node.id]);
+        while (curr) {
+          if (seen.has(curr) || depth >= 8) fail(`Scene graph cycle or excessive depth for node ${node.id}`);
+          seen.add(curr);
+          depth++;
+          curr = nodeMap.get(curr)?.parentId;
+        }
+
+        // Check connector references
+        if (node.kind === 'connector') {
+          if (node.from.kind === 'node' && !nodeMap.has(node.from.nodeId)) {
+            fail(`Connector ${node.id} references missing 'from' node ${node.from.nodeId}`);
+          }
+          if (node.to.kind === 'node' && !nodeMap.has(node.to.nodeId)) {
+            fail(`Connector ${node.id} references missing 'to' node ${node.to.nodeId}`);
+          }
+        }
+      }
+
+      for (const cue of a.sceneGraph.soundCues) {
+        asset(cue.assetId);
+        if (cue.localFrame < 0 || cue.localFrame >= a.endFrame - a.startFrame) {
+          fail(`Sound cue ${cue.id} local frame ${cue.localFrame} outside artifact interval`);
+        }
+      }
+    }
+
     if (a.graphic) {
       const b = a.graphic.bounds;
       if (!a.narrativeRefs.length) fail("Motion graphics require narration evidence");

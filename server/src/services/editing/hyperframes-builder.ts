@@ -16,6 +16,7 @@ import {
 import {
   targetOnScreen,
   legacySourceMatrix,
+  compileSceneGraph,
   type LegacyCamera,
 } from '@tubeflow/video-composition';
 import { assetRecord, assetFile } from './repository.js';
@@ -66,14 +67,31 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
   const jsParts: string[] = [];
 
   const enabledArtifacts = (project.artifacts || [])
-    .filter((a) => a.enabled && a.graphic)
+    .filter((a) => a.enabled && (a.graphic || a.sceneGraph))
     .sort((a, b) => a.startFrame - b.startFrame);
 
   for (const artifact of enabledArtifacts) {
-    const g = artifact.graphic!;
     const startSec = artifact.startFrame / fps;
     const endSec = artifact.endFrame / fps;
     const duration = Math.max(0.5, endSec - startSec);
+
+    // Dynamic Generative Scene Graph path (Zero-Shot / No Templates)
+    if (artifact.sceneGraph) {
+      const res = compileSceneGraph(artifact.sceneGraph, {
+        artifactId: artifact.id,
+        startSec,
+        durationSec: duration,
+        fps,
+        projectWidth: width,
+        projectHeight: height,
+      });
+      htmlParts.push(res.html);
+      cssParts.push(res.css);
+      jsParts.push(res.js);
+      continue;
+    }
+
+    const g = artifact.graphic!;
 
     if (g.kind === 'caption') {
       // Kinetic Punch Subtitle
@@ -183,11 +201,17 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
         cssParts.push(res.css);
         jsParts.push(res.js);
       } else {
-        // Newspaper Headline
+        // Newspaper / Archival Record Headline
+        const sourceName = g.detail && /archive|investigation|record|dispatch|bulletin/i.test(g.detail)
+          ? g.detail.split('//')[0].trim().toUpperCase()
+          : ((project as any).meta?.title ? `${(project as any).meta.title.toUpperCase()} // ARCHIVE` : 'PRIMARY ARCHIVAL RECORD');
+        const dateMatch = (g.detail || g.title || '').match(/\b(\d{1,4}\s*(?:BCE|CE|BC|AD)?|\d{1,2}\s+[A-Za-z]+\s+\d{2,4})\b/i);
+        const dateText = dateMatch ? dateMatch[0].toUpperCase() : 'VERIFIED EVIDENCE';
+
         const res = renderNewspaperHeadline({
           id: artifact.id,
-          sourceName: 'HISTORICAL ARCHIVE // DISASTER INVESTIGATION',
-          dateText: 'JANUARY 26, 1972',
+          sourceName,
+          dateText,
           headline: g.title,
           highlightText: g.title.split(' ').slice(0, 3).join(' '),
           startSec,

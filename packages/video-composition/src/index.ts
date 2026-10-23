@@ -4,3 +4,4 @@ export * from "./math.js";
 export * from "./graphics.js";
 export * from "./image-motion.js";
 export * from "./diagram-layout.js";
+export * from "./scene-graph/index.js";

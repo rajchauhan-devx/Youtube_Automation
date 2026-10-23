@@ -38,7 +38,11 @@ server/data/sfx/
 __pycache__/
 *.partial.mp4
 /artifacts/
-# Never commit backups or secret files by accident.
+# Render outputs and proof videos
+FINAL_PROOF_TEST_VIDEO.mp4
+tmp/
+server/data/.render-jobs/
+
 *.bak
 *.bak-*
 /artifacts/

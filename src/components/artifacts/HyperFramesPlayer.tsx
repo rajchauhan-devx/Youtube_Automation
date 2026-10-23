@@ -5,6 +5,7 @@ import React, {
   forwardRef,
   useState,
 } from 'react';
+import { SceneGraphOverlay } from './SceneGraphOverlay';
 
 export interface PlayerRef {
   seekTo: (frame: number) => void;
@@ -238,6 +239,9 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
             >
               {/* Active artifacts display */}
               {activeArtifacts.map((art: any) => {
+                if (art.sceneGraph) {
+                  return <SceneGraphOverlay key={art.id} graph={art.sceneGraph} scale={1} />;
+                }
                 const g = art.graphic;
                 if (!g) return null;
 
