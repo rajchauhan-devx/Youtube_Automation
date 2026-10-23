@@ -49,12 +49,12 @@ supervisorRouter.post('/cleanup', async (_req, res) => {
     let cleanedBytes = 0;
     const tmpDir = os.tmpdir();
 
-    // 1. Clean temporary remotion / react-motion render directories older than 10 minutes
+    // 1. Clean temporary hyperframes / motion render directories older than 10 minutes
     try {
       const entries = fs.readdirSync(tmpDir);
       const now = Date.now();
       for (const entry of entries) {
-        if (entry.startsWith('react-motion-render') || entry.startsWith('remotion-')) {
+        if (entry.startsWith('react-motion-render') || entry.startsWith('remotion-') || entry.startsWith('hyperframes-')) {
           const fullPath = path.join(tmpDir, entry);
           try {
             const stat = fs.statSync(fullPath);

@@ -15,7 +15,7 @@ interface SetupData {
   editing: any;
   ollama: { endpoint: string; store: { path: string; installed: boolean }; live: { online: boolean; detail: string }; models: string[] };
   storage: { dataDir: { path: string; installed: boolean }; hfCache: { path: string; installed: boolean }; voices: { path: string; installed: boolean }; pkuseg: { path: string; installed: boolean }; clientSecret: boolean; youtubeToken: boolean; accountsDir: boolean };
-  tools: { node: string; ffmpeg: string; ffprobe: string; python310: string; python312: string };
+  tools: { node: string; ffmpeg: string; ffprobe: string; python312: string };
   apiKeys: { key: string; savedIn: string; present: boolean; usedBy: string; browserOnly?: boolean }[];
   envMatrix: { group: string; vars: { key: string; set: boolean; value: string }[] }[];
   envKeyDiff: { key: string; set: boolean }[];
@@ -98,7 +98,7 @@ export function SetupTab() {
       ``,
       `## Live service status`,
       `- Ollama ${data.ollama.endpoint}: ${data.ollama.live.online ? 'online' : 'offline'} (${data.ollama.live.detail}); models: ${data.ollama.models.join(', ') || '(none)'}`,
-      `- Chatterbox: ${data.voice.live.online ? 'online' : 'offline'} (${data.voice.live.detail})`,
+      `- Speech: ${data.voice.live.online ? 'online' : 'offline'} (${data.voice.live.detail})`,
       `- ComfyUI: ${data.image.live.online ? 'online' : 'offline'} (${data.image.live.detail})`,
       ``,
       `## Script models`,
@@ -127,7 +127,7 @@ export function SetupTab() {
       `- dataDir=${data.storage.dataDir.path} exists=${data.storage.dataDir.installed}; hfCache=${data.storage.hfCache.path}; ollamaStore=${data.ollama.store.path}`,
       `- client_secret.json=${data.storage.clientSecret}; youtube-token.json=${data.storage.youtubeToken}; accountsDir=${data.storage.accountsDir}`,
       ``,
-      `## Tools — node=${data.tools.node}; ffmpeg=${data.tools.ffmpeg || 'MISSING'}; ffprobe=${data.tools.ffprobe || 'MISSING'}; py3.10=${data.tools.python310 || 'MISSING'}; py3.12=${data.tools.python312 || 'MISSING'}`,
+      `## Tools — node=${data.tools.node}; ffmpeg=${data.tools.ffmpeg || 'MISSING'}; ffprobe=${data.tools.ffprobe || 'MISSING'}; py3.12=${data.tools.python312 || 'MISSING'}`,
       ``,
       `## Env matrix (secrets show presence only)`,
       ...data.envMatrix.flatMap(g => [`### ${g.group}`, ...g.vars.map(v => `- ${v.key}=${v.value}`)]),
@@ -188,11 +188,11 @@ export function SetupTab() {
         <Card icon={<Activity className="h-4 w-4 text-green-300" />} title="Live service status (real reachability right now)">
           <div className="flex flex-wrap gap-2">
             <Status online={data.ollama.live.online} label="Ollama :11434" />
-            <Status online={data.voice.live.online} label="Chatterbox :8880" />
+            <Status online={data.voice.live.online} label="Cloud speech" />
             <Status online={data.image.live.online} label="ComfyUI :8188" />
           </div>
           <Row label="Ollama detail" value={data.ollama.live.detail || '(no detail)'} />
-          <Row label="Chatterbox detail" value={data.voice.live.detail || '(no detail)'} />
+          <Row label="Speech detail" value={data.voice.live.detail || '(no detail)'} />
           <Row label="ComfyUI detail" value={data.image.live.detail || '(no detail)'} />
           <Row label="Ollama models downloaded" value={data.ollama.models.join(', ') || '(none — run ollama pull)'} copyId="ollama-models" copied={copied} onCopy={copy} />
           <p className="text-gray-400">Offline here means the service is not running now — not that it is uninstalled. Start via app controls / Ollama tray / manual ComfyUI terminal.</p>
@@ -203,7 +203,6 @@ export function SetupTab() {
           <Row label="node" value={data.tools.node} />
           <Row label="ffmpeg" value={data.tools.ffmpeg || 'MISSING from PATH — install FFmpeg + ffprobe'} />
           <Row label="ffprobe" value={data.tools.ffprobe || 'MISSING from PATH'} />
-          <Row label="python 3.10 (Chatterbox)" value={data.tools.python310 || 'MISSING — setup.ps1 needs py -3.10'} />
           <Row label="python 3.12 (ComfyUI)" value={data.tools.python312 || 'MISSING'} />
           <Row label="server/.env exists" value={String(data.envFile.exists)} />
           <Row label="server/.env path" value={data.envFile.path} copyId="envpath" copied={copied} onCopy={copy} />
@@ -255,7 +254,7 @@ export function SetupTab() {
         </Card>
 
         <Card icon={<Music className="h-4 w-4 text-violet-300" />} title={`Voice — active: ${data.voice.activeProviderName}`}>
-          <Status online={data.voice.live.online} label="Chatterbox service now" />
+          <Status online={data.voice.live.online} label="Speech service now" />
           {data.voice.options.map((o: any) => (
             <div key={o.id} className="rounded bg-surface2/60 px-2 py-1.5">
               <p className="font-medium text-white">{o.name}</p>
@@ -265,11 +264,7 @@ export function SetupTab() {
             </div>
           ))}
           <Row label="TTS_PROVIDER" value={String(data.voice.env.TTS_PROVIDER)} />
-          <Row label="CHATTERBOX_URL" value={String(data.voice.env.CHATTERBOX_URL)} />
           <Row label="Cloud TTS_MODEL" value={String(data.voice.env.TTS_MODEL)} />
-          <Row label="Chatterbox venv" value={`${data.voice.chatterboxVenv.path} · installed=${data.voice.chatterboxVenv.installed}`} />
-          <Row label="Voice refs dir" value={`${data.storage.voices.path} · exists=${data.storage.voices.installed}`} />
-          <Row label="pkuseg cache" value={`${data.storage.pkuseg.path} · exists=${data.storage.pkuseg.installed}`} />
         </Card>
 
         <Card icon={<ImageIcon className="h-4 w-4 text-sky-300" />} title="Image generation — ComfyUI (local)">

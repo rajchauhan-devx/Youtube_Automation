@@ -39,7 +39,7 @@ try {
     if (route.startsWith('/api/render/status/')) body={status:'idle',videos:[]};
     if (route === '/api/render/start') {renderRequest=JSON.parse(request.postData());body={ok:true};}
     if (route === '/api/llm/editing-plan') body={editing:{...script.editing,overrides:{S0:{motion:'hold',transition:'cut'},S1:{motion:'push-in',transition:'dissolve'},S2:{motion:'hold',transition:'cut'}}},source:'preset',summary:'AI could not produce a complete valid plan. Applied the documentary preset instead.'};
-    if (route === '/api/tts/status') body={online:true,ready:true,provider:'Chatterbox',kind:'local',state:'ready'};
+    if (route === '/api/tts/status') body={online:true,ready:true,provider:'Google Chirp 3 HD',kind:'local',state:'ready'};
     if (route === '/api/tts/voices') body={voices:[{id:'test',name:'Test voice',language:'hi',gender:'male'}]};
     if (route.startsWith('/api/tts/long/status/')) body=job;
     if (route === '/api/tts/long/start') {job={status:'running',completed:1,total:3};body=job;}

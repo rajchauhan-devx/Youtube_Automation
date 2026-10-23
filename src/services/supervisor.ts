@@ -49,7 +49,7 @@ export async function runPreflightSupervision(
       }
     }
 
-    // 2. Chatterbox Neural TTS Pre-flight Check
+    // 2. speech engine Neural TTS Pre-flight Check
     const ttsRes = await fetchFn(`/api/tts/status?provider=${provider}`).catch(() => null);
     const ttsStatus = ttsRes && ttsRes.ok ? await ttsRes.json() : null;
     if (!ttsStatus?.ready) {
@@ -470,9 +470,9 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
   }
 
   // -------------------------------------------------------------------------
-  // HEALING RULE 5: Chatterbox Engine Offline or Loading
+  // HEALING RULE 5: speech engine Engine Offline or Loading
   // -------------------------------------------------------------------------
-  if (/TTS|Chatterbox|model loading|not ready|connection refused/i.test(errMsg)) {
+  if (/TTS|speech engine|model loading|not ready|connection refused/i.test(errMsg)) {
     ctx.addLog(ctx.stage, '[SUPERVISOR] 🛠️ Healing Action: Waking and warming up selected voice engine...', 'gemini');
     ctx.setStatus('Gemini Supervisor: Restarting selected voice engine...');
 
@@ -567,7 +567,7 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
         return diagnoseAndHealError({ ...ctx, error: 'Scene needs the correct media type' });
       }
       if (diagData.recoveryAction === 'restart_tts') {
-        return diagnoseAndHealError({ ...ctx, error: 'Chatterbox model loading' });
+        return diagnoseAndHealError({ ...ctx, error: 'speech engine model loading' });
       }
       if (diagData.recoveryAction === 'switch_to_low_traffic_model') {
         return diagnoseAndHealError({ ...ctx, error: '503 The selected model is temporarily overloaded' });

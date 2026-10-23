@@ -1,3 +1,4 @@
+import { isGoogleTtsConfigured } from '../services/google-tts.js';
 import { Router } from 'express';
 import { presenterGuard } from '../services/presenter-guard.js';
 import { localMusicBusy } from '../services/local-music.js';
@@ -5,11 +6,7 @@ import { currentWorkspace } from '../services/workspace.js';
 import { safeSegment } from '../services/paths.js';
 import { startNarration, narrationStatus, cancelNarration } from '../services/long-narration.js';
 import { clearScriptVideo } from './render.js';
-import { getChatterboxVoiceReference } from '../services/chatterbox-tts.js';
-import { getHindiPronunciations, saveHindiPronunciations } from '../services/hindi-pronunciation.js';
 import {
-  createLocalVoice,
-  deleteLocalVoice,
   generateTTS,
   getTtsProviderStatus,
   getVoices,
@@ -29,9 +26,9 @@ ttsRouter.use((req, res, next) => {
 });
 ttsRouter.get('/providers', (_req, res) => res.json({
   defaultProvider: TTS_PROVIDER,
-  providers: ['chatterbox', 'edge', 'openrouter', 'omni'].map(id => ({ id, name: ttsProviderName(resolveTtsProvider(id)),
-    configured: id !== 'openrouter' || Boolean(process.env.OPENROUTER_API_KEY?.trim()),
-    kind: ['chatterbox', 'omni'].includes(id) ? 'local' : 'cloud',
+  providers: ['google', 'edge', 'openrouter', 'omni'].map(id => ({ id, name: ttsProviderName(resolveTtsProvider(id)),
+    configured: id === 'google' ? isGoogleTtsConfigured() : id !== 'openrouter' || Boolean(process.env.OPENROUTER_API_KEY?.trim()),
+    kind: id === 'omni' ? 'local' : 'cloud',
   })),
 }));
 ttsRouter.use(presenterGuard(['/start', '/long/start', '/preview', '/generate']));
@@ -43,14 +40,14 @@ ttsRouter.use((req, res, next) => {
 });
 
 ttsRouter.post('/long/start', async (req, res) => {
-  const { scriptId, language, voice, rate, pitch, speed, exaggeration, cfgWeight, temperature, seed, provider } = req.body || {};
+  const { scriptId, language, voice, rate, pitch, speed, provider } = req.body || {};
   if (!safeSegment(scriptId) || !['hi', 'en'].includes(language) || typeof voice !== 'string' || !voice) {
     res.status(400).json({ error: 'Select a Long Video script, language and voice.' }); return;
   }
   let started = false;
   try {
     // Reserve the narration job synchronously before invalidating existing render output.
-    startNarration({ scriptId, language, voice, rate, pitch, speed, exaggeration, cfgWeight, temperature, seed, provider });
+    startNarration({ scriptId, language, voice, rate, pitch, speed, provider });
     started = true;
     await clearScriptVideo(scriptId);
     res.status(202).json(narrationStatus(scriptId));
@@ -73,7 +70,8 @@ const statusCode: Record<string, number> = {
   API_ERROR: 502,
   TIMEOUT: 504,
   CONNECTION_REFUSED: 503,
-  CONFIG: 500,
+  CONFIG: 503,
+  NO_OUTPUT: 502,
   NOT_READY: 503,
   VALIDATION: 400,
   UNKNOWN: 500,
@@ -87,17 +85,6 @@ ttsRouter.get('/status', async (req, res) => {
   res.json(await getTtsProviderStatus(req.query.provider as string | undefined));
 });
 
-ttsRouter.get('/pronunciations/hi', (_req, res, next) => {
-  try { res.json({ entries: getHindiPronunciations() }); } catch (error) { next(error); }
-});
-ttsRouter.put('/pronunciations/hi', (req, res, next) => {
-  try { res.json({ entries: saveHindiPronunciations(req.body?.entries) }); }
-  catch (error) {
-    if (error instanceof TtsError) { res.status(400).json({ error: error.message }); return; }
-    next(error);
-  }
-});
-
 ttsRouter.get('/voices', async (req, res, next) => {
   const language = req.query.language;
   if (language !== undefined && language !== 'en' && language !== 'hi') {
@@ -106,16 +93,10 @@ ttsRouter.get('/voices', async (req, res, next) => {
   try {
     const voices = await getVoices(language, req.query.provider as string | undefined);
     res.json({ voices, provider: ttsProviderName(resolveTtsProvider(req.query.provider as string | undefined)) });
-  } catch (error) { next(error); }
-});
-
-ttsRouter.get('/voices/:id/reference', (req, res, next) => {
-  try {
-    const reference = getChatterboxVoiceReference(req.params.id);
-    if (!reference) { res.status(404).json({ error: 'Voice reference not found' }); return; }
-    res.set('Cache-Control', 'private, no-store');
-    res.sendFile(reference);
-  } catch (error) { next(error); }
+  } catch (error) {
+    if (error instanceof TtsError) { res.status(statusCode[error.code] || 500).json({ error: error.message, code: error.code }); return; }
+    next(error);
+  }
 });
 
 ttsRouter.post('/start', async (req, res) => {
@@ -129,7 +110,7 @@ ttsRouter.post('/stop', async (req, res) => {
 });
 
 ttsRouter.post('/preview', async (req, res) => {
-  const { text, voice, language, rate, pitch, volume, speed, exaggeration, cfgWeight, temperature, seed } = req.body || {};
+  const { text, voice, language, rate, pitch, volume, speed } = req.body || {};
   if (text !== undefined && (typeof text !== 'string' || text.length > 500)) {
     res.status(400).json({ error: 'Preview text must be at most 500 characters.' }); return;
   }
@@ -149,10 +130,6 @@ ttsRouter.post('/preview', async (req, res) => {
       pitch,
       volume,
       speed,
-      exaggeration,
-      cfgWeight,
-      temperature,
-      seed,
     });
     res.set('Content-Type', contentType);
     res.set('Content-Length', String(buffer.length));
@@ -179,10 +156,6 @@ ttsRouter.post('/generate', async (req, res) => {
     pitch,
     volume,
     speed,
-    exaggeration,
-    cfgWeight,
-    temperature,
-    seed,
   } = req.body || {};
 
   if (!text || typeof text !== 'string' || text.trim().length === 0) {
@@ -213,10 +186,6 @@ ttsRouter.post('/generate', async (req, res) => {
       pitch,
       volume,
       speed,
-      exaggeration,
-      cfgWeight,
-      temperature,
-      seed,
     });
     res.json({ ok: true, ...result });
   } catch (err: unknown) {
@@ -227,45 +196,5 @@ ttsRouter.post('/generate', async (req, res) => {
     } else {
       res.status(500).json({ error: errorMessage(err, 'TTS generation failed'), code: 'UNKNOWN' });
     }
-  }
-});
-
-ttsRouter.post('/voices', async (req, res) => {
-  const { name, language, gender, dataUrl } = req.body || {};
-  if (typeof name !== 'string' || !name.trim()) {
-    res.status(400).json({ error: 'Voice name is required' });
-    return;
-  }
-  if (language !== 'hi' && language !== 'en') {
-    res.status(400).json({ error: 'language must be "hi" or "en"' });
-    return;
-  }
-  if (typeof dataUrl !== 'string') {
-    res.status(400).json({ error: 'A base64 audio data URL is required' });
-    return;
-  }
-
-  try {
-    const voice = await createLocalVoice({ name, language, gender, dataUrl });
-    res.status(201).json({ ok: true, voice });
-  } catch (err: unknown) {
-    const status = err instanceof TtsError ? statusCode[err.code] || 500 : 500;
-    res.status(status).json({
-      error: errorMessage(err, 'Voice upload failed'),
-      code: err instanceof TtsError ? err.code : 'UNKNOWN',
-    });
-  }
-});
-
-ttsRouter.delete('/voices/:id', async (req, res) => {
-  try {
-    await deleteLocalVoice(req.params.id);
-    res.json({ ok: true });
-  } catch (err: unknown) {
-    const status = err instanceof TtsError ? statusCode[err.code] || 500 : 500;
-    res.status(status).json({
-      error: errorMessage(err, 'Voice deletion failed'),
-      code: err instanceof TtsError ? err.code : 'UNKNOWN',
-    });
   }
 });

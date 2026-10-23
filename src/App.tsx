@@ -1282,6 +1282,7 @@ export default function App() {
             narrationText: textToNarrate,
             language: languageToUse,
             voice: ttsData.voice || selectedVoice,
+            provider: ttsData.provider || runSettings.voice.provider,
             voiceName: library.voices.find((voice: { id: string }) => voice.id === selectedVoice)?.name || selectedVoice,
             url: ttsData.publicUrl,
             filename: ttsData.filename,
@@ -1962,7 +1963,7 @@ export default function App() {
             </span>
             <span className="flex-1 text-left">
               <span className="block text-[13px] font-semibold text-white">Profile &amp; Voices</span>
-              <span className="block text-[11px] text-faint">Accounts · TTS · Clones</span>
+              <span className="block text-[11px] text-faint">Accounts · Narration</span>
             </span>
           </button>
         </div>

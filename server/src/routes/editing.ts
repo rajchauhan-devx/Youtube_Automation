@@ -170,7 +170,7 @@ editingRouter.get(
       provider: 'Gemini', models: { planner: model, vision: model, review: model }, modelsVerified: false,
       alignment: 'Saved narration scene timing; estimated timing when unavailable', grounding: true,
       artifactGeneration: false, renderedVisionReview: true, documentaryLayers: true,
-      documentaryTreatments: ['archival', 'cinematic', 'map'], renderer: 'remotion', graphics: Object.keys(graphicNames),
+      documentaryTreatments: ['archival', 'cinematic', 'map'], renderer: 'hyperframes', graphics: Object.keys(graphicNames),
       limits: { maxProviderCalls: c.maxCalls, maxGeneratedAssets: 4 } });
   }),
 );

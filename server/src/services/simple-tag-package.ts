@@ -509,9 +509,62 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
     text.match(/^(?:[-*+]\s+)?Title\s*:[ \t]*([^\n]+)/im)?.[1]?.replace(/\*\*/g, '').trim() ||
     'Generated Episode';
 
+  // 5. Extract Motion Graphics Metadata (<metadata[N]> or <motion_graphic[N]>)
+  const motionMetadata: any[] = [];
+  const metadataRegex = /<(?:metadata|motion_graphic)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic)(?:\d+)?\s*>/gi;
+  let metaIdx = 1;
+  for (const m of text.matchAll(metadataRegex)) {
+    const raw = m[2].trim();
+    const typeMatch = raw.match(/Type:\s*([^\n]+)/i);
+    const sceneMatch = raw.match(/(?:Scene|#scene|#image):\s*#?(?:image\s*|scene\s*)?(\d+)/i);
+    const titleMatch = raw.match(/Title:\s*([^\n]+)/i);
+    const detailMatch = raw.match(/Detail:\s*([^\n]+)/i);
+    const targetMatch = raw.match(/Target:\s*([^\n]+)/i);
+    const unitMatch = raw.match(/Unit:\s*([^\n]+)/i);
+    const labelMatch = raw.match(/Label:\s*([^\n]+)/i);
+    const originMatch = raw.match(/Origin:\s*([^\n]+)/i);
+    const destMatch = raw.match(/Destination:\s*([^\n]+)/i);
+    const distMatch = raw.match(/Distance:\s*([^\n]+)/i);
+    const pubMatch = raw.match(/Publication:\s*([^\n]+)/i);
+    const headMatch = raw.match(/Headline:\s*([^\n]+)/i);
+    const highMatch = raw.match(/Highlight:\s*([^\n]+)/i);
+    const assetPromptMatch = raw.match(/Asset\s*Prompt:\s*([\s\S]*?)(?=(?:\n[A-Z][a-z]+:|$))/i);
+
+    const sceneNum = sceneMatch ? parseInt(sceneMatch[1], 10) : undefined;
+    motionMetadata.push({
+      index: m[1] ? Number(m[1]) : metaIdx++,
+      sceneNum,
+      sceneId: sceneNum ? `scene_${String(sceneNum).padStart(3, '0')}` : undefined,
+      type: typeMatch ? typeMatch[1].trim().toLowerCase() : 'badge',
+      title: titleMatch ? titleMatch[1].trim() : undefined,
+      detail: detailMatch ? detailMatch[1].trim() : undefined,
+      target: targetMatch ? targetMatch[1].trim() : undefined,
+      unit: unitMatch ? unitMatch[1].trim() : undefined,
+      label: labelMatch ? labelMatch[1].trim() : undefined,
+      origin: originMatch ? originMatch[1].trim() : undefined,
+      destination: destMatch ? destMatch[1].trim() : undefined,
+      distance: distMatch ? distMatch[1].trim() : undefined,
+      publication: pubMatch ? pubMatch[1].trim() : undefined,
+      headline: headMatch ? headMatch[1].trim() : undefined,
+      highlight: highMatch ? highMatch[1].trim() : undefined,
+      assetPrompt: assetPromptMatch ? assetPromptMatch[1].trim() : undefined,
+      raw,
+    });
+  }
+
+  if (motionMetadata.length > 0) {
+    scenes.forEach((sc, idx) => {
+      const sceneNum = idx + 1;
+      const matched = motionMetadata.filter(m => m.sceneNum === sceneNum || m.sceneId === sc.id);
+      if (matched.length > 0) {
+        (sc as any).motionGraphics = matched;
+      }
+    });
+  }
+
   // Preserve trailing editorial/overlay/reflection sections after the last visual prompt tag
   let lastTagEnd = 0;
-  for (const m of [...text.matchAll(/<\/(?:image_prompt\d*|video_prompt\d*|script|narration)\s*>/gi)]) {
+  for (const m of [...text.matchAll(/<\/(?:image_prompt\d*|video_prompt\d*|script|narration|metadata\d*|motion_graphic\d*)\s*>/gi)]) {
     const end = (m.index ?? 0) + m[0].length;
     if (end > lastTagEnd) lastTagEnd = end;
   }
@@ -522,6 +575,7 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
     title,
     thumbnailPrompt,
     scenes,
+    ...(motionMetadata.length > 0 ? { motionMetadata } : {}),
     ...(trailing ? { supportingNotes: trailing } : {}),
   };
 }

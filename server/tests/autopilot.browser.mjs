@@ -73,7 +73,7 @@ app.use('/api/accounts/default/profiles/shorts', (req, res) => {
   if (req.path === '/youtube/status') return res.json({ configured: true, authenticated: completeRun });
   // Production is simulated; no live model, rendering or uploads are used.
   if (req.path === '/tts/status') return res.json({ ready: true });
-  if (req.path === '/tts/voices') return res.json({ provider: 'Chatterbox', voices: [{ id: 'builtin', name: 'Built-in narrator' }] });
+  if (req.path === '/tts/voices') return res.json({ provider: 'Google Chirp 3 HD', voices: [{ id: 'builtin', name: 'Built-in narrator' }] });
   if (req.path === '/llm/research') return res.json({ researchData: 'Verified traditional context.', sources: [] });
   if (req.path === '/llm/chat/stream') { productionCalls.push('script'); return res.type('text/event-stream').send(failScript ? `data: {"error":"Script unavailable for test."}\n\n` : `data: ${JSON.stringify({ token: '<script>Hanuman rediscovered his strength.</script><image_prompt>A traditional scene in a forest.</image_prompt>', finishReason: 'STOP' })}\n\ndata: {"done":true}\n\n`); }
   if (req.path === '/llm/extract') {
@@ -145,6 +145,7 @@ try {
   await page.setViewport({ width: 390, height: 844 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await page.screenshot({ path: 'artifacts/autopilot-run-mobile.png' });
+  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
   await page.click('form:has(#run-topic) button[type="submit"]');
   await page.waitForFunction(() => document.body.textContent.includes('Connect this profile’s YouTube account before running Auto-Pilot.'));
   assert.equal(topicRequests.length, 1);
@@ -156,12 +157,14 @@ try {
   await click('Close');
   await click('Run Auto-Pilot');
   await page.type('#run-topic', 'An already covered topic');
+  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
   await page.click('form:has(#run-topic) button[type="submit"]');
   await page.waitForFunction(() => document.body.textContent.includes('This profile already exported this topic.'));
   assert.equal(topicRequests[1].topic, 'An already covered topic');
   await click('Close');
   completeRun = true;
   await click('Run Auto-Pilot');
+  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
   await page.click('form:has(#run-topic) button[type="submit"]');
   await page.waitForFunction(() => document.body.textContent.includes('Production complete! Video exported to YouTube and topic recorded.'), { timeout: 30000 });
   assert.equal(uploadRequests.length, 1);
@@ -181,8 +184,9 @@ try {
   blockReview = true;
   await click('Run Auto-Pilot');
   await page.$eval('#run-topic', input => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
   await page.click('form:has(#run-topic) button[type="submit"]');
-  await page.waitForFunction(() => document.body.textContent.includes('Final review needs attention: Narration is inaudible at the opening.'), { timeout: 30000 });
+  await page.waitForFunction(() => document.body.textContent.includes('Final review needs attention: audio: Voice is inaudible.'), { timeout: 30000 });
   assert.equal(uploadRequests.length, 1, 'blocked final review must prevent a second upload');
   const beforeReviewResume = { production: productionCalls.length, images: imageCalls.length, audio: audioCalls, renders: renderCalls };
   blockReview = false;
@@ -202,6 +206,7 @@ try {
   failImages = true;
   await click('Run Auto-Pilot');
   await page.$eval('#run-topic', input => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
   await page.click('form:has(#run-topic) button[type="submit"]');
   await page.waitForFunction(() => document.body.textContent.includes('Pipeline halted: Script generation finished without response content.'), { timeout: 30000 });
   const hooksBeforeResume = productionCalls.filter(call => call === 'plan').length;
@@ -276,6 +281,7 @@ try {
   const beforeRecovery = { images: imageCalls.length, diagnoses, uploads: uploadRequests.length };
   await click('Run Auto-Pilot');
   await page.$eval('#run-topic', input => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
   await page.click('form:has(#run-topic) button[type="submit"]');
   await page.waitForFunction(() => document.body.textContent.includes('Production complete! Video exported to YouTube and topic recorded.'), { timeout: 30000 });
   assert.deepEqual(imageCalls.slice(beforeRecovery.images), [0, 1, 1], 'automatic scene refresh must reuse the completed opening');
@@ -294,6 +300,7 @@ try {
   await click('Run Auto-Pilot');
   await page.click('input[aria-label="Add optional graphics"]');
   await page.$eval('#run-topic', input => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
   await page.click('form:has(#run-topic) button[type="submit"]');
   await page.waitForFunction(() => document.body.textContent.includes('Production complete! Video exported to YouTube and topic recorded.'), { timeout: 30000 });
   assert.equal(visualCreates, 1, 'visual recovery must not generate another project');

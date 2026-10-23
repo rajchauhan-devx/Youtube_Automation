@@ -18,8 +18,17 @@ export interface NarrationScene {
   mediaType?: 'image' | 'video';
   duration?: number;
   role: 'story' | 'cta';
+  motionGraphics?: any[];
 }
-export interface ScenePlan { version: 1; title: string; scenes: NarrationScene[]; thumbnailPrompt: string; thumbnailMotionPrompt?: string; supportingNotes?: string }
+export interface ScenePlan {
+  version: 1;
+  title: string;
+  scenes: NarrationScene[];
+  thumbnailPrompt: string;
+  thumbnailMotionPrompt?: string;
+  supportingNotes?: string;
+  motionMetadata?: any[];
+}
 export interface SceneTiming { sceneId: string; startSample: number; endSample: number }
 export interface NarrationSync { version: 1; timingMode?: 'narration'; planHash: string; sampleRate: number; totalSamples: number; scenes: SceneTiming[] }
 export const spokenText = (plan: ScenePlan) => plan.scenes.map(scene => scene.narration).join('\n\n');

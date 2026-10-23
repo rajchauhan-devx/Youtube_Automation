@@ -17,25 +17,14 @@
     "videoImportsEnabled": false,
     "accountId": "acct_620a1d5e-bb1a-4b7e-8662-37acafaecbab",
     "section": "long",
-    "status": "active",
-    "lastUsed": "2026-10-07T09:27:00.408Z",
-    "aiResponse": "RESEARCH REQUIRED: The user has specified a \"fictional topic\" but has not provided the **Topic Name**, **Source Material**, **Input/Canon Packet**, or **Story Summary** required to begin Step 0 (Deep Research) and subsequent script generation.\n\nAs an expert video production assistant adhering to the \"Against the Odds\" protocol, I cannot invent core facts, characters, locations, or plot points for a fictional story without a provided canon packet or specific creative brief. The workflow mandates verifying core facts (or locked fiction rules) before writing narration or prompts.\n\nPlease provide:\n1.  **The Fictional Topic/Title** (e.g., \"The Lost Colony of Mars,\" \"Escape from the Sunken City\").\n2.  **The Canon/Story Summary** (Key events, characters, setting, rules of the world, and the ending).\n3.  **Any Specific Constraints** (Tone, specific visual style preferences beyond the default, etc.).\n\nOnce you provide these details, I will immediately proceed with Step 0 (Silent Research/Analysis of the provided canon) and generate the full 1200-second script and production prompts according to the mandatory template.",
+    "status": "draft",
+    "lastUsed": "Never",
+    "aiResponse": "",
     "extractedScript": "",
     "narration": "",
     "imagePrompts": [],
     "generatedImages": [],
     "generatedAudio": [],
-    "pipeline": [
-      {
-        "id": "response",
-        "label": "Response",
-        "status": "done",
-        "summary": "Response complete â€” click Extract Assets to process",
-        "inputLog": "its fictinal topic not real world just start the generation",
-        "outputPreview": "se details, I will immediately proceed with Step 0 (Silent Research/Analysis of the provided canon) and generate the full 1200-second script and production prompts according to the mandatory template."
-      }
-    ],
-    "topicName": "its fictinal topic not real world just start the generation",
-    "aiInstructions": ""
+    "pipeline": []
   }
 ]

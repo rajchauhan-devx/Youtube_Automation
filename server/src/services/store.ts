@@ -1,3 +1,4 @@
+import { normalizeSavedVoiceSettings } from './voice-settings.js';
 import fs from 'fs';
 import { safeSegment } from './paths.js';
 import path from 'path';
@@ -39,7 +40,13 @@ function read<T>(name: string): T[] {
   const fp = filePath(name);
   if (!fs.existsSync(fp)) return [];
   const raw = retryFileOperation(() => fs.readFileSync(fp, 'utf-8'));
-  try { return validateArray(name, raw) as T[]; }
+  try {
+    const values = validateArray(name, raw);
+    if (name === 'scripts') for (const item of values) {
+      if (item && typeof item === 'object' && 'autoPilotSettings' in item) normalizeSavedVoiceSettings((item as { autoPilotSettings: unknown }).autoPilotSettings);
+    }
+    return values as T[];
+  }
   catch (error) { preserveCorrupt(name, raw); throw error; }
 }
 

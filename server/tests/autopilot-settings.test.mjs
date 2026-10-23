@@ -6,7 +6,7 @@ import path from 'node:path';
 import express from 'express';
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'tubeflow-run-settings-'));
 process.env.TUBEFLOW_DATA_DIR = directory;
-process.env.TTS_PROVIDER = 'chatterbox';
+process.env.TTS_PROVIDER = 'google';
 process.env.OPENROUTER_API_KEY = 'fixture-key';
 const { AutoPilotSettingsSchema, defaultAutoPilotSettings, narrationOptions } = await import('../dist/services/autopilot-settings.js');
 const { getVoices, resolveTtsProvider, TTS_PROVIDER, generateTTS } = await import('../dist/services/omnivoice.js');
@@ -21,9 +21,6 @@ const post = (url, body, method = 'POST') => fetch(base + url, { method, headers
 const settings = defaultAutoPilotSettings();
 
 test('run settings validate real controls and preserve independent graphics and caption choices', () => {
-  assert.equal(settings.voice.exaggeration, 0.5);
-  assert.equal(settings.voice.cfgWeight, 0.5);
-  assert.equal(settings.voice.temperature, 0.7);
   assert.equal(settings.graphics.enabled, false, 'graphics are opt-in');
   const a = structuredClone(settings); a.media.flowResolution = '1080p'; a.media.flowDuration = 4;
   a.graphics.enabled = false; a.captions = 'motion'; a.voice.provider = 'edge'; a.voice.voiceId = 'en_brian';
@@ -48,11 +45,11 @@ test('narration tuning is routed to the selected engine without changing the con
   assert.equal(options.rate, '+15%'); assert.equal(options.pitch, '-3Hz');
   const [edge, cloud] = await Promise.all([getVoices('hi', 'edge'), getVoices('en', 'openrouter')]);
   assert.ok(edge.some(v => v.language === 'hi')); assert.ok(cloud.some(v => v.language === 'en'));
-  assert.equal(resolveTtsProvider(), TTS_PROVIDER); assert.equal(TTS_PROVIDER, 'chatterbox');
+  assert.equal(resolveTtsProvider(), TTS_PROVIDER); assert.equal(TTS_PROVIDER, 'google');
   assert.throws(() => resolveTtsProvider('unknown'), /supported voice engine/);
 });
 
-test('a per-run cloud engine reaches its own synthesis adapter while the configured engine stays local', async () => {
+test('a per-run cloud engine reaches its own synthesis adapter without changing the Google default', async () => {
   const originalFetch = globalThis.fetch;
   let request;
   globalThis.fetch = async (url, options) => {
@@ -64,7 +61,7 @@ test('a per-run cloud engine reaches its own synthesis adapter while the configu
     const audio = await generateTTS({ scriptId: 'provider-test', text: 'A short test.', language: 'en', voice: 'en_brian', provider: 'openrouter', speed: 1.25 });
     assert.equal(request.voice, 'onyx'); assert.equal(request.speed, 1.25);
     assert.equal(audio.filename.endsWith('.mp3'), true);
-    assert.equal(resolveTtsProvider(), 'chatterbox');
+    assert.equal(resolveTtsProvider(), 'google');
   } finally { globalThis.fetch = originalFetch; }
 });
 
@@ -81,7 +78,7 @@ test('HTTP settings persist before a run; invalid saves do not overwrite setting
   assert.deepEqual((await (await fetch(base + '/scripts/run-settings')).json()).autoPilotSettings, next);
   assert.equal((await fetch(base + '/tts/voices?provider=unsupported')).status, 400);
   const providers = await (await fetch(base + '/tts/providers')).json();
-  assert.equal(providers.defaultProvider, 'chatterbox'); assert.ok(providers.providers.some(p => p.id === 'edge'));
+  assert.equal(providers.defaultProvider, 'google'); assert.ok(providers.providers.some(p => p.id === 'edge'));
   const voices = await (await fetch(base + '/tts/voices?provider=edge&language=hi')).json();
   assert.equal(voices.provider, 'Edge Neural TTS'); assert.ok(voices.voices.every(v => v.language === 'hi'));
   assert.equal(typeof before, 'string');

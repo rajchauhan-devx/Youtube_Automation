@@ -17,7 +17,7 @@ const GEMINI_MODELS = [
   { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite' },
   { id: 'gemini-3.7-flash', name: 'Gemini 3.7 Flash' },
 ];
-import { TTS_PROVIDER, TTS_PROVIDER_NAME, TTS_PROVIDER_KIND } from '../services/omnivoice.js';
+import { TTS_PROVIDER, TTS_PROVIDER_NAME, TTS_PROVIDER_KIND, getTtsProviderStatus } from '../services/omnivoice.js';
 import { MUSIC_MODELS } from '../services/local-music.js';
 import { editingConfig } from '../services/editing/config.js';
 import { resolveComfyPath, resolveComfyPython, resolveWorkflowPath } from '../services/comfyui.js';
@@ -82,7 +82,7 @@ function keyStatus() {
     { key: 'GROQ_API_KEY', savedIn: 'server/.env (server-only)', present: has(process.env.GROQ_API_KEY), usedBy: `Reasoning models: ${GROQ_MODELS.map(m => m.id).join(', ')}` },
     { key: 'OPENROUTER_API_KEY (server)', savedIn: 'server/.env', present: has(process.env.OPENROUTER_API_KEY), usedBy: `Reasoning + editing: ${OPENROUTER_MODELS.map(m => m.id).join(', ')}` },
     { key: 'openrouter_key (browser)', savedIn: 'Browser localStorage key "openrouter_key", sent as x-api-key header', present: false, browserOnly: true, usedBy: 'Frontend Settings page OpenRouter key (NOT in git, per-PC browser storage)' },
-    { key: 'HF_TOKEN', savedIn: 'server/.env (optional)', present: has(process.env.HF_TOKEN), usedBy: 'Only if Hugging Face downloads require auth (Chatterbox / ComfyUI weights are public by default)' },
+    { key: 'HF_TOKEN', savedIn: 'server/.env (optional)', present: has(process.env.HF_TOKEN), usedBy: 'Only if Hugging Face downloads require auth (ComfyUI weights are public by default)' },
     { key: 'YOUTUBE_CLIENT_ID / YOUTUBE_CLIENT_SECRET', savedIn: 'server/.env or server/data/client_secret.json', present: has(process.env.YOUTUBE_CLIENT_ID) || exists(path.join(SERVER_ROOT, 'data', 'client_secret.json')), usedBy: 'YouTube OAuth upload (callback http://localhost:3001/api/youtube/callback)' },
     { key: 'youtube-token.json', savedIn: 'server/data/youtube-token.json (git-ignored)', present: exists(path.join(SERVER_ROOT, 'data', 'youtube-token.json')), usedBy: 'Saved YouTube OAuth token — reconnect on new PC, do not expect git to carry it' },
     { key: 'FACEBOOK_APP_ID / FACEBOOK_APP_SECRET', savedIn: 'server/.env or Export → Facebook/Instagram → Setup Meta App (meta_client.json)', present: has(process.env.FACEBOOK_APP_ID) || exists(path.join(SERVER_ROOT, 'data', 'meta_client.json')), usedBy: 'Facebook + Instagram publishing (callbacks http://localhost:3001/api/facebook/callback and /api/instagram/callback)' },
@@ -114,24 +114,16 @@ setupRouter.get('/', async (_req, res) => {
     return { folder, name, path: full, installed: size > 1_000_000, bytes: size };
   });
 
-  const chatterboxVenvCandidates = process.platform === 'win32'
-    ? [path.join(SERVER_ROOT, 'chatterbox', '.venv', 'Scripts', 'python.exe'), path.join(SERVER_ROOT, 'chatterbox', '.venv', 'bin', 'python')]
-    : [path.join(SERVER_ROOT, 'chatterbox', '.venv', 'bin', 'python'), path.join(SERVER_ROOT, 'chatterbox', '.venv', 'Scripts', 'python.exe')];
-  const chatterboxVenv = (process.env.CHATTERBOX_PYTHON && exists(process.env.CHATTERBOX_PYTHON) ? process.env.CHATTERBOX_PYTHON : undefined)
-    || chatterboxVenvCandidates.find(p => exists(p))
-    || chatterboxVenvCandidates[0];
   const comfyVenv = resolveComfyPython();
   const museTalkDir = museTalkRoot();
   const dataDir = path.resolve(process.env.TUBEFLOW_DATA_DIR || path.join(SERVER_ROOT, 'data'));
   const hfCache = process.env.HF_HOME || process.env.HF_HUB_CACHE || path.join(os.homedir(), '.cache', 'huggingface', 'hub');
   const ollamaStore = process.env.OLLAMA_MODELS || path.join(os.homedir(), '.ollama', 'models');
-  const pkusegDir = process.env.PKUSEG_HOME || path.join(SERVER_ROOT, 'data', 'model-cache', 'pkuseg');
-  const voiceDir = path.resolve(process.env.CHATTERBOX_VOICE_DIR || path.join(SERVER_ROOT, 'data', 'voices'));
 
   // Live readiness (best-effort, short timeouts — never fail the whole endpoint).
-  const [ollamaLive, chatterboxLive, comfyLive] = await Promise.all([
+  const [ollamaLive, speechLive, comfyLive] = await Promise.all([
     liveCheck('http://127.0.0.1:11434/api/tags'),
-    liveCheck(`${(process.env.CHATTERBOX_URL || 'http://127.0.0.1:8880').replace(/\/+$/, '')}/health`),
+    getTtsProviderStatus().then(status => ({ online: status.ready, detail: status.error || status.message || status.provider })),
     liveCheck(`${(process.env.COMFYUI_BASE_URL || 'http://127.0.0.1:8188').replace(/\/+$/, '')}/system_stats`),
   ]);
   let ollamaModels: string[] = [];
@@ -151,7 +143,7 @@ setupRouter.get('/', async (_req, res) => {
   const ENV_GROUPS: { group: string; vars: string[] }[] = [
     { group: 'Server', vars: ['HOST', 'PORT', 'CORS_ORIGIN', 'APP_URL', 'TUBEFLOW_DATA_DIR'] },
     { group: 'Script LLMs', vars: ['GEMINI_API_KEY', 'GEMINI_EDIT_MODEL', 'OPENCODE_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY', 'XKIRO_API_KEY'] },
-    { group: 'Voice (local + cloud TTS)', vars: ['TTS_PROVIDER', 'CHATTERBOX_URL', 'CHATTERBOX_HOST', 'CHATTERBOX_PORT', 'CHATTERBOX_DEVICE', 'CHATTERBOX_T3_MODEL', 'CHATTERBOX_TIMEOUT_MS', 'CHATTERBOX_MAX_CHUNK_CHARS', 'CHATTERBOX_PYTHON', 'CHATTERBOX_VOICE_DIR', 'PKUSEG_HOME', 'TTS_SERVER_URL', 'OMNIVOICE_URL', 'TTS_MODEL', 'TTS_CLOUD_CHUNK_MAX_CHARS', 'TTS_CLOUD_TIMEOUT_MS', 'EDGE_TTS_PYTHON'] },
+    { group: 'Voice (local + cloud TTS)', vars: ['TTS_PROVIDER', 'TTS_SERVER_URL', 'OMNIVOICE_URL', 'TTS_MODEL', 'TTS_CLOUD_CHUNK_MAX_CHARS', 'TTS_CLOUD_TIMEOUT_MS', 'EDGE_TTS_PYTHON'] },
     { group: 'Caches / model stores', vars: ['HF_HOME', 'HF_HUB_CACHE', 'HF_TOKEN', 'OLLAMA_MODELS'] },
     { group: 'Image + music (ComfyUI)', vars: ['COMFYUI_PATH', 'COMFYUI_PYTHON', 'COMFYUI_BASE_URL', 'COMFYUI_WORKFLOW_PATH', 'COMFYUI_PROMPT_NODE_ID', 'COMFYUI_SEED_NODE_ID', 'COMFYUI_SEED_INPUT_KEY', 'COMFYUI_TIMEOUT_MS', 'COMFYUI_LOW_VRAM'] },
     { group: 'Presenter', vars: ['MUSETALK_ROOT', 'MUSETALK_PYTHON'] },
@@ -173,7 +165,7 @@ setupRouter.get('/', async (_req, res) => {
     repoRoot: path.resolve(SERVER_ROOT, '..'),
     node: process.version,
     platform: `${os.platform()} ${os.arch()}`,
-    ports: { frontend: 'http://localhost:5173 (vite)', backend: `http://localhost:${process.env.PORT || '3001'}`, chatterbox: process.env.CHATTERBOX_URL || 'http://127.0.0.1:8880', comfyui: process.env.COMFYUI_BASE_URL || 'http://127.0.0.1:8188', ollama: 'http://127.0.0.1:11434' },
+    ports: { frontend: 'http://localhost:5173 (vite)', backend: `http://localhost:${process.env.PORT || '3001'}`, comfyui: process.env.COMFYUI_BASE_URL || 'http://127.0.0.1:8188', ollama: 'http://127.0.0.1:11434' },
     scriptModels: {
       default: 'gemini-3.6-flash (cloud, needs GEMINI_API_KEY)',
       geminiEditOverride: process.env.GEMINI_EDIT_MODEL || '(unset — defaults to gemini-3.6-flash)',
@@ -187,17 +179,14 @@ setupRouter.get('/', async (_req, res) => {
       activeProvider: TTS_PROVIDER,
       activeProviderName: TTS_PROVIDER_NAME,
       providerKind: TTS_PROVIDER_KIND,
-      env: { TTS_PROVIDER: process.env.TTS_PROVIDER || 'chatterbox (default)', CHATTERBOX_URL: process.env.CHATTERBOX_URL || 'http://127.0.0.1:8880', CHATTERBOX_T3_MODEL: process.env.CHATTERBOX_T3_MODEL || 'v3', CHATTERBOX_DEVICE: process.env.CHATTERBOX_DEVICE || 'auto', TTS_MODEL: process.env.TTS_MODEL || 'openai/gpt-4o-mini-tts-2025-12-15 (OpenRouter cloud TTS)' },
+      env: { TTS_PROVIDER, TTS_MODEL: process.env.TTS_MODEL || 'openai/gpt-4o-mini-tts-2025-12-15' },
       options: [
-        { id: 'chatterbox', name: 'Chatterbox Multilingual V3 (default, local, free)', install: 'npm run setup:tts  → server/chatterbox/.venv (Python 3.10) + HF cache ResembleAI/chatterbox (ve.pt, t3_mtl23ls_v3.safetensors, s3gen.pt, conds.pt, tokenizer) + server/data/model-cache/pkuseg + server/data/voices', needsKey: 'none' },
+        { id: 'google', name: 'Google Chirp 3 HD (cloud, Hindi / English)', install: 'Enable Cloud Text-to-Speech API in the existing Google Cloud project; uses image generation ADC credentials', needsKey: 'Google Cloud Application Default Credentials + billing/quota project' },
         { id: 'edge', name: 'Edge Neural TTS (cloud, free, no key)', install: 'needs internet + EDGE_TTS_PYTHON for synthesis script', needsKey: 'none', voices: Object.entries(EDGE_VOICE_MAP).map(([id, v]) => `${id} → ${v.voice}`) },
         { id: 'openrouter', name: 'OpenRouter TTS (cloud)', install: 'none', needsKey: 'browser openrouter_key / OPENROUTER_API_KEY', model: process.env.TTS_MODEL || 'openai/gpt-4o-mini-tts-2025-12-15', voiceMap: CLOUD_VOICE_IDS },
         { id: 'omni', name: 'OmniVoice legacy local server (deprecated path)', install: 'python -m omnivoice_server --port 8880 (TTS_SERVER_URL / OMNIVOICE_URL)', needsKey: 'none' },
       ],
-      chatterboxVenv: { path: chatterboxVenv, installed: exists(chatterboxVenv) },
-      voiceDir: { path: voiceDir, installed: exists(voiceDir) },
-      pkusegDir: { path: pkusegDir, installed: exists(pkusegDir) },
-      live: chatterboxLive,
+      live: speechLive,
     },
     image: {
       engine: 'ComfyUI (separate git clone, git-ignored)',
@@ -227,7 +216,7 @@ setupRouter.get('/', async (_req, res) => {
       planner: process.env.EDITING_PLANNER_MODEL || process.env.GEMINI_EDIT_MODEL || 'gemini-3.6-flash',
       alignment: 'Saved narration scene boundaries, or estimated scene timing',
       grounding: 'Gemini image detection and crop verification',
-      browser: editing.browser || '(Remotion managed browser)',
+      browser: editing.browser || '(HyperFrames headless engine)',
     },
     ollama: {
       endpoint: 'http://127.0.0.1:11434',
@@ -238,8 +227,6 @@ setupRouter.get('/', async (_req, res) => {
     storage: {
       dataDir: { path: dataDir, installed: exists(dataDir) },
       hfCache: { path: hfCache, installed: exists(hfCache) },
-      voices: { path: voiceDir, installed: exists(voiceDir) },
-      pkuseg: { path: pkusegDir, installed: exists(pkusegDir) },
       clientSecret: exists(path.join(dataDir, 'client_secret.json')),
       youtubeToken: exists(path.join(dataDir, 'youtube-token.json')),
       metaClient: exists(path.join(dataDir, 'meta_client.json')),
@@ -250,7 +237,6 @@ setupRouter.get('/', async (_req, res) => {
       node: process.version,
       ffmpeg: toolVersion('ffmpeg', ['-version']),
       ffprobe: toolVersion('ffprobe', ['-version']),
-      python310: toolVersion('py', ['-3.10', '--version']) || toolVersion('python3.10', ['--version']) || toolVersion('/opt/homebrew/opt/python@3.10/bin/python3.10', ['--version']),
       python312: toolVersion('py', ['-3.12', '--version']) || toolVersion('python3.12', ['--version']) || toolVersion('/opt/homebrew/opt/python@3.12/bin/python3.12', ['--version']),
     },
     envMatrix,
@@ -262,14 +248,14 @@ setupRouter.get('/', async (_req, res) => {
       template: '.env.example (committed) → copy to server/.env (git-ignored, never commit)',
     },
     gitNotes: {
-      committed: ['source code', '.env.example', 'server/workflows/*.json', 'server/chatterbox/setup.ps1 + prefetch.py', 'server/scripts/setup-local-music.py', 'docs/NEW_PC_SETUP.md'],
-      ignoredNotInGit: ['ComfyUI/', 'artifacts/', 'server/chatterbox/.venv/', 'server/.env + .env', 'server/data/generated|output|rendered|voices|model-cache|accounts|music|sfx|*.json tokens', 'C:/Users/<you>/.cache/huggingface/hub/models--ResembleAI--chatterbox', 'C:/Users/<you>/.ollama/models', 'external C:/AI/MuseTalk-Demo', 'node_modules/', 'browser localStorage (openrouter_key, UI state)'],
+      committed: ['source code', '.env.example', 'server/workflows/*.json', 'server/scripts/setup-local-music.py', 'docs/NEW_PC_SETUP.md'],
+      ignoredNotInGit: ['ComfyUI/', 'artifacts/', 'server/.env + .env', 'server/data/generated|output|rendered|voices|model-cache|accounts|music|sfx|*.json tokens', 'C:/Users/<you>/.ollama/models', 'external C:/AI/MuseTalk-Demo', 'node_modules/', 'browser localStorage (openrouter_key, UI state)'],
     },
     newPcChecklist: [
-      '1. Install Git, Node 24.x, Python 3.10 (Chatterbox) + 3.12 (ComfyUI), FFmpeg+ffprobe, Ollama, NVIDIA driver — see docs/NEW_PC_SETUP.md §3',
+      '1. Install Git, Node 24.x, Python 3.12 (ComfyUI), FFmpeg+ffprobe, Ollama, NVIDIA driver — see docs/NEW_PC_SETUP.md §3',
       '2. git clone <your-repo-url> + npm ci + npm ci --prefix server, then copy .env.example → server/.env and fill absolute paths for THIS PC',
       '3. ollama pull qwen3.5:4b (scripts + editing, no key)',
-      '4. npm run setup:tts (Chatterbox V3 local voice, first run downloads GBs) — set CHATTERBOX_DEVICE=cpu for CPU-only PCs',
+      '4. Configure Google Cloud Application Default Credentials and enable the Cloud Text-to-Speech API for Hindi and English narration',
       '5. Clone ComfyUI separately + comfy-venv + SDXL checkpoint juggernautXL_ragnarok.safetensors → ComfyUI/models/checkpoints',
       '6. Run server/scripts/setup-local-music.py with comfy-venv Python for ACE-Step music weights',
       '7. Paste server API keys into server/.env (GEMINI/OPENCODE/GROQ/OPENROUTER); paste browser OpenRouter key in app Settings (localStorage, per-PC)',

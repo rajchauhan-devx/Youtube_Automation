@@ -1,3 +1,4 @@
+import { GOOGLE_TTS_REVISION } from './google-tts.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -6,7 +7,6 @@ import { generatedDir, mediaUrl, workspaceKey } from './workspace.js';
 import { containedFile } from './paths.js';
 import { store } from './store.js';
 import { generateTTS, resolveTtsProvider, ttsProviderName } from './omnivoice.js';
-import { chatterboxCacheIdentity } from './chatterbox-tts.js';
 import { runMedia } from './media-process.js';
 import { writeNarrationMetadata } from './editing/media.js';
 import { normalizeNarration, spokenText, syncScenePlanNarration, validateScenePlan, validateSync, type ScenePlan, type NarrationSync } from './scene-plan.js';
@@ -62,8 +62,8 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
     for (const scene of plan.scenes) {
       signal.throwIfAborted();
       const provider = resolveTtsProvider(options.provider);
-      const key = hash({ version: provider === 'chatterbox' ? 4 : 2, provider: ttsProviderName(provider),
-        synthesis: provider === 'chatterbox' ? chatterboxCacheIdentity(options.language, options.voice) : undefined,
+      const key = hash({ version: 2, provider: ttsProviderName(provider),
+        synthesis: provider === 'google' ? GOOGLE_TTS_REVISION : undefined,
         options, text: scene.narration });
       const pcm = containedFile(cache, `${key}.pcm`);
       const meta = `${pcm}.json`;

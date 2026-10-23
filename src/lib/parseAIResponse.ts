@@ -1,7 +1,18 @@
+export interface ParsedMetadata {
+  index: number;
+  type: string;
+  scene?: string;
+  title?: string;
+  detail?: string;
+  assetPrompt?: string;
+  raw: string;
+}
+
 export interface ParsedAIResponse {
   script: string;
   ttsText: string;
   imagePrompts: string[];
+  metadata?: ParsedMetadata[];
 }
 
 function stripMarkdownFences(text: string): string {
@@ -96,6 +107,31 @@ function findScript(text: string): string {
   return text.trim();
 }
 
+function findMetadata(text: string): ParsedMetadata[] {
+  const list: ParsedMetadata[] = [];
+  const regex = /<(?:metadata|motion_graphic)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic)(?:\d+)?\s*>/gi;
+  let m;
+  let idx = 1;
+  while ((m = regex.exec(text)) !== null) {
+    const raw = m[2].trim();
+    const typeMatch = raw.match(/Type:\s*([^\n]+)/i);
+    const sceneMatch = raw.match(/(?:Scene|#scene|#image):\s*([^\n]+)/i);
+    const titleMatch = raw.match(/Title:\s*([^\n]+)/i);
+    const detailMatch = raw.match(/Detail:\s*([^\n]+)/i);
+    const assetPromptMatch = raw.match(/Asset\s*Prompt:\s*([\s\S]*?)(?=(?:\n[A-Z][a-z]+:|$))/i);
+    list.push({
+      index: m[1] ? Number(m[1]) : idx++,
+      type: typeMatch ? typeMatch[1].trim() : 'badge',
+      scene: sceneMatch ? sceneMatch[1].trim() : undefined,
+      title: titleMatch ? titleMatch[1].trim() : undefined,
+      detail: detailMatch ? detailMatch[1].trim() : undefined,
+      assetPrompt: assetPromptMatch ? assetPromptMatch[1].trim() : undefined,
+      raw,
+    });
+  }
+  return list;
+}
+
 export function parseAIResponse(text: string): ParsedAIResponse {
   const cleaned = text.trim();
 
@@ -103,5 +139,6 @@ export function parseAIResponse(text: string): ParsedAIResponse {
     script: findScript(cleaned),
     ttsText: findNarration(cleaned),
     imagePrompts: findImagePrompts(cleaned),
+    metadata: findMetadata(cleaned),
   };
 }

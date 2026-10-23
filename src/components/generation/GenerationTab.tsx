@@ -1,5 +1,4 @@
 import { useWorkspaceApi } from '../../services/workspaceApi';
-import { NATURAL_CHATTERBOX_OPTIONS } from '../../../server/src/services/chatterbox-options';
 import { useState, useEffect, useRef } from 'react';
 import {
   Play,
@@ -27,9 +26,8 @@ import { type Script, type GeneratedImage, type GeneratedAudio, getChannelLoraPr
 import { ErrorBoundary } from '../ErrorBoundary';
 import { MixedMediaContent } from './MixedMediaContent';
 import { GenerationDisclosure } from './GenerationDisclosure';
-import { HindiPronunciationEditor } from './HindiPronunciationEditor';
 import { CloudflareImagePanel, type ImageProviderMode } from './CloudflareImagePanel';
-import { saveVoiceReference, rememberVoice, preferredVoice, VOICES_CHANGED } from '../../services/voiceLibrary';
+import { rememberVoice, preferredVoice } from '../../services/voiceLibrary';
 import { normalizeNarration, spokenText, syncScenePlanNarration } from '../../../server/src/services/scene-plan';
 import { parseJsonResponse } from '../../lib/safe';
 
@@ -700,9 +698,8 @@ interface VoiceItem {
   sampleText?: string;
   pitch?: number;
   tags?: string[];
-  source?: 'builtin' | 'clone' | 'provider';
+  source?: 'builtin' | 'provider';
   deletable?: boolean;
-  referenceRevision?: string;
 }
 
 function AudioGenerationContent({
@@ -714,11 +711,25 @@ function AudioGenerationContent({
 }) {
   const { fetch, profile, account } = useWorkspaceApi();
   const sceneBacked = profile !== 'shorts' || Boolean(script?.scenePlan);
+  const initialVoiceLanguage = () => {
+    const language = script?.autoPilotSettings?.voice.language;
+    return language === 'hi' || language === 'en' ? language : /[\u0900-\u097F]/.test(script?.narration || '') ? 'hi' : 'en';
+  };
   const [copied, setCopied] = useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState<'hi' | 'en'>('en');
+  const [selectedLanguage, setSelectedLanguage] = useState<'hi' | 'en'>(initialVoiceLanguage);
+  const [selectedProvider, setSelectedProvider] = useState<string>(script?.autoPilotSettings?.voice.provider || 'default');
+  const [voiceEngines, setVoiceEngines] = useState<{ id: string; name: string; configured: boolean }[]>([]);
+  const [googleSpeed, setGoogleSpeed] = useState(script?.autoPilotSettings?.voice.speed || 1);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const statusTokenRef = useRef(0);
+  useEffect(() => {
+    setSelectedProvider(script?.autoPilotSettings?.voice.provider || 'default');
+    setSelectedLanguage(initialVoiceLanguage());
+    setGoogleSpeed(script?.autoPilotSettings?.voice.speed || 1);
+  }, [script?.id]);
   const [voices, setVoices] = useState<VoiceItem[]>([]);
   const [voicesLoading, setVoicesLoading] = useState(true);
-  const [selectedVoice, setSelectedVoice] = useState<string>('');
+  const [selectedVoice, setSelectedVoice] = useState<string>(script?.autoPilotSettings?.voice.voiceId || script?.generatedAudio?.[0]?.voice || '');
   const voiceProviderRef = useRef('');
   function selectVoice(id: string) {
     setSelectedVoice(id);
@@ -733,14 +744,6 @@ function AudioGenerationContent({
   const [rateOffset, setRateOffset] = useState<number>(0); // -25% to +35%
   const [pitchOffset, setPitchOffset] = useState<number>(0); // -12Hz to +12Hz
   const [stylePreset, setStylePreset] = useState<'natural' | 'cinematic' | 'shorts' | 'tech' | 'vlog' | 'custom'>('natural');
-  const [exaggeration, setExaggeration] = useState<number>(NATURAL_CHATTERBOX_OPTIONS.exaggeration);
-  const [cfgWeight, setCfgWeight] = useState<number>(NATURAL_CHATTERBOX_OPTIONS.cfgWeight);
-  const [temperature, setTemperature] = useState<number>(NATURAL_CHATTERBOX_OPTIONS.temperature);
-  // A fixed seed makes comparisons reproducible; the reference determines the voice.
-  const [ttsSeed] = useState(42);
-  const [voiceFile, setVoiceFile] = useState<File | null>(null);
-  const [voiceName, setVoiceName] = useState('');
-  const [uploadingVoice, setUploadingVoice] = useState(false);
 
   const [generating, setGenerating] = useState(false);
   const [progressPercent, setProgressPercent] = useState(0);
@@ -822,30 +825,12 @@ function AudioGenerationContent({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const previewVoiceIdRef = useRef<string | null>(null);
   const fetchTokenRef = useRef(0);
-  const [systemVoices, setSystemVoices] = useState<SpeechSynthesisVoice[]>([]);
-
-  useEffect(() => {
-    if (!('speechSynthesis' in window)) return;
-
-    function loadSystemVoices() {
-      const sv = window.speechSynthesis.getVoices();
-      if (sv.length > 0) setSystemVoices(sv);
-    }
-
-    loadSystemVoices();
-    window.speechSynthesis.onvoiceschanged = loadSystemVoices;
-
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
-  }, []);
 
   const generatedAudio = script?.generatedAudio || [];
-  const isLocalProvider = providerKind === 'local' || providerName === 'OmniVoice' || providerName.includes('Chatterbox');
-  const isChatterbox = providerName.includes('Chatterbox');
+  const isLocalProvider = providerKind === 'local' || providerName === 'OmniVoice';
+  const isGoogle = selectedProvider === 'google' || (selectedProvider === 'default' && providerName.includes('Google Chirp'));
 
   // Format rate and pitch for backend SSML
   const formattedRate = rateOffset >= 0 ? `+${rateOffset}%` : `${rateOffset}%`;
@@ -857,33 +842,33 @@ function AudioGenerationContent({
     if (preset === 'natural') {
       setRateOffset(0);
       setPitchOffset(0);
-      setExaggeration(NATURAL_CHATTERBOX_OPTIONS.exaggeration);
-      setCfgWeight(NATURAL_CHATTERBOX_OPTIONS.cfgWeight);
-      setTemperature(NATURAL_CHATTERBOX_OPTIONS.temperature);
+
+
+
     } else if (preset === 'cinematic') {
       setRateOffset(0);
       setPitchOffset(-2);
-      setExaggeration(0.65);
-      setCfgWeight(0.32);
-      setTemperature(0.72);
+
+
+
     } else if (preset === 'shorts') {
       setRateOffset(10);
       setPitchOffset(2);
-      setExaggeration(0.68);
-      setCfgWeight(0.28);
-      setTemperature(0.9);
+
+
+
     } else if (preset === 'tech') {
       setRateOffset(2);
       setPitchOffset(0);
-      setExaggeration(0.5);
-      setCfgWeight(0.5);
-      setTemperature(0.65);
+
+
+
     } else if (preset === 'vlog') {
       setRateOffset(6);
       setPitchOffset(3);
-      setExaggeration(0.6);
-      setCfgWeight(0.4);
-      setTemperature(0.8);
+
+
+
     }
   }
 
@@ -964,6 +949,7 @@ function AudioGenerationContent({
   }
 
   function stopPreview() {
+    previewAbortRef.current?.abort(); previewAbortRef.current = null;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = '';
@@ -973,10 +959,6 @@ function AudioGenerationContent({
       URL.revokeObjectURL(audioUrlRef.current);
       audioUrlRef.current = null;
     }
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    utteranceRef.current = null;
     previewVoiceIdRef.current = null;
     setPreviewVoiceId(null);
     setPreviewLoadingId(null);
@@ -984,6 +966,7 @@ function AudioGenerationContent({
 
   useEffect(() => {
     return () => {
+      previewAbortRef.current?.abort();
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = '';
@@ -993,16 +976,14 @@ function AudioGenerationContent({
         URL.revokeObjectURL(audioUrlRef.current);
         audioUrlRef.current = null;
       }
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-      utteranceRef.current = null;
     };
   }, []);
 
   async function checkStatus() {
+    const token = ++statusTokenRef.current;
     try {
-      const { data } = await fetchJson('/api/tts/status');
+      const { data } = await fetchJson(`/api/tts/status?provider=${selectedProvider}`);
+      if (token !== statusTokenRef.current) return null;
       const ready = data?.ready === undefined ? data?.online === true : data?.ready === true;
       setServerOnline(ready ? true : data?.state === 'loading' ? null : false);
       if (data?.provider) setProviderName(String(data.provider));
@@ -1011,6 +992,7 @@ function AudioGenerationContent({
       setProviderMessage(String(data?.error || data?.message || ''));
       return data;
     } catch {
+      if (token !== statusTokenRef.current) return null;
       setServerOnline(false);
       return null;
     }
@@ -1020,7 +1002,7 @@ function AudioGenerationContent({
     const token = ++fetchTokenRef.current;
     setVoicesLoading(true);
     try {
-      const { ok, data } = await fetchJson(`/api/tts/voices?language=${lang}`);
+      const { ok, data } = await fetchJson(`/api/tts/voices?language=${lang}&provider=${selectedProvider}`);
       if (!ok) throw new Error(data?.error || 'Could not load voices');
       if (token !== fetchTokenRef.current) return;
       const voiceList = Array.isArray(data?.voices) ? data.voices : [];
@@ -1030,13 +1012,9 @@ function AudioGenerationContent({
       const voiceId = (voice: VoiceItem | string) => typeof voice === 'string' ? voice : voice?.id || '';
       const preferredVoiceItem = voiceList.find((voice: VoiceItem) => voiceId(voice) === preferred);
       const currentVoiceItem = voiceList.find((voice: VoiceItem) => voiceId(voice) === selectedVoice);
-      // Hindi starts from the native narrator unless a reference was explicitly
-      // selected. A legacy clone may contain an English/synthetic accent.
-      const firstSavedVoice = voiceList.find((voice: VoiceItem) => typeof voice === 'object' && voice?.source === 'clone');
       setSelectedVoice((prev) => {
-        if (preferredVoiceItem) return voiceId(preferredVoiceItem);
         if (currentVoiceItem && voiceId(currentVoiceItem) === prev) return prev;
-        if (lang !== 'hi' && firstSavedVoice) return voiceId(firstSavedVoice);
+        if (preferredVoiceItem) return voiceId(preferredVoiceItem);
         return voiceId(voiceList[0] || '');
       });
     } catch (err) {
@@ -1050,20 +1028,25 @@ function AudioGenerationContent({
   }
 
   useEffect(() => {
-    checkStatus();
-  }, []);
+    fetch('/api/tts/providers').then(response => response.json()).then(data => setVoiceEngines(data.providers || [])).catch(() => setError('Could not load voice engines.'));
+  }, [fetch]);
 
   useEffect(() => {
-    fetchVoices(selectedLanguage);
+    stopPreview(); setServerOnline(null); setProviderState(''); setProviderMessage(''); setError(''); setPreviewError('');
+    if (selectedProvider !== 'default') { setProviderName(voiceEngines.find(engine => engine.id === selectedProvider)?.name || selectedProvider); setProviderKind(selectedProvider === 'omni' ? 'local' : 'cloud'); }
+    void checkStatus();
+    return () => { statusTokenRef.current++; };
+  }, [selectedProvider, fetch]);
+
+  useEffect(() => {
+    stopPreview(); void fetchVoices(selectedLanguage);
     const refresh = () => { void fetchVoices(selectedLanguage); };
-    window.addEventListener(VOICES_CHANGED, refresh);
     window.addEventListener('focus', refresh);
     return () => {
       fetchTokenRef.current++;
-      window.removeEventListener(VOICES_CHANGED, refresh);
       window.removeEventListener('focus', refresh);
     };
-  }, [selectedLanguage]);
+  }, [selectedLanguage, selectedProvider, account.id, fetch]);
 
   function handleLanguageSwitch(lang: 'hi' | 'en') {
     stopPreview();
@@ -1074,156 +1057,33 @@ function AudioGenerationContent({
 
   async function handlePreviewVoice(v: VoiceItem, e: React.MouseEvent) {
     e.stopPropagation();
-    const vId = typeof v === 'string' ? v : (v?.id || '');
+    const vId = v.id || '';
     if (!vId) return;
-
-    if (previewVoiceId === vId) {
-      stopPreview();
-      return;
-    }
-
-    stopPreview();
-    setPreviewError('');
-    setPreviewLoadingId(vId);
-    previewVoiceIdRef.current = vId;
-
+    if (previewVoiceId === vId || previewLoadingId === vId) { stopPreview(); return; }
+    stopPreview(); setPreviewError(''); setPreviewLoadingId(vId); previewVoiceIdRef.current = vId;
+    const controller = new AbortController(); previewAbortRef.current = controller;
     try {
-      const res = await fetch('/api/tts/preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voice: vId,
-          ...(isChatterbox ? { text: voicePreviewText.trim() || undefined, seed: 42 } : {}),
-          language: selectedLanguage,
-          rate: formattedRate,
-          pitch: formattedPitch,
-          exaggeration,
-          cfgWeight,
-          temperature,
-        }),
+      const response = await fetch('/api/tts/preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
+        body: JSON.stringify({ provider: selectedProvider, voice: vId, text: voicePreviewText.trim() || undefined,
+          language: selectedLanguage, rate: formattedRate, pitch: formattedPitch, speed: googleSpeed,
+ }),
       });
-
-      const contentType = res.headers.get('content-type') || '';
-      if (res.ok && contentType.includes('audio')) {
-        const blob = await res.blob();
-        if (previewVoiceIdRef.current !== vId) return;
-        const url = URL.createObjectURL(blob);
-        if (previewVoiceIdRef.current !== vId) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-        audioUrlRef.current = url;
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        setPreviewVoiceId(vId);
-        setPreviewLoadingId(null);
-
-        audio.onended = () => {
-          if (previewVoiceIdRef.current === vId) stopPreview();
-        };
-        audio.onerror = () => {
-          if (previewVoiceIdRef.current === vId) {
-            stopPreview();
-            setPreviewError(`${providerName} could not render a preview for this voice.`);
-          }
-        };
-
-        try {
-          await audio.play();
-        } catch {
-          stopPreview();
-          setPreviewError('Browser blocked audio playback. Try clicking Listen again.');
-        }
-        return;
-      }
-      if (previewVoiceIdRef.current !== vId) return;
-      // A Chatterbox preview must never silently fall back to a browser voice:
-      // that sounds like the wrong saved reference and hides the real error.
-      if (isChatterbox) {
-        setPreviewLoadingId(null);
-        setPreviewError(`${providerName} could not render this selected voice. Check that Chatterbox is running and ready.`);
-        return;
-      }
-    } catch {
-      // Server unreachable — fall through to system voice preview
-      if (isChatterbox && previewVoiceIdRef.current === vId) {
-        setPreviewLoadingId(null);
-        setPreviewError(`${providerName} is unavailable. Start Chatterbox and wait until the model is ready.`);
-        return;
-      }
+      if (!response.ok) { const data = await response.json(); throw new Error(data.error || 'Voice preview failed.'); }
+      if (!(response.headers.get('content-type') || '').includes('audio')) throw new Error('The speech service returned no playable audio.');
+      const blob = await response.blob();
+      if (controller.signal.aborted) return;
+      const url = URL.createObjectURL(blob); audioUrlRef.current = url;
+      const audio = new Audio(url); audioRef.current = audio;
+      audio.onended = () => { if (!controller.signal.aborted) stopPreview(); };
+      audio.onerror = () => { if (!controller.signal.aborted) { stopPreview(); setPreviewError('Could not play this voice preview. Try again.'); } };
+      await audio.play();
+      if (controller.signal.aborted) return;
+      setPreviewVoiceId(vId); setPreviewLoadingId(null);
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      stopPreview(); setPreviewError(getErrorMessage(error, 'Voice preview failed.'));
     }
-
-    setPreviewLoadingId(null);
-    if (!playSystemPreview(v, vId)) {
-      stopPreview();
-      setPreviewError(
-        isLocalProvider
-          ? `${providerName} is unavailable. Start the local voice engine and wait until the model is ready.`
-          : `${providerName} is unavailable. Check the internet connection.`
-      );
-    }
-  }
-
-  function playSystemPreview(v: VoiceItem, vId: string): boolean {
-    if (!('speechSynthesis' in window)) return false;
-    const sysVoices = systemVoices.length > 0 ? systemVoices : window.speechSynthesis.getVoices();
-    if (!sysVoices || sysVoices.length === 0) return false;
-
-    const targetLang = selectedLanguage === 'hi' ? 'hi' : 'en';
-    let langPool = sysVoices.filter((sv) => sv.lang.toLowerCase().startsWith(targetLang));
-    if (langPool.length === 0 && selectedLanguage === 'hi') {
-      langPool = sysVoices.filter((sv) => sv.lang.toLowerCase().includes('in'));
-    }
-    if (langPool.length === 0 && selectedLanguage === 'hi') {
-      langPool = sysVoices.filter((sv) => sv.lang.toLowerCase().startsWith('en'));
-    }
-    if (langPool.length === 0) return false;
-
-    const gender = typeof v === 'object' ? String(v.gender || '').toLowerCase() : '';
-    const femaleKeywords = ['female', 'swara', 'neerja', 'ava', 'jenny', 'emma', 'zira', 'kalpana'];
-    const maleKeywords = ['male', 'madhur', 'prabhat', 'brian', 'andrew', 'christopher', 'david', 'mark'];
-
-    let genderPool = langPool;
-    if (gender === 'female') {
-      const f = langPool.filter((sv) => femaleKeywords.some((kw) => sv.name.toLowerCase().includes(kw)));
-      if (f.length > 0) genderPool = f;
-    } else if (gender === 'male') {
-      const m = langPool.filter((sv) => maleKeywords.some((kw) => sv.name.toLowerCase().includes(kw)));
-      if (m.length > 0) genderPool = m;
-    }
-
-    const voiceIdx = voices.findIndex((lv: VoiceItem) => lv?.id === vId);
-    const picked = genderPool[voiceIdx >= 0 ? voiceIdx % genderPool.length : 0];
-    if (!picked) return false;
-
-    const sampleText = typeof v === 'object' && v?.sampleText
-      ? v.sampleText
-      : (selectedLanguage === 'hi' ? 'नमस्ते! यह मेरी आवाज़ का नमूना है।' : 'Hello! This is a sample of my voice.');
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(sampleText);
-    utterance.voice = picked;
-    utterance.lang = picked.lang;
-    utterance.pitch = 1.0 + (pitchOffset * 0.03);
-    utterance.rate = 1.0 + (rateOffset * 0.01);
-    utteranceRef.current = utterance;
-    setPreviewVoiceId(vId);
-
-    utterance.onend = () => {
-      if (previewVoiceIdRef.current === vId) stopPreview();
-    };
-    utterance.onerror = (ev) => {
-      if (previewVoiceIdRef.current !== vId) return;
-      if (ev.error !== 'interrupted' && ev.error !== 'canceled') {
-        setPreviewError('System voice playback failed: ' + ev.error);
-      }
-      stopPreview();
-    };
-
-    setTimeout(() => {
-      if (previewVoiceIdRef.current === vId) window.speechSynthesis.speak(utterance);
-    }, 80);
-    return true;
   }
 
   async function fetchJson(path: string, options?: RequestInit) {
@@ -1241,7 +1101,7 @@ function AudioGenerationContent({
     setServerOnline(null);
     setError('');
     try {
-      const { data } = await fetchJson('/api/tts/start', { method: 'POST' });
+      const { data } = await fetchJson('/api/tts/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: selectedProvider }) });
       if (data?.success) {
         setProviderState(String(data?.state || 'loading'));
         setProviderMessage(String(data?.message || 'Loading local voice model...'));
@@ -1277,34 +1137,6 @@ function AudioGenerationContent({
     }
   }
 
-  async function handleVoiceUpload() {
-    if (!voiceFile || !voiceName.trim() || uploadingVoice) return;
-    setUploadingVoice(true);
-    setError('');
-    try {
-      const voice = await saveVoiceReference(voiceName, selectedLanguage, voiceFile, fetch);
-      rememberVoice(account.id, selectedLanguage, voiceProviderRef.current, voice.id);
-      await fetchVoices(selectedLanguage);
-      selectVoice(voice.id);
-      setVoiceFile(null);
-      setVoiceName('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Voice upload failed');
-    } finally {
-      setUploadingVoice(false);
-    }
-  }
-
-  async function handleDeleteVoice(id: string, name: string) {
-    if (!window.confirm(`Remove the local voice “${name}”? This deletes its reference audio from this computer.`)) return;
-    setError('');
-    const { ok, data } = await fetchJson(`/api/tts/voices/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    if (!ok) {
-      setError(data?.error || 'Could not delete local voice');
-      return;
-    }
-    await fetchVoices(selectedLanguage);
-  }
 
   async function handleStopServer() {
     setServerOnline(false);
@@ -1345,7 +1177,7 @@ function AudioGenerationContent({
       }
       setGenerating(true); setError(''); setProgressPercent(0);
       try {
-        const { ok, data } = await fetchJson('/api/tts/long/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: script.id, language: selectedLanguage, voice: selectedVoice, rate: formattedRate, pitch: formattedPitch, exaggeration, cfgWeight, temperature, seed: ttsSeed }) });
+        const { ok, data } = await fetchJson('/api/tts/long/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: selectedProvider, speed: googleSpeed, scriptId: script.id, language: selectedLanguage, voice: selectedVoice, rate: formattedRate, pitch: formattedPitch }) });
         if (!ok) throw new Error(data?.error || 'Could not start narration');
         onUpdate({ generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
       } catch (error) { setGenerating(false); setError(getErrorMessage(error, 'Could not start narration')); }
@@ -1384,16 +1216,17 @@ function AudioGenerationContent({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          provider: selectedProvider, speed: googleSpeed,
           text: textToGenerate,
           language: selectedLanguage,
           voice: selectedVoice,
           scriptId: script.id,
           rate: formattedRate,
           pitch: formattedPitch,
-          exaggeration,
-          cfgWeight,
-          temperature,
-          seed: ttsSeed,
+
+
+
+
         }),
       });
 
@@ -1408,6 +1241,7 @@ function AudioGenerationContent({
         language: selectedLanguage,
         voice: selectedVoice,
         voiceName: activeVoiceObj?.name || selectedVoice,
+        provider: data.provider || selectedProvider,
         url: data.publicUrl,
         filename: data.filename,
         elapsedMs: data.elapsedMs,
@@ -1525,7 +1359,7 @@ function AudioGenerationContent({
                     onClick={checkOrStartServer}
                     className="rounded border border-accent/50 bg-accent/15 px-2 py-1 text-[11px] text-accent hover:bg-accent/25"
                   >
-                    Start {isChatterbox ? 'Chatterbox' : 'TTS engine'}
+                    Start TTS engine
                   </button>
                 )}
               </div>
@@ -1534,9 +1368,10 @@ function AudioGenerationContent({
         )}
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
+          <label className="text-xs font-medium text-gray-400">Voice engine<select aria-label="Voice engine" value={selectedProvider} disabled={generating || serverStarting} onChange={event => { if (event.target.value === selectedProvider) return; stopPreview(); setSelectedVoice(''); setVoices([]); setVoicesLoading(true); setSelectedProvider(event.target.value); }} className="ml-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-white"><option value="default">Configured default</option>{voiceEngines.map(engine => <option key={engine.id} value={engine.id}>{engine.name}{engine.configured ? '' : ' · Setup required'}</option>)}</select></label>
           <label htmlFor="narration-language" className="text-xs font-medium text-gray-400">Narration language</label>
           <select id="narration-language" value={selectedLanguage} disabled={generating} onChange={e => handleLanguageSwitch(e.target.value as 'en' | 'hi')} className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-white">
-            <option value="en">English</option><option value="hi">Hindi & Hinglish</option>
+            <option value="en">English</option><option value="hi">Hindi</option>
           </select>
         </div>
 
@@ -1547,14 +1382,14 @@ function AudioGenerationContent({
               {voices.map((voice, index) => <option key={voice.id || index} value={voice.id || `voice_${index}`}>{voice.name || voice.id || `Voice ${index + 1}`}</option>)}
             </select>
           </label>
-          <button type="button" disabled={!activeVoiceObj || Boolean(previewLoadingId)} onClick={event => activeVoiceObj && handlePreviewVoice(activeVoiceObj, event)} className="studio-btn-ghost">
+          <button type="button" disabled={!activeVoiceObj} onClick={event => activeVoiceObj && handlePreviewVoice(activeVoiceObj, event)} className="studio-btn-ghost">
             {previewLoadingId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             {previewLoadingId ? 'Loading preview...' : previewVoiceId ? 'Stop preview' : 'Preview voice'}
           </button>
           {previewError && <p role="alert" className="w-full text-xs text-red-400">{previewError}</p>}
         </div>
         {/* Step 2: Voice Character Selection */}
-        <GenerationDisclosure title="Voice library & reference upload" hint={`${voices.length} voices available`} className="mb-4">
+        <GenerationDisclosure title="Voice library" hint={`${voices.length} voices available`} className="mb-4">
           <div className="mb-3 flex items-center justify-between">
             <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
               Voice library ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
@@ -1611,19 +1446,6 @@ function AudioGenerationContent({
                       <div className="mb-1.5 flex items-center justify-between">
                         <span className="text-xs font-bold text-white truncate pr-2">{vName}</span>
                         <div className="flex items-center gap-1.5">
-                          {typeof v === 'object' && v?.deletable && (
-                            <button
-                              type="button"
-                              title="Delete local voice"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleDeleteVoice(vId, vName);
-                              }}
-                              className="rounded p-1 text-gray-500 hover:bg-red-500/10 hover:text-red-400"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          )}
                           {isSelected && (
                             <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-accent text-white">
                               <Check className="h-3 w-3" />
@@ -1700,65 +1522,19 @@ function AudioGenerationContent({
             </div>
           )}
 
-          {isChatterbox && (
-            <div className="mt-4 rounded-lg border border-accent/25 bg-accent/5 p-3">
-              <div className="mb-2 flex items-center gap-2">
-                <Mic2 className="h-4 w-4 text-accent" />
-                <div>
-                  <p className="text-xs font-semibold text-gray-200">Add a local reference voice</p>
-                  <p className="text-[10px] text-gray-500">Use 8–12 seconds of natural {selectedLanguage === 'hi' ? 'native Hindi' : 'English'} speech with no music, echo or voice effects. Start speaking immediately; the opening determines pronunciation and accent.</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1.2fr_auto]">
-                <input
-                  value={voiceName}
-                  onChange={(event) => setVoiceName(event.target.value)}
-                  maxLength={80}
-                  placeholder="Voice name"
-                  className="rounded border border-border bg-surface2 px-3 py-2 text-xs text-gray-200 outline-none focus:border-accent"
-                />
-                <label className="flex cursor-pointer items-center gap-2 rounded border border-border bg-surface2 px-3 py-2 text-xs text-gray-300 hover:border-gray-500">
-                  <Upload className="h-3.5 w-3.5 text-accent" />
-                  <span className="truncate">{voiceFile?.name || 'Choose WAV, MP3, M4A, FLAC or OGG'}</span>
-                  <input
-                    type="file"
-                    accept="audio/wav,audio/x-wav,audio/mpeg,audio/mp4,audio/x-m4a,audio/flac,audio/ogg,.wav,.mp3,.m4a,.flac,.ogg"
-                    className="hidden"
-                    onChange={(event) => setVoiceFile(event.target.files?.[0] || null)}
-                  />
-                </label>
-                <button
-                  type="button"
-                  onClick={handleVoiceUpload}
-                  disabled={!voiceFile || !voiceName.trim() || uploadingVoice}
-                  className="flex items-center justify-center gap-1.5 rounded bg-accent px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {uploadingVoice ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mic2 className="h-3.5 w-3.5" />}
-                  {uploadingVoice ? 'Preparing...' : 'Add Voice'}
-                </button>
-              </div>
-              <p className="mt-2 text-[10px] text-amber-300/80">
-                Only clone voices you own or have explicit permission to use. References remain on this computer.
-              </p>
-            </div>
-          )}
         </GenerationDisclosure>
 
+        {isGoogle && <p className="mb-4 text-xs text-muted">Google Chirp 3 HD · Previews count toward your Google character allowance. Google Cloud manages free usage, trial credits and billing.</p>}
         {/* Step 3: Voice Customization & Style Controls */}
         <GenerationDisclosure title="Voice settings" hint={`${stylePreset === 'custom' ? 'Custom' : stylePreset.charAt(0).toUpperCase() + stylePreset.slice(1)} delivery`} className="mb-4">
-          {isChatterbox && selectedLanguage === 'hi' && <div className="mb-3 rounded-md border border-accent/25 bg-accent/5 p-3">
-            <button type="button" disabled={generating || Boolean(previewLoadingId)} onClick={() => { applyStylePreset('natural'); selectVoice('builtin'); setPreviewError(''); }} className="studio-btn-ghost text-xs">Start fresh with native Hindi</button>
-            <p className="mt-2 text-xs text-gray-400">Uses the native Hindi reference and neutral delivery. Your saved voices stay available. Test a few sentences from your script before generating the full narration.</p>
-            {activeVoiceObj?.source === 'clone' && activeVoiceObj.referenceRevision !== 'clean-reference-v1' && <p className="mt-2 text-xs text-amber-300">This saved reference used the older audio processing. Re-upload the original native Hindi recording to preserve more of its consonants and natural voice.</p>}
-            <HindiPronunciationEditor key={account.id} disabled={generating || Boolean(previewLoadingId)} onSaved={stopPreview} />
-          </div>}
-          <label className="mb-4 flex flex-wrap items-center gap-3 text-xs text-gray-400">Delivery style
+          {!isGoogle && <label className="mb-4 flex flex-wrap items-center gap-3 text-xs text-gray-400">Delivery style
             <select aria-label="Voice delivery style" value={stylePreset} disabled={generating} onChange={e => { const value = e.target.value as typeof stylePreset; if (value === 'custom') setStylePreset(value); else applyStylePreset(value); }} className="rounded-lg border border-border bg-bg px-3 py-2 text-sm text-white">
               <option value="natural">Natural conversation</option><option value="cinematic">Storyteller</option><option value="shorts">Viral Shorts</option><option value="tech">Tech news</option><option value="vlog">Vlog</option><option value="custom">Custom</option>
             </select>
-          </label>
-          {isChatterbox && <div className="mb-3 space-y-2 rounded-md border border-border bg-bg/50 p-3">
-            <p className="text-xs text-gray-400">Start with Natural Conversation for a relaxed delivery. Higher expressiveness can speed up speech. Paragraph breaks add a short pause; breaths within a sentence are preserved.</p>
+          </label>}
+          {isGoogle && <label className="block text-xs text-gray-300">Speech speed · {googleSpeed.toFixed(2)}×<input aria-label="Google speech speed" type="range" min="0.75" max="1.5" step="0.05" value={googleSpeed} onChange={event => { stopPreview(); setGoogleSpeed(Number(event.target.value)); }} className="mt-2 w-full accent-accent" /></label>}
+          {<div className="mb-3 space-y-2 rounded-md border border-border bg-bg/50 p-3">
+            {!isGoogle && <p className="text-xs text-gray-400">Start with Natural Conversation for a relaxed delivery. Higher expressiveness can speed up speech. Paragraph breaks add a short pause; breaths within a sentence are preserved.</p>}
             <label className="block text-xs text-gray-300" htmlFor="voice-preview-text">Try your own sentence</label>
             <textarea id="voice-preview-text" value={voicePreviewText} maxLength={500} rows={2}
               onChange={event => { stopPreview(); setVoicePreviewText(event.target.value); }}
@@ -1771,72 +1547,7 @@ function AudioGenerationContent({
             </button>
             {previewError && <p role="alert" className="text-xs text-red-400">{previewError}</p>}
           </div>}
-          {isChatterbox ? (
-            <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-3">
-              <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
-                <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="font-medium text-gray-300">Expressiveness</span>
-                  <span className="font-mono font-semibold text-accent">{exaggeration.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.25"
-                  max="1.2"
-                  step="0.05"
-                  value={exaggeration}
-                  onChange={(event) => {
-                    stopPreview();
-                    setExaggeration(Number(event.target.value));
-                    setStylePreset('custom');
-                  }}
-                  className="w-full cursor-pointer accent-accent"
-                />
-                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Calm</span><span>Dramatic</span></div>
-              </div>
-
-              <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
-                <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="font-medium text-gray-300">Text Guidance (CFG)</span>
-                  <span className="font-mono font-semibold text-accent">{cfgWeight.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.2"
-                  max="0.8"
-                  step="0.05"
-                  value={cfgWeight}
-                  onChange={(event) => {
-                    stopPreview();
-                    setCfgWeight(Number(event.target.value));
-                    setStylePreset('custom');
-                  }}
-                  className="w-full cursor-pointer accent-accent"
-                />
-                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Lower guidance</span><span>Higher guidance</span></div>
-              </div>
-
-              <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
-                <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="font-medium text-gray-300">Natural Variation</span>
-                  <span className="font-mono font-semibold text-accent">{temperature.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.4"
-                  max="1.2"
-                  step="0.05"
-                  value={temperature}
-                  onChange={(event) => {
-                    stopPreview();
-                    setTemperature(Number(event.target.value));
-                    setStylePreset('custom');
-                  }}
-                  className="w-full cursor-pointer accent-accent"
-                />
-                <div className="mt-1 flex justify-between text-[10px] text-gray-500"><span>Consistent</span><span>Varied</span></div>
-              </div>
-            </div>
-          ) : (
+          {isGoogle ? null : (
             <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
               <div className="rounded-md border border-border/50 bg-surface2/40 p-3">
                 <div className="mb-2 flex items-center justify-between text-xs">
@@ -1947,7 +1658,7 @@ function AudioGenerationContent({
               onClick={handleEnhanceNarration}
               disabled={sceneBacked || enhancing || !narrationText.trim()}
               className="flex items-center gap-1.5 rounded-md bg-gradient-to-r from-purple-600 to-accent px-3.5 py-1 text-xs font-semibold text-white shadow-md transition-all hover:opacity-90 disabled:opacity-40"
-              title="Enhance script with emotional cadence and acoustic pause markers for Chatterbox"
+              title="Enhance script with emotional cadence and acoustic pause markers for speech synthesis"
             >
               {enhancing ? (
                 <>
@@ -2001,7 +1712,7 @@ function AudioGenerationContent({
               + 1.5s Pause
             </button>
             <span className="ml-auto text-[10px] text-gray-500">
-              💡 Pauses like <code className="text-gray-300">[pause 1s]</code> create authentic silence and are never spoken.
+              {isGoogle ? 'Google uses punctuation for natural pauses; pause annotations are converted to punctuation.' : <>💡 Pauses like <code className="text-gray-300">[pause 1s]</code> create authentic silence and are never spoken.</>}
             </span>
           </div>
 
@@ -2032,9 +1743,7 @@ function AudioGenerationContent({
                 {activeVoiceName}
               </span>{' '}
               ({selectedLanguage === 'en' ? 'English' : 'Hindi'})
-              {isChatterbox ? (
-                <> • Expression: <span className="font-mono text-gray-300">{exaggeration.toFixed(2)}</span> • Pace: <span className="font-mono text-gray-300">{cfgWeight.toFixed(2)}</span></>
-              ) : (
+              {isGoogle ? <> • Speed: {googleSpeed.toFixed(2)}×</> : (
                 <> • Rate: <span className="font-mono text-gray-300">{formattedRate}</span> • Pitch: <span className="font-mono text-gray-300">{formattedPitch}</span></>
               )}
             </div>

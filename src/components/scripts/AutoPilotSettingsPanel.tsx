@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Play, Square, Loader2 } from 'lucide-react';
 import { useWorkspaceApi } from '../../services/workspaceApi';
-import { preferredVoice, rememberVoice, VOICES_CHANGED, type SavedVoice } from '../../services/voiceLibrary';
+import { preferredVoice, rememberVoice, type SavedVoice } from '../../services/voiceLibrary';
 import { narrationOptions, type AutoPilotSettings } from '../../../server/src/services/autopilot-settings';
-import { NATURAL_CHATTERBOX_OPTIONS } from '../../../server/src/services/chatterbox-options';
 import { editingPreset, type EditingSettings } from '../../../server/src/services/auto-edit';
 import { GEMINI_MODELS } from '../../data';
 
@@ -25,13 +24,15 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
   return <label className="flex items-center gap-2 text-sm text-gray-200"><input aria-label={label} type="checkbox" className="accent-blue-500" checked={checked} onChange={e => onChange(e.target.checked)} />{label}</label>;
 }
 
-export function AutoPilotSettingsPanel({ value, onChange, onVoiceReady }: { value: AutoPilotSettings; onChange: (settings: AutoPilotSettings) => void; onVoiceReady: (ready: boolean) => void }) {
+export function AutoPilotSettingsPanel({ value, onChange, onVoiceReady, scriptExcerpt = '' }: { scriptExcerpt?: string; value: AutoPilotSettings; onChange: (settings: AutoPilotSettings) => void; onVoiceReady: (ready: boolean) => void }) {
   const { fetch, account, profile } = useWorkspaceApi();
   const [providers, setProviders] = useState<{ id: string; name: string; configured: boolean }[]>([]);
-  const [defaultProvider, setDefaultProvider] = useState('chatterbox');
+  const [defaultProvider, setDefaultProvider] = useState('google');
   const [voices, setVoices] = useState<SavedVoice[]>([]);
   const [voiceLoading, setVoiceLoading] = useState(true);
   const [voiceError, setVoiceError] = useState('');
+  const [previewText, setPreviewText] = useState('');
+  const [previewSrc, setPreviewSrc] = useState('');
   const [previewing, setPreviewing] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [reload, setReload] = useState(0);
@@ -45,13 +46,13 @@ export function AutoPilotSettingsPanel({ value, onChange, onVoiceReady }: { valu
   const edit = (changes: Partial<EditingSettings>) => patch('editing', { settings: { ...value.editing.settings, ...changes } });
   function stopPreview() {
     previewAbort.current?.abort(); previewAbort.current = null;
-    audio.current?.pause(); audio.current = null;
+    audio.current?.pause();
     if (audioUrl.current) URL.revokeObjectURL(audioUrl.current);
-    audioUrl.current = null; setPreviewing(false); setPreviewLoading(false);
+    audioUrl.current = null; setPreviewSrc(''); setPreviewing(false); setPreviewLoading(false);
   }
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/tts/providers', { signal: controller.signal }).then(async r => { if (!r.ok) throw new Error('Could not load voice engines.'); return r.json(); }).then(data => { if (!controller.signal.aborted) { setProviders(data.providers || []); setDefaultProvider(data.defaultProvider || 'chatterbox'); } }).catch(error => { if (!controller.signal.aborted) setVoiceError(error.message); });
+    fetch('/api/tts/providers', { signal: controller.signal }).then(async r => { if (!r.ok) throw new Error('Could not load voice engines.'); return r.json(); }).then(data => { if (!controller.signal.aborted) { setProviders(data.providers || []); setDefaultProvider(data.defaultProvider || 'google'); } }).catch(error => { if (!controller.signal.aborted) setVoiceError(error.message); });
     return () => controller.abort();
   }, [fetch, reload]);
   useEffect(() => {
@@ -64,13 +65,12 @@ export function AutoPilotSettingsPanel({ value, onChange, onVoiceReady }: { valu
       const current = latest.current.value;
       const preferred = preferredVoice(account.id, language, data.provider || '');
       const selected = list.find(v => v.id === current.voice.voiceId) || list.find(v => v.id === preferred)
-        || (language === 'en' ? list.find(v => v.source === 'clone') : undefined) || list[0];
+        || list[0];
       if (selected && selected.id !== current.voice.voiceId) latest.current.onChange({ ...current, voice: { ...current.voice, voiceId: selected.id } });
     }).catch(error => { if (!controller.signal.aborted) setVoiceError(error.message); }).finally(() => { if (!controller.signal.aborted) setVoiceLoading(false); });
-    const refresh = () => setReload(n => n + 1);
-    window.addEventListener(VOICES_CHANGED, refresh);
-    return () => { controller.abort(); stopPreview(); window.removeEventListener(VOICES_CHANGED, refresh); };
-  }, [fetch, account.id, value.voice.provider, language, reload]);
+    return () => { controller.abort(); stopPreview(); };
+  }, [fetch, account.id, value.voice.provider, language, reload, defaultProvider]);
+  useEffect(() => { stopPreview(); }, [value.voice.voiceId, value.voice.speed, value.voice.rate, value.voice.pitch]);
   const configured = providers.find(p => p.id === effectiveProvider)?.configured !== false;
   const voiceReady = !voiceLoading && configured && voices.some(v => v.id === value.voice.voiceId);
   useEffect(() => { onVoiceReady(voiceReady && !previewLoading); }, [voiceReady, previewLoading, onVoiceReady]);
@@ -78,11 +78,10 @@ export function AutoPilotSettingsPanel({ value, onChange, onVoiceReady }: { valu
     if (previewing || previewLoading) { stopPreview(); return; }
     stopPreview(); const controller = new AbortController(); previewAbort.current = controller; setPreviewLoading(true); setVoiceError('');
     try {
-      const response = await fetch('/api/tts/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(narrationOptions(value, language)), signal: controller.signal });
+      const response = await fetch('/api/tts/preview', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...narrationOptions(value, language), text: previewText.trim() || undefined }), signal: controller.signal });
       if (!response.ok) { const data = await response.json(); throw new Error(data.error || 'Voice preview failed.'); }
       const blob = await response.blob(); if (controller.signal.aborted) return;
-      audioUrl.current = URL.createObjectURL(blob); audio.current = new Audio(audioUrl.current);
-      audio.current.onended = stopPreview; await audio.current.play(); setPreviewing(true);
+      audioUrl.current = URL.createObjectURL(blob); setPreviewSrc(audioUrl.current); setPreviewing(true);
     } catch (error) { if (!controller.signal.aborted) setVoiceError(error instanceof Error ? error.message : 'Voice preview failed.'); }
     finally { if (!controller.signal.aborted) setPreviewLoading(false); }
   }
@@ -109,20 +108,20 @@ export function AutoPilotSettingsPanel({ value, onChange, onVoiceReady }: { valu
     </Group>
     <Group title="Voice model & narrator" open>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Select label="Voice engine" value={value.voice.provider} choices={[["default", `Configured default · ${providers.find(p => p.id === defaultProvider)?.name || defaultProvider}`], ...providers.map(p => [p.id, `${p.name}${p.configured ? '' : ' · API key required'}`] as const)]} onChange={provider => patch('voice', { provider: provider as AutoPilotSettings['voice']['provider'], voiceId: '' })} />
-        <Select label="Voice language" value={value.voice.language} choices={[["auto", 'Auto · Follow the script'], ['en', 'English'], ['hi', 'Hindi / Hinglish']]} onChange={language => patch('voice', { language: language as AutoPilotSettings['voice']['language'], voiceId: '' })} />
+        <Select label="Voice engine" value={value.voice.provider} choices={[["default", `Configured default · ${providers.find(p => p.id === defaultProvider)?.name || defaultProvider}`], ...providers.map(p => [p.id, `${p.name}${p.configured ? '' : ' · Setup required'}`] as const)]} onChange={provider => { stopPreview(); onVoiceReady(false); patch('voice', { provider: provider as AutoPilotSettings['voice']['provider'], voiceId: '' }); }} />
+        <Select label="Voice language" value={value.voice.language} choices={[["en", 'English'], ['hi', 'Hindi']]} onChange={language => { stopPreview(); onVoiceReady(false); patch('voice', { language: language as AutoPilotSettings['voice']['language'], voiceId: '' }); }} />
       </div>
-      <Select label="Narration voice" value={value.voice.voiceId} disabled={voiceLoading} choices={voices.length ? voices.map(v => [v.id, `${v.name}${v.source === 'clone' ? ' · Saved profile voice' : ''}`]) : [['', voiceLoading ? 'Loading voices…' : 'No voices available']]} onChange={voiceId => { stopPreview(); patch('voice', { voiceId }); rememberVoice(account.id, language, providerName, voiceId); }} />
+      <Select label="Narration voice" value={value.voice.voiceId} disabled={voiceLoading} choices={voices.length ? voices.map(v => [v.id, v.name]) : [['', voiceLoading ? 'Loading voices…' : 'No voices available']]} onChange={voiceId => { stopPreview(); patch('voice', { voiceId }); rememberVoice(account.id, language, providerName, voiceId); }} />
+      <label className="block text-xs text-muted">Preview text · Optional<textarea aria-label="Voice preview text" className={`${selectClass} h-20`} maxLength={500} value={previewText} placeholder={language === 'hi' ? 'अपनी कहानी की कुछ पंक्तियाँ यहाँ लिखें…' : 'Try a few sentences from your story…'} onChange={event => { stopPreview(); setPreviewText(event.target.value); }} /></label>
+      {scriptExcerpt.trim() && <button type="button" className="text-xs text-accent underline" onClick={() => { stopPreview(); setPreviewText(scriptExcerpt.slice(0, 500)); }}>Use script excerpt</button>}
       <div className="flex flex-wrap items-center gap-3"><button type="button" className="studio-btn-ghost text-xs" disabled={!voiceReady} onClick={() => void preview()}>{previewLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : previewing ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}{previewLoading ? 'Cancel preview' : previewing ? 'Stop preview' : 'Preview voice'}</button><button type="button" className="text-xs text-accent underline" onClick={() => setReload(n => n + 1)}>Refresh voices</button></div>
-      {!configured && <p role="alert" className="text-xs text-amber-300">Add this engine’s API key in Setup before running.</p>}
+      <audio ref={audio} aria-label="Narrator preview playback" controls autoPlay src={previewSrc || undefined} hidden={!previewSrc} className="w-full" onEnded={() => setPreviewing(false)} onError={() => { if (previewSrc) setVoiceError('Could not play this voice preview. Try again.'); }} />
+      {effectiveProvider === 'google' && <p className="text-xs text-muted">Google Chirp 3 HD · Hindi and English. Previews count toward Google’s monthly character allowance. Repeated previews with the same text, voice and speed are cached. Billing and credit usage are managed in Google Cloud.</p>}
+      {!configured && <p role="alert" className="text-xs text-amber-300">{effectiveProvider === 'google' ? 'Configure Google Cloud credentials and enable the Cloud Text-to-Speech API, then refresh voices.' : 'Add this engine’s API key in Setup before running.'}</p>}
       {voiceError && <p role="alert" className="text-xs text-red-300">{voiceError}</p>}
-      {value.voice.language === 'auto' && <p className="text-xs text-muted">The matching Hindi voice library is resolved before synthesis if the script is in Hindi. Choose Hindi explicitly to select a particular Hindi voice.</p>}
-      {effectiveProvider === 'chatterbox' && <button type="button" className="studio-btn-ghost text-xs" onClick={() => { stopPreview(); patch('voice', { ...NATURAL_CHATTERBOX_OPTIONS, rate: 0, pitch: 0, speed: 1 }); }}>Use natural delivery</button>}
-      {effectiveProvider === 'chatterbox' && <button type="button" className="studio-btn-ghost text-xs" onClick={() => { stopPreview(); patch('voice', { language: 'hi', voiceId: 'builtin', ...NATURAL_CHATTERBOX_OPTIONS, rate: 0, pitch: 0, speed: 1, seed: 42 }); rememberVoice(account.id, 'hi', providerName, 'builtin'); }}>Start fresh with native Hindi</button>}
       <details><summary className="cursor-pointer text-xs text-accent">Voice tuning</summary><div className="mt-3 grid gap-3 sm:grid-cols-2">
-        {effectiveProvider === 'chatterbox' && <><NumberInput label="Expression" min={0.25} max={1.2} step={0.05} value={value.voice.exaggeration} onChange={exaggeration => patch('voice', { exaggeration })} /><NumberInput label="Pace guidance" min={0.2} max={0.8} step={0.01} value={value.voice.cfgWeight} onChange={cfgWeight => patch('voice', { cfgWeight })} /><NumberInput label="Voice temperature" min={0.4} max={1.2} step={0.01} value={value.voice.temperature} onChange={temperature => patch('voice', { temperature })} /><NumberInput label="Voice seed" min={0} max={2147483647} value={value.voice.seed} onChange={seed => patch('voice', { seed })} /></>}
         {effectiveProvider === 'edge' && <><NumberInput label="Speech rate (%)" min={-25} max={35} value={value.voice.rate} onChange={rate => patch('voice', { rate })} /><NumberInput label="Pitch (Hz)" min={-12} max={12} value={value.voice.pitch} onChange={pitch => patch('voice', { pitch })} /></>}
-        {effectiveProvider === 'openrouter' && <NumberInput label="Speech speed" min={0.75} max={1.5} step={0.05} value={value.voice.speed} onChange={speed => patch('voice', { speed })} />}
+        {(effectiveProvider === 'openrouter' || effectiveProvider === 'google') && <NumberInput label="Speech speed" min={0.75} max={1.5} step={0.05} value={value.voice.speed} onChange={speed => patch('voice', { speed })} />}
         {effectiveProvider === 'omni' && <p className="text-xs text-muted">OmniVoice uses the selected voice and the configured local model’s synthesis defaults.</p>}
       </div></details>
     </Group>

@@ -11,7 +11,6 @@ import { presenterState } from './presenter-state.js';
 import { validatePresenter, presenterGeometry, type PresenterSettings } from './presenter-settings.js';
 import { narrationBusy } from './long-narration.js';
 import { localMusicBusy } from './local-music.js';
-import { stopChatterbox } from './chatterbox-tts.js';
 import { avatarAlphaSource, avatarAlphaCycle } from './presenter-alpha.js';
 
 const SERVER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -99,7 +98,6 @@ async function releaseIdleGpu(signal: AbortSignal) {
       body: JSON.stringify({ unload_models: true, free_memory: true }), signal: AbortSignal.any([signal, AbortSignal.timeout(15000)]) });
     if (!freed.ok) throw new Error('Could not release idle ComfyUI models. Stop ComfyUI and retry.');
   }
-  await stopChatterbox(); // Only stops a process started by this application.
   signal.throwIfAborted();
 }
 

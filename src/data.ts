@@ -320,6 +320,7 @@ export interface GeneratedImage {
 }
 
 export interface GeneratedAudio {
+  provider?: string;
   narrationText?: string;
   sync?: NarrationSync;
   language: 'hi' | 'en';

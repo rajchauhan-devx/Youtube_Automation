@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Player, type PlayerRef } from '@remotion/player';
-import { VideoComposition, cardBounds, graphicNames } from '@tubeflow/video-composition';
+import { HyperFramesPlayer as Player, type PlayerRef } from './HyperFramesPlayer';
+import { cardBounds, graphicNames } from '@tubeflow/video-composition';
 import type { ArtifactComposition, MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { useEditingProject } from '../../hooks/useEditingProject';
 import { editingRequest, type EditingPayload } from '../../services/editingApi';
@@ -198,7 +198,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
           {!selectedArtifact && <span className="text-gray-400">Select a graphic to edit its layout.</span>}
         </div>
         <div className="flex justify-center overflow-hidden rounded-xl border border-border bg-black p-2"><div className="relative" style={{ ...previewStyle, aspectRatio: `${p.inputs.width} / ${p.inputs.height}` }}>
-          <Player key={`${p.revisionId}-${showStyleTest ? 'style-test' : 'saved'}`} ref={player} component={VideoComposition} inputProps={previewProps!} durationInFrames={p.inputs.durationFrames} fps={p.inputs.fps} compositionWidth={p.inputs.width} compositionHeight={p.inputs.height} controls loop={!!loopScene} inFrame={loopScene?.startFrame} outFrame={loopScene ? loopScene.endFrame - 1 : undefined} initialFrame={Math.max(loopScene?.startFrame || 0, Math.min(frame, loopScene ? loopScene.endFrame - 1 : p.inputs.durationFrames - 1))} moveToBeginningWhenEnded={false} allowFullscreen={!editLayout} style={{ width: '100%', height: '100%' }} />
+          <Player key={`${p.revisionId}-${showStyleTest ? 'style-test' : 'saved'}`} ref={player} inputProps={previewProps!} durationInFrames={p.inputs.durationFrames} fps={p.inputs.fps} compositionWidth={p.inputs.width} compositionHeight={p.inputs.height} controls loop={!!loopScene} inFrame={loopScene?.startFrame} outFrame={loopScene ? loopScene.endFrame - 1 : undefined} initialFrame={Math.max(loopScene?.startFrame || 0, Math.min(frame, loopScene ? loopScene.endFrame - 1 : p.inputs.durationFrames - 1))} moveToBeginningWhenEnded={false} allowFullscreen={!editLayout} style={{ width: '100%', height: '100%' }} />
           {editLayout && editable && !showStyleTest && selectedArtifact?.graphic && selectedArtifact.enabled && frame >= selectedArtifact.startFrame && frame < selectedArtifact.endFrame && <GraphicLayoutEditor graphic={selectedArtifact.graphic} width={p.inputs.width} height={p.inputs.height} onPause={() => player.current?.pause()} onChange={bounds => changeArtifact({ ...selectedArtifact, graphic: { ...selectedArtifact.graphic!, bounds } })} />}
         </div></div>
         {editLayout && <p className="text-xs text-amber-200">Drag the box or its corner handles. Arrow keys move or resize; Shift moves 10 pixels. The dashed boundary marks the safe area.</p>}

@@ -73,8 +73,7 @@ inference batches. Audio compilation caches use the current user's temporary
 folder (`tubeflow-musetalk-numba`) so the Python installation need not be writable.
 
 The app refuses presenter generation while narration, image or music generation
-is active. It checks ComfyUI's queue and unloads idle ComfyUI models, and stops
-only its own Chatterbox process before starting MuseTalk. The worker exits after
+is active. It checks ComfyUI's queue and unloads idle ComfyUI models, before starting MuseTalk. The worker exits after
 each generation to release GPU memory. Independently started GPU applications
 remain running; close the standalone MuseTalk lab if an out-of-memory error occurs.
 

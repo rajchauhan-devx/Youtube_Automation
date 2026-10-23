@@ -5,7 +5,7 @@ import { motionProject, assertDocumentaryVisuals, assertGraphicsReviewed, RENDER
 import { legacyMotion, legacySourceMatrix, targetOnScreen, targetMostlyVisible, intersects, type LegacyCamera } from '@tubeflow/video-composition';
 import { current, hash, objectHash, assetRecord, projectDir } from './editing/repository.js';
 import { scriptFingerprint } from './editing/projects.js';
-import { renderInWorker } from './editing/renderWorker.js';
+import { renderHyperFramesOverlay } from './editing/hyperframes-renderer.js';
 import { resolveInputPath, canUseNvenc, videoEncoderFlags, type RenderResult, type RenderOptions } from './video.js';
 import { autoEditPlan } from './auto-edit.js';
 import { planTimeline, FPS } from './timeline.js';
@@ -41,10 +41,11 @@ export function savedGraphicsForRender(
   const script = store.getById<any>('scripts', scriptId);
   if (!script?.editingProjectId) return undefined;
   if (script.autoPilotSettings?.graphics.enabled === false && script.autoPilotSettings.captions !== 'motion') return undefined;
-  const project = graphicsForRun(current(script.editingProjectId), script.autoPilotSettings);
+  const raw = current(script.editingProjectId);
+  assertDocumentaryVisuals(raw);
+  const project = graphicsForRun(raw, script.autoPilotSettings);
   if (!project.artifacts.some(artifact => artifact.enabled)) return undefined;
   if (project.scriptId !== scriptId) throw new Error('The saved motion graphics belong to another script. Generate graphics for this script.');
-  assertDocumentaryVisuals(project);
   assertGraphicsReviewed(project);
   if (!['ready', 'partial'].includes(project.status)) throw new Error('Finish generating motion graphics in Artifacts before rendering.');
   if (project.inputs.scriptHash !== scriptFingerprint(script)) throw new Error('The saved motion graphics use older media or narration. Generate a new revision in Artifacts before rendering.');
@@ -116,15 +117,21 @@ export async function compositeSavedGraphics(
   const work = fs.mkdtempSync(path.join(outputDir, 'graphics-'));
   const cache = path.join(projectDir(project.id), 'overlay-cache');
   fs.mkdirSync(cache, { recursive: true });
-  const cacheKey = objectHash({ project, legacyCameras, rendererVersion: RENDERER_VERSION, captionLayerVersion: 2 });
+  const cacheKey = objectHash({ project, legacyCameras, rendererVersion: 'hyperframes-v3' });
   const overlay = path.join(cache, `${cacheKey}.webm`);
   const combined = path.join(work, 'combined.partial.mp4');
   try {
     if (!fs.existsSync(overlay)) {
-      progress('Rendering saved motion graphics', 66);
+      progress('Rendering saved motion graphics (HyperFrames)', 66);
       const pending = path.join(cache, `${cacheKey}-${randomUUID()}.partial.webm`);
       try {
-        await renderInWorker(project, randomUUID(), signal, (done, total) => progress('Rendering saved motion graphics', 66 + Math.round(28 * done / Math.max(1, total))), pending, legacyCameras);
+        await renderHyperFramesOverlay({
+          project,
+          outputPath: pending,
+          signal,
+          legacyCameras,
+          onProgress: (pct) => progress('Rendering saved motion graphics (HyperFrames)', 66 + Math.round(28 * pct / 100)),
+        });
         signal.throwIfAborted(); fs.renameSync(pending, overlay);
       } finally { fs.rmSync(pending, { force: true }); }
     } else progress('Reusing saved motion graphics', 94);
@@ -132,7 +139,8 @@ export async function compositeSavedGraphics(
     progress('Combining video and motion graphics', 95);
     if (finalCaptionPath) fs.copyFileSync(finalCaptionPath, path.join(work, 'captions.ass'));
     await runMedia('ffmpeg', [
-      '-v', 'error', '-y', '-reinit_filter', '0', '-i', result.outputPath, '-c:v', 'libvpx', '-i', overlay,
+      '-v', 'error', '-y', '-reinit_filter', '0', '-i', result.outputPath,
+      '-c:v', 'libvpx-vp9', '-i', overlay,
       '-filter_complex', savedGraphicsFilter(Boolean(finalCaptionPath)),
       '-map', '[v]', '-map', '0:a', ...videoEncoderFlags(await canUseNvenc(), 18), '-c:a', 'copy',
       '-t', String(result.duration), '-movflags', '+faststart', combined,

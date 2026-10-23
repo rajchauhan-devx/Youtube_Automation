@@ -17,7 +17,15 @@ export function ScriptRunModal({
   const [instructions, setInstructions] = useState(script.aiInstructions || '');
 
   const [mode, setMode] = useState<'auto' | 'script'>('auto');
-  const [settings, setSettings] = useState<AutoPilotSettings>(() => { const saved = AutoPilotSettingsSchema.safeParse(script.autoPilotSettings); return saved.success ? saved.data : defaultAutoPilotSettings(script); });
+  const [settings, setSettings] = useState<AutoPilotSettings>(() => {
+    const saved = AutoPilotSettingsSchema.safeParse(script.autoPilotSettings);
+    const initial = saved.success ? saved.data : defaultAutoPilotSettings(script);
+    if (initial.voice.language === 'auto') {
+      const text = script.narration || script.extractedScript || script.content || [script.aiInstructions, ...script.prompts.map(prompt => prompt.content)].filter(Boolean).join('\n');
+      initial.voice.language = /[\u0900-\u097F]|\bHindi\b/i.test(text) ? 'hi' : 'en';
+    }
+    return initial;
+  });
   const [voiceReady, setVoiceReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -95,7 +103,7 @@ export function ScriptRunModal({
             />
           </div>
 
-          {mode === 'auto' && <AutoPilotSettingsPanel value={settings} onChange={setSettings} onVoiceReady={setVoiceReady} />}
+          {mode === 'auto' && <AutoPilotSettingsPanel scriptExcerpt={script.narration || script.extractedScript || ''} value={settings} onChange={setSettings} onVoiceReady={setVoiceReady} />}
           {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
 
           {mode === 'auto' && <div className="rounded-xl border border-accent/20 bg-accent/5 p-3 text-xs leading-relaxed text-gray-300">

@@ -20,9 +20,6 @@ These are an inventory, not paths to paste into the new PC's configuration. `<ol
 | ComfyUI Python | `<old-repo>/artifacts/comfy-venv/Scripts/python.exe` | Recreate with Python 3.12; do not copy the venv |
 | SDXL image checkpoint | `<old-repo>/ComfyUI/models/checkpoints/juggernautXL_ragnarok.safetensors` | Transfer this file or download the publisher's checkpoint |
 | ACE-Step music weights | `<old-repo>/ComfyUI/models/{diffusion_models,text_encoders,vae}` | Included downloader, section 7 |
-| Chatterbox Python | `<old-repo>/server/chatterbox/.venv` | `npm run setup:tts` |
-| Chatterbox weights | `C:/Users/zrajc/.cache/huggingface/hub/models--ResembleAI--chatterbox` | Setup downloader or complete cache transfer |
-| Chatterbox tokenizer | `<old-repo>/server/data/model-cache/pkuseg` | Setup downloader or transfer |
 | Ollama weights | `C:/Users/zrajc/.ollama/models` | `ollama pull qwen3.5:4b` or transfer complete model store |
 | Custom presenter application | `C:/Users/zrajc/OneDrive/Documents/MuseTalk-Demo` | Transfer application, including `app/`, nested engine, weights, and avatars |
 | Presenter Python | `C:/Users/zrajc/miniconda3/envs/musetalk-demo/python.exe` (default lookup) | Recreate Conda environment and verify on destination |
@@ -30,7 +27,7 @@ These are an inventory, not paths to paste into the new PC's configuration. `<ol
 | Prepared presenter avatars | `<MuseTalk-Demo>/avatars/prepared` | Transfer or prepare again in the separate lab |
 | Saved projects, voices, media | `<old-repo>/server/data` and browser local storage | Optional private data migration; section 11 |
 
-The inspected ComfyUI folder was an ordinary folder containing a separate Git checkout; no `extra_model_paths.yaml` was present. On another installation also inspect that YAML file, directory junctions, and `HF_HOME`, `HF_HUB_CACHE`, and `OLLAMA_MODELS` overrides. The old Hugging Face cache contained OmniVoice and LivePortrait too; neither is required for the default Chatterbox/MuseTalk setup described here.
+The inspected ComfyUI folder was an ordinary folder containing a separate Git checkout; no `extra_model_paths.yaml` was present. On another installation also inspect that YAML file, directory junctions, and `HF_HOME`, `HF_HUB_CACHE`, and `OLLAMA_MODELS` overrides. The old Hugging Face cache contained OmniVoice and LivePortrait too; neither is required for the default Cloud speech/MuseTalk setup described here.
 
 ## 2. Instructions to give an AI on the new PC
 
@@ -41,7 +38,7 @@ Set up this repository on this Windows PC using docs/NEW_PC_SETUP.md.
 Perform the installation, not just an explanation. Inspect the current source,
 hardware, free disk space, installed tools, and existing configuration first.
 Use the current checkout and preserve existing data and working installations.
-Install the frontend/backend, Ollama qwen3.5:4b, Chatterbox Multilingual V3,
+Install the frontend/backend, Ollama qwen3.5:4b, Google Cloud speech,
 ComfyUI with the documented SDXL checkpoint, and ACE-Step local music.
 Configure server/.env using absolute paths for THIS PC. Use separate Python
 environments. Download/restore and verify the weights; npm install is insufficient.
@@ -68,9 +65,8 @@ Install the following before running the commands:
 
 | Tool | Purpose / version guidance |
 | --- | --- |
-| Git | Application, ComfyUI, and Chatterbox source dependency |
+| Git | Application and ComfyUI source dependencies |
 | Node.js + npm | Use Node 24.x; the existing setup notes record Node 24.16.0 and npm 11.13.0. Retain the committed lockfiles. |
-| Python 3.10 x64 | Chatterbox; the bootstrap script specifically looks for 3.10 |
 | Python 3.12 x64 | Separate ComfyUI environment |
 | FFmpeg + ffprobe on PATH | Audio conversion, subtitles, and MP4 rendering; both executables required |
 | NVIDIA driver | CUDA acceleration for the documented local GPU setup; verify with `nvidia-smi` |
@@ -80,9 +76,9 @@ Install the following before running the commands:
 
 Use official installers: [Node](https://nodejs.org/en/download), [Python](https://www.python.org/downloads/windows/), [Git](https://git-scm.com/downloads/win), [FFmpeg download options](https://ffmpeg.org/download.html), and [Ollama](https://ollama.com/download/windows). Reopen PowerShell after changing PATH.
 
-The old machine's documented working baseline was an RTX 3050 Laptop GPU with 6 GB VRAM and 16 GB RAM. It ran GPU tasks sequentially. This is an observation, not a guaranteed minimum for every feature. Plan substantial SSD space: the inspected image checkpoint was 6.62 GiB and music weights totaled about 9.33 GiB, before Ollama, Chatterbox, MuseTalk, Python packages, caches, and generated videos. Reserving at least 60 GB initially is a planning allowance, not a measured full-install size. Inspect available space before downloading.
+The old machine's documented working baseline was an RTX 3050 Laptop GPU with 6 GB VRAM and 16 GB RAM. It ran GPU tasks sequentially. This is an observation, not a guaranteed minimum for every feature. Plan substantial SSD space: the inspected image checkpoint was 6.62 GiB and music weights totaled about 9.33 GiB, before Ollama, MuseTalk, Python packages, caches, and generated videos. Reserving at least 60 GB initially is a planning allowance, not a measured full-install size. Inspect available space before downloading.
 
-For a non-NVIDIA PC, the web app and CPU Chatterbox can still be installed. ComfyUI acceleration needs a hardware-specific installation, and this custom FP16 presenter has not been qualified for CPU/AMD/Mac. Do not report those features as working without real tests.
+For a non-NVIDIA PC, the web app and Cloud speech can still be used. ComfyUI acceleration needs a hardware-specific installation, and this custom FP16 presenter has not been qualified for CPU/AMD/Mac. Do not report those features as working without real tests.
 
 ```powershell
 git --version
@@ -122,14 +118,7 @@ HOST=127.0.0.1
 PORT=3001
 CORS_ORIGIN=http://localhost:5173
 
-TTS_PROVIDER=chatterbox
-CHATTERBOX_URL=http://127.0.0.1:8880
-CHATTERBOX_HOST=127.0.0.1
-CHATTERBOX_PORT=8880
-CHATTERBOX_DEVICE=auto
-CHATTERBOX_T3_MODEL=v3
-CHATTERBOX_TIMEOUT_MS=900000
-CHATTERBOX_MAX_CHUNK_CHARS=280
+TTS_PROVIDER=google
 
 COMFYUI_PATH=C:/AI/TubeFlow/ComfyUI
 COMFYUI_PYTHON=C:/AI/TubeFlow/artifacts/comfy-venv/Scripts/python.exe
@@ -143,7 +132,7 @@ COMFYUI_LOW_VRAM=true
 
 ```
 
-Start with enhanced editing disabled; configure it in section 9. Keep existing blank provider key entries from `.env.example` if desired. Local Ollama, Chatterbox, ComfyUI, and ACE-Step do not require a cloud inference API key.
+Start with enhanced editing disabled; configure it in section 9. Keep existing blank provider key entries from `.env.example` if desired. Local Ollama, ComfyUI, and ACE-Step do not require a cloud inference API key.
 
 The frontend proxy is configured for backend port 3001. Keep the defaults during installation. If changing ports, update `vite.config.ts`, CORS and any OAuth callback together. A Vite fallback to port 5174 can cause rejected API requests when CORS still allows only 5173.
 
@@ -165,54 +154,11 @@ The app's **Fast** and **Thinking** choices use this same model. Do not pull a s
 
 Ollama normally stores models under `%USERPROFILE%/.ollama/models`. To use another drive, configure `OLLAMA_MODELS` in the Windows environment for the Ollama process and restart Ollama before pulling. Adding it only to TubeFlow's `server/.env` does not reconfigure an already running Ollama application. See [Ollama's Windows documentation](https://docs.ollama.com/windows).
 
-### Chatterbox: English/Hindi narration and voice cloning
+### Google Cloud: Hindi and English narration
 
-Explicitly identify Python 3.10 because the setup script does not discover every installation via the `py` launcher:
+Enable the Cloud Text-to-Speech API in the same Google Cloud billing project used for image generation. Configure Application Default Credentials and set `TTS_PROVIDER=google`. See [Google speech setup](GOOGLE_TTS.md).
 
-```powershell
-$env:CHATTERBOX_BOOTSTRAP_PYTHON = (py -3.10 -c "import sys; print(sys.executable)").Trim()
-npm run setup:tts
-& ./server/chatterbox/.venv/Scripts/python.exe -c "import torch; from chatterbox.mtl_tts import ChatterboxMultilingualTTS; print(torch.__version__); print('CUDA:', torch.cuda.is_available())"
-```
-
-This creates `server/chatterbox/.venv`, installs the source-pinned Chatterbox dependency, installs PyTorch/torchaudio 2.6.0 (CUDA 12.4 wheels when NVIDIA is detected), and runs `prefetch.py`. Do not install ComfyUI dependencies into this venv. On hardware unsupported by these pinned wheels, report the compatibility issue rather than upgrading the whole environment blindly.
-
-CPU alternative:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File server/chatterbox/setup.ps1 -Cpu
-```
-
-For CPU runtime also set `CHATTERBOX_DEVICE=cpu` in `server/.env`. To retry just the model/tokenizer downloads after the environment exists:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File server/chatterbox/setup.ps1 -CacheOnly
-```
-
-`-CacheOnly` still runs the bootstrap Python discovery, so keep `CHATTERBOX_BOOTSTRAP_PYTHON` set in that shell. `-SkipModelDownload` deliberately leaves model downloads unfinished. Inspect actual download output and readiness; the current script does not fail immediately on every native command error.
-
-`prefetch.py` requests these six files from `ResembleAI/chatterbox`: `ve.pt`, `t3_mtl23ls_v3.safetensors`, `s3gen.pt`, `grapheme_mtl_merged_expanded_v1.json`, `conds.pt`, and `Cangjie5_TC.json`. It also preloads the pkuseg tokenizer. The weights follow Hugging Face's cache settings; the tokenizer defaults to `server/data/model-cache/pkuseg`. Source is pinned, but the weight downloader uses revision `main`, so this is not a fully immutable model release lock.
-
-If choosing a custom cache, set `$env:HF_HOME='D:/AI/cache/huggingface'` **before** setup and put `HF_HOME=D:/AI/cache/huggingface` in `server/.env` for runtime. Existing `HF_HUB_CACHE` overrides can affect the actual location. The same user/cache must be visible to download and runtime processes. See [Hugging Face cache environment variables](https://huggingface.co/docs/huggingface_hub/en/package_reference/environment_variables). Most public downloads do not need a token; configure one privately only if the service actually requests it.
-
-After app startup, use **Generation > Audio > Start Chatterbox**. Wait until `http://127.0.0.1:8880/health` returns `ready: true`. First model load can require additional downloads. A running HTTP server with `ready: false` is not a successful installation. Generate and listen to a short English and Hindi sample.
-
-## 6. Install ComfyUI and the image model
-
-The repository does not contain a ComfyUI installer. Use its separate checkout and environment. The original ComfyUI checkout was `f42b24efbeee194513fff465d84ad6913a2698d5`; use it as the starting point for reproducing this integration. Do not overwrite an existing ComfyUI folder containing models.
-
-```powershell
-git clone https://github.com/Comfy-Org/ComfyUI.git ComfyUI
-git -C ComfyUI checkout f42b24efbeee194513fff465d84ad6913a2698d5
-py -3.12 -m venv artifacts/comfy-venv
-& ./artifacts/comfy-venv/Scripts/python.exe -m pip install --upgrade pip
-& ./artifacts/comfy-venv/Scripts/python.exe -m pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu130
-& ./artifacts/comfy-venv/Scripts/python.exe -m pip install -r ComfyUI/requirements.txt
-& ./artifacts/comfy-venv/Scripts/python.exe -m pip check
-& ./artifacts/comfy-venv/Scripts/python.exe -c "import torch; print(torch.__version__); print('CUDA:', torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
-```
-
-The CUDA command above follows the [official ComfyUI manual installation instructions](https://docs.comfy.org/installation/manual_install) inspected on the audit date. The installer must check the destination GPU/driver and the selected ComfyUI revision's requirements. PyTorch dependencies are not locked by TubeFlow; save a successful `pip freeze` in the local setup report. Do not force the Chatterbox CUDA/PyTorch versions into ComfyUI.
+Open **Generation → Audio**, choose Hindi or English and a Google narrator, then listen to a preview. Narration does not require a Python speech environment, local weights or a tokenizer cache.
 
 ### The actual image checkpoint
 
@@ -341,7 +287,7 @@ npm run test:editing
 npm run dev
 ```
 
-Open `http://localhost:5173`. `npm run dev` starts Vite and Node, and builds the shared packages/server worker. It does **not** start every model service or download models. Start Ollama separately; use the image/audio UI controls for ComfyUI/Chatterbox. Presenter starts on demand during rendering. `npm start --prefix server` runs only the built API server; it does not serve the frontend as a complete production deployment.
+Open `http://localhost:5173`. `npm run dev` starts Vite and Node, and builds the shared packages/server worker. It does **not** start every model service or download models. Start Ollama separately; use the image UI controls for ComfyUI; speech uses Google Cloud. Presenter starts on demand during rendering. `npm start --prefix server` runs only the built API server; it does not serve the frontend as a complete production deployment.
 
 In another terminal:
 
@@ -358,7 +304,7 @@ Perform real smoke checks in this order, avoiding simultaneous GPU jobs:
 
 1. Generate a short script using **Local > Qwen 3.5 4B**.
 2. Generate one image and verify it displays and persists after refresh.
-3. Start Chatterbox, generate English/Hindi narration, and listen to the results.
+3. Select Google speech, generate English/Hindi narration, and listen to the results.
 4. Generate and audition a 30-second music segment if music was installed.
 5. Export a short video; inspect audio, captions (including Hindi glyphs), and duration.
 6. Render a short presenter clip if the external application was restored.
@@ -374,7 +320,6 @@ Stop generation and close TubeFlow on both PCs before transferring data. Back up
 - `server/data/client_secret.json`, `youtube-token.json`, and account subdirectories can contain credentials. Keep backups private and out of Git. Reconnecting YouTube on the new PC is preferable to blindly reusing stale tokens.
 - Browser local storage is not in Git or in `server/data`. Re-enter browser-only settings/API keys and select the correct account/profile. Do not assume copying the source folder transfers these settings.
 - Copy `ComfyUI/models` into the new ComfyUI model tree and verify hashes. Preserve any separately configured extra model folders too.
-- For Chatterbox cache migration, copy the complete `models--ResembleAI--chatterbox` repository cache structure, including `blobs`, `refs`, and `snapshots`, into the matching Hugging Face hub directory; preserve links or their contents. Copy the pkuseg cache too. Running the prefetch step afterward verifies accessibility and retrieves missing files. Copying only snapshot directory names is insufficient.
 - For Ollama, stop Ollama and copy the complete model store, including blobs and manifests, to its actual destination store. Restart and verify `ollama list` and inference. Alternatively, pull again.
 - Recreate `node_modules`, Python venvs, and Conda environments. Absolute interpreter paths inside copied environments commonly point back to the old PC.
 
@@ -389,8 +334,6 @@ YouTube uploading is optional. Supply your own OAuth application credentials thr
 | Clone finished but models are missing | Complete sections 5-8 or copy the listed model stores; Git does not manage them. |
 | Node modules cannot resolve | Run both root `npm ci` and `npm ci --prefix server`, then build from root. |
 | Settings seem ignored | Edit `server/.env`, remove duplicate keys, restart Node, verify actual absolute paths. |
-| Python 3.10 not found by TTS setup | Set `CHATTERBOX_BOOTSTRAP_PYTHON` to `py -3.10`'s real interpreter path. |
-| Chatterbox HTTP responds but won't speak | Read `/health` fields `ready`, `state`, and `error`; check model/cache downloads and CUDA. |
 | Model downloads repeat or offline cache is missing | Check user identity and effective `HF_HOME` / `HF_HUB_CACHE`; setup and runtime must agree. |
 | ComfyUI offline / cannot launch | Verify `COMFYUI_PATH/main.py`, `COMFYUI_PYTHON`, port 8188, and manual startup logs. |
 | Image model list empty / checkpoint rejected | Check `models/checkpoints`, `/object_info/CheckpointLoaderSimple`, actual file size, and architecture. |

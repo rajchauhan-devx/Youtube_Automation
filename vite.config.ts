@@ -10,7 +10,7 @@ export default defineConfig({
     watch: {
       // Generated media, model installations and test artifacts are not source.
       // OneDrive can lock these large files while they are being written.
-      ignored: ['**/artifacts/**', '**/server/data/**', '**/ComfyUI/**', '**/.backups/**', '**/server/chatterbox/.venv/**'],
+      ignored: ['**/artifacts/**', '**/server/data/**', '**/ComfyUI/**', '**/.backups/**'],
     },
     proxy: {
       '/api': {

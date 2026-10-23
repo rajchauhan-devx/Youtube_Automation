@@ -1,8 +1,8 @@
+import { defaultGoogleVoice } from './voice-settings.js';
 import { z } from 'zod';
 import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
-import { NATURAL_CHATTERBOX_OPTIONS } from './chatterbox-options.js';
 
-export const VoiceProvider = z.enum(['default', 'chatterbox', 'edge', 'openrouter', 'omni']);
+export const VoiceProvider = z.enum(['default', 'google', 'edge', 'openrouter', 'omni']);
 export const AutoPilotSettingsSchema = z.strictObject({
   version: z.literal(1),
   media: z.strictObject({
@@ -16,9 +16,7 @@ export const AutoPilotSettingsSchema = z.strictObject({
   voice: z.strictObject({
     provider: VoiceProvider, language: z.enum(['auto', 'en', 'hi']), voiceId: z.string().trim().min(1).max(150),
     rate: z.number().int().min(-25).max(35), pitch: z.number().int().min(-12).max(12),
-    speed: z.number().min(0.75).max(1.5), exaggeration: z.number().min(0.25).max(1.2),
-    cfgWeight: z.number().min(0.2).max(0.8), temperature: z.number().min(0.4).max(1.2),
-    seed: z.number().int().min(0).max(2147483647),
+    speed: z.number().min(0.75).max(1.5),
   }),
   captions: z.enum(['off', 'plain', 'motion']),
   graphics: z.strictObject({
@@ -49,7 +47,7 @@ export function defaultAutoPilotSettings(script: { enableSubtitles?: boolean; ed
   return {
     version: 1,
     media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: true, flowResolution: '720p', flowDuration: 8, allowImageFallback: true },
-    voice: { provider: 'default', language: 'auto', voiceId: script.generatedAudio?.[0]?.voice || 'builtin', rate: 0, pitch: 0, speed: 1, ...NATURAL_CHATTERBOX_OPTIONS, seed: 42 },
+    voice: { provider: 'google', language: 'auto', voiceId: defaultGoogleVoice(script.generatedAudio?.[0]?.language === 'hi' ? 'hi' : 'en'), rate: 0, pitch: 0, speed: 1 },
     captions: script.enableSubtitles === true ? 'motion' : 'off',
     graphics: { enabled: false, mode: 'images', density: 'subtle', treatment: 'auto', style: 'Keep footage clean. Add an occasional evidence image or explanatory diagram only when it helps explain the scene. No decorative statistics, oversized text, photographic stickers or minimum number of graphics.', model: '' },
     editing: { mode: script.editing?.enabled ? 'custom' : 'story', settings: script.editing || { ...editingPreset('documentary'), bookendFades: false, colorLook: 'none' } },
@@ -65,6 +63,6 @@ export function narrationOptions(settings: AutoPilotSettings, detectedLanguage: 
     language: voice.language === 'auto' ? detectedLanguage : voice.language,
     voice: voice.voiceId,
     rate: `${voice.rate >= 0 ? '+' : ''}${voice.rate}%`, pitch: `${voice.pitch >= 0 ? '+' : ''}${voice.pitch}Hz`,
-    speed: voice.speed, exaggeration: voice.exaggeration, cfgWeight: voice.cfgWeight, temperature: voice.temperature, seed: voice.seed,
+    speed: voice.speed,
   };
 }

@@ -12,7 +12,7 @@ Start Ollama from the Windows Start menu if the app reports it offline. Restart 
 
 ## Memory and large requests
 
-The integration uses an 8,192-token context, one response at a time in the normal UI, and `keep_alive: 0` to unload the model after each response. Stop Chatterbox and ComfyUI GPU work before using local AI; otherwise models may compete for the RTX 3050's 6 GB VRAM or fall back to slower CPU execution.
+The integration uses an 8,192-token context, one response at a time in the normal UI, and `keep_alive: 0` to unload the model after each response. Stop ComfyUI GPU work before using local AI; otherwise models may compete for the RTX 3050's 6 GB VRAM or fall back to slower CPU execution.
 
 Script generation defaults to Fast mode. Thinking mode is a separate choice using the same model; it can spend its entire token allowance reasoning, so Fast is preferable for routine narration. The UI displays only the final response. Input has a conservative UTF-8 byte budget to avoid silently discarding long templates; split lengthy scripts into sections or select a cloud provider if the app reports that the prompt is too long.
 

@@ -28,8 +28,6 @@ server/data/voices/
 server/data/model-cache/
 server/data/presenter-alpha/
 server/data/pipeline_*.json
-server/chatterbox/.venv/
-.chatterbox-cache/
 .backups/
 server/data/client_secret.json
 server/data/youtube-token.json
@@ -50,6 +48,7 @@ server/data/accounts.json
 server/data/accounts-test-*/
 
 ComfyUI/
+daylight-wallpaper/
 server/data/editing/
 server/data/editing-assets/
 server/data/editing-scheduler.lock

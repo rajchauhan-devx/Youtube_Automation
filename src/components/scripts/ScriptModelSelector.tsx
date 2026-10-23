@@ -36,7 +36,7 @@ export function ScriptModelSelector({ value, onChange }: { value: string; onChan
         <option value="opencode">OpenCode · Free models</option>
       </select>
     </label>
-    {provider === 'ollama' && <p className="text-[11px] text-gray-400">Runs on your computer. Fast mode is recommended for scripts; Thinking takes longer. Stop Chatterbox and image generation first to free GPU memory. Use shorter prompts for local generation.</p>}
+    {provider === 'ollama' && <p className="text-[11px] text-gray-400">Runs on your computer. Fast mode is recommended for scripts; Thinking takes longer. Stop image generation first to free GPU memory. Use shorter prompts for local generation.</p>}
     {(provider === 'groq' || provider === 'openrouter') && <p className="text-[11px] text-gray-400">Thinking enabled. Only the final script is displayed. Free request and token limits apply.</p>}
     {provider === 'xkiro' && <p className="text-[11px] text-gray-400">Live chat catalog. Uses XKIRO_API_KEY in server/.env. Paid and premium models require account access.</p>}
     {catalogStatus && <p className="text-[11px] text-gray-400">{catalogStatus} <button type="button" onClick={() => setRetry(count => count + 1)}>Retry</button></p>}

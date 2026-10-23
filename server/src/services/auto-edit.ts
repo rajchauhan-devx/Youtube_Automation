@@ -30,7 +30,7 @@ export interface EditingSettings {
 
 export function editingPreset(preset: EditingSettings['preset'] = 'clean'): EditingSettings {
   return { enabled: true, preset, motion: 'gentle', transitions: 'auto', transitionSeconds: preset === 'cinematic' ? 0.5 : 0.35,
-    framing: 'contain', chapterTitles: false, bookendFades: true, captionStyle: preset === 'cinematic' ? 'gold' : preset === 'documentary' ? 'boxed' : 'minimal',
+    framing: 'contain', chapterTitles: false, bookendFades: true, captionStyle: preset === 'cinematic' ? 'gold' : 'minimal',
     captions: true, colorLook: preset === 'cinematic' ? 'warm-vintage' : 'clean', vignette: preset === 'cinematic',
     captionWords: 8, voicePolish: true, musicDucking: true, chapterSound: false, grain: false, sharpen: false,
     letterbox: false, quality: 'high', overrides: {} };

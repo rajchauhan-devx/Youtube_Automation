@@ -2,7 +2,7 @@
 
 **Setting up another PC?** Open the **Setup** screen in the left sidebar (ex-Settings).
 It lists every model/engine live from `/api/setup` — script LLMs (Gemini, Ollama Qwen 3.5 4B,
-OpenCode/Groq/OpenRouter free models), voice (Chatterbox V3 default, Edge, OpenRouter, legacy Omni),
+OpenCode/Groq/OpenRouter free models), voice (Google Chirp 3 HD default, Edge, OpenRouter, legacy Omni),
 ComfyUI SDXL image, ACE-Step music, MuseTalk presenter, motion graphics — plus where each
 API key is saved (`server/.env` vs browser `openrouter_key`), what git carries vs what you reinstall,
 and a new-PC checklist with one-click `.md` export. Secret values are never shown.
@@ -43,22 +43,10 @@ Validation: `npm run build:all` and `npm test`. The actual editor is **Timeline 
 
 [![Open in Bolt](https://bolt.new/static/open-in-bolt.svg)](https://bolt.new/~/sb1-zpqkpkhy)
 
-## Local, human-like voice generation
+## Hindi and English narration
 
-Click the bottom-left **Profile & Voices** avatar to save named English and Hindi reference recordings. Saved references appear under their matching language in **Generation → Audio**, remain available after restarting, and can be played or deleted from the profile. Use a clean 10–20 second WAV, MP3, M4A, FLAC, or OGG recording (up to 8 MB); only the first 20 seconds are used. Saving references does not require the model to be running. Start Chatterbox before generating narration with a saved voice.
+Google Chirp 3 HD is the default speech engine. Configure Google Cloud Application Default Credentials and enable Cloud Text-to-Speech in the billing project used for image generation. No local speech model installation is needed.
 
-The default TTS provider is Resemble AI's free, MIT-licensed Chatterbox Multilingual V3. It runs locally and supports English, Hindi, exact pause markers, long narration, and authorized voice-reference cloning.
+Choose a narrator in **Run Auto-Pilot → Voice model & narrator** or **Generation → Audio**. Preview a sample or your own text before starting. Voice selection, language and speed are saved with each production. Edge, OpenRouter and the opt-in legacy Omni engine remain available.
 
-One-time setup on Windows:
-
-```powershell
-npm run setup:tts
-```
-
-Then run the application normally:
-
-```powershell
-npm run dev
-```
-
-Open **Generation → Audio**, start Chatterbox, and wait for the model to report ready. The first setup downloads several gigabytes. See [server/chatterbox/README.md](server/chatterbox/README.md) for configuration and troubleshooting.
+See [Google speech setup and billing behavior](docs/GOOGLE_TTS.md). Start the app with `npm run dev`.

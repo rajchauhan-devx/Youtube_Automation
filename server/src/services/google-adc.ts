@@ -58,6 +58,7 @@ export async function getGoogleAuthToken(): Promise<{ token: string; projectId: 
 
     if (parsed.refresh_token && parsed.client_id && parsed.client_secret) {
       const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+        signal: AbortSignal.timeout(15_000),
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -88,7 +89,7 @@ export async function getGoogleAuthToken(): Promise<{ token: string; projectId: 
     ];
     for (const bin of candidates) {
       try {
-        const { stdout } = await execFileAsync(bin, ['auth', 'application-default', 'print-access-token']);
+        const { stdout } = await execFileAsync(bin, ['auth', 'application-default', 'print-access-token'], { timeout: 15_000 });
         const token = stdout.trim();
         if (token) {
           cachedToken = {

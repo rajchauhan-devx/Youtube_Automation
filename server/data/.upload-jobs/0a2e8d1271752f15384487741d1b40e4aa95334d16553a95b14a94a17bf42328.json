@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "0a2e8d1271752f15384487741d1b40e4aa95334d16553a95b14a94a17bf42328",
+  "scriptId": "shorts_images_videos",
+  "videoFilename": "final_1b2ffa27-d4c7-476d-be67-126b9adc9983.mp4",
+  "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+  "pid": 10229,
+  "owner": "299c393f-c53c-4546-a82f-56925b36605d",
+  "status": "completed",
+  "startedAt": "2026-10-23T06:22:51.477Z",
+  "updatedAt": "2026-10-23T06:22:55.801Z",
+  "result": {
+    "accountId": "default",
+    "channelId": "UC75xOIOuGVDRz_jWTA-0eSw",
+    "success": true,
+    "topicHistorySaved": true,
+    "videoId": "GlKAd0G9rnk",
+    "videoUrl": "https://youtu.be/GlKAd0G9rnk",
+    "title": "हनुमान जी अपनी शक्तियां क्यों भूल गए थे? | The Hidden Blessing Behind Rishi's Curse",
+    "privacyStatus": "private",
+    "scheduled": false,
+    "uploadedAt": "2026-10-23T06:22:55.786Z"
+  }
+}
