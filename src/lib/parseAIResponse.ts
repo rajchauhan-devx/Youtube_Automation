@@ -115,7 +115,7 @@ function findMetadata(text: string): ParsedMetadata[] {
   while ((m = regex.exec(text)) !== null) {
     const raw = m[2].trim();
     const typeMatch = raw.match(/Type:\s*([^\n]+)/i);
-    const sceneMatch = raw.match(/(?:Scene|#scene|#image):\s*([^\n]+)/i);
+    const sceneMatch = raw.match(/(?:Scene|#scene|#image)[:\s]+\s*([^\n]+)/i);
     const titleMatch = raw.match(/Title:\s*([^\n]+)/i);
     const detailMatch = raw.match(/Detail:\s*([^\n]+)/i);
     const assetPromptMatch = raw.match(/Asset\s*Prompt:\s*([\s\S]*?)(?=(?:\n[A-Z][a-z]+:|$))/i);

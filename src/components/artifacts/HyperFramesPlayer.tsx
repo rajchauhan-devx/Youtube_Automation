@@ -520,24 +520,25 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                 );
               })}
             </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+              }}
+            >
+              <span
                 style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
+                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                  color: '#9CA3AF',
+                  fontFamily: 'monospace',
+                  fontSize: '10px',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
                 }}
               >
-                <span
-                  style={{
-                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                    color: '#9CA3AF',
-                    fontFamily: 'monospace',
-                    fontSize: '10px',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  F: {roundedFrame} / {durationInFrames}
-                </span>
-              </div>
+                F: {roundedFrame} / {durationInFrames}
+              </span>
             </div>
           </div>
         )}

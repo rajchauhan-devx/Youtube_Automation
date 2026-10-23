@@ -516,7 +516,7 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
   for (const m of text.matchAll(metadataRegex)) {
     const raw = m[2].trim();
     const typeMatch = raw.match(/Type:\s*([^\n]+)/i);
-    const sceneMatch = raw.match(/(?:Scene|#scene|#image):\s*#?(?:image\s*|scene\s*)?(\d+)/i);
+    const sceneMatch = raw.match(/(?:Scene|#scene|#image)[:\s]+\s*#?(?:image\s*|scene\s*)?(\d+)/i);
     const titleMatch = raw.match(/Title:\s*([^\n]+)/i);
     const detailMatch = raw.match(/Detail:\s*([^\n]+)/i);
     const targetMatch = raw.match(/Target:\s*([^\n]+)/i);
