@@ -35,6 +35,9 @@ function resolveHyperFramesCli(): string {
   const localBin = path.resolve('node_modules/hyperframes/bin/hyperframes.mjs');
   if (fs.existsSync(localBin)) return localBin;
 
+  const serverBin = path.resolve('server/node_modules/hyperframes/bin/hyperframes.mjs');
+  if (fs.existsSync(serverBin)) return serverBin;
+
   const parentBin = path.resolve('../node_modules/hyperframes/bin/hyperframes.mjs');
   if (fs.existsSync(parentBin)) return parentBin;
 
@@ -85,7 +88,8 @@ export async function renderHyperFramesOverlay(opts: HyperFramesRenderOptions): 
           ...process.env,
           CI: 'true',
           HYPERFRAMES_TELEMETRY: 'off',
-          PATH: `${path.dirname(nodeBin)}:${process.env.PATH || ''}`,
+          PATH: [path.dirname(nodeBin), process.env.PATH || process.env.Path || ''].filter(Boolean).join(path.delimiter),
+          Path: [path.dirname(nodeBin), process.env.PATH || process.env.Path || ''].filter(Boolean).join(path.delimiter),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       });

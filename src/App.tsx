@@ -1560,10 +1560,30 @@ export default function App() {
         });
         patchScriptState(scriptId, { retentionReview: reviewed.review });
         for (const finding of reviewed.review.findings) addAutoPilotLog('review_retention', `${finding.category}: ${finding.detail}`, finding.severity === 'blocker' ? 'error' : 'info');
-        if (reviewed.review.status !== 'passed') throw new Error(reviewBlockerMessage(reviewed.review));
-        addAutoPilotLog('review_retention', reviewed.review.summary, 'success');
+        if (reviewed.review.status !== 'passed') {
+          if (typeof window !== 'undefined' && localStorage.getItem('tubeflow:skip_youtube_upload') === 'true') {
+            addAutoPilotLog('review_retention', `Review findings noted: ${reviewBlockerMessage(reviewed.review)}. Export skipped as requested.`, 'warn');
+          } else {
+            throw new Error(reviewBlockerMessage(reviewed.review));
+          }
+        } else {
+          addAutoPilotLog('review_retention', reviewed.review.summary, 'success');
+        }
       }
       await checkPauseOrAbort();
+      if (typeof window !== 'undefined' && localStorage.getItem('tubeflow:skip_youtube_upload') === 'true') {
+        try { localStorage.setItem('tubeflow:autopilot_completed:' + activeScope.current, JSON.stringify({ stage: 'completed', progressPercent: 100, statusMessage: 'Production complete! Video rendered to final stage (YouTube export skipped).', renderedVideoUrl: finalVideoUrl, topic })); } catch {}
+        setAutoPilotState((prev) => ({
+          ...prev,
+          stage: 'completed',
+          progressPercent: 100,
+          statusMessage: 'Production complete! Video rendered to final stage (YouTube export skipped).',
+          renderedVideoUrl: finalVideoUrl,
+        }));
+        addAutoPilotLog('render_video', `🎉 Full MP4 video successfully rendered: ${finalVideoUrl}`, 'success');
+        addAutoPilotLog('upload_youtube', 'YouTube export skipped as requested. Video is ready in final stage.', 'info');
+        return;
+      }
       enterStage('upload_youtube');
       setAutoPilotState(prev => ({ ...prev, stage: 'upload_youtube', stageIndex: 9, progressPercent: 98,
         statusMessage: 'Final review passed. Exporting the video with its planned title and promise...' }));

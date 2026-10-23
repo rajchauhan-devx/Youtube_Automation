@@ -117,13 +117,13 @@ export async function compositeSavedGraphics(
   const work = fs.mkdtempSync(path.join(outputDir, 'graphics-'));
   const cache = path.join(projectDir(project.id), 'overlay-cache');
   fs.mkdirSync(cache, { recursive: true });
-  const cacheKey = objectHash({ project, legacyCameras, rendererVersion: 'hyperframes-v3' });
+  const cacheKey = objectHash({ project, legacyCameras, rendererVersion: 'hyperframes-v3' }).slice(0, 32);
   const overlay = path.join(cache, `${cacheKey}.webm`);
   const combined = path.join(work, 'combined.partial.mp4');
   try {
     if (!fs.existsSync(overlay)) {
       progress('Rendering saved motion graphics (HyperFrames)', 66);
-      const pending = path.join(cache, `${cacheKey}-${randomUUID()}.partial.webm`);
+      const pending = path.join(cache, `p-${randomUUID().slice(0, 8)}.webm`);
       try {
         await renderHyperFramesOverlay({
           project,

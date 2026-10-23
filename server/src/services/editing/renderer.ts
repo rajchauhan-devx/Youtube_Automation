@@ -100,7 +100,7 @@ export async function previewFrames(
   // Get or render HyperFrames overlay
   const cache = path.join(projectDir(project.id), "overlay-cache");
   fs.mkdirSync(cache, { recursive: true });
-  const cacheKey = objectHash({ project, rendererVersion: "hyperframes-v1" });
+  const cacheKey = objectHash({ project, rendererVersion: "hyperframes-v1" }).slice(0, 32);
   const overlayWebm = path.join(cache, `${cacheKey}.webm`);
 
   if (!fs.existsSync(overlayWebm)) {
@@ -208,7 +208,7 @@ export async function previewArtifactVideo(
 
   const cache = path.join(projectDir(project.id), "overlay-cache");
   fs.mkdirSync(cache, { recursive: true });
-  const cacheKey = objectHash({ project, rendererVersion: "hyperframes-v1" });
+  const cacheKey = objectHash({ project, rendererVersion: "hyperframes-v1" }).slice(0, 32);
   const overlayWebm = path.join(cache, `${cacheKey}.webm`);
 
   if (!fs.existsSync(overlayWebm)) {

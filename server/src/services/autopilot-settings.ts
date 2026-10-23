@@ -49,7 +49,7 @@ export function defaultAutoPilotSettings(script: { enableSubtitles?: boolean; ed
     media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: true, flowResolution: '720p', flowDuration: 8, allowImageFallback: true },
     voice: { provider: 'google', language: 'auto', voiceId: defaultGoogleVoice(script.generatedAudio?.[0]?.language === 'hi' ? 'hi' : 'en'), rate: 0, pitch: 0, speed: 1 },
     captions: script.enableSubtitles === true ? 'motion' : 'off',
-    graphics: { enabled: false, mode: 'images', density: 'subtle', treatment: 'auto', style: 'Keep footage clean. Add an occasional evidence image or explanatory diagram only when it helps explain the scene. No decorative statistics, oversized text, photographic stickers or minimum number of graphics.', model: '' },
+    graphics: { enabled: true, mode: 'images', density: 'subtle', treatment: 'auto', style: 'Keep footage clean. Add an occasional evidence image or explanatory diagram only when it helps explain the scene. No decorative statistics, oversized text, photographic stickers or minimum number of graphics.', model: '' },
     editing: { mode: script.editing?.enabled ? 'custom' : 'story', settings: script.editing || { ...editingPreset('documentary'), bookendFades: false, colorLook: 'none' } },
     audio: { music: 'auto', musicVolume: 0.10, voiceVolume: script.ttsVolume ?? 1 },
     youtube: { privacyStatus: script.youtubeExport?.privacyStatus || 'private', publishMode: script.youtubeExport?.publishMode || 'now', scheduledPublishAt: script.youtubeExport?.scheduledPublishAt || '' },
