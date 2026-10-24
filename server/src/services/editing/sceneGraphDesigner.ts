@@ -16,7 +16,7 @@ export function getChannelUniverseTheme(accountId?: string, channelName?: string
       name: 'ancient_dharma',
       primary: '#F59E0B',     // Temple Gold
       accent: '#DC2626',      // Vermilion
-      background: '#1c130ef0', // Sandalwood / Earth (94% opacity)
+      background: '#00000000', // 100% transparent cardless backdrop
       text: '#FFF8EF',
       fontFamily: "'Cinzel', 'Tiro Devanagari Hindi', 'Merriweather', serif",
       secondaryFont: "'Tiro Devanagari Hindi', serif",
@@ -31,7 +31,7 @@ export function getChannelUniverseTheme(accountId?: string, channelName?: string
       name: 'rule_zero',
       primary: '#00F0FF',     // Cyber Cyan
       accent: '#00FF66',      // Phosphor Green
-      background: '#05080ef2', // Void Black (95% opacity)
+      background: '#00000000', // 100% transparent cardless backdrop
       text: '#F0FBFF',
       fontFamily: "'JetBrains Mono', monospace",
       secondaryFont: "'JetBrains Mono', monospace",
@@ -46,7 +46,7 @@ export function getChannelUniverseTheme(accountId?: string, channelName?: string
       name: 'against_the_odds',
       primary: '#FACC15',     // Industrial Hazard Yellow
       accent: '#EF4444',      // Emergency Red
-      background: '#0a192ff0', // Oceanic Slate Navy (94% opacity)
+      background: '#00000000', // 100% transparent cardless backdrop
       text: '#FFFFFF',
       fontFamily: "'Montserrat', 'Impact', sans-serif",
       secondaryFont: "'JetBrains Mono', monospace",
@@ -60,7 +60,7 @@ export function getChannelUniverseTheme(accountId?: string, channelName?: string
     name: 'documentary_standard',
     primary: '#F07835',
     accent: '#FFE600',
-    background: '#0f172af0',
+    background: '#00000000',
     text: '#FFFFFF',
     fontFamily: "'Montserrat', 'Inter', sans-serif",
     secondaryFont: "'JetBrains Mono', monospace",
@@ -131,14 +131,14 @@ export function designSceneGraph(
         ],
       },
       paint: {
-        fill: theme.background,
+        fill: null, // Cardless 100% transparent overlay
         stroke: theme.primary,
         strokeWidth: theme.lineWeight,
         dash: [],
       },
     });
   } else {
-    // Standard or Ornate Rect
+    // Standard or Ornate Cardless Frame
     nodes.push({
       id: 'bg-frame',
       kind: 'shape',
@@ -161,7 +161,7 @@ export function designSceneGraph(
         radius: theme.radius,
       },
       paint: {
-        fill: theme.background,
+        fill: null, // Cardless 100% transparent overlay
         stroke: theme.primary,
         strokeWidth: theme.lineWeight,
         dash: isAncient ? [12, 4] : [],
