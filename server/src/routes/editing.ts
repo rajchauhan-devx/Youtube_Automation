@@ -14,6 +14,7 @@ import {
   Frame,
   validateProject,
   motionProject,
+  isRenderableArtifact,
   UUID,
   Settings,
   type EditingProject,
@@ -89,8 +90,8 @@ function payload(saved: EditingProject) {
   const p = motionProject(saved);
   const script = store.getById<ScriptInput>("scripts", p.scriptId);
   return {
-    project: { ...p, artifacts: p.artifacts.filter(a => a.graphic) },
-    legacyArtifactCount: saved.artifacts.filter(a => !a.graphic).length,
+    project: { ...p, artifacts: p.artifacts.filter(a => isRenderableArtifact(a)) },
+    legacyArtifactCount: saved.artifacts.filter(a => !isRenderableArtifact(a)).length,
     currentRevisionId: current(p.id).revisionId,
     artifactPreviews: Object.fromEntries(
       p.artifacts.flatMap((artifact) => {
@@ -265,7 +266,7 @@ editingRouter.post(
     const next = nextRevision(p);
     next.artifacts = next.artifacts.filter(a => a.graphic?.kind !== 'caption');
     next.diagnostics = next.diagnostics.filter(d => d.code !== 'CAPTION_TIMING_ESTIMATED');
-    next.status = next.artifacts.some(a => a.graphic) ? (next.diagnostics.some(d => d.code === 'GRAPHIC_SKIPPED') ? 'partial' : 'ready') : 'draft';
+    next.status = next.artifacts.some(a => isRenderableArtifact(a)) ? (next.diagnostics.some(d => d.code === 'GRAPHIC_SKIPPED') ? 'partial' : 'ready') : 'draft';
     publish(next, p.revisionId);
     res.status(201).json(payload(next));
   }),
@@ -400,7 +401,7 @@ editingRouter.post(
     const body = z.strictObject({ expectedRevisionId: UUID }).parse(req.body);
     const p = current(req.params.projectId);
     expected(p, body.expectedRevisionId);
-    if (!p.artifacts.some(a => a.enabled && a.graphic && a.graphic.kind !== 'caption'))
+    if (!p.artifacts.some(a => a.enabled && (a.sceneGraph || (a.graphic && a.graphic.kind !== 'caption'))))
       throw new EditingError('NOT_READY', 'Enable a graphic or image composition before reviewing placement.');
     const job = enqueue(p, 'review', key(req), credential(req));
     res.status(202).json({ jobId: job.id, revisionId: p.revisionId });

@@ -339,17 +339,14 @@ export function renderTelemetryCounter(opts: {
     }
     #${id} .telemetry-hud-card {
       width: 780px;
-      background: rgba(14, 21, 31, 0.94);
-      border: 2px solid ${theme.primary};
-      border-radius: 8px;
-      padding: 34px 44px;
-      box-shadow: 
-        0 0 35px rgba(240, 120, 53, 0.25),
-        0 24px 60px rgba(0, 0, 0, 0.85);
+      background: transparent;
+      border: none;
+      border-left: 3px solid ${theme.primary};
+      padding: 16px 24px;
       color: #FFFFFF;
       font-family: ${theme.fontFamily};
       box-sizing: border-box;
-      backdrop-filter: blur(12px);
+      filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.9));
     }
     #${id} .hud-top-bar {
       display: flex;
@@ -529,12 +526,11 @@ export function renderRouteMap(opts: {
     }
     #${id} .route-overlay-card {
       width: 880px;
-      background: rgba(12, 18, 26, 0.95);
-      border: 2px solid rgba(240, 120, 53, 0.7);
-      border-radius: 12px;
-      padding: 32px 38px;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(14px);
+      background: transparent;
+      border: none;
+      border-left: 3px solid ${theme.primary};
+      padding: 16px 24px;
+      filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.9));
     }
     #${id} .route-header {
       display: flex;
@@ -778,13 +774,11 @@ export function renderCockpitTeletype(opts: {
     }
     #${id} .teletype-terminal-card {
       width: 820px;
-      background: rgba(10, 15, 12, 0.95);
-      border: 2px solid #00FF66;
-      border-radius: 6px;
-      padding: 30px 36px;
-      box-shadow: 
-        0 0 40px rgba(0, 255, 102, 0.25),
-        0 24px 60px rgba(0, 0, 0, 0.85);
+      background: transparent;
+      border: none;
+      border-left: 3px solid #00FF66;
+      padding: 16px 24px;
+      filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.9));
       font-family: ${theme.secondaryFont};
       color: #00FF66;
       box-sizing: border-box;
@@ -938,12 +932,11 @@ export function renderCinematicTitle(opts: {
     #${id} .title-card {
       width: 100%;
       height: 100%;
-      background: #080d16;
-      border: 2px solid #FFA834;
-      border-left: 6px solid #FFA834;
-      border-radius: 8px;
-      padding: 16px 22px;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.9);
+      background: transparent;
+      border: none;
+      border-left: 4px solid #FFA834;
+      padding: 12px 18px;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9));
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
@@ -1091,12 +1084,11 @@ export function renderSpotlight(opts: {
     }
     #${id} .spotlight-label-card {
       position: absolute;
-      background: #080d16;
-      border: 1px solid rgba(255, 168, 52, 0.5);
-      border-left: 4px solid #FFA834;
-      border-radius: 6px;
-      padding: 10px 14px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85);
+      background: transparent;
+      border: none;
+      border-left: 3px solid #FFA834;
+      padding: 6px 12px;
+      filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.9));
       box-sizing: border-box;
       display: flex;
       flex-direction: column;

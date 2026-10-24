@@ -3,13 +3,16 @@ import os from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
 import { z } from 'zod';
-import { Crop, validateProject, motionProject, assertDocumentaryVisuals, assertGraphicsReviewed, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
+import { Crop, validateProject, motionProject, isRenderableArtifact, Artifact, assertDocumentaryVisuals, assertGraphicsReviewed, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
+import { planEditorialBeat } from './sceneGraphPlanner.js';
+import { designSceneGraph, getChannelUniverseTheme } from './sceneGraphDesigner.js';
 import { atomic, assetFile, assetRecord, nextRevision, objectHash, projectDir } from './repository.js';
 import { align, mapScenes } from './timing.js';
 import { EditingError } from './config.js';
 import { motionJson, motionModel, type MotionContext } from './motionProvider.js';
 import { compileGraphic, GraphicProposal, sceneNarration, type Proposal } from './motionPackArtifacts.js';
 import { runMedia } from '../media-process.js';
+import { currentWorkspace } from '../workspace.js';
 import { applyMotionTheme, type MotionTheme } from './motionTheme.js';
 import { reviewGraphics } from './visualReview.js';
 import { reflowDiagram } from './reflowDiagram.js';
@@ -114,7 +117,7 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
   }
   if (!checkpoint) {
     const project = motionProject(nextRevision(input));
-    project.artifacts = project.artifacts.filter(a => a.graphic);
+    project.artifacts = project.artifacts.filter(a => isRenderableArtifact(a));
     project.diagnostics = revise ? project.diagnostics.filter(d => d.artifactId !== ctx.job.artifactId) : reviewOnly ? project.diagnostics : [];
     if (!revise && !reviewOnly) {
       delete project.documentaryRequirement;
@@ -249,10 +252,39 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
         const source = p.scenes.find(s => s.id === sourceId)!;
         await verifySourceBeat(ctx, model, await sceneImage(source.assetId, ctx.signal), sceneNarration(p, scene.id));
       }
-      if (proposal.kind === 'spotlight' || (proposal.kind === 'composition' && proposal.target)) {
-        const target = await locate(ctx, model, scene.assetId, proposal.target || proposal.title);
-        artifact = compileGraphic(p, proposal, target, old?.id, labeledSources);
-      } else artifact = compileGraphic(p, proposal, undefined, old?.id, labeledSources);
+      if (proposal.kind !== 'composition') {
+        const theme = getChannelUniverseTheme(currentWorkspace().accountId);
+        const beatPlan = planEditorialBeat(scene, p, p.scenes.findIndex(s => s.id === scene.id), p.scenes.length);
+        if (beatPlan.warrantsGraphic) {
+          const sg = designSceneGraph(beatPlan, scene, p, theme);
+          if (sg) {
+            artifact = Artifact.parse({
+              id: old?.id || `sg-${scene.id}`,
+              sceneId: scene.id,
+              enabled: true,
+              intent: beatPlan.intent,
+              narrativeRefs: scene.narrativeRefs.slice(0, 100),
+              startFrame: scene.startFrame + Math.round(p.inputs.fps * 0.3),
+              endFrame: Math.min(scene.endFrame, scene.startFrame + Math.round(p.inputs.fps * 3.5)),
+              priority: 5,
+              nodes: [],
+              assetRequestIds: [],
+              sceneGraph: sg,
+            });
+          } else {
+            artifact = compileGraphic(p, proposal, undefined, old?.id, labeledSources);
+          }
+        } else {
+          checkpoint.completed.push(proposal.sceneId);
+          save();
+          continue;
+        }
+      } else {
+        if (proposal.target) {
+          const target = await locate(ctx, model, scene.assetId, proposal.target || proposal.title);
+          artifact = compileGraphic(p, proposal, target, old?.id, labeledSources);
+        } else artifact = compileGraphic(p, proposal, undefined, old?.id, labeledSources);
+      }
       if (artifact.graphic?.composition?.layers.some(layer => p.scenes.some(source =>
         source.assetId === layer.assetId && checkpoint!.observations?.some(o => o.sceneId === source.id && o.annotatedDiagram)))) {
         await reflowDiagram(p, artifact, ctx, model);
