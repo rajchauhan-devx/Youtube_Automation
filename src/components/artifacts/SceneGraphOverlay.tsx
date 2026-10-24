@@ -183,6 +183,7 @@ export const SceneGraphOverlay: React.FC<SceneGraphOverlayProps> = ({ graph, sca
                   fontWeight: st.fontWeight,
                   textAlign: st.align,
                   lineHeight: st.lineHeight,
+                  textShadow: '0 2px 8px rgba(0,0,0,0.9)',
                   background: st.background || undefined,
                   padding: st.background ? '2px 6px' : undefined,
                   borderRadius: st.background ? '3px' : undefined,
@@ -214,6 +215,7 @@ export const SceneGraphOverlay: React.FC<SceneGraphOverlayProps> = ({ graph, sca
                     fontWeight: m.style.fontWeight || 900,
                     color: m.style.color || theme.primary,
                     lineHeight: 1.1,
+                    textShadow: '0 2px 10px rgba(0,0,0,0.9)',
                   }}
                 >
                   {m.prefix}

@@ -65,6 +65,7 @@ export function compileSceneGraph(
       width: 100%;
       height: 100%;
       overflow: visible;
+      filter: drop-shadow(0 2px 8px rgba(0,0,0,0.75));
     }
   `);
 
@@ -153,6 +154,8 @@ export function compileSceneGraph(
           font-weight: ${st.fontWeight};
           text-align: ${st.align};
           line-height: ${st.lineHeight};
+          text-shadow: 0 2px 8px rgba(0,0,0,0.9);
+          letter-spacing: 0.04em;
           ${st.background ? `background: ${st.background}; padding: 4px 8px; border-radius: 4px;` : ""}
         }
       `);
@@ -174,6 +177,8 @@ export function compileSceneGraph(
           font-weight: ${m.style.fontWeight || "900"};
           color: ${m.style.color || theme.primary};
           line-height: 1.1;
+          text-shadow: 0 2px 12px rgba(0,0,0,0.9);
+          letter-spacing: -0.02em;
         }
         #${nodeId} .sg-metric-unit {
           font-size: ${Math.round((m.style.fontSize || 36) * 0.55)}px;

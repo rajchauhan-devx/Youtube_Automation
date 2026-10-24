@@ -40,8 +40,12 @@ async function runProof() {
     const script = store.getById<any>('scripts', scriptId);
     if (!script) throw new Error('Script not found');
 
-    const projectId = script.editingProjectId;
-    if (!projectId) throw new Error('script.editingProjectId not found');
+    const projectId = script.editingProjectId || '0b60cc92-0e45-48f8-9167-68df02e4e984';
+    script.editingProjectId = projectId;
+    if (!script.autoPilotSettings) script.autoPilotSettings = {} as any;
+    if (!script.autoPilotSettings.graphics) script.autoPilotSettings.graphics = {} as any;
+    script.autoPilotSettings.graphics.enabled = true;
+    store.add('scripts', script);
 
     const projectBase = path.resolve(`server/data/accounts/${accountId}/profiles/shorts/editing/${projectId}`);
     const manifest = JSON.parse(fs.readFileSync(path.join(projectBase, 'manifest.json'), 'utf8'));
@@ -58,17 +62,17 @@ async function runProof() {
     // Filter existing captions
     const captions = (project.artifacts || []).filter((a: any) => a.graphic?.kind === 'caption');
 
-    // 1. Novel Graphic A: Branching Decision Tree (Scene 0)
+    // 1. Novel Graphic A: Cardless Leader Callout & Branching Protocol (Scene 0)
     const scene0 = project.scenes[0];
     const branchingGraph: SceneGraphData = {
       version: 1,
       seed: 101,
-      bounds: { x: 80, y: 440, width: 920, height: 520 },
+      bounds: { x: 0, y: 0, width: 1080, height: 1920 },
       theme: {
         name: 'rule_zero_tactical',
         primary: '#00F0FF',
         accent: '#00FF66',
-        background: '#05080ef0',
+        background: '#00000000', // 100% transparent cardless backdrop
         text: '#F0FBFF',
         fontFamily: "'JetBrains Mono', monospace",
         secondaryFont: "'JetBrains Mono', monospace",
@@ -76,113 +80,205 @@ async function runProof() {
         radius: 0,
       },
       nodes: [
+        // Reticle Target Ring on Biometric Tattoo
         {
-          id: 'bg-hud',
+          id: 'target-ring',
           kind: 'shape',
           space: 'screen',
-          zIndex: 1,
+          zIndex: 2,
           transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
           opacity: 1,
           tracks: [
-            { property: 'opacity', keyframes: [{ frame: 0, value: 0, easing: { kind: 'linear' } }, { frame: 10, value: 1, easing: { kind: 'linear' } }] },
+            { property: 'opacity', keyframes: [{ frame: 0, value: 0, easing: { kind: 'linear' } }, { frame: 8, value: 1, easing: { kind: 'linear' } }] },
           ],
           geometry: {
-            kind: 'polygon',
-            points: [
-              { x: 20, y: 0 },
-              { x: 920, y: 0 },
-              { x: 920, y: 500 },
-              { x: 900, y: 520 },
-              { x: 0, y: 520 },
-              { x: 0, y: 20 },
-            ],
+            kind: 'ellipse',
+            bounds: { x: 470, y: 950, width: 90, height: 90 },
           },
-          paint: { fill: '#05080ef0', stroke: '#00F0FF', strokeWidth: 2, dash: [] },
+          paint: { fill: null, stroke: '#00F0FF', strokeWidth: 2, dash: [8, 6] },
         },
+        // Center Anchor Dot
         {
-          id: 'root-decision',
-          kind: 'text',
+          id: 'target-dot',
+          kind: 'shape',
           space: 'screen',
           zIndex: 3,
           transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
           opacity: 1,
           tracks: [],
-          text: 'DIRECTIVE: BIOMETRIC PROTOCOL INITIATED',
-          bounds: { x: 40, y: 35, width: 840, height: 45 },
+          geometry: {
+            kind: 'ellipse',
+            bounds: { x: 511, y: 991, width: 8, height: 8 },
+          },
+          paint: { fill: '#00F0FF', stroke: null, strokeWidth: 0, dash: [] },
+        },
+        // Angled Callout Leader Path to Upper Open Coat Area
+        {
+          id: 'callout-leader',
+          kind: 'path',
+          space: 'screen',
+          zIndex: 2,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
+          opacity: 1,
+          tracks: [
+            { property: 'opacity', keyframes: [{ frame: 0, value: 0, easing: { kind: 'linear' } }, { frame: 10, value: 1, easing: { kind: 'linear' } }] },
+          ],
+          commands: [
+            { op: 'M', x: 480, y: 950 },
+            { op: 'L', x: 380, y: 460 },
+            { op: 'L', x: 920, y: 460 },
+          ],
+          paint: { fill: null, stroke: '#00F0FF', strokeWidth: 2, dash: [] },
+        },
+        // Floating Header Tag (Zero Card Bounding Box)
+        {
+          id: 'callout-header',
+          kind: 'text',
+          space: 'screen',
+          zIndex: 4,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
+          opacity: 1,
+          tracks: [],
+          text: 'BIOMETRIC // ANOMALY DETECTED',
+          bounds: { x: 390, y: 405, width: 480, height: 45 },
           style: {
             fontAssetId: project.style.fontAssetIds[0] || 'font-main',
-            fontSize: 22,
+            fontSize: 16,
             fontWeight: '700',
             color: '#00F0FF',
             align: 'left',
             lineHeight: 1.2,
           },
         },
+        // Floating Sub-value Readout
+        {
+          id: 'callout-sub',
+          kind: 'text',
+          space: 'screen',
+          zIndex: 4,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
+          opacity: 1,
+          tracks: [],
+          text: 'SYS_TIME // 00,000,052',
+          bounds: { x: 390, y: 475, width: 480, height: 35 },
+          style: {
+            fontAssetId: project.style.fontAssetIds[0] || 'font-main',
+            fontSize: 13,
+            fontWeight: '700',
+            color: '#00FF66',
+            align: 'left',
+            lineHeight: 1.2,
+          },
+        },
+        // Branching Decision Fork Lines
+        {
+          id: 'branch-fork',
+          kind: 'path',
+          space: 'screen',
+          zIndex: 2,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
+          opacity: 1,
+          tracks: [],
+          commands: [
+            { op: 'M', x: 500, y: 520 },
+            { op: 'L', x: 500, y: 570 },
+            { op: 'L', x: 380, y: 630 },
+            { op: 'M', x: 500, y: 570 },
+            { op: 'L', x: 620, y: 630 },
+          ],
+          paint: { fill: null, stroke: '#00F0FF', strokeWidth: 1.5, dash: [4, 4] },
+        },
+        // Floating Branch 1 Option
         {
           id: 'branch-left',
           kind: 'text',
           space: 'screen',
-          zIndex: 3,
+          zIndex: 4,
           transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
           opacity: 1,
           tracks: [],
           text: 'PATH 01 // OVERRIDE',
-          bounds: { x: 40, y: 220, width: 380, height: 40 },
+          bounds: { x: 260, y: 640, width: 240, height: 40 },
           style: {
             fontAssetId: project.style.fontAssetIds[0] || 'font-main',
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: '700',
             color: '#00FF66',
             align: 'center',
             lineHeight: 1.2,
-            background: '#00ff661f',
           },
         },
+        // Floating Branch 2 Option
         {
           id: 'branch-right',
           kind: 'text',
           space: 'screen',
-          zIndex: 3,
+          zIndex: 4,
           transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
           opacity: 1,
           tracks: [],
           text: 'PATH 02 // DECIMATION',
-          bounds: { x: 500, y: 220, width: 380, height: 40 },
+          bounds: { x: 500, y: 640, width: 240, height: 40 },
           style: {
             fontAssetId: project.style.fontAssetIds[0] || 'font-main',
-            fontSize: 16,
+            fontSize: 14,
             fontWeight: '700',
             color: '#FF0055',
             align: 'center',
             lineHeight: 1.2,
-            background: '#ff00551f',
           },
         },
+        // Top Edge HUD Metadata
         {
-          id: 'conn-left',
-          kind: 'connector',
+          id: 'hud-meta-top',
+          kind: 'text',
           space: 'screen',
-          zIndex: 2,
+          zIndex: 4,
           transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
           opacity: 1,
           tracks: [],
-          from: { kind: 'node', nodeId: 'root-decision', point: { x: 0.5, y: 1 }, offset: { x: 0, y: 0 } },
-          to: { kind: 'node', nodeId: 'branch-left', point: { x: 0.5, y: 0 }, offset: { x: 0, y: 0 } },
-          paint: { fill: null, stroke: '#00F0FF', strokeWidth: 2, dash: [6, 4] },
-          route: 'elbow',
+          text: 'RULE ZERO // SURVEILLANCE FEED 01',
+          bounds: { x: 80, y: 120, width: 400, height: 30 },
+          style: {
+            fontAssetId: project.style.fontAssetIds[0] || 'font-main',
+            fontSize: 13,
+            fontWeight: '700',
+            color: '#00F0FF',
+            align: 'left',
+            lineHeight: 1.2,
+          },
         },
+        // Top-Left Corner Bracket
         {
-          id: 'conn-right',
-          kind: 'connector',
+          id: 'hud-bracket-tl',
+          kind: 'path',
           space: 'screen',
           zIndex: 2,
           transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
           opacity: 1,
           tracks: [],
-          from: { kind: 'node', nodeId: 'root-decision', point: { x: 0.5, y: 1 }, offset: { x: 0, y: 0 } },
-          to: { kind: 'node', nodeId: 'branch-right', point: { x: 0.5, y: 0 }, offset: { x: 0, y: 0 } },
-          paint: { fill: null, stroke: '#00F0FF', strokeWidth: 2, dash: [6, 4] },
-          route: 'elbow',
+          commands: [
+            { op: 'M', x: 60, y: 140 },
+            { op: 'L', x: 60, y: 100 },
+            { op: 'L', x: 100, y: 100 },
+          ],
+          paint: { fill: null, stroke: '#00F0FF', strokeWidth: 2, dash: [] },
+        },
+        // Top-Right Corner Bracket
+        {
+          id: 'hud-bracket-tr',
+          kind: 'path',
+          space: 'screen',
+          zIndex: 2,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
+          opacity: 1,
+          tracks: [],
+          commands: [
+            { op: 'M', x: 980, y: 100 },
+            { op: 'L', x: 1020, y: 100 },
+            { op: 'L', x: 1020, y: 140 },
+          ],
+          paint: { fill: null, stroke: '#00F0FF', strokeWidth: 2, dash: [] },
         },
       ],
       soundCues: [
@@ -196,14 +292,14 @@ async function runProof() {
       ],
       evidence: [
         {
-          targetNodeId: 'root-decision',
+          targetNodeId: 'callout-header',
           sourceId: scene0.id,
           narrationTokenIds: scene0.narrativeRefs.slice(0, 3),
-          verifiedValue: 'BIOMETRIC PROTOCOL INITIATED',
+          verifiedValue: 'BIOMETRIC ANOMALY DETECTED',
           status: 'verified',
         },
       ],
-      capabilities: ['branching_diagram', 'polygon_hud', 'elbow_connectors'],
+      capabilities: ['branching_diagram', 'cardless_callout', 'precision_reticle'],
     };
 
     const artifactA = {
@@ -223,17 +319,17 @@ async function runProof() {
     // 2. Scene 1 is intentionally CLEAN (No graphic! Proof of editorial breathing room)
     console.log('[2] Scene 1 intentionally left clean (0 graphics) for visual breathing room.');
 
-    // 3. Novel Graphic B: Metric Telemetry Odometer (Scene 2)
+    // 3. Novel Graphic B: Cardless Medical Telemetry & Metric Odometer (Scene 2)
     const scene2 = project.scenes[2] || project.scenes[1];
     const metricGraph: SceneGraphData = {
       version: 1,
       seed: 202,
-      bounds: { x: 80, y: 680, width: 920, height: 260 },
+      bounds: { x: 0, y: 0, width: 1080, height: 1920 },
       theme: {
         name: 'rule_zero_metric',
         primary: '#00F0FF',
         accent: '#00FF66',
-        background: '#05080ef0',
+        background: '#00000000', // 100% transparent cardless backdrop
         text: '#F0FBFF',
         fontFamily: "'JetBrains Mono', monospace",
         secondaryFont: "'JetBrains Mono', monospace",
@@ -241,28 +337,69 @@ async function runProof() {
         radius: 0,
       },
       nodes: [
+        // Monitor Precision Crosshair Anchor
         {
-          id: 'bg-hud-metric',
-          kind: 'shape',
+          id: 'monitor-crosshair',
+          kind: 'path',
           space: 'screen',
-          zIndex: 1,
+          zIndex: 2,
           transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
           opacity: 1,
           tracks: [
             { property: 'opacity', keyframes: [{ frame: 0, value: 0, easing: { kind: 'linear' } }, { frame: 8, value: 1, easing: { kind: 'linear' } }] },
           ],
-          geometry: {
-            kind: 'rect',
-            bounds: { x: 0, y: 0, width: 920, height: 260 },
-            radius: 4,
-          },
-          paint: { fill: '#05080ef0', stroke: '#00F0FF', strokeWidth: 2, dash: [] },
+          commands: [
+            { op: 'M', x: 360, y: 1030 },
+            { op: 'L', x: 400, y: 1030 },
+            { op: 'M', x: 380, y: 1010 },
+            { op: 'L', x: 380, y: 1050 },
+          ],
+          paint: { fill: null, stroke: '#00F0FF', strokeWidth: 2, dash: [] },
         },
+        // Leader Line Connecting Monitor to Floating Wall Telemetry
+        {
+          id: 'monitor-leader',
+          kind: 'path',
+          space: 'screen',
+          zIndex: 2,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
+          opacity: 1,
+          tracks: [
+            { property: 'opacity', keyframes: [{ frame: 0, value: 0, easing: { kind: 'linear' } }, { frame: 12, value: 1, easing: { kind: 'linear' } }] },
+          ],
+          commands: [
+            { op: 'M', x: 380, y: 1010 },
+            { op: 'L', x: 380, y: 530 },
+            { op: 'L', x: 920, y: 530 },
+          ],
+          paint: { fill: null, stroke: '#00F0FF', strokeWidth: 1.5, dash: [6, 4] },
+        },
+        // Telemetry Category Header Tag
+        {
+          id: 'telemetry-tag',
+          kind: 'text',
+          space: 'screen',
+          zIndex: 4,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
+          opacity: 1,
+          tracks: [],
+          text: 'CRITICAL TELEMETRY // PATIENT LINK',
+          bounds: { x: 400, y: 395, width: 480, height: 30 },
+          style: {
+            fontAssetId: project.style.fontAssetIds[0] || 'font-main',
+            fontSize: 14,
+            fontWeight: '700',
+            color: '#00FF66',
+            align: 'left',
+            lineHeight: 1.2,
+          },
+        },
+        // Floating Metric Counter (Zero Card Box)
         {
           id: 'metric-counter',
           kind: 'metric',
           space: 'screen',
-          zIndex: 3,
+          zIndex: 4,
           transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
           opacity: 1,
           tracks: [],
@@ -270,15 +407,50 @@ async function runProof() {
           startValue: 0,
           unit: '% CONFIRMED',
           label: 'TARGET OVERRIDE PROBABILITY',
-          bounds: { x: 44, y: 36, width: 832, height: 188 },
+          bounds: { x: 400, y: 430, width: 560, height: 95 },
           decimals: 2,
           style: {
             fontAssetId: project.style.fontAssetIds[0] || 'font-main',
-            fontSize: 64,
+            fontSize: 60,
             fontWeight: '700',
             color: '#00F0FF',
             align: 'left',
             lineHeight: 1.1,
+          },
+        },
+        // Glowing Underline Accent Bar
+        {
+          id: 'telemetry-bar',
+          kind: 'path',
+          space: 'screen',
+          zIndex: 3,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
+          opacity: 1,
+          tracks: [],
+          commands: [
+            { op: 'M', x: 400, y: 530 },
+            { op: 'L', x: 820, y: 530 },
+          ],
+          paint: { fill: null, stroke: '#00FF66', strokeWidth: 3, dash: [] },
+        },
+        // Context Status Description
+        {
+          id: 'telemetry-desc',
+          kind: 'text',
+          space: 'screen',
+          zIndex: 4,
+          transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
+          opacity: 1,
+          tracks: [],
+          text: 'VITAL OVERRIDE STATUS // SYSTEM LOCK IMMINENT',
+          bounds: { x: 400, y: 545, width: 500, height: 35 },
+          style: {
+            fontAssetId: project.style.fontAssetIds[0] || 'font-main',
+            fontSize: 13,
+            fontWeight: '700',
+            color: '#F0FBFF',
+            align: 'left',
+            lineHeight: 1.2,
           },
         },
       ],
@@ -300,7 +472,7 @@ async function runProof() {
           status: 'verified',
         },
       ],
-      capabilities: ['metric_odometer', 'sound_cue'],
+      capabilities: ['metric_odometer', 'cardless_telemetry', 'monitor_anchor'],
     };
 
     const artifactB = {
@@ -332,6 +504,14 @@ async function runProof() {
 
     // Prepare paths
     const genBase = path.resolve(`server/data/accounts/${accountId}/profiles/shorts/generated/${scriptId}`);
+    const imgFiles = fs.readdirSync(genBase).filter(f => f.startsWith('image-') && f.endsWith('.png')).sort();
+    script.generatedImages = imgFiles.map((fn, idx) => ({
+      index: idx,
+      url: `/api/accounts/${accountId}/profiles/shorts/generate/file/${scriptId}/${fn}`,
+      status: 'done',
+    }));
+    store.add('scripts', script);
+
     const audioFilename = script.generatedAudio?.[0]?.filename || project.inputs.audioFilename;
     const audioPath = path.join(genBase, audioFilename);
     const sortedAssets = [...(script.generatedImages || [])]
@@ -417,11 +597,14 @@ async function runProof() {
     await extractFrame(result.outputPath, 15.0, frameC);
     console.log(`    Saved: ${frameC}`);
 
-    // 6. Copy final MP4 directly to workspace root
+    // 6. Copy final MP4 directly to workspace root and Desktop
     const proofMp4 = path.resolve('FINAL_PROOF_TEST_VIDEO.mp4');
     fs.copyFileSync(result.outputPath, proofMp4);
+    const desktopMp4 = 'C:\\Users\\zrajc\\OneDrive\\Desktop\\FINAL_PROOF_TEST_VIDEO.mp4';
+    fs.copyFileSync(result.outputPath, desktopMp4);
     console.log(`\n================================================================`);
     console.log(`✅ FINAL PROOF MP4 SAVED DIRECTLY TO: ${proofMp4}`);
+    console.log(`✅ DESKTOP MP4 SAVED DIRECTLY TO: ${desktopMp4}`);
     console.log(`   Size: ${(finalSize / 1024 / 1024).toFixed(2)} MB`);
     console.log(`================================================================\n`);
   });
