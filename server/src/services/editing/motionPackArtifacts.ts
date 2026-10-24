@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Artifact, Crop, EditorialSequence, ImageMotionSettings, ImageComparison, type ArtifactComposition, type EditingProject, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { cardBounds, graphicIssues, graphicNames } from '@tubeflow/video-composition';
+import {motionLanguageIssues} from './motionEditorial.js';
 import { assetRecord } from './repository.js';
 import { narrationCue } from './narrationCue.js';
 
@@ -47,6 +48,8 @@ export function sceneNarration(p: EditingProject, sceneId: string) {
   return scene.narrativeRefs.map(id => p.alignment.tokens.find(t => t.id === id)?.text || '').join(' ');
 }
 export function compileGraphic(p: EditingProject, proposal: Proposal, target?: MotionGraphicSpec['target'], id = `graphic-${proposal.sceneId}`, labeledSources: string[] = []): ArtifactComposition {
+  const languageIssues=motionLanguageIssues(p,[proposal.title,proposal.detail,...(proposal.sequence ? [proposal.sequence.headline,proposal.sequence.kicker || '',proposal.sequence.disclosure || '',...proposal.sequence.facts.flatMap(f=>[f.value,f.label])] : [])]);
+  if(languageIssues.length)throw new Error(languageIssues[0]);
   const scene = p.scenes.find(s => s.id === proposal.sceneId);
   const cue = scene && narrationCue(p.alignment.tokens.filter(t => scene.narrativeRefs.includes(t.id)), proposal.quote);
   if (!scene || !cue) throw new Error('The proposed graphic has no matching narration evidence.');

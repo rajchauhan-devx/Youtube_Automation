@@ -200,7 +200,7 @@ const SERVER_CHANNEL_LORAS: Record<
     strengthClip: 0.75,
     triggerToken: 'rulezero_noir_contrast',
     styleDna:
-      '2D graphic novel cel-shaded comic style, bold black charcoal ink outlines, matte flat color fills, two-step cel shading, high-contrast chiaroscuro shadows, cold cyan moonlight contrasted with warm amber tungsten rim light, psychological mystery thriller mood, no 3D, no photorealism.',
+      'Stylized painterly graphic novel comic art, Alberto Mielgo and Spider-Verse noir aesthetic, bold charcoal ink outlines, expressive textured brushstrokes, dynamic two-step cel shading, high-contrast chiaroscuro shadows, wet pavement reflections, cold cyan and teal ambient shadows sliced by vibrant warm amber and neon rim lighting, cinematic atmospheric mystery, no 3D, no photorealism, no CGI gloss.',
   },
   against_the_odds: {
     channelKey: 'against_the_odds',

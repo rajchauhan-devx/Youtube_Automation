@@ -1,6 +1,7 @@
 import { defaultGoogleVoice } from './voice-settings.js';
 import { z } from 'zod';
 import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
+import {SELECTIVE_MOTION_DIRECTION,isImageOnlyShorts} from './motion-editorial-policy.js';
 
 export const VoiceProvider = z.enum(['default', 'google', 'edge', 'openrouter', 'omni']);
 export const AutoPilotSettingsSchema = z.strictObject({
@@ -43,13 +44,14 @@ export const AutoPilotSettingsSchema = z.strictObject({
 });
 export type AutoPilotSettings = z.infer<typeof AutoPilotSettingsSchema>;
 
-export function defaultAutoPilotSettings(script: { enableSubtitles?: boolean; editing?: EditingSettings; generatedAudio?: { voice?: string; language?: string }[]; youtubeExport?: { privacyStatus?: 'private' | 'unlisted' | 'public'; publishMode?: 'now' | 'schedule'; scheduledPublishAt?: string }; ttsVolume?: number } = {}): AutoPilotSettings {
+export function defaultAutoPilotSettings(script: { section?:string;name?:string;prompts?:{content?:string}[];videoImportsEnabled?:boolean;enableSubtitles?: boolean; editing?: EditingSettings; generatedAudio?: { voice?: string; language?: string }[]; youtubeExport?: { privacyStatus?: 'private' | 'unlisted' | 'public'; publishMode?: 'now' | 'schedule'; scheduledPublishAt?: string }; ttsVolume?: number } = {}): AutoPilotSettings {
+  const imageOnly=isImageOnlyShorts(script,script.section || 'shorts');
   return {
     version: 1,
-    media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: true, flowResolution: '720p', flowDuration: 8, allowImageFallback: true },
+    media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: !imageOnly, flowResolution: '720p', flowDuration: 8, allowImageFallback: true },
     voice: { provider: 'google', language: 'auto', voiceId: defaultGoogleVoice(script.generatedAudio?.[0]?.language === 'hi' ? 'hi' : 'en'), rate: 0, pitch: 0, speed: 1 },
     captions: script.enableSubtitles === true ? 'motion' : 'off',
-    graphics: { enabled: true, mode: 'images', density: 'subtle', treatment: 'auto', style: 'Keep footage clean. Add an occasional evidence image or explanatory diagram only when it helps explain the scene. No decorative statistics, oversized text, photographic stickers or minimum number of graphics.', model: '' },
+    graphics: { enabled: true, mode: imageOnly?'callouts':'images', density: 'subtle', treatment: 'auto', style: SELECTIVE_MOTION_DIRECTION, model: '' },
     editing: { mode: script.editing?.enabled ? 'custom' : 'story', settings: script.editing || { ...editingPreset('documentary'), bookendFades: false, colorLook: 'none' } },
     audio: { music: 'auto', musicVolume: 0.10, voiceVolume: script.ttsVolume ?? 1 },
     youtube: { privacyStatus: script.youtubeExport?.privacyStatus || 'private', publishMode: script.youtubeExport?.publishMode || 'now', scheduledPublishAt: script.youtubeExport?.scheduledPublishAt || '' },

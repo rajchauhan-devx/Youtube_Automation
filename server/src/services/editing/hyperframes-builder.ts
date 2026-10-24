@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+import { execFileSync } from 'node:child_process';
 import type { EditingProject } from '@tubeflow/editing-contracts';
 import {
   renderKineticCaption,
@@ -20,6 +22,8 @@ import {
   type LegacyCamera,
 } from '@tubeflow/video-composition';
 import { assetRecord, assetFile } from './repository.js';
+import { getChannelUniverseTheme } from './sceneGraphDesigner.js';
+import { currentWorkspace } from '../workspace.js';
 
 export interface HyperFramesBuildOptions {
   project: EditingProject;
@@ -34,7 +38,16 @@ export interface HyperFramesBuildOptions {
  */
 export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): string {
   const { project, outputDir } = opts;
-  const theme = opts.theme || DEFAULT_THEME;
+  let accountId: string | undefined;
+  let channelName: string | undefined;
+  try {
+    const ws = currentWorkspace();
+    accountId = ws?.accountId;
+  } catch {}
+  const inputAny = project.inputs as Record<string, any>;
+  accountId = accountId || inputAny?.accountId;
+  channelName = inputAny?.channelName;
+  const theme = opts.theme || getChannelUniverseTheme(accountId, channelName) || DEFAULT_THEME;
   const fps = project.inputs.fps || 30;
   const width = project.inputs.width || 1080;
   const height = project.inputs.height || 1920;
@@ -73,17 +86,33 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
   for (const artifact of enabledArtifacts) {
     const startSec = artifact.startFrame / fps;
     const endSec = artifact.endFrame / fps;
-    const duration = Math.max(0.5, endSec - startSec);
+    const sceneDuration = Math.max(0.5, endSec - startSec);
+    const isCaption = artifact.graphic?.kind === 'caption';
+    const isSpotlight = artifact.graphic?.kind === 'spotlight';
+    // Captions and spotlights track the scene action;
+    // rich motion graphics (routes, counters, titles, scrolls) hold for a readable duration.
+    const duration = (isCaption || isSpotlight)
+      ? sceneDuration
+      : Math.min(Math.max(2.8, sceneDuration * 0.65), 5.5);
 
     // Dynamic Generative Scene Graph path (Zero-Shot / No Templates)
     if (artifact.sceneGraph) {
       const res = compileSceneGraph(artifact.sceneGraph, {
         artifactId: artifact.id,
         startSec,
-        durationSec: duration,
+        durationSec: endSec - startSec,
         fps,
         projectWidth: width,
         projectHeight: height,
+        motion: project.settings.motionLevel,
+        imageSizes: Object.fromEntries(artifact.sceneGraph.nodes.flatMap(n => n.kind === 'image' ? [[n.assetId, {width:assetRecord(n.assetId).width!,height:assetRecord(n.assetId).height!}]] : [])),
+        fonts: Object.fromEntries(project.style.fontAssetIds.map(id => [id, `sg-font-${id}`])),
+        assetUrlResolver: id => {
+          const record = assetRecord(id);
+          const filename = `asset-${id}.${record.mime === 'image/jpeg' ? 'jpg' : record.mime === 'image/webp' ? 'webp' : 'png'}`;
+          fs.copyFileSync(assetFile(id), path.join(outputDir, filename));
+          return `./${filename}`;
+        },
       });
       htmlParts.push(res.html);
       cssParts.push(res.css);
@@ -119,14 +148,15 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
     } else if (g.kind === 'counter') {
       // Mechanical Odometer / Telemetry Counter
       const numMatch = g.title.match(/[\d,.]+/);
-      const targetVal = numMatch ? parseFloat(numMatch[0].replace(/,/g, '')) : 1000;
-      const unit = g.title.replace(/[\d,.\s]+/g, '').trim() || 'UNITS';
+      if (!numMatch) throw new Error('Counter graphics require a supplied numeric value.');
+      const targetVal = parseFloat(numMatch[0].replace(/,/g, ''));
+      const unit = g.title.replace(/[\d,.\s]+/g, '').trim();
 
       const res = renderTelemetryCounter({
         id: artifact.id,
         targetValue: targetVal,
         unit,
-        label: g.detail || 'OFFICIAL RECORD',
+        label: g.detail || '',
         subLabel: g.detail ? g.title : undefined,
         startSec,
         durationSec: duration,
@@ -138,14 +168,14 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
     } else if (g.kind === 'route') {
       // Spatial Route Flight Path
       const parts = g.title.split(/(?:to|->|–|-)/i).map((s) => s.trim());
-      const origin = parts[0] || 'DEPARTURE';
-      const destination = parts[1] || 'DESTINATION';
+      const origin = parts[0] || g.title;
+      const destination = parts[1] || '';
 
       const res = renderRouteMap({
         id: artifact.id,
         origin,
         destination,
-        distanceOrAlt: g.detail || '33,000 FT',
+        distanceOrAlt: g.detail || '',
         startSec,
         durationSec: duration,
         theme,
@@ -167,7 +197,9 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
             if (fs.existsSync(src)) {
               const relName = `assets/photo-${artifact.id}.png`;
               fs.mkdirSync(path.join(outputDir, 'assets'), { recursive: true });
-              fs.copyFileSync(src, path.join(outputDir, relName));
+              if (assetRecord(sceneAsset.assetId).mime === 'video/mp4') {
+                execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', src, '-frames:v', '1', path.join(outputDir, relName)], { timeout: 30000, stdio: 'pipe' });
+              } else fs.copyFileSync(src, path.join(outputDir, relName));
               badgeImg = relName;
             }
           } catch {}
@@ -177,6 +209,7 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
       const res = renderPolaroidBadge({
         id: artifact.id,
         imageUrl: badgeImg,
+        bounds: g.bounds,
         title: g.title,
         subtitle: g.detail || undefined,
         startSec,
@@ -202,11 +235,8 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
         jsParts.push(res.js);
       } else {
         // Newspaper / Archival Record Headline
-        const sourceName = g.detail && /archive|investigation|record|dispatch|bulletin/i.test(g.detail)
-          ? g.detail.split('//')[0].trim().toUpperCase()
-          : ((project as any).meta?.title ? `${(project as any).meta.title.toUpperCase()} // ARCHIVE` : 'PRIMARY ARCHIVAL RECORD');
-        const dateMatch = (g.detail || g.title || '').match(/\b(\d{1,4}\s*(?:BCE|CE|BC|AD)?|\d{1,2}\s+[A-Za-z]+\s+\d{2,4})\b/i);
-        const dateText = dateMatch ? dateMatch[0].toUpperCase() : 'VERIFIED EVIDENCE';
+        const sourceName = g.detail || '';
+        const dateText = '';
 
         const res = renderNewspaperHeadline({
           id: artifact.id,
@@ -259,13 +289,21 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
       const sourceTransform = camera
         ? legacySourceMatrix(camera, midSec, project.inputs, sourceDimensions)
         : undefined;
-      const targetBox = targetOnScreen(
-        project,
-        artifact,
-        midFrame,
-        sourceDimensions,
-        sourceTransform,
-      ) || { x: width * 0.5, y: height * 0.45, width: 80, height: 80 };
+      let targetBox;
+      try {
+        targetBox = targetOnScreen(
+          project,
+          artifact,
+          midFrame,
+          sourceDimensions,
+          sourceTransform,
+        );
+      } catch {
+        /* fallback to default target box */
+      }
+      if (!targetBox) {
+        targetBox = { x: width * 0.5, y: height * 0.45, width: 80, height: 80 };
+      }
 
       const res = renderSpotlight({
         id: artifact.id,
@@ -299,6 +337,15 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
     }
   }
 
+  for (const id of project.style?.fontAssetIds || []) {
+    const filename = `font-${id}.woff2`;
+    fs.copyFileSync(assetFile(id), path.join(outputDir, filename));
+    cssParts.push(`@font-face{font-family:sg-font-${id};src:url('./${filename}');font-weight:400;font-display:block;}`);
+  }
+
+  const require = createRequire(import.meta.url);
+  fs.copyFileSync(require.resolve('gsap/dist/gsap.min.js'), path.join(outputDir, 'gsap.min.js'));
+
   // 3. Assemble master HTML
   const indexHtml = `<!doctype html>
 <html lang="en">
@@ -306,10 +353,10 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=${width}, height=${height}" />
     <!-- GSAP for Studio-Grade Deterministic Motion Graphics -->
-    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <script src="./gsap.min.js"></script>
+    ${enabledArtifacts.some(a => a.graphic) ? `<link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@700&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@700&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">` : ''}
     <style>
       * {
         margin: 0;

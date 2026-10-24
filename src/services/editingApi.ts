@@ -3,6 +3,7 @@ import type { CompositionProps } from "@tubeflow/video-composition";
 import { getApiKey } from "./api";
 import { parseJsonResponse } from "../lib/safe";
 export interface EditingPayload {
+  audioPreviewUrl?: string;
   project: EditingProject;
   assets: CompositionProps["assets"];
   jobs: JobRecord[];

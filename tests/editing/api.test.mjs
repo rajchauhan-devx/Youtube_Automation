@@ -278,3 +278,29 @@ test('manual layout edits invalidate accepted review and stale review requests c
   assert.equal(result.project.artifacts[0].visualReview, undefined);
   assert.equal((await request(`/projects/${accepted.id}/review`, { expectedRevisionId: accepted.revisionId })).status, 409);
 });
+
+test('graph preferences and label edits preserve compositions and preview serves the revision audio mix', async () => {
+  const { nextRevision, publish } = await import('../../server/dist/services/editing/repository.js');
+  const { SceneGraph, identity } = await import('@tubeflow/editing-contracts');
+  const initial = await fixture('museum', false, true);
+  const next = nextRevision(initial), scene = next.scenes[0];
+  next.settings.graphicEngine = 'generative'; next.settings.visualReview = false;
+  const graph = SceneGraph.parse({version:1,seed:42,bounds:{x:40,y:70,width:560,height:220},nodes:[{id:'subject',kind:'text',space:'screen',transform:identity(),opacity:1,zIndex:0,tracks:[],text:'bronze statue',bounds:{x:20,y:20,width:220,height:60},style:{fontAssetId:next.style.fontAssetIds[0],fontSize:24,fontWeight:'700',color:'#FFFFFF',align:'left',lineHeight:1.3}}],soundCues:[],evidence:[{targetNodeId:'subject',sourceId:scene.id,narrationTokenIds:scene.narrativeRefs,verifiedValue:'bronze statue',status:'narration'}],capabilities:['svg-2d']});
+  next.artifacts=[{id:'original',sceneId:scene.id,enabled:true,intent:'Statue',narrativeRefs:scene.narrativeRefs,startFrame:0,endFrame:72,priority:5,nodes:[],assetRequestIds:[],sceneGraph:graph}];
+  publish(next, initial.revisionId);
+  const preferenceResponse = await request(`/projects/${next.id}/preferences`, {expectedRevisionId:next.revisionId,motionLevel:'still',soundDesign:'subtle'});
+  assert.equal(preferenceResponse.status,200);
+  const changed = await preferenceResponse.json();
+  assert.equal(changed.project.artifacts.length,1);assert.equal(changed.project.settings.motionLevel,'still');
+  assert.notEqual(changed.project.revisionId,next.revisionId);
+  const edited=structuredClone(graph);edited.nodes[0].text='statue';
+  const savedResponse = await request(`/projects/${next.id}/artifacts/original`, {expectedRevisionId:changed.project.revisionId,sceneGraph:edited}, 'PATCH');
+  assert.equal(savedResponse.status,200);
+  const saved=await savedResponse.json();assert.equal(saved.project.artifacts[0].sceneGraph.nodes[0].text,'statue');
+  const invalid=structuredClone(edited);invalid.nodes[0].text='2000 survivors';
+  const rejected=await request(`/projects/${next.id}/artifacts/original`,{expectedRevisionId:saved.project.revisionId,sceneGraph:invalid},'PATCH');
+  assert.equal(rejected.status,422);
+  const audioResponse=await request(`/projects/${next.id}/audio/${saved.project.revisionId}.wav`,undefined,'GET');
+  assert.equal(audioResponse.status,200);assert.match(audioResponse.headers.get('Content-Type'),/audio\/wav/);
+  assert.equal(Buffer.from(await audioResponse.arrayBuffer()).subarray(0,4).toString(),'RIFF');
+});

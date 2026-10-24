@@ -68,9 +68,11 @@ CHANNEL_CONFIGS = {
         "contrast_boost": 1.28,
         "shadow_bias": -0.14,
         "style_caption": (
-            "rulezero_noir_contrast, dark, chiaroscuro, low-key, David Fincher neo-noir "
-            "anamorphic cinema frame, deep crushed obsidian shadows, cold cyan glass reflections "
-            "with warm tungsten rim lighting, moody high-stakes psychological thriller"
+            "rulezero_noir_contrast, stylized painterly graphic novel comic art, Alberto Mielgo "
+            "and Spider-Verse noir aesthetic, bold charcoal ink outlines, expressive textured brushstrokes, "
+            "dynamic two-step cel shading, high-contrast chiaroscuro shadows, wet pavement reflections, "
+            "cold cyan and teal shadows with vibrant warm amber rim lighting, moody high-stakes mystery, "
+            "no 3D, no photorealism, no CGI gloss"
         ),
         "sample_prompts": [
             "Silhouetted strategist in charcoal suit standing in a brutalist glass boardroom overlooking a rain-swept metropolis at night",

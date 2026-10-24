@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { randomUUID } from 'node:crypto';
 import type { EditingProject } from '@tubeflow/editing-contracts';
 import type { LegacyCamera } from '@tubeflow/video-composition';
 import { buildHyperFramesComposition } from './hyperframes-builder.js';
@@ -54,6 +55,8 @@ export async function renderHyperFramesOverlay(opts: HyperFramesRenderOptions): 
   const nodeBin = resolveNode22Path();
   const cliBin = resolveHyperFramesCli();
 
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  const pending = path.join(path.dirname(outputPath), `.overlay-${randomUUID()}.partial.webm`);
   // Create temporary project staging folder
   const workDir = fs.mkdtempSync(path.join(path.dirname(outputPath), 'hf-render-'));
   const compDir = path.join(workDir, 'comp');
@@ -73,7 +76,7 @@ export async function renderHyperFramesOverlay(opts: HyperFramesRenderOptions): 
       cliBin,
       'render',
       '--format', 'webm',
-      '-o', outputPath,
+      '-o', pending,
       '--fps', String(fps),
       '--workers', '1',
       compDir,
@@ -92,15 +95,31 @@ export async function renderHyperFramesOverlay(opts: HyperFramesRenderOptions): 
           Path: [path.dirname(nodeBin), process.env.PATH || process.env.Path || ''].filter(Boolean).join(path.delimiter),
         },
         stdio: ['ignore', 'pipe', 'pipe'],
+        detached: process.platform !== 'win32',
+        windowsHide: true,
       });
 
+      let errorOutput = '';
+      let killTimer: ReturnType<typeof setTimeout> | undefined;
+      const kill = (force = false) => {
+        if (!child.pid) return;
+        try {
+          if (process.platform === 'win32') {
+            spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }).on('error', () => child.kill('SIGKILL'));
+          } else process.kill(-child.pid, force ? 'SIGKILL' : 'SIGTERM');
+        } catch { child.kill(force ? 'SIGKILL' : 'SIGTERM'); }
+      };
       const onAbort = () => {
-        child.kill('SIGTERM');
-        reject(new Error('HyperFrames render cancelled'));
+        kill();
+        killTimer = setTimeout(() => kill(true), 2000);
+        killTimer.unref();
       };
       signal?.addEventListener('abort', onAbort, { once: true });
-
-      let errorOutput = '';
+      if (signal?.aborted) onAbort();
+      const cleanup = () => {
+        signal?.removeEventListener('abort', onAbort);
+        if (killTimer) clearTimeout(killTimer);
+      };
 
       child.stdout.on('data', (chunk) => {
         const text = chunk.toString();
@@ -113,17 +132,18 @@ export async function renderHyperFramesOverlay(opts: HyperFramesRenderOptions): 
       });
 
       child.stderr.on('data', (chunk) => {
-        errorOutput += chunk.toString();
+        errorOutput = (errorOutput + chunk.toString()).slice(-8000);
       });
 
       child.on('error', (err) => {
-        signal?.removeEventListener('abort', onAbort);
+        cleanup();
         reject(err);
       });
 
       child.on('close', (code) => {
-        signal?.removeEventListener('abort', onAbort);
-        if (code === 0 && fs.existsSync(outputPath)) {
+        cleanup();
+        if (signal?.aborted) { reject(new Error('HyperFrames render cancelled')); return; }
+        if (code === 0 && fs.existsSync(pending) && fs.statSync(pending).size > 0) {
           onProgress?.(100);
           resolve();
         } else {
@@ -132,8 +152,11 @@ export async function renderHyperFramesOverlay(opts: HyperFramesRenderOptions): 
       });
     });
 
+    signal?.throwIfAborted();
+    fs.renameSync(pending, outputPath);
     return outputPath;
   } finally {
+    fs.rmSync(pending, { force: true });
     // Cleanup staging folder
     try {
       fs.rmSync(workDir, { recursive: true, force: true });

@@ -50,6 +50,9 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
 
     const containerRef = useRef<HTMLDivElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
+    const backgroundVideoRef = useRef<HTMLVideoElement>(null);
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const [audioError, setAudioError] = useState('');
     const listeners = useRef<Map<string, Set<Function>>>(new Map());
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentFrame, setCurrentFrame] = useState(initialFrame);
@@ -77,16 +80,17 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
         if (videoRef.current) {
           videoRef.current.currentTime = clamped / fps;
         }
+        if (audioRef.current) audioRef.current.currentTime = clamped / fps;
         trigger('seeked', { frame: clamped });
         trigger('timeupdate', { frame: clamped });
       },
       play: () => {
         setIsPlaying(true);
-        videoRef.current?.play().catch(() => {});
+
       },
       pause: () => {
         setIsPlaying(false);
-        videoRef.current?.pause();
+
       },
       addEventListener: (event: string, cb: Function) => {
         if (!listeners.current.has(event)) {
@@ -110,10 +114,13 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
         lastTime = now;
 
         setCurrentFrame((prev) => {
-          let next = prev + delta * fps;
+          const clock = videoRef.current || audioRef.current;
+          let next = clock ? clock.currentTime * fps : prev + delta * fps;
+          if (clock && clock.paused && !clock.ended) return prev;
           if (next > maxFrame) {
             if (loop) {
               next = inFrame;
+              if (clock) { clock.currentTime = inFrame / fps; void clock.play(); }
             } else {
               setIsPlaying(false);
               next = maxFrame;
@@ -134,6 +141,21 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
 
       return () => cancelAnimationFrame(raf);
     }, [isPlaying, fps, loop, inFrame, maxFrame]);
+
+    useEffect(() => {
+      const media = videoRef.current || audioRef.current;
+      if (!media) return;
+      let cancelled = false;
+      if (isPlaying) {
+        if (currentFrame >= maxFrame) { media.currentTime = inFrame / fps; setCurrentFrame(inFrame); }
+        void media.play().catch(() => { if (cancelled) return; setIsPlaying(false); setAudioError('Audio could not play. Try Play again after the mix loads.'); });
+      } else media.pause();
+      return () => { cancelled = true; media.pause(); };
+    }, [isPlaying]);
+
+    useEffect(() => {
+      setIsPlaying(false); setCurrentFrame(initialFrame); setAudioError('');
+    }, [inputProps?.project?.revisionId, inputProps?.audioPreviewUrl]);
 
     // Video media url if available in inputProps
     const videoUrl =
@@ -159,6 +181,16 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
       (a: any) => a.enabled && roundedFrame >= a.startFrame && roundedFrame < a.endFrame
     ) || [];
 
+    useEffect(() => {
+      const video = backgroundVideoRef.current;
+      if (!video || !currentScene) return;
+      const time = Math.max(0, (currentFrame - currentScene.startFrame) / fps);
+      const end = Number.isFinite(video.duration) ? Math.max(0, video.duration - 1 / fps) : time;
+      const target = Math.min(time, end);
+      if (Math.abs(video.currentTime - target) > 1 / fps) video.currentTime = target;
+      if (isPlaying && time < end) void video.play().catch(() => {}); else video.pause();
+    }, [currentFrame, currentScene?.id, isPlaying, fps]);
+
     return (
       <div
         ref={containerRef}
@@ -174,6 +206,11 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
           ...style,
         }}
       >
+        {!videoUrl && inputProps?.audioPreviewUrl && <audio ref={audioRef} src={inputProps.audioPreviewUrl} preload="metadata"
+          onError={() => { setIsPlaying(false); setAudioError('Preview audio is unavailable. Check the audio mix and retry.'); }} />}
+        {audioError && <div role="alert" style={{position:'absolute',top:8,left:8,right:8,zIndex:50,color:'#fecaca',background:'#450a0a',padding:8,fontSize:12}}>{audioError}</div>}
+        <style>{(project?.style?.fontAssetIds || []).map((id: string) =>
+          `@font-face{font-family:sg-font-${id};src:url("${assets[id]?.url}");font-weight:400;font-display:block;}`).join('\n')}</style>
         {videoUrl ? (
           <video
             ref={videoRef}
@@ -210,14 +247,14 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
             }}
           >
             {/* Background scene image */}
-            {sceneImageUrl ? (
+            {sceneImageUrl && sceneAsset?.record?.mime === 'video/mp4' ? <video ref={backgroundVideoRef} muted playsInline src={sceneImageUrl} style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:currentScene?.framing || 'cover'}} /> : sceneImageUrl ? (
               <img
                 src={sceneImageUrl}
                 alt="Scene background"
                 style={{
                   width: '100%',
                   height: '100%',
-                  objectFit: 'contain',
+                  objectFit: currentScene?.framing || 'cover',
                   position: 'absolute',
                   inset: 0,
                 }}
@@ -240,7 +277,13 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
               {/* Active artifacts display */}
               {activeArtifacts.map((art: any) => {
                 if (art.sceneGraph) {
-                  return <SceneGraphOverlay key={art.id} graph={art.sceneGraph} scale={1} />;
+                  return <SceneGraphOverlay key={art.id} graph={art.sceneGraph} frame={roundedFrame - art.startFrame}
+                    options={{ width: compositionWidth, height: compositionHeight, fps,
+                      durationFrames: art.endFrame - art.startFrame, idPrefix: `sg-${art.id}`,
+                      motion: project.settings?.motionLevel,
+                      imageSizes: Object.fromEntries(Object.entries(assets).map(([id,a]:[string,any]) => [id,{width:a.record?.width,height:a.record?.height}])) ,
+                      assets: Object.fromEntries(Object.entries(assets).map(([id, a]: [string, any]) => [id, a.url])),
+                      fonts: Object.fromEntries((project.style?.fontAssetIds || []).map((id: string) => [id, `sg-font-${id}`])) }} />;
                 }
                 const g = art.graphic;
                 if (!g) return null;
@@ -292,7 +335,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                   );
                 }
 
-                // 1. Chapter Title Card (Top)
+                // 1. Free-floating chapter title
                 if (g.kind === 'title') {
                   return (
                     <div
@@ -303,10 +346,11 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                         left: '6%',
                         right: '6%',
                         padding: '10px 14px',
-                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(30, 41, 59, 0.94) 100%)',
-                        border: '1px solid rgba(255, 107, 0, 0.6)',
-                        borderRadius: '6px',
-                        boxShadow: '0 6px 24px rgba(0,0,0,0.7)',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: 0,
+                        boxShadow: 'none',
+                        textShadow: '0 2px 4px #000, 0 0 2px #000',
                         zIndex: 10,
                       }}
                     >
@@ -336,10 +380,11 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                         left: '6%',
                         right: '6%',
                         padding: '12px 16px',
-                        background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(30, 41, 59, 0.94) 100%)',
-                        border: '1px solid rgba(255, 107, 0, 0.5)',
-                        borderRadius: '6px',
-                        boxShadow: '0 8px 30px rgba(0,0,0,0.7)',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: 0,
+                        boxShadow: 'none',
+                        textShadow: '0 2px 4px #000, 0 0 2px #000',
                         zIndex: 10,
                       }}
                     >
@@ -352,7 +397,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                       <div style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '4px 0 6px', fontFamily: 'monospace' }}>
                         {g.title}
                       </div>
-                      <div style={{ height: '3px', width: '100%', background: '#334155', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ height: '3px', width: '100%', background: '#334155', borderRadius: 0, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: '85%', background: 'linear-gradient(90deg, #FF6B00, #FFD600)' }} />
                       </div>
                     </div>
@@ -370,10 +415,11 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                         left: '6%',
                         right: '6%',
                         padding: '12px 14px',
-                        background: 'rgba(15, 23, 42, 0.92)',
-                        border: '1px solid rgba(255, 107, 0, 0.5)',
-                        borderRadius: '6px',
-                        boxShadow: '0 8px 30px rgba(0,0,0,0.7)',
+                        background: 'transparent',
+                        border: 'none',
+                        borderRadius: 0,
+                        boxShadow: 'none',
+                        textShadow: '0 2px 4px #000, 0 0 2px #000',
                         zIndex: 10,
                       }}
                     >
@@ -395,7 +441,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                   );
                 }
 
-                // 4. Polaroid Badge (3D Tilted Photo Card)
+                // 4. Free-floating badge text
                 if (g.kind === 'badge') {
                   return (
                     <div
@@ -406,19 +452,16 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                         left: '20%',
                         width: '60%',
                         padding: '8px 8px 12px 8px',
-                        background: '#FDFBF7',
-                        borderRadius: '3px',
-                        boxShadow: '0 12px 35px rgba(0,0,0,0.85)',
-                        transform: 'rotate(-4deg)',
+                        background: 'transparent',
+                        borderRadius: 0,
+                        boxShadow: 'none',
+                        textShadow: '0 2px 4px #000, 0 0 2px #000',
+                        transform: 'none',
                         zIndex: 12,
                       }}
                     >
-                      <div style={{ width: '30px', height: '10px', background: 'rgba(255,255,255,0.75)', position: 'absolute', top: -5, left: '38%', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
-                      <div style={{ width: '100%', height: '140px', background: '#334155', borderRadius: '2px', overflow: 'hidden' }}>
-                        <img src={sceneImageUrl} alt="Badge" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
                       <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 900, color: '#0F172A', textTransform: 'uppercase' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 900, color: '#FFFFFF', textTransform: 'uppercase' }}>
                           {g.title}
                         </div>
                         {g.detail && (
@@ -431,7 +474,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                   );
                 }
 
-                // 5. Object Spotlight (Reticle + Leader line + Card)
+                // 5. Object spotlight with an unboxed label
                 if (g.kind === 'spotlight') {
                   return (
                     <div key={art.id} style={{ position: 'absolute', inset: 0, zIndex: 12 }}>
@@ -446,10 +489,11 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                           left: '6%',
                           maxWidth: '70%',
                           padding: '6px 12px',
-                          background: 'rgba(15, 23, 42, 0.94)',
-                          border: '1px solid #FF6B00',
-                          borderRadius: '4px',
-                          boxShadow: '0 6px 20px rgba(0,0,0,0.8)',
+                          background: 'transparent',
+                          border: 'none',
+                          borderRadius: 0,
+                          boxShadow: 'none',
+                        textShadow: '0 2px 4px #000, 0 0 2px #000',
                         }}
                       >
                         <div style={{ fontSize: '10px', fontWeight: 900, color: '#FFF' }}>
@@ -465,7 +509,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                   );
                 }
 
-                // 6. Newspaper / Archival Clipping
+                // 6. Free-floating annotation
                 if (g.kind === 'frame' || g.kind === 'diagram') {
                   return (
                     <div
@@ -476,28 +520,29 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                         left: '6%',
                         right: '6%',
                         padding: '12px 14px',
-                        background: '#FDFBF7',
-                        borderRadius: '2px',
-                        boxShadow: '0 10px 30px rgba(0,0,0,0.8)',
-                        transform: 'rotate(1.5deg)',
+                        background: 'transparent',
+                        borderRadius: 0,
+                        boxShadow: 'none',
+                        textShadow: '0 2px 4px #000, 0 0 2px #000',
+                        transform: 'none',
                         zIndex: 12,
                       }}
                     >
                       <div style={{ fontSize: '7px', color: '#475569', fontWeight: 'bold', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid #CBD5E1', paddingBottom: '3px' }}>
                         HISTORICAL ARCHIVE // DISASTER INVESTIGATION
                       </div>
-                      <div style={{ fontSize: '14px', fontWeight: 900, color: '#0F172A', marginTop: '6px', lineHeight: '1.2' }}>
-                        <span style={{ backgroundColor: '#FFD600', padding: '1px 4px' }}>{g.title}</span>
+                      <div style={{ fontSize: '14px', fontWeight: 900, color: '#FFFFFF', marginTop: '6px', lineHeight: '1.2' }}>
+                        <span>{g.title}</span>
                       </div>
                       <div style={{ height: '2px', background: '#E2E8F0', margin: '8px 0 4px' }} />
-                      <div style={{ fontSize: '8px', color: '#64748B' }}>
+                      <div style={{ fontSize: '8px', color: '#CBD5E1' }}>
                         {g.detail || 'Verified survivor accounted for following extensive search.'}
                       </div>
                     </div>
                   );
                 }
 
-                // Default Fallback Card
+                // Default free-floating label
                 return (
                   <div
                     key={art.id}
@@ -507,10 +552,11 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                       left: '8%',
                       right: '8%',
                       padding: '10px 14px',
-                      background: 'rgba(15, 23, 42, 0.9)',
-                      border: '1px solid rgba(255, 107, 0, 0.5)',
-                      borderRadius: '6px',
-                      boxShadow: '0 6px 20px rgba(0,0,0,0.7)',
+                      background: 'transparent',
+                      border: 'none',
+                      borderRadius: 0,
+                      boxShadow: 'none',
+                        textShadow: '0 2px 4px #000, 0 0 2px #000',
                       zIndex: 10,
                     }}
                   >
@@ -568,6 +614,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
           >
             <button
               type="button"
+              aria-label={isPlaying ? 'Pause video' : 'Play video'}
               onClick={() => setIsPlaying(!isPlaying)}
               style={{
                 background: 'none',
@@ -582,6 +629,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
             </button>
             <input
               type="range"
+              aria-label="Video scrubber"
               min={0}
               max={durationInFrames - 1}
               value={roundedFrame}
@@ -591,6 +639,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                 if (videoRef.current) {
                   videoRef.current.currentTime = f / fps;
                 }
+                if (audioRef.current) audioRef.current.currentTime = f / fps;
                 trigger('seeked', { frame: f });
                 trigger('timeupdate', { frame: f });
               }}

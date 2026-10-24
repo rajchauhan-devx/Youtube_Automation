@@ -10,6 +10,8 @@ import { makeStyleTestProject } from './styleTest';
 import { GraphicLayoutEditor } from './GraphicLayoutEditor';
 import { useDraftHistory } from '../../hooks/useDraftHistory';
 import { MotionStylePanel } from './MotionStylePanel';
+import { MotionDemoGallery } from './MotionDemoGallery';
+import {SELECTIVE_MOTION_DIRECTION,isImageOnlyShorts} from '../../../server/src/services/motion-editorial-policy';
 
 const activeStates = ['queued', 'running', 'cancel_requested'];
 const button = 'rounded-xl bg-gradient-to-r from-accent to-[#e11d48] px-4 py-2 text-sm font-semibold text-white shadow-glow transition-all hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:shadow-none';
@@ -18,8 +20,12 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   const [model, setModel] = useState('');
   const state = useEditingProject(script?.id, script?.editingProjectId || undefined, model || undefined);
   const { data, fetch } = state, { profile } = useWorkspaceApi();
-  const [audio, setAudio] = useState(''), [style, setStyle] = useState(''), [density, setDensity] = useState<'subtle' | 'balanced' | 'expressive'>('balanced');
+  const imageOnly=isImageOnlyShorts(script || {},profile);
+  const [audio, setAudio] = useState(''), [style, setStyle] = useState(''), [density, setDensity] = useState<'subtle' | 'balanced' | 'expressive'>('subtle');
   const [documentary, setDocumentary] = useState(true), [visualReview, setVisualReview] = useState(true);
+  const [engine, setEngine] = useState<'generative' | 'directed'>('generative');
+  const [motionLevel, setMotionLevel] = useState<'subtle' | 'balanced' | 'expressive' | 'still'>('balanced');
+  const [soundDesign, setSoundDesign] = useState<'off' | 'subtle' | 'balanced' | 'expressive'>('subtle');
   const [treatment, setTreatment] = useState<'auto' | 'archival' | 'cinematic' | 'map'>('auto');
   const [fps, setFps] = useState(60), [busy, setBusy] = useState(false), [frame, setFrame] = useState(0), [selected, setSelected] = useState('');
   const [showStyleTest, setShowStyleTest] = useState(false);
@@ -38,7 +44,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   const currentScene = p?.scenes.find(s => frame >= s.startFrame && frame < s.endFrame) || p?.scenes[0];
   const loopScene = !showStyleTest ? p?.scenes.find(s => s.id === loopSceneId && s.endFrame - s.startFrame > 1) : undefined;
   const previewAssets = data?.assets;
-  const previewProps = useMemo(() => previewProject && previewAssets ? { project: previewProject, assets: previewAssets } : undefined, [previewProject, previewAssets]);
+  const previewProps = useMemo(() => previewProject && previewAssets ? { project: previewProject, assets: previewAssets, audioPreviewUrl: showStyleTest || hasDraft ? undefined : data?.audioPreviewUrl } : undefined, [previewProject, previewAssets, showStyleTest, hasDraft, data?.audioPreviewUrl]);
   const previewStyle = { width: '100%', maxWidth: p && p.inputs.height > p.inputs.width ? 360 : '100%' };
   const job = data?.jobs.filter(j => activeStates.includes(j.state)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
   const lastJob = data?.jobs.filter(j => j.revisionId === data.currentRevisionId || j.resultRevisionId === data.currentRevisionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
@@ -55,8 +61,16 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
       setDocumentary(p.settings.documentary ?? true);
       setVisualReview(p.settings.visualReview ?? true);
       setTreatment(p.settings.treatment ?? 'auto');
+      setEngine(imageOnly?'generative':p.settings.graphicEngine ?? 'directed');
+      setMotionLevel(p.settings.motionLevel ?? 'balanced');
+      setSoundDesign(p.settings.soundDesign ?? 'subtle');
     }
-  }, [p]);
+  }, [p,imageOnly]);
+  useEffect(()=>{
+    setStyle(script?.autoPilotSettings?.graphics.style || p?.settings.stylePreference || SELECTIVE_MOTION_DIRECTION);
+    setDensity(script?.autoPilotSettings?.graphics.density || p?.settings.density || 'subtle');
+    if(imageOnly)setEngine('generative');
+  },[script?.id,script?.autoPilotSettings?.graphics.style,script?.autoPilotSettings?.graphics.density,p?.id,imageOnly]);
   useEffect(() => { if (p?.inputs.fps) setFps(p.inputs.fps); }, [p?.id, p?.inputs.fps]);
   useEffect(() => { setShowStyleTest(false); resetDraft(); setEditLayout(false); }, [p?.revisionId, resetDraft]);
   useEffect(() => { setFrame(0); setLoopSceneId(''); setSelected(''); }, [p?.id]);
@@ -115,12 +129,13 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   async function generate(mode: 'graphics' | 'captions') {
     if (!script) return;
     await act(async () => {
+      if(mode==='graphics' && script.autoPilotSettings) await onUpdate({autoPilotSettings:{...script.autoPilotSettings,graphics:{...script.autoPilotSettings.graphics,style,density}}});
       const narration = script.generatedAudio?.find(a => a.filename === audio);
       if (!narration) throw new Error('Select narration first.');
       const inputs = { scriptId: script.id, audioFilename: audio, language: narration.language,
         imageIndexes: (script.generatedImages || []).filter(i => i.status === 'done' && i.url).map(i => i.index),
         aspect: profile === 'shorts' ? '9:16' : '16:9', fps,
-        settings: { stylePreference: style, density, documentary, treatment, visualReview, maxProviderCalls: 40, maxGeneratedAssets: 3, ...(model ? { aiModel: model } : {}) } };
+        settings: { stylePreference: style, density, documentary, treatment, visualReview, graphicEngine: engine, motionLevel, soundDesign, maxProviderCalls: 40, maxGeneratedAssets: 3, ...(model ? { aiModel: model } : {}) } };
       const reuse = mode === 'captions' && p && data && !data.stale && p.revisionId === data.currentRevisionId &&
         p.inputs.audioFilename === audio && p.inputs.fps === fps && p.inputs.width === (profile === 'shorts' ? 1080 : 1920) &&
         p.inputs.imageAssets.map(i => i.promptIndex).join(',') === inputs.imageIndexes.join(',');
@@ -137,14 +152,15 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
     });
   }
   const download = data?.jobs.filter(j => j.operation === 'render' && j.state === 'succeeded' && j.outputUrl && j.revisionId === p?.revisionId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-  if (!script) return <p className="p-6 text-gray-400">Select a script to create motion graphics.</p>;
+  if (!script) return <div className="space-y-4 p-2"><MotionDemoGallery /><p className="p-4 text-gray-400">Select a script to create motion graphics.</p></div>;
   return <div className="space-y-6 p-2 text-gray-200">
     <div className="rounded-2xl border border-border/80 bg-gradient-to-br from-surface to-surface2 p-6 shadow-card backdrop-blur-md">
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-accent">Motion Studio</p>
       <h2 className="mt-1 text-2xl font-bold tracking-tight text-white">{editor ? 'Preview & Export' : 'Motion Artifacts'}</h2>
-      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">Directed visual sequences, separate illustration assets, verified source details, and rendered motion review.</p>
+      <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-muted">Original motion designs, readable explanations, narration-aware sound, and rendered review.</p>
       <div className="mt-4 flex flex-wrap gap-2">{Object.values(graphicNames).map(name => <span key={name} className="rounded-lg border border-border bg-surface2/60 px-3 py-1 text-xs font-medium text-gray-300">{name}</span>)}</div>
     </div>
+    <MotionDemoGallery />
     {state.error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-950/30 p-3.5 text-sm text-red-200">{state.error}</div>}
     {!editor && <div className="grid gap-4 rounded-2xl border border-border/80 bg-surface/90 p-5 shadow-card md:grid-cols-2">
       <label className="text-xs font-semibold text-gray-300">Narration<select className={input} value={audio} onChange={e => setAudio(e.target.value)}>
@@ -158,13 +174,26 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         <option value="subtle">Subtle · fewer narrative beats</option><option value="balanced">Balanced</option><option value="expressive">Expressive · more emphasis</option>
       </select></label>
       <label className="text-xs font-semibold text-gray-300">Frame rate<select className={input} value={fps} onChange={e => setFps(Number(e.target.value))}><option value={60}>60 fps · smooth motion</option><option value={30}>30 fps · faster export</option></select></label>
-      <label className="text-xs font-semibold text-gray-300">Visual treatment<select aria-label="Documentary treatment" className={input} value={treatment} onChange={e => setTreatment(e.target.value as typeof treatment)} disabled={!documentary}>
+      <label className="text-xs font-semibold text-gray-300">Composition style<select aria-label="Composition style" className={input} value={engine} disabled={imageOnly} onChange={e => setEngine(e.target.value as typeof engine)}>
+        <option value="generative">Original compositions · diagrams, comparisons &amp; timelines</option><option value="directed">Directed sequences &amp; source images</option>
+      </select></label>
+      {imageOnly && <p className="text-xs text-gray-400 md:col-span-2">AI uses the scene metadata to choose useful moments. Most scenes stay clean; graphics follow the channel’s language and visual style.</p>}
+      <label className="text-xs font-semibold text-gray-300">Motion feel<select aria-label="Motion feel" className={input} value={motionLevel} onChange={e => setMotionLevel(e.target.value as typeof motionLevel)}>
+        <option value="subtle">Calm &amp; restrained</option><option value="balanced">Balanced</option><option value="expressive">Expressive</option><option value="still">Still · no animation</option>
+      </select></label>
+      <label className="text-xs font-semibold text-gray-300">Sound design<select aria-label="Sound design" className={input} value={soundDesign} onChange={e => setSoundDesign(e.target.value as typeof soundDesign)}>
+        <option value="off">Off</option><option value="subtle">Subtle · narration first</option><option value="balanced">Balanced</option><option value="expressive">Expressive</option>
+      </select></label>
+      <label className="text-xs font-semibold text-gray-300">Visual treatment<select aria-label="Documentary treatment" className={input} value={treatment} onChange={e => setTreatment(e.target.value as typeof treatment)} disabled={engine !== 'directed' || !documentary}>
         <option value="auto">Automatic · combine treatments</option><option value="archival">Archival collage</option><option value="cinematic">Cinematic images</option><option value="map">Map focus · requires a source map</option>
       </select></label>
       <div className="space-y-3 self-center text-xs text-gray-300">
-        <label className="flex items-center gap-2"><input aria-label="Image-led documentary visuals" type="checkbox" checked={documentary} onChange={e => setDocumentary(e.target.checked)} />Directed visual sequences</label>
+        <label className="flex items-center gap-2"><input aria-label="Image-led documentary visuals" type="checkbox" disabled={engine !== 'directed'} checked={documentary} onChange={e => setDocumentary(e.target.checked)} />Directed visual sequences</label>
         <label className="flex items-center gap-2"><input aria-label="Review rendered placement" type="checkbox" checked={visualReview} onChange={e => setVisualReview(e.target.checked)} />AI checks rendered placement and repairs layout</label>
       </div>
+      {p && (p.settings.motionLevel !== motionLevel || p.settings.soundDesign !== soundDesign) && <button className="text-left text-xs text-sky-300 disabled:opacity-40" disabled={!editable || hasDraft} onClick={() => void act(async () => {
+        state.setData(await editingRequest<EditingPayload>(fetch, `/projects/${p.id}/preferences`, { expectedRevisionId: p.revisionId, motionLevel, soundDesign }));
+      })}>Apply motion &amp; sound to this project</button>}
       <label className="text-xs font-semibold text-gray-300 md:col-span-2">Direction <span className="text-faint font-normal">(optional)</span><input className={input} value={style} maxLength={2000} onChange={e => setStyle(e.target.value)} placeholder="Keep footage full-bleed; explain scale and mechanisms with purposeful sequences" /></label>
       {!!state.capabilities?.missing.length && <div className="text-xs text-amber-300 md:col-span-2">{state.capabilities.missing.join(' ')}</div>}
       <div className="md:col-span-2 flex flex-wrap items-center gap-3 pt-2">
@@ -176,7 +205,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
           state.setSelectedRevision(''); state.setData(next); setSelected(''); setFrame(0);
         })}>Clear Graphics</button>}
       </div>
-      <p className="text-[11px] leading-relaxed text-muted md:col-span-2">The director builds selected explanatory sequences and keeps ordinary footage clean. Up to three separate illustration assets can be generated with the configured image model. Text and timing stay editable; generated illustrations are labeled.</p>
+      <p className="text-[11px] leading-relaxed text-muted md:col-span-2">Original compositions combine text, shapes, images and animated connections to explain selected moments. Sound stays beneath the narration. Ordinary footage stays clean; every design is checked for readable text and overlap.</p>
     </div>}
     {!!data?.legacyArtifactCount && <p className="rounded-lg border border-amber-800 p-3 text-sm text-amber-200">This saved revision contains {data.legacyArtifactCount} retired graphics. They are hidden from preview and new exports. Generate motion graphics to replace them; original media and revision history remain available.</p>}
     {job && <div role="status" className="flex items-center justify-between rounded-lg border border-amber-700/50 p-3 text-sm"><span>{job.stage}{job.total ? ` · ${job.completed}/${job.total}` : ''}</span><button className="text-red-300" disabled={job.state === 'cancel_requested'} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${job.id}/cancel`, {}); await state.refresh(); })}>{job.state === 'cancel_requested' ? 'Cancelling…' : 'Cancel'}</button></div>}
@@ -194,27 +223,27 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3 text-xs">
           <label>Preview scene<select aria-label="Preview scene" className={input} disabled={showStyleTest} value={currentScene?.id || ''} onChange={e => { const scene = p.scenes.find(s => s.id === e.target.value); if (scene) seekTo(scene.startFrame); }}>{p.scenes.map((scene, index) => <option key={scene.id} value={scene.id}>Scene {index + 1} · {((scene.endFrame - scene.startFrame) / p.inputs.fps).toFixed(1)} s</option>)}</select></label>
           <button type="button" aria-label="Loop scene" aria-pressed={!!loopScene} className="rounded-lg border border-sky-400/50 px-3 py-2 text-sky-200 disabled:opacity-40" disabled={showStyleTest || !currentScene || currentScene.endFrame - currentScene.startFrame < 2} onClick={() => { player.current?.pause(); setLoopSceneId(loopScene ? '' : currentScene!.id); if (!loopScene) seekTo(currentScene!.startFrame); }}>{loopScene ? 'Stop scene loop' : 'Loop this scene'}</button>
-          <button type="button" aria-label="Edit graphic layout" aria-pressed={editLayout} className="rounded-lg border border-amber-400/50 px-3 py-2 text-amber-200 disabled:opacity-40" disabled={!editable || showStyleTest || !selectedArtifact?.enabled} onClick={() => { player.current?.pause(); setEditLayout(value => !value); if (!editLayout && selectedArtifact) selectGraphic(selectedArtifact); }}>{editLayout ? 'Finish layout editing' : 'Drag & resize graphic'}</button>
+          <button type="button" aria-label="Edit graphic layout" aria-pressed={editLayout} className="rounded-lg border border-amber-400/50 px-3 py-2 text-amber-200 disabled:opacity-40" disabled={!editable || showStyleTest || !selectedArtifact?.enabled} onClick={() => { player.current?.pause(); setEditLayout(value => !value); if (!editLayout && selectedArtifact) selectGraphic(selectedArtifact); }}>{editLayout ? 'Finish layout editing' : selectedArtifact?.sceneGraph ? 'Move composition' : 'Drag & resize graphic'}</button>
           {!selectedArtifact && <span className="text-gray-400">Select a graphic to edit its layout.</span>}
         </div>
         <div className="flex justify-center overflow-hidden rounded-xl border border-border bg-black p-2"><div className="relative" style={{ ...previewStyle, aspectRatio: `${p.inputs.width} / ${p.inputs.height}` }}>
           <Player key={`${p.revisionId}-${showStyleTest ? 'style-test' : 'saved'}`} ref={player} inputProps={previewProps!} durationInFrames={p.inputs.durationFrames} fps={p.inputs.fps} compositionWidth={p.inputs.width} compositionHeight={p.inputs.height} controls loop={!!loopScene} inFrame={loopScene?.startFrame} outFrame={loopScene ? loopScene.endFrame - 1 : undefined} initialFrame={Math.max(loopScene?.startFrame || 0, Math.min(frame, loopScene ? loopScene.endFrame - 1 : p.inputs.durationFrames - 1))} moveToBeginningWhenEnded={false} allowFullscreen={!editLayout} style={{ width: '100%', height: '100%' }} />
-          {editLayout && editable && !showStyleTest && selectedArtifact?.graphic && selectedArtifact.enabled && frame >= selectedArtifact.startFrame && frame < selectedArtifact.endFrame && <GraphicLayoutEditor graphic={selectedArtifact.graphic} width={p.inputs.width} height={p.inputs.height} onPause={() => player.current?.pause()} onChange={bounds => changeArtifact({ ...selectedArtifact, graphic: { ...selectedArtifact.graphic!, bounds } })} />}
+          {editLayout && editable && !showStyleTest && selectedArtifact && selectedArtifact.enabled && frame >= selectedArtifact.startFrame && frame < selectedArtifact.endFrame && <GraphicLayoutEditor graphic={selectedArtifact.graphic || { bounds: selectedArtifact.sceneGraph!.bounds, title: selectedArtifact.intent }} resizable={!selectedArtifact.sceneGraph} width={p.inputs.width} height={p.inputs.height} onPause={() => player.current?.pause()} onChange={bounds => changeArtifact(selectedArtifact.sceneGraph ? { ...selectedArtifact, sceneGraph: { ...selectedArtifact.sceneGraph, bounds } } : { ...selectedArtifact, graphic: { ...selectedArtifact.graphic!, bounds } })} />}
         </div></div>
-        {editLayout && <p className="text-xs text-amber-200">Drag the box or its corner handles. Arrow keys move or resize; Shift moves 10 pixels. The dashed boundary marks the safe area.</p>}
+        {editLayout && <p className="text-xs text-amber-200">Drag to move the graphic. Arrow keys move it; Shift moves 10 pixels. Image graphics also have resize handles. The dashed boundary marks the safe area.</p>}
         <div className="flex gap-3 text-xs"><button type="button" aria-label="Undo graphic edit" className="rounded-lg border border-border px-3 py-2 disabled:opacity-40" disabled={!editable || !draftHistory.canUndo} onClick={draftHistory.undo}>Undo</button><button type="button" aria-label="Redo graphic edit" className="rounded-lg border border-border px-3 py-2 disabled:opacity-40" disabled={!editable || !draftHistory.canRedo} onClick={draftHistory.redo}>Redo</button><span className="self-center text-gray-400">Draft edit history · saving starts a new history</span></div>
-        {hasDraft && draftArtifact && <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-100"><span>Unsaved graphic changes · preview only</span><button type="button" className="underline disabled:opacity-40" disabled={!editable || !draftArtifact.graphic?.title.trim() || draftArtifact.endFrame <= draftArtifact.startFrame} onClick={() => void saveArtifact(draftArtifact, { graphic: draftArtifact.graphic, startFrame: draftArtifact.startFrame, endFrame: draftArtifact.endFrame })}>Save graphic</button><button type="button" className="underline" disabled={busy} onClick={draftHistory.reset}>Discard changes</button></div>}
+        {hasDraft && draftArtifact && <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-400/40 bg-amber-500/10 p-3 text-xs text-amber-100"><span>Unsaved graphic changes · preview only</span><button type="button" className="underline disabled:opacity-40" disabled={!editable || (!draftArtifact.sceneGraph && !draftArtifact.graphic?.title.trim()) || draftArtifact.endFrame <= draftArtifact.startFrame} onClick={() => void saveArtifact(draftArtifact, { graphic: draftArtifact.graphic, sceneGraph: draftArtifact.sceneGraph, startFrame: draftArtifact.startFrame, endFrame: draftArtifact.endFrame })}>Save graphic</button><button type="button" className="underline" disabled={busy} onClick={draftHistory.reset}>Discard changes</button></div>}
         <p className="text-xs text-gray-500">{(frame / p.inputs.fps).toFixed(1)} / {(p.inputs.durationFrames / p.inputs.fps).toFixed(1)} s · {p.inputs.fps} fps</p>
         <div aria-label="Motion graphics timeline" className="space-y-2 rounded-lg border border-border p-3">
           <input aria-label="Timeline playhead" type="range" className="w-full accent-amber-400" min={0} max={p.inputs.durationFrames - 1} value={frame} onChange={e => seekTo(Number(e.target.value))} />
           <div className="flex h-8 gap-px">{p.scenes.map((s, i) => <button key={s.id} className="truncate rounded bg-slate-700 text-xs" style={{ width: `${100 * (s.endFrame - s.startFrame) / p.inputs.durationFrames}%` }} onClick={() => seekTo(s.startFrame)}>Scene {i + 1}</button>)}</div>
-          <div className="relative h-7">{previewProject?.artifacts.filter(a => a.graphic?.kind !== 'caption').map(a => <button title={a.intent} key={a.id} className={`absolute h-7 truncate rounded px-1 text-xs ${a.enabled ? 'bg-amber-700' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames}%` }} onClick={() => selectGraphic(a)}>{a.graphic?.title}</button>)}</div>
+          <div className="relative h-7">{previewProject?.artifacts.filter(a => a.graphic?.kind !== 'caption').map(a => <button title={a.intent} key={a.id} className={`absolute h-7 truncate rounded px-1 text-xs ${a.enabled ? 'bg-amber-700' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames}%` }} onClick={() => selectGraphic(a)}>{a.graphic?.title || a.intent}</button>)}</div>
           {previewProject?.artifacts.some(a => a.graphic?.kind === 'caption') && <div aria-label="Motion captions timeline" className="relative h-5">{previewProject.artifacts.filter(a => a.graphic?.kind === 'caption').map(a => <button aria-label={`Caption: ${a.graphic?.title}`} title={a.graphic?.title} key={a.id} className={`absolute h-5 rounded ${a.enabled ? 'bg-sky-600' : 'bg-gray-700 opacity-40'}`} style={{ left: `${100 * a.startFrame / p.inputs.durationFrames}%`, width: `${Math.max(0.2, 100 * (a.endFrame - a.startFrame) / p.inputs.durationFrames)}%` }} onClick={() => seekTo(a.startFrame)} />)}</div>}
         </div>
         <div className="flex flex-wrap items-center gap-3"><button className={button} disabled={hasDraft || !ready || busy || !!job} onClick={() => void act(async () => { await editingRequest(fetch, `/projects/${p.id}/render`, { revisionId: p.revisionId }); await state.refresh(); })}>Export MP4</button>
           <button className="text-sm text-sky-300 disabled:opacity-40" disabled={hasDraft || !editable || !state.capabilities?.ready || !p.artifacts.some(a => a.enabled && a.graphic?.kind !== 'caption')} onClick={() => void act(async () => { await editingRequest(fetch, `/projects/${p.id}/review`, { expectedRevisionId: p.revisionId }); await state.refresh(); })}>Review placement</button>
           {download?.outputUrl && <a href={download.outputUrl} download className="text-sm text-amber-300 underline">Download MP4</a>}</div>
-        <p className="text-xs text-gray-500">Preview and export use the same graphics, scene media and narration. Cue timing: {p.alignment.mode === 'word' ? 'word aligned' : p.alignment.mode === 'phrase' ? 'phrase aligned' : 'approximate · graphics start with the scene'}.</p>
+        <p className="text-xs text-gray-500">Original compositions use the same frame renderer and audio mix in preview and export. Cue timing: {p.alignment.mode === 'word' ? 'word aligned' : p.alignment.mode === 'phrase' ? 'phrase aligned' : 'approximate · graphics start with the scene'}.</p>
         <div className="flex flex-wrap items-center gap-3 text-xs"><button type="button" className="rounded-lg border border-sky-400/40 px-3 py-2 text-sky-200 disabled:opacity-40" disabled={!editable || hasDraft || !state.capabilities?.wordAlignment?.ready || p.alignment.mode === 'word'} onClick={() => void act(async () => { await editingRequest(fetch, `/projects/${p.id}/align`, { expectedRevisionId: p.revisionId }); await state.refresh(); })}>Align spoken words</button><span className="text-gray-400">{state.capabilities?.wordAlignment?.message || 'Checking local speech alignment…'} Existing motion captions are retimed after alignment; regenerate graphics to use the new cues.</span></div>
       </div>
       <div className="space-y-4">
@@ -222,7 +251,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         {p.scenes.map((scene, index) => <section key={scene.id}>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Scene {index + 1}</h3>
           {!p.artifacts.some(a => a.sceneId === scene.id && a.graphic?.kind !== 'caption') && <p className="text-xs text-gray-500">{p.sceneOutcomes?.find(o => o.sceneId === scene.id)?.reason || 'No extra graphic is needed for this scene.'}</p>}
-          {p.artifacts.filter(a => a.sceneId === scene.id && a.graphic?.kind !== 'caption').map(a => <GraphicCard key={`${p.revisionId}-${a.id}`} artifact={a} value={draftArtifact?.id === a.id ? draftArtifact : a} sceneStart={scene.startFrame} sceneEnd={scene.endFrame} fps={p.inputs.fps} width={p.inputs.width} height={p.inputs.height} busy={!editable || showStyleTest || (hasDraft && draftArtifact?.id !== a.id)} selected={selected === a.id}
+          {p.artifacts.filter(a => a.sceneId === scene.id && a.graphic?.kind !== 'caption').map(a => a.sceneGraph ? <GraphCard key={`${p.revisionId}-${a.id}`} artifact={a} value={draftArtifact?.id === a.id ? draftArtifact : a} fps={p.inputs.fps} busy={!editable || showStyleTest || (hasDraft && draftArtifact?.id !== a.id)} selected={selected === a.id} onSelect={() => selectGraphic(a)} onChange={changeArtifact} onSave={patch => saveArtifact(a, patch)} onRegenerate={instruction => act(async () => { await editingRequest(fetch, `/projects/${p.id}/artifacts/${a.id}/revise`, { expectedRevisionId: p.revisionId, instruction: instruction || "Improve the visual hierarchy and pacing" }); await state.refresh(); })} /> : <GraphicCard key={`${p.revisionId}-${a.id}`} artifact={a} value={draftArtifact?.id === a.id ? draftArtifact : a} sceneStart={scene.startFrame} sceneEnd={scene.endFrame} fps={p.inputs.fps} width={p.inputs.width} height={p.inputs.height} busy={!editable || showStyleTest || (hasDraft && draftArtifact?.id !== a.id)} selected={selected === a.id}
             onSelect={() => selectGraphic(draftArtifact?.id === a.id ? draftArtifact : a)} onChange={changeArtifact}
             onSave={patch => saveArtifact(a, patch)}
             onRegenerate={instruction => act(async () => { await editingRequest(fetch, `/projects/${p.id}/artifacts/${a.id}/revise`, { expectedRevisionId: p.revisionId, instruction: instruction.trim() || 'Reconsider this graphic for the same scene. Preserve its supported meaning and verify any target against the actual image.' }); await state.refresh(); })} />)}
@@ -234,7 +263,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   </div>;
 }
 
-type GraphicPatch = { enabled?: boolean; graphic?: MotionGraphicSpec; startFrame?: number; endFrame?: number };
+type GraphicPatch = { enabled?: boolean; sceneGraph?: ArtifactComposition['sceneGraph']; graphic?: MotionGraphicSpec; startFrame?: number; endFrame?: number };
 function GraphicCard({ artifact: a, value, sceneStart, sceneEnd, fps, width, height, busy, selected, onSelect, onChange, onSave, onRegenerate }: { artifact: ArtifactComposition; value: ArtifactComposition; sceneStart: number; sceneEnd: number; fps: number; width: number; height: number; busy: boolean; selected: boolean; onSelect: () => void; onChange: (value: ArtifactComposition) => void; onSave: (patch: GraphicPatch) => Promise<unknown>; onRegenerate: (instruction: string) => Promise<unknown> }) {
   const graphic = value.graphic!, start = value.startFrame / fps, end = value.endFrame / fps;
   const setGraphic = (next: MotionGraphicSpec) => onChange({ ...value, graphic: next });
@@ -289,5 +318,27 @@ function GraphicCard({ artifact: a, value, sceneStart, sceneEnd, fps, width, hei
     {graphic.target && <p className="text-xs text-gray-400">Target: {graphic.target.label}</p>}
     <label className="block text-xs text-gray-400">Revision direction<input aria-label="Graphic revision direction" className={input} maxLength={2000} disabled={busy} value={instruction} onChange={e => setInstruction(e.target.value)} placeholder="Move the detail inset higher; use gentler motion" /></label>
     <div className="flex flex-wrap gap-3 text-xs"><button className="text-amber-300 disabled:opacity-40" disabled={busy || !dirty || !graphic.title.trim() || end <= start} onClick={() => void onSave({ graphic, startFrame: value.startFrame, endFrame: value.endFrame })}>Save changes</button><button className="text-gray-300 disabled:opacity-40" disabled={busy || dirty} onClick={() => void onSave({ enabled: !a.enabled })}>{a.enabled ? 'Hide' : 'Show'}</button><button className="text-gray-300 disabled:opacity-40" disabled={busy || dirty} onClick={() => void onRegenerate(instruction)}>Regenerate</button><button className="text-gray-300" onClick={onSelect}>Preview</button></div>
+  </div>;
+}
+
+function GraphCard({ artifact, value, fps, busy, selected, onSelect, onChange, onSave, onRegenerate }: {
+  artifact: ArtifactComposition; value: ArtifactComposition; fps: number; busy: boolean; selected: boolean;
+  onSelect: () => void; onChange: (value: ArtifactComposition) => void; onSave: (patch: GraphicPatch) => Promise<unknown>; onRegenerate: (instruction: string) => Promise<unknown>;
+}) {
+  const [instruction, setInstruction] = useState('');
+  const graph = value.sceneGraph!;
+  const dirty = JSON.stringify(graph) !== JSON.stringify(artifact.sceneGraph);
+  return <div className={`space-y-3 rounded-xl border p-4 bg-surface ${selected ? 'border-amber-400/70' : 'border-border'}`}>
+    <button className="text-left" onClick={onSelect}><span className="text-[11px] uppercase tracking-wider text-sky-300">Original composition</span><span className="mt-1 block text-sm font-semibold">{artifact.intent}</span></button>
+    <p className="text-xs text-gray-400">{(value.startFrame / fps).toFixed(1)}–{(value.endFrame / fps).toFixed(1)} s · {graph.nodes.length} elements · {graph.soundCues.length} sound cues · {artifact.enabled ? 'Visible' : 'Hidden'}</p>
+    <p className="text-xs text-gray-400" title={artifact.visualReview?.reason}>{artifact.visualReview?.status === 'passed' ? 'Rendered review passed' : artifact.visualReview?.status === 'rejected' ? 'Review rejected · hidden' : 'Rendered review pending'}</p>
+    {graph.nodes.filter(n => n.kind === 'text').map(n => n.kind === 'text' && <label key={n.id} className="block text-xs text-gray-400">Display text<textarea aria-label={`Composition text ${n.id}`} className={input} rows={2} value={n.text} disabled={busy} onChange={e => onChange({ ...value, sceneGraph: { ...graph, nodes: graph.nodes.map(node => node.id === n.id && node.kind === 'text' ? { ...node, text: e.target.value } : node) } })} /></label>)}
+    <p className="text-[11px] text-muted">Keep wording supported by the narration. Describe layout or timing changes below to create a new design.</p>
+    {graph.soundCues.map((cue, index) => <div key={cue.id} className="grid grid-cols-2 gap-2 rounded-lg border border-border p-3">
+      <label className="text-xs text-gray-400">{cue.label || 'Sound cue'} · {cue.gainDb} dB<input aria-label={`Sound cue ${index + 1} gain`} type="range" min={-24} max={0} step={1} disabled={busy} className="mt-2 w-full accent-sky-400" value={cue.gainDb} onChange={e => onChange({ ...value, sceneGraph: { ...graph, soundCues: graph.soundCues.map((c,i) => i === index ? { ...c, gainDb: Number(e.target.value) } : c) } })} /></label>
+      <label className="text-xs text-gray-400">Cue time (seconds)<input aria-label={`Sound cue ${index + 1} time`} className={input} type="number" min={0} max={(value.endFrame-value.startFrame-1)/fps} step={1/fps} disabled={busy} value={Number((cue.localFrame/fps).toFixed(3))} onChange={e => onChange({ ...value, sceneGraph: { ...graph, soundCues: graph.soundCues.map((c,i) => i === index ? { ...c, localFrame: Math.max(0, Math.min(value.endFrame-value.startFrame-1, Math.round(Number(e.target.value)*fps))) } : c) } })} /></label>
+    </div>)}
+    <label className="block text-xs text-gray-400">Revision direction<input aria-label="Composition revision direction" className={input} value={instruction} disabled={busy} maxLength={2000} onChange={e => setInstruction(e.target.value)} placeholder="Use a branching layout, calmer reveals and fewer labels" /></label>
+    <div className="flex flex-wrap gap-3 text-xs"><button className="text-amber-300 disabled:opacity-40" disabled={busy || !dirty} onClick={() => void onSave({ sceneGraph: graph })}>Save changes</button><button disabled={busy || dirty} className="disabled:opacity-40" onClick={() => void onSave({ enabled: !artifact.enabled })}>{artifact.enabled ? 'Hide' : 'Show'}</button><button disabled={busy || dirty} className="disabled:opacity-40" onClick={() => void onRegenerate(instruction || 'Improve visual hierarchy, spacing and motion pacing')}>Regenerate</button><button onClick={onSelect}>Preview</button></div>
   </div>;
 }

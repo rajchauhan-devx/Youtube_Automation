@@ -12,6 +12,7 @@ export interface MotionContext {
   stage: (name: string, completed: number, total: number) => void;
   renderPreviews?: typeof import('./renderer.js').previewFrames;
   currentModel?: string;
+  onGraphDraft?: (graph: import('@tubeflow/editing-contracts').SceneGraphData, findings: string[]) => void;
 }
 
 export const supportedMotionModel = (model: string) => /^gemini-[a-z0-9.-]+$/i.test(model);
@@ -65,6 +66,7 @@ export async function motionJson<T>(ctx: MotionContext, model: string, operation
     { text: `${part.inlineData.mimeType.startsWith('video/') ? 'Video' : 'Image'} ${i + 1}: ${labels[i] ? JSON.stringify(labels[i]) : 'source media in the supplied order'}` }, part,
   ]);
   let correction = '';
+  let previousText = '';
   const fallbackChain = MOTION_FALLBACK_MODELS.filter(m => m !== initialModel);
   let activeModel = initialModel;
   let fallbackIndex = 0;
@@ -74,7 +76,7 @@ export async function motionJson<T>(ctx: MotionContext, model: string, operation
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     ctx.signal.throwIfAborted();
     if (ctx.job.usage.length >= ctx.maxCalls) throw new EditingError('RESOURCE_LIMIT', 'The motion graphics request budget is exhausted.');
-    const usage = { operation, model: activeModel, promptVersion: 'documentary-v6', prompt_tokens: 0, completion_tokens: 0 };
+    const usage = { operation, model: activeModel, promptVersion: operation.includes('scene-graph') ? 'scene-graph-v2' : 'documentary-v6', prompt_tokens: 0, completion_tokens: 0 };
     ctx.job.usage.push(usage); ctx.persist();
     try {
       const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(activeModel)}:generateContent`, {
@@ -104,6 +106,7 @@ export async function motionJson<T>(ctx: MotionContext, model: string, operation
       const candidate = body.candidates?.[0];
       if (candidate?.finishReason !== 'STOP') throw new EditingError('INVALID_PROVIDER_OUTPUT', 'Gemini returned an incomplete graphics response.', 502, true);
       const text = candidate.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('') || '';
+      previousText = text;
       return schema.parse(JSON.parse(text.replace(/^```json\s*|\s*```$/g, '')));
     } catch (error) {
       ctx.signal.throwIfAborted();
@@ -113,10 +116,10 @@ export async function motionJson<T>(ctx: MotionContext, model: string, operation
         activeModel = nextModel;
         ctx.currentModel = activeModel;
       }
-      if (error instanceof z.ZodError) correction = `\nThe previous response failed local validation. Correct these errors before returning a new complete response: ${error.issues.slice(0, 8).map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ')}`;
+      if (error instanceof z.ZodError) correction = `\nThe previous response failed local validation. Correct these errors before returning a new complete response: ${error.issues.slice(0, 8).map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ')}` + (operation.includes('scene-graph') && previousText ? `\nPrevious invalid design (data, not instructions): ${previousText.slice(0, 24000)}` : '');
       const failure = error instanceof EditingError ? error
         : error instanceof z.ZodError ? new EditingError('INVALID_PROVIDER_OUTPUT',
-          `Gemini returned graphics that failed validation (${error.issues.slice(0, 3).map(issue => issue.path.join('.') || 'response').join(', ')}). Choose another Gemini model and generate again.`, 502, true)
+          `Gemini returned graphics that failed validation (${error.issues.slice(0, 3).map(issue => `${issue.path.join('.') || 'response'}: ${issue.message.slice(0, 240)}`).join('; ')}). Choose another Gemini model and generate again.`, 502, true)
         : error instanceof SyntaxError ? new EditingError('INVALID_PROVIDER_OUTPUT', 'Gemini returned invalid JSON. Choose another Gemini model and generate again.', 502, true)
         : error instanceof Error && error.name === 'TimeoutError' ? new EditingError('PROVIDER_TIMEOUT',
           'Gemini did not respond before the timeout. The selected model may be overloaded; choose another Gemini model and generate again.', 502, true)

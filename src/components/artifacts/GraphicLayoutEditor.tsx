@@ -4,10 +4,10 @@ import type { MotionGraphicSpec } from '@tubeflow/editing-contracts';
 
 type Bounds = MotionGraphicSpec['bounds'];
 type Handle = 'move' | 'nw' | 'ne' | 'sw' | 'se';
-type Props = { graphic: MotionGraphicSpec; width: number; height: number; onChange: (bounds: Bounds) => void; onPause: () => void };
+type Props = { graphic: Pick<MotionGraphicSpec, 'bounds' | 'title' | 'composition'>; resizable?: boolean; width: number; height: number; onChange: (bounds: Bounds) => void; onPause: () => void };
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-export function GraphicLayoutEditor({ graphic, width, height, onChange, onPause }: Props) {
+export function GraphicLayoutEditor({ graphic, width, height, onChange, onPause, resizable = true }: Props) {
   const stage = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointer: number; handle: Handle; x: number; y: number; bounds: Bounds; scaleX: number; scaleY: number }>();
   const safe = graphic.composition?.layout === 'cutaway' ? { x: 0, y: 0, width, height } : graphicSafeArea(width, height);
@@ -56,7 +56,7 @@ export function GraphicLayoutEditor({ graphic, width, height, onChange, onPause 
     <div role="button" tabIndex={0} aria-label="Move selected graphic" className="pointer-events-auto absolute cursor-move border-2 border-amber-300 outline-none focus:ring-2 focus:ring-white" style={{ left: `${b.x / width * 100}%`, top: `${b.y / height * 100}%`, width: `${b.width / width * 100}%`, height: `${b.height / height * 100}%`, touchAction: 'none' }} {...events('move')}>
       <span className="pointer-events-none absolute left-0 top-0 max-w-full truncate bg-amber-300 px-1 text-[10px] text-black">{graphic.title}</span>
     </div>
-    {(['nw', 'ne', 'sw', 'se'] as const).map(handle => <button key={handle} type="button" aria-label={`Resize graphic ${handle}`} className="pointer-events-auto absolute h-4 w-4 rounded-sm border border-black bg-amber-200 focus:ring-2 focus:ring-white" style={{
+    {resizable && (['nw', 'ne', 'sw', 'se'] as const).map(handle => <button key={handle} type="button" aria-label={`Resize graphic ${handle}`} className="pointer-events-auto absolute h-4 w-4 rounded-sm border border-black bg-amber-200 focus:ring-2 focus:ring-white" style={{
       left: `${(b.x + (handle.includes('e') ? b.width : 0)) / width * 100}%`, top: `${(b.y + (handle.includes('s') ? b.height : 0)) / height * 100}%`,
       transform: 'translate(-50%, -50%)', cursor: handle === 'nw' || handle === 'se' ? 'nwse-resize' : 'nesw-resize', touchAction: 'none',
     }} {...events(handle)} />)}

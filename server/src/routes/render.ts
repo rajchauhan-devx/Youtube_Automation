@@ -228,7 +228,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
       planTimeline(timelineConfig.clips, finalDuration);
     }
     savedGraphics = savedGraphicsForRender(scriptId, audioPath, imagePaths, resolution || { width: 1080, height: 1920 });
-    hasVisualArtifacts = Boolean(savedGraphics?.artifacts.some(a => a.enabled && a.graphic));
+    hasVisualArtifacts = Boolean(savedGraphics?.artifacts.some(a => a.enabled && (a.graphic || a.sceneGraph)));
     if (savedGraphics) {
       savedCameras = graphicsCameras(savedGraphics, { scriptId, imagePaths, audioPath, timelineConfig, sceneAnalysis, zoomFactor, transitionDuration, editing: effectiveEditing }, finalDuration, longPlan, longSync);
       savedMotionCaptions = savedGraphics.artifacts.some(a => a.enabled && a.graphic?.kind === 'caption');
@@ -328,7 +328,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
         if (savedGraphics && hasVisualArtifacts) await compositeSavedGraphics(result, savedGraphics, controller.signal, (stage, progress) => {
           const entry = activeRenders.get(workspaceKey(scriptId));
           if (entry === job) { entry.stage = stage; entry.progress = progress; persist(); }
-        }, savedCameras, finalCaptionPath);
+        }, savedCameras, finalCaptionPath, enableSfx !== false);
         controller.signal.throwIfAborted();
         if (revision && renderRevision(scriptId) !== revision) {
           throw new Error('The story, scene assets or motion graphics changed during rendering. Render again with the current settings.');

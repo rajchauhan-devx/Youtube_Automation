@@ -25,10 +25,10 @@ import {
   Anchor,
   TextStyle,
 } from "./primitives.js";
-import { SceneGraph } from "./scene-graph.js";
+import { SceneGraph, sceneGraphIssues } from "./scene-graph.js";
 
 export const SCHEMA_VERSION = 1;
-export const RENDERER_VERSION = "5.0.1";
+export const RENDERER_VERSION = "6.0.0";
 
 const nodeBase = {
   id: Id,
@@ -370,6 +370,9 @@ export const Settings = z.strictObject({
   documentary: z.boolean().default(true),
   treatment: z.enum(['auto', 'archival', 'cinematic', 'map']).default('auto'),
   visualReview: z.boolean().default(true),
+  graphicEngine: z.enum(['directed', 'generative']).default('directed'),
+  motionLevel: z.enum(['subtle', 'balanced', 'expressive', 'still']).default('balanced'),
+  soundDesign: z.enum(['off', 'subtle', 'balanced', 'expressive']).default('off'),
 });
 export const Project = z.strictObject({
   id: UUID,
@@ -477,7 +480,7 @@ export function assertDocumentaryVisuals(project: EditingProject) {
 }
 export function assertGraphicsReviewed(project: EditingProject) {
   if (!project.settings.visualReview) return;
-  const pending = project.artifacts.filter(a => a.enabled && a.graphic && a.graphic.kind !== 'caption' && a.visualReview?.status !== 'passed');
+  const pending = project.artifacts.filter(a => a.enabled && (a.sceneGraph || (a.graphic && a.graphic.kind !== 'caption')) && a.visualReview?.status !== 'passed');
   if (pending.length) throw new Error(`Rendered vision review has not passed for ${pending.length} motion graphic(s). Retry visual review before exporting.`);
 }
 export type ArtifactRepresentation = 'legacy-nodes' | 'legacy-graphic' | 'scene-graph' | 'empty';
@@ -514,6 +517,7 @@ export function collectArtifactAssets(artifact: z.infer<typeof Artifact>): strin
   if (artifact.sceneGraph) {
     for (const node of artifact.sceneGraph.nodes) {
       if (node.kind === 'image') assets.push(node.assetId);
+      if (node.clip?.kind === 'mask') assets.push(node.clip.assetId);
       if (node.kind === 'text' && node.style?.fontAssetId) assets.push(node.style.fontAssetId);
       if (node.kind === 'metric' && node.style?.fontAssetId) assets.push(node.style.fontAssetId);
     }
@@ -573,6 +577,7 @@ export const durationFrames = (seconds: number, fps: number) =>
 export const capabilities = {
   schemaVersion: 1,
   rendererVersion: RENDERER_VERSION,
+  sceneGraph: { version: 1, nodes: ["group", "text", "image", "shape", "path", "connector", "metric"], sharedPreviewExport: true, soundCues: true },
   primitives: ["CinematicTitle", "CharacterLowerThird", "LocationBadge", "ObjectSpotlight", "MotionCaption", "RouteLine", "DateCounter", "ArchivalFrame", "DiagramCallout", "DocumentaryComposition"],
   coordinates:
     "design pixels; source anchors/crops normalized; keyframes artifact-local",
@@ -709,6 +714,12 @@ export function validateProject(value: unknown): EditingProject {
     artifactRepresentation(a);
 
     if (a.sceneGraph) {
+      for (const evidence of a.sceneGraph.evidence) {
+        if (evidence.narrationTokenIds.some(id => !tokens.has(id) || !scene!.narrativeRefs.includes(id))) fail('Unresolved scene graph narration evidence');
+        if (evidence.status === 'narration' && evidence.sourceId !== scene!.id) fail('Narration evidence belongs to another scene');
+      }
+      const graphIssues = sceneGraphIssues(a.sceneGraph, a.endFrame - a.startFrame);
+      if (graphIssues.length) fail(graphIssues.join('; '));
       const b = a.sceneGraph.bounds;
       if (!a.narrativeRefs.length) fail("Scene graph requires narration evidence");
       if (b.x < 0 || b.y < 0 || b.x + b.width > p.inputs.width || b.y + b.height > p.inputs.height)

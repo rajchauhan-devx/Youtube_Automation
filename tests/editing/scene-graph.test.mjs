@@ -200,9 +200,9 @@ test('compileSceneGraph compiles a novel branching decision diagram without engi
   assert.ok(res.html.includes('DECISION PROTOCOL: ENGAGE TARGET'), 'HTML includes root decision node');
   assert.ok(res.html.includes('BRANCH A: EVACUATION'), 'HTML includes Branch A');
   assert.ok(res.html.includes('BRANCH B: COUNTERMEASURE'), 'HTML includes Branch B');
-  assert.ok(res.html.includes('sg-connector'), 'HTML includes procedural connector paths');
+  assert.ok(res.html.includes('data-node-id="connector-1"'), 'HTML includes procedural connector paths');
   assert.ok(res.js.includes('tl.fromTo'), 'JS includes GSAP animation timeline');
-  assert.ok(res.css.includes('scene-graph-container'), 'CSS includes container styling');
+  assert.ok(res.css.includes('sg-test-branching-art'), 'CSS includes container styling');
 });
 
 test('planEditorialBeat identifies metrics and permits clean scenes without graphics', async () => {
@@ -232,7 +232,7 @@ test('planEditorialBeat identifies metrics and permits clean scenes without grap
   assert.equal(beat2.category, 'none');
 });
 
-test('designSceneGraph builds distinct universe geometries across the three channel profiles', async () => {
+test('designSceneGraph preserves channel typography and colors without container frames', async () => {
   const { getChannelUniverseTheme, designSceneGraph } = await import('../../server/dist/services/editing/sceneGraphDesigner.js');
 
   const dummyProject = {
@@ -243,8 +243,8 @@ test('designSceneGraph builds distinct universe geometries across the three chan
 
   // 1. Ancient Dharma
   const dharmaTheme = getChannelUniverseTheme('usr_1787934167716', 'Ancient Dharma');
-  assert.equal(dharmaTheme.primary, '#F59E0B', 'Ancient Dharma uses Temple Gold');
-  assert.ok(dharmaTheme.fontFamily.includes('Cinzel'), 'Uses classical serif font');
+  assert.equal(dharmaTheme.primary, '#C59B52', 'Ancient Dharma uses muted burnished gold');
+  assert.ok(dharmaTheme.fontFamily.includes('Devanagari'), 'Uses a legible Devanagari font');
 
   const dharmaBeat = {
     sceneId: 'scene-1',
@@ -256,9 +256,8 @@ test('designSceneGraph builds distinct universe geometries across the three chan
   };
   const dharmaGraph = designSceneGraph(dharmaBeat, dummyScene, dummyProject, dharmaTheme);
   assert.ok(dharmaGraph);
-  const dharmaBg = dharmaGraph.nodes.find((n) => n.id === 'bg-frame');
-  assert.equal(dharmaBg.geometry.kind, 'rect');
-  assert.deepEqual(dharmaBg.paint.dash, [12, 4], 'Dharma uses ornate dashed scroll frame');
+  assert.ok(dharmaGraph.nodes.every(n => n.kind === 'text'), 'Dharma keeps labels unboxed over footage');
+  assert.ok(dharmaGraph.evidence.every(e => dharmaGraph.nodes.some(n => n.id === e.targetNodeId)));
 
   // 2. Rule Zero
   const ruleZeroTheme = getChannelUniverseTheme('acct_3ea89878-0f41-4dc9-86e5-3f55cda46ef7', 'Rule Zero');
@@ -275,12 +274,11 @@ test('designSceneGraph builds distinct universe geometries across the three chan
   };
   const ruleGraph = designSceneGraph(ruleBeat, dummyScene, dummyProject, ruleZeroTheme);
   assert.ok(ruleGraph);
-  const ruleBg = ruleGraph.nodes.find((n) => n.id === 'bg-frame');
-  assert.equal(ruleBg.geometry.kind, 'polygon', 'Rule Zero uses chamfered polygon HUD');
-  assert.equal(ruleBg.geometry.points.length, 6, 'Has 6 chamfered vertex points');
+  assert.ok(ruleGraph.nodes.every(n => n.kind === 'text'), 'Rule Zero has no enclosing HUD panel');
+  assert.equal(ruleGraph.nodes[0].style.color, ruleZeroTheme.primary);
 
   // 3. Against the Odds
   const oddsTheme = getChannelUniverseTheme('acct_620a1d5e-bb1a-4b7e-8662-37acafaecbab', 'Against the Odds');
   assert.equal(oddsTheme.primary, '#FACC15', 'Against the Odds uses Hazard Yellow');
-  assert.equal(oddsTheme.lineWeight, 3, 'Heavy industrial border stroke');
+  assert.equal(oddsTheme.lineWeight, 3, 'Industrial diagram line weight');
 });

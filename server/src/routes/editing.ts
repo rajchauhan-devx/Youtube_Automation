@@ -1,3 +1,7 @@
+import { graphEvidenceIssues } from '../services/editing/sceneGraphGeneration.js';
+import { inspectGraphLayout } from '../services/editing/sceneGraphLayout.js';
+import { SceneGraph } from '@tubeflow/editing-contracts';
+import { prepareMotionAudio } from '../services/editing/motionAudio.js';
 import {
   Router,
   type Request,
@@ -91,6 +95,7 @@ function payload(saved: EditingProject) {
   const script = store.getById<ScriptInput>("scripts", p.scriptId);
   return {
     project: { ...p, artifacts: p.artifacts.filter(a => isRenderableArtifact(a)) },
+    audioPreviewUrl: mediaUrl(`editing/projects/${p.id}/audio/${p.revisionId}.wav`),
     legacyArtifactCount: saved.artifacts.filter(a => !isRenderableArtifact(a)).length,
     currentRevisionId: current(p.id).revisionId,
     artifactPreviews: Object.fromEntries(
@@ -170,7 +175,7 @@ editingRouter.get(
     res.json({ ...capabilities, ready: missing.length === 0, missing, wordAlignment,
       provider: 'Gemini', models: { planner: model, vision: model, review: model }, modelsVerified: false,
       alignment: 'Saved narration scene timing; estimated timing when unavailable', grounding: true,
-      artifactGeneration: false, renderedVisionReview: true, documentaryLayers: true,
+      artifactGeneration: true, generativeSceneGraphs: true, renderedVisionReview: true, documentaryLayers: true,
       documentaryTreatments: ['archival', 'cinematic', 'map'], renderer: 'hyperframes', graphics: Object.keys(graphicNames),
       limits: { maxProviderCalls: c.maxCalls, maxGeneratedAssets: 4 } });
   }),
@@ -339,19 +344,38 @@ editingRouter.post(
     res.status(201).json(payload(next));
   }),
 );
+editingRouter.post('/projects/:projectId/preferences', route((req, res) => {
+  const body = z.strictObject({ expectedRevisionId: UUID, motionLevel: Settings.shape.motionLevel, soundDesign: Settings.shape.soundDesign }).parse(req.body);
+  const p = current(req.params.projectId); expected(p, body.expectedRevisionId);
+  if (jobs(p.id).some(j => ['queued','running','cancel_requested'].includes(j.state))) throw new EditingError('JOB_ACTIVE', 'Wait for the current graphics job before changing preferences.', 409);
+  const next = nextRevision(p);
+  if (body.motionLevel !== p.settings.motionLevel) for (const a of next.artifacts) if (a.sceneGraph) delete a.visualReview;
+  next.settings.motionLevel = body.motionLevel;
+  next.settings.soundDesign = body.soundDesign;
+  publish(next, p.revisionId); res.json(payload(next));
+}));
 editingRouter.patch(
   "/projects/:projectId/artifacts/:artifactId",
-  route((req, res) => {
+  route(async (req, res) => {
     const change = z.strictObject({ expectedRevisionId: UUID, enabled: z.boolean().optional(),
-      graphic: MotionGraphic.optional(), startFrame: Frame.optional(), endFrame: Frame.optional() }).parse(req.body);
+      graphic: MotionGraphic.optional(), sceneGraph: SceneGraph.optional(), startFrame: Frame.optional(), endFrame: Frame.optional() }).parse(req.body);
     const p = current(req.params.projectId);
     expected(p, change.expectedRevisionId);
     if (jobs(p.id).some(j => ['queued', 'running', 'cancel_requested'].includes(j.state)))
       throw new EditingError('JOB_ACTIVE', 'Wait for the current graphics job before editing this card.', 409);
     const next = nextRevision(p), artifact = next.artifacts.find(a => a.id === req.params.artifactId);
-    if (!artifact?.graphic) throw new EditingError('NOT_FOUND', 'Motion graphic not found. Regenerate legacy artifacts first.', 404);
+    if (!artifact || (!artifact.graphic && !artifact.sceneGraph)) throw new EditingError('NOT_FOUND', 'Motion graphic not found. Regenerate legacy artifacts first.', 404);
     if (change.enabled !== undefined) artifact.enabled = change.enabled;
+    if (change.sceneGraph) {
+      if (!artifact.sceneGraph) throw new EditingError('INVALID_REPRESENTATION', 'Regenerate to change the graphic representation.');
+      const allowedSounds = artifact.sceneGraph.soundCues.map(c => c.assetId);
+      const scene = next.scenes.find(s => s.id === artifact.sceneId)!;
+      const issues = graphEvidenceIssues(change.sceneGraph, next, scene, allowedSounds);
+      if (issues.length) throw new EditingError('INVALID_GRAPH', issues.slice(0, 4).join('; '));
+      artifact.sceneGraph = change.sceneGraph;
+    }
     if (change.graphic) {
+      if (!artifact.graphic) throw new EditingError('INVALID_REPRESENTATION', 'Regenerate to change the graphic representation.');
       // A text/layout edit cannot forge or replace the model-verified target.
       if (JSON.stringify(change.graphic.target) !== JSON.stringify(artifact.graphic.target) || change.graphic.kind !== artifact.graphic.kind ||
         JSON.stringify(compositionEvidence(change.graphic.composition)) !== JSON.stringify(compositionEvidence(artifact.graphic.composition)))
@@ -361,14 +385,16 @@ editingRouter.patch(
     }
     if (change.startFrame !== undefined) artifact.startFrame = change.startFrame;
     if (change.endFrame !== undefined) artifact.endFrame = change.endFrame;
-    if (change.graphic || change.startFrame !== undefined || change.endFrame !== undefined ||
+    if (change.graphic || change.sceneGraph || change.startFrame !== undefined || change.endFrame !== undefined ||
       (change.enabled === true && artifact.visualReview?.status === 'rejected')) {
       delete artifact.visualReview;
       next.diagnostics = next.diagnostics.filter(d => d.artifactId !== artifact.id || !d.code.startsWith('VISUAL_REVIEW_'));
     }
     const scene = next.scenes.find(s => s.id === artifact.sceneId)!;
     const source = assetRecord(scene.assetId);
-    const issues = graphicIssues(next, artifact, { width: source.width!, height: source.height! });
+    const issues = !artifact.enabled ? [] : artifact.sceneGraph
+      ? await inspectGraphLayout(next, artifact, AbortSignal.timeout(60000))
+      : graphicIssues(next, artifact, { width: source.width!, height: source.height! });
     if (issues.length) throw new EditingError('INVALID_LAYOUT', issues.join(' '));
     validateProject(next);
     publish(next, p.revisionId);
@@ -432,6 +458,17 @@ editingRouter.post(
     res.status(202).json(resume(req.params.jobId, credential(req)));
   }),
 );
+editingRouter.get('/projects/:projectId/audio/:revisionFile', route(async (req, res) => {
+  const revisionId = req.params.revisionFile.replace(/\.wav$/, '');
+  const p = motionProject(revision(req.params.projectId, revisionId));
+  const controller = new AbortController();
+  const closed = () => { if (!res.writableEnded) controller.abort(); };
+  res.on('close', closed);
+  try {
+    const audio = await prepareMotionAudio(p, controller.signal);
+    res.type('audio/wav').set('Cache-Control', 'private, max-age=31536000, immutable').sendFile(audio);
+  } catch (error) { res.off('close', closed); throw error; }
+}));
 editingRouter.get(
   "/assets/:assetId",
   route((req, res) => {

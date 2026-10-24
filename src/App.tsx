@@ -1,3 +1,4 @@
+import {isImageOnlyShorts} from '../server/src/services/motion-editorial-policy';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Zap,
@@ -1359,7 +1360,9 @@ export default function App() {
               if (existing?.project) {
                   const imageCompositions = existing.project.artifacts?.filter(a => a.enabled && a.graphic?.kind === 'composition')?.length || 0;
                   const inputsMatch = existing.project.inputs?.audioFilename === audioFilename &&
-                    existing.project.inputs?.imageAssets?.length === readyImageIndexes.length && !existing.stale;
+                    existing.project.inputs?.imageAssets?.length === readyImageIndexes.length && !existing.stale &&
+                    existing.project.settings.stylePreference === runSettings.graphics.style && existing.project.settings.density === runSettings.graphics.density &&
+                    (!isImageOnlyShorts(currentScript,section) || existing.project.settings.graphicEngine === 'generative');
                   const failedReview = existing.jobs?.filter(job => job.revisionId === existing.project.revisionId &&
                     ['generate', 'review', 'revise'].includes(job.operation) && ['failed', 'interrupted'].includes(job.state) &&
                     /Rendered vision review has not passed|VISUAL_REVIEW_REQUIRED|Rendered typography failed the layout check/i.test(job.error || ''))
@@ -1386,7 +1389,7 @@ export default function App() {
                 imageIndexes: readyImageIndexes,
                 aspect: section === 'shorts' ? '9:16' : '16:9',
                 fps: 30,
-              settings: { stylePreference: runSettings.graphics.style, density: runSettings.graphics.density, documentary: runSettings.graphics.enabled && runSettings.graphics.mode === 'images', treatment: runSettings.graphics.treatment, visualReview: true, maxGeneratedAssets: 3, maxProviderCalls: 40, ...(runSettings.graphics.model ? { aiModel: runSettings.graphics.model } : {}) },
+              settings: { graphicEngine: isImageOnlyShorts(currentScript,section)?'generative':'directed', soundDesign: isImageOnlyShorts(currentScript,section)?'subtle':'off', motionLevel: isImageOnlyShorts(currentScript,section)?'subtle':'balanced', stylePreference: runSettings.graphics.style, density: runSettings.graphics.density, documentary: runSettings.graphics.enabled && runSettings.graphics.mode === 'images', treatment: runSettings.graphics.treatment, visualReview: true, maxGeneratedAssets: 3, maxProviderCalls: 40, ...(runSettings.graphics.model ? { aiModel: runSettings.graphics.model } : {}) },
               };
               const created = await editingRequest<EditingPayload>(fetch, '/projects', projectInputs);
               if (created?.project?.id) {

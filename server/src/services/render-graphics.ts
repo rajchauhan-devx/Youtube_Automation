@@ -12,6 +12,7 @@ import { planTimeline, FPS } from './timeline.js';
 import type { ScenePlan, NarrationSync } from './scene-plan.js';
 import { runMedia } from './media-process.js';
 import { store } from './store.js';
+import { motionSoundEvents, motionAudioFilter } from './editing/motionAudio.js';
 
 /** Respect run choices even when a previous project still contains graphics. */
 export function graphicsForRun(project: EditingProject, settings?: { graphics: { enabled: boolean }; captions: string }) {
@@ -110,6 +111,7 @@ export async function compositeSavedGraphics(
   progress: (stage: string, percent: number) => void,
   legacyCameras?: Record<string, LegacyCamera>,
   finalCaptionPath?: string,
+  enableSfx?: boolean,
 ) {
   if (Math.abs(result.duration - project.inputs.durationFrames / project.inputs.fps) > 2 / project.inputs.fps) throw new Error('Motion graphics timing differs from the narration. Generate graphics again before rendering.');
   signal.throwIfAborted();
@@ -117,7 +119,7 @@ export async function compositeSavedGraphics(
   const work = fs.mkdtempSync(path.join(outputDir, 'graphics-'));
   const cache = path.join(projectDir(project.id), 'overlay-cache');
   fs.mkdirSync(cache, { recursive: true });
-  const cacheKey = objectHash({ project, legacyCameras, rendererVersion: 'hyperframes-v3' }).slice(0, 32);
+  const cacheKey = objectHash({ project, legacyCameras, rendererVersion: RENDERER_VERSION }).slice(0, 32);
   const overlay = path.join(cache, `${cacheKey}.webm`);
   const combined = path.join(work, 'combined.partial.mp4');
   try {
@@ -138,11 +140,33 @@ export async function compositeSavedGraphics(
     if (signal.aborted) throw new Error('Cancelled');
     progress('Combining video and motion graphics', 95);
     if (finalCaptionPath) fs.copyFileSync(finalCaptionPath, path.join(work, 'captions.ass'));
-    await runMedia('ffmpeg', [
+
+    const sfxEntries = await motionSoundEvents(project, enableSfx);
+
+    const inputArgs: string[] = [
       '-v', 'error', '-y', '-reinit_filter', '0', '-i', result.outputPath,
       '-c:v', 'libvpx-vp9', '-i', overlay,
-      '-filter_complex', savedGraphicsFilter(Boolean(finalCaptionPath)),
-      '-map', '[v]', '-map', '0:a', ...videoEncoderFlags(await canUseNvenc(), 18), '-c:a', 'copy',
+    ];
+
+    let filterComplex = savedGraphicsFilter(Boolean(finalCaptionPath));
+    const audioArgs: string[] = [];
+
+    if (sfxEntries.length > 0) {
+      for (const sfx of sfxEntries) {
+        inputArgs.push('-i', sfx.path);
+      }
+      filterComplex += ';' + motionAudioFilter(sfxEntries, 0, 2, result.duration).join(';');
+      audioArgs.push('-map', '[a]', '-c:a', 'aac', '-b:a', '192k');
+    } else {
+      audioArgs.push('-map', '0:a', '-c:a', 'copy');
+    }
+
+    await runMedia('ffmpeg', [
+      ...inputArgs,
+      '-filter_complex', filterComplex,
+      '-map', '[v]',
+      ...audioArgs,
+      ...videoEncoderFlags(await canUseNvenc(), 18),
       '-t', String(result.duration), '-movflags', '+faststart', combined,
     ], signal, work);
     signal.throwIfAborted();

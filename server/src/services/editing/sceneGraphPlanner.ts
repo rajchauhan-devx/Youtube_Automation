@@ -35,7 +35,12 @@ export function planEditorialBeat(
   sceneIndex: number,
   totalScenes: number
 ): EditorialBeatPlan {
-  const sceneTiming = project.inputs.sceneTiming?.find((st) => st.sceneId === scene.id);
+  const sceneTiming = project.inputs.sceneTiming?.find((st) =>
+    st.sceneId === scene.id ||
+    st.promptIndex === sceneIndex ||
+    st.sceneId === `scene_${String(sceneIndex + 1).padStart(3, '0')}` ||
+    st.sceneId === `scene-${sceneIndex}`
+  ) || project.inputs.sceneTiming?.[sceneIndex];
   const text = sceneTiming?.text || '';
 
   // 1. Check if scene mentions metrics/quantities
@@ -60,33 +65,35 @@ export function planEditorialBeat(
   }
 
   // 2. Check if scene mentions explicit dates / timeline anchors
-  const dateMatch = text.match(/\b(\d{1,4}\s*(?:BCE|CE|BC|AD)|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,\s+\d{2,4})?|\b\d{4}\b)/i);
+  const dateMatch = text.match(/\b(\d{1,4}\s*(?:BCE|CE|BC|AD)|\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2}(?:,\s+\d{2,4})?|\b\d{4}\b)|(?:^|[^\p{L}\p{N}])(त्रेता\s*युग|द्वापर\s*युग|सत्य\s*युग|कलि\s*युग|प्राचीन\s*काल)(?=[^\p{L}\p{N}]|$)/iu);
   if (dateMatch && !/\b(202[0-9]|199[0-9])\b/.test(dateMatch[0])) {
+    const matchedDate = (dateMatch[1] || dateMatch[2] || dateMatch[0]).trim();
     return {
       sceneId: scene.id,
       category: 'timeline',
       warrantsGraphic: true,
-      intent: `Timeline Anchor: ${dateMatch[0]}`,
+      intent: `Timeline Anchor: ${matchedDate}`,
       supportingText: text,
       extractedFacts: {
-        dateText: dateMatch[0].toUpperCase(),
-        title: 'HISTORICAL CHRONOLOGY',
+        dateText: matchedDate.toUpperCase(),
+        title: 'ऐतिहासिक कालक्रम // CHRONOLOGY',
       },
     };
   }
 
   // 3. Check if scene mentions rules, decrees, laws, or protocols
-  const ruleMatch = text.match(/\b(rule\s*(?:zero|\d+)|decree|protocol|directive|mandate|law|command)\b[:\s-]*([^.,;\n]+)?/i);
+  const ruleMatch = text.match(/\b(rule\s*(?:zero|\d+)|decree|protocol|directive|mandate|law|command)\b[:\s-]*([^.,;\n]+)?|(?:^|[^\p{L}\p{N}])(वाल्मीकि\s*रामायण|रामायण|महाभारत|वेद|उपनिषद|पुराण|शास्त्र\s*प्रमाण|राजकीय\s*संदेश)(?=[^\p{L}\p{N}]|$)/iu);
   if (ruleMatch) {
+    const matchedRule = (ruleMatch[1] || ruleMatch[3] || ruleMatch[0]).trim();
     return {
       sceneId: scene.id,
       category: 'evidence',
       warrantsGraphic: true,
-      intent: `Primary Directive: ${ruleMatch[0]}`,
+      intent: `Primary Directive: ${matchedRule}`,
       supportingText: text,
       extractedFacts: {
-        title: ruleMatch[0].toUpperCase(),
-        label: 'OPERATIONAL PROTOCOL',
+        title: matchedRule.toUpperCase(),
+        label: 'शास्त्र प्रमाण // CANONICAL EVIDENCE',
         quote: ruleMatch[2]?.trim(),
       },
     };

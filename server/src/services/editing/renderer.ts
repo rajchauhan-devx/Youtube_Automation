@@ -25,6 +25,12 @@ import { editingConfig } from "./config.js";
 import { mediaUrl } from "../workspace.js";
 import { runMedia } from "../media-process.js";
 import { renderHyperFramesOverlay } from "./hyperframes-renderer.js";
+import { prepareMotionAudio } from "./motionAudio.js";
+
+const sceneFitFilter = (scene: EditingProject['scenes'][number] | undefined, width: number, height: number) =>
+  scene?.framing === 'contain'
+    ? `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`
+    : `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
 
 /** HyperFrames overlay bundle compatibility no-op */
 export async function rendererBundle(): Promise<string> {
@@ -100,7 +106,7 @@ export async function previewFrames(
   // Get or render HyperFrames overlay
   const cache = path.join(projectDir(project.id), "overlay-cache");
   fs.mkdirSync(cache, { recursive: true });
-  const cacheKey = objectHash({ project, rendererVersion: "hyperframes-v1" }).slice(0, 32);
+  const cacheKey = objectHash({ project, rendererVersion: RENDERER_VERSION }).slice(0, 32);
   const overlayWebm = path.join(cache, `${cacheKey}.webm`);
 
   if (!fs.existsSync(overlayWebm)) {
@@ -121,6 +127,9 @@ export async function previewFrames(
       project.scenes[0];
     const sceneFile = scene ? assetFile(scene.assetId) : null;
     const timeSec = frame / fps;
+    const record = scene ? assetRecord(scene.assetId) : undefined;
+    const sceneSeek = record?.mime === 'video/mp4' ? ['-ss', String(Math.max(0, Math.min((frame - scene!.startFrame) / fps, (record.duration || 1) - 1 / fps)))] : [];
+    const fitFilter = sceneFitFilter(scene, width, height);
 
     if (sceneFile && fs.existsSync(sceneFile) && fs.existsSync(overlayWebm)) {
       await runMedia(
@@ -133,10 +142,11 @@ export async function previewFrames(
           "libvpx-vp9",
           "-i",
           overlayWebm,
+          ...sceneSeek,
           "-i",
           sceneFile,
           "-filter_complex",
-          `[1:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}[bg];[bg][0:v]overlay=format=auto[out]`,
+          `[1:v]${fitFilter}[bg];[bg][0:v]overlay=format=auto[out]`,
           "-map",
           "[out]",
           "-vframes",
@@ -152,10 +162,11 @@ export async function previewFrames(
         "ffmpeg",
         [
           "-y",
+          ...sceneSeek,
           "-i",
           sceneFile,
           "-vf",
-          `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`,
+          fitFilter,
           "-vframes",
           "1",
           outFile,
@@ -208,7 +219,7 @@ export async function previewArtifactVideo(
 
   const cache = path.join(projectDir(project.id), "overlay-cache");
   fs.mkdirSync(cache, { recursive: true });
-  const cacheKey = objectHash({ project, rendererVersion: "hyperframes-v1" }).slice(0, 32);
+  const cacheKey = objectHash({ project, rendererVersion: RENDERER_VERSION }).slice(0, 32);
   const overlayWebm = path.join(cache, `${cacheKey}.webm`);
 
   if (!fs.existsSync(overlayWebm)) {
@@ -227,12 +238,16 @@ export async function previewArtifactVideo(
   const durSec = Math.max(0.5, (artifact.endFrame - artifact.startFrame) / fps);
 
   if (sceneFile && fs.existsSync(sceneFile) && fs.existsSync(overlayWebm)) {
+    const record = assetRecord(scene!.assetId);
+    const sceneArgs = record.mime === 'video/mp4'
+      ? ['-ss', String(Math.max(0, Math.min((artifact.startFrame - scene!.startFrame) / fps, (record.duration || 1) - 1 / fps)))]
+      : ['-loop', '1', '-framerate', String(fps)];
+    const audio = await prepareMotionAudio(project, signal);
     await runMedia(
       "ffmpeg",
       [
         "-y",
-        "-loop",
-        "1",
+        ...sceneArgs,
         "-t",
         String(durSec),
         "-i",
@@ -245,10 +260,12 @@ export async function previewArtifactVideo(
         "libvpx-vp9",
         "-i",
         overlayWebm,
+        "-ss", String(startSec), "-t", String(durSec), "-i", audio,
         "-filter_complex",
-        `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}[bg];[bg][1:v]overlay=format=auto,format=yuv420p[v]`,
+        `[0:v]${sceneFitFilter(scene, width, height)},fps=${fps},tpad=stop_mode=clone:stop_duration=${durSec},trim=duration=${durSec},setpts=PTS-STARTPTS[bg];[1:v]setpts=PTS-STARTPTS[ov];[bg][ov]overlay=format=auto,format=yuv420p[v]`,
         "-map",
         "[v]",
+        "-map", "2:a", "-c:a", "aac", "-t", String(durSec),
         "-c:v",
         "libx264",
         "-preset",
@@ -328,7 +345,7 @@ export async function exportVideo(
   });
 
   // 2. Prepare audio and scenes
-  const audioFile = assetFile(project.inputs.audioAssetId);
+  const audioFile = await prepareMotionAudio(project, bounded);
   const durationSec = project.inputs.durationFrames / project.inputs.fps;
   const { width, height, fps } = project.inputs;
 
@@ -351,10 +368,11 @@ export async function exportVideo(
     const scene = project.scenes[i];
     const sceneDur = (scene.endFrame - scene.startFrame) / fps;
     const sceneImg = assetFile(scene.assetId);
-    inputs.push("-loop", "1", "-t", String(sceneDur), "-i", sceneImg);
+    const record = assetRecord(scene.assetId);
+    inputs.push(...(record.mime === 'video/mp4' ? [] : ['-loop', '1', '-framerate', String(fps)]), '-t', String(sceneDur), '-i', sceneImg);
     const sIdx = inputIdx++;
     filterParts.push(
-      `[${sIdx}:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},setsar=1,fps=${fps}[s${i}]`,
+      `[${sIdx}:v]${sceneFitFilter(scene, width, height)},setsar=1,fps=${fps},tpad=stop_mode=clone:stop_duration=${sceneDur},trim=end_frame=${scene.endFrame-scene.startFrame},setpts=PTS-STARTPTS[s${i}]`,
     );
     sceneSegments.push(`[s${i}]`);
   }
@@ -364,6 +382,8 @@ export async function exportVideo(
   filterParts.push(
     `[base][${overlayIdx}:v]overlay=format=auto,format=yuv420p[v]`,
   );
+
+  const audioMapArgs = ['-map', '0:a'];
 
   bounded.throwIfAborted();
 
@@ -376,8 +396,7 @@ export async function exportVideo(
       filterParts.join(";"),
       "-map",
       "[v]",
-      "-map",
-      "0:a",
+      ...audioMapArgs,
       "-c:v",
       "libx264",
       "-preset",

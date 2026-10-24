@@ -18,8 +18,15 @@ import { approximateAlignment, mapScenes } from "./timing.js";
 import { EditingError, editingConfig } from "./config.js";
 import { supportedMotionModel } from "./motionProvider.js";
 import { applyMotionTheme, inferMotionTheme } from './motionTheme.js';
+import {currentWorkspace} from '../workspace.js';
+import {isImageOnlyShorts} from '../motion-editorial-policy.js';
+import {motionEditorialContext} from './motionEditorial.js';
 export interface ScriptInput {
   id: string;
+  name?: string;
+  prompts?: {content?: string}[];
+  videoImportsEnabled?: boolean;
+  autoPilotSettings?: {media?:{flowEnabled?:boolean}};
   narration?: string;
   scenePlan?: NarrationPlan;
   editingProjectId?: string;
@@ -244,6 +251,11 @@ async function createProjectSnapshot(value: unknown, publishNew = true) {
   };
   p.scenes = mapScenes(p);
   applyMotionTheme(p, inferMotionTheme(`${request.settings.stylePreference} ${narration} ${selected.map(image => image.prompt).join(' ')}`));
+  if(isImageOnlyShorts(script,currentWorkspace().profile) && selected.every(image=>image.mediaType!=='video')) p.settings.graphicEngine='generative';
+  if(motionEditorialContext(p).key==='ancient_dharma') {
+    p.style.colors={background:'#281B24',text:'#FFF3D7',accent:'#C59B52'};
+    p.style.shapeTreatment='Restrained historical linework and legible Devanagari; no modern electronic treatments';
+  }
   // Recheck after asynchronous inspection; never overwrite concurrent edits to Script.
   const latest = store.getById<ScriptInput>("scripts", script.id);
   if (!latest || scriptFingerprint(latest) !== inputs.scriptHash)

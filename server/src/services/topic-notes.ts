@@ -24,7 +24,7 @@ export interface TopicNotes {
 function profileGuidance(account: Account): string {
   const name = `${account.name} ${account.youtubeChannelTitle || ''}`.toLowerCase();
   if (/ancient dharma/.test(name)) return 'Ancient Dharma: carefully researched Indian history, Hindu philosophy, dharma, ancient texts, mythology and spiritual wisdom. Clearly distinguish traditional stories from established historical facts.';
-  if (/rule zero|zero rule/.test(name)) return 'Rule Zero — Every world has a rule. Someone always breaks it. Original fictional microdramas in grounded 2D animated worlds with one impossible rule, an ordinary protagonist, emotional stakes and a clear payoff. Create standalone worlds unless prior canon is provided. Do not present fictional premises as historical facts.';
+  if (/rule zero|zero rule/.test(name)) return 'Rule Zero — Every world has a rule. Someone always breaks it. Original fictional microdramas focused strictly around ONE single ordinary protagonist facing one impossible world rule. The Rule itself is the antagonist. Other characters exist only as emotional stakes or faceless bystanders. Follow the 5-beat structure: Physical Burden -> Ordinary Goal -> Dead End -> Rule-Breaking Choice -> Irreversible Payoff. Create standalone worlds unless prior canon is provided. Do not present fictional premises as historical facts.';
   if (/against the odds/.test(name)) return 'Against the Odds: factual stories of survival, resilience, extraordinary comebacks and people overcoming adversity. Verify names, dates and outcomes.';
   return `Create videos relevant to ${account.youtubeChannelTitle || account.name}, using the selected script template to understand the audience and niche.`;
 }

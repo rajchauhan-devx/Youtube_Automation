@@ -53,7 +53,7 @@ export const CHANNEL_LORA_REGISTRY = {
     strengthClip: 0.75,
     triggerWords: ['dark', 'chiaroscuro', 'low-key'],
     styleDnaPrompt:
-      'Dark atmospheric contrast, low-key Fincher neo-noir cinematography, deep crushed obsidian shadows, cold cyan glass reflections contrasted with warm tungsten rim light, high-tension thriller mood.',
+      'Stylized painterly graphic novel comic art, Alberto Mielgo and Spider-Verse noir aesthetic, bold charcoal ink outlines, expressive textured brushstrokes, dynamic two-step cel shading, high-contrast chiaroscuro shadows, wet pavement reflections, cold cyan and teal ambient shadows sliced by vibrant warm amber and neon rim lighting, cinematic atmospheric mystery, no 3D, no photorealism, no CGI gloss.',
   },
   against_the_odds: {
     channelId: 'against_the_odds',

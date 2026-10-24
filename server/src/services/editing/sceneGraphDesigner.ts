@@ -8,18 +8,18 @@ import type {
 import type { EditorialBeatPlan } from './sceneGraphPlanner.js';
 
 export function getChannelUniverseTheme(accountId?: string, channelName?: string): SceneGraphThemeData {
-  const norm = (accountId || '' + channelName || '').toLowerCase();
+  const norm = `${accountId || ''} ${channelName || ''}`.toLowerCase();
 
   // Ancient Dharma / Devotional
   if (/dharma|vedic|usr_1787934167716|default/i.test(norm)) {
     return {
       name: 'ancient_dharma',
-      primary: '#F59E0B',     // Temple Gold
-      accent: '#DC2626',      // Vermilion
+      primary: '#C59B52',     // Muted burnished gold
+      accent: '#A05238',      // Earth pigment
       background: '#00000000', // 100% transparent cardless backdrop
-      text: '#FFF8EF',
-      fontFamily: "'Cinzel', 'Tiro Devanagari Hindi', 'Merriweather', serif",
-      secondaryFont: "'Tiro Devanagari Hindi', serif",
+      text: '#FFF3D7',
+      fontFamily: "'Noto Sans Devanagari', serif",
+      secondaryFont: "'Noto Sans Devanagari', serif",
       lineWeight: 2,
       radius: 6,
     };
@@ -82,7 +82,6 @@ export function designSceneGraph(
   if (!plan.warrantsGraphic) return null;
 
   const fontAssetId = project.style.fontAssetIds[0] || 'font-main';
-  const audioAssetId = project.inputs.audioAssetId;
   const nodes: SceneGraphNodeData[] = [];
 
   // Safe portrait bounds for 1080x1920:
@@ -94,80 +93,7 @@ export function designSceneGraph(
     height: plan.category === 'metric' ? 240 : 320,
   };
 
-  const isCyber = theme.name === 'rule_zero';
-  const isAncient = theme.name === 'ancient_dharma';
-
-  // 1. Background Container Geometry (Procedural polygon or rect)
-  if (isCyber) {
-    // Chamfered 45-degree polygon cutout for cyber HUD
-    const w = bounds.width;
-    const h = bounds.height;
-    const cut = 24;
-    nodes.push({
-      id: 'bg-frame',
-      kind: 'shape',
-      space: 'screen',
-      zIndex: 1,
-      transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
-      opacity: 1,
-      tracks: [
-        {
-          property: 'opacity',
-          keyframes: [
-            { frame: 0, value: 0, easing: { kind: 'linear' } },
-            { frame: 8, value: 1, easing: { kind: 'linear' } },
-          ],
-        },
-      ],
-      geometry: {
-        kind: 'polygon',
-        points: [
-          { x: cut, y: 0 },
-          { x: w, y: 0 },
-          { x: w, y: h - cut },
-          { x: w - cut, y: h },
-          { x: 0, y: h },
-          { x: 0, y: cut },
-        ],
-      },
-      paint: {
-        fill: null, // Cardless 100% transparent overlay
-        stroke: theme.primary,
-        strokeWidth: theme.lineWeight,
-        dash: [],
-      },
-    });
-  } else {
-    // Standard or Ornate Cardless Frame
-    nodes.push({
-      id: 'bg-frame',
-      kind: 'shape',
-      space: 'screen',
-      zIndex: 1,
-      transform: { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0, pivot: { x: 0, y: 0 } },
-      opacity: 1,
-      tracks: [
-        {
-          property: 'opacity',
-          keyframes: [
-            { frame: 0, value: 0, easing: { kind: 'linear' } },
-            { frame: 10, value: 1, easing: { kind: 'linear' } },
-          ],
-        },
-      ],
-      geometry: {
-        kind: 'rect',
-        bounds: { x: 0, y: 0, width: bounds.width, height: bounds.height },
-        radius: theme.radius,
-      },
-      paint: {
-        fill: null, // Cardless 100% transparent overlay
-        stroke: theme.primary,
-        strokeWidth: theme.lineWeight,
-        dash: isAncient ? [12, 4] : [],
-      },
-    });
-  }
+  // Labels and metrics float directly over the footage; never add a container frame.
 
   // 2. Editorial Content Nodes
   if (plan.category === 'metric' && plan.extractedFacts.value !== undefined) {
@@ -210,10 +136,10 @@ export function designSceneGraph(
       opacity: 1,
       tracks: [],
       text: labelText,
-      bounds: { x: 44, y: 32, width: bounds.width - 88, height: 28 },
+      bounds: { x: 44, y: 32, width: bounds.width - 88, height: 36 },
       style: {
         fontAssetId,
-        fontSize: 14,
+        fontSize: 30,
         fontWeight: '700',
         color: theme.primary,
         align: 'left',
@@ -239,7 +165,7 @@ export function designSceneGraph(
         },
       ],
       text: titleText,
-      bounds: { x: 44, y: 72, width: bounds.width - 88, height: 120 },
+      bounds: { x: 44, y: 78, width: bounds.width - 88, height: 120 },
       style: {
         fontAssetId,
         fontSize: 34,
@@ -275,20 +201,12 @@ export function designSceneGraph(
   }
 
   // 3. Sound cue for reveal
-  const soundCues = [
-    {
-      id: 'reveal-hit',
-      assetId: audioAssetId,
-      localFrame: 5,
-      gainDb: -6,
-      label: isCyber ? 'digital_chirp' : isAncient ? 'paper_slide' : 'mechanical_thud',
-    },
-  ];
+  const soundCues: SceneGraphData['soundCues'] = [];
 
   // 4. Evidence bindings
   const evidence = [
     {
-      targetNodeId: nodes[1]?.id || 'bg-frame',
+      targetNodeId: nodes[0].id,
       sourceId: scene.id,
       narrationTokenIds: scene.narrativeRefs.slice(0, 4),
       verifiedValue: plan.extractedFacts.title || `${plan.extractedFacts.value || ''} ${plan.extractedFacts.unit || ''}`.trim(),

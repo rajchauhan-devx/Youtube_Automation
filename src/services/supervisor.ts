@@ -1,3 +1,4 @@
+import {isImageOnlyShorts} from '../../server/src/services/motion-editorial-policy';
 import { narrationOptions, type AutoPilotSettings } from '../../server/src/services/autopilot-settings';
 import type { AutoPilotStage, AutoPilotLog } from './autoPilotTypes';
 import { getApiKey } from './api';
@@ -249,6 +250,9 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
         aspect: ctx.section === 'shorts' ? '9:16' : '16:9',
         fps: 30,
         settings: {
+          graphicEngine: isImageOnlyShorts(script,ctx.section)?'generative':'directed',
+          soundDesign: isImageOnlyShorts(script,ctx.section)?'subtle':'off',
+          motionLevel: isImageOnlyShorts(script,ctx.section)?'subtle':'balanced',
           stylePreference: settings?.graphics?.style || '',
           density: settings?.graphics?.density || 'balanced',
           documentary: graphicsEnabled && settings?.graphics?.mode === 'images',

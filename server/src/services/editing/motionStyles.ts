@@ -23,6 +23,21 @@ export function applyMotionStyle(input: EditingProject, id: string) {
   project.assetIds = [...new Set([...project.assetIds, ...project.style.fontAssetIds])];
   for (const artifact of project.artifacts) {
     delete artifact.visualReview;
+    if (artifact.sceneGraph) {
+      const graph = artifact.sceneGraph, previous = graph.theme;
+      const recolor = (value: string | null) => value === previous?.primary ? settings.accent : value === previous?.text ? settings.text : value;
+      for (const node of graph.nodes) {
+        if (node.kind === 'text' || node.kind === 'metric') {
+          node.style.fontAssetId = project.style.fontAssetIds[0];
+          node.style.color = recolor(node.style.color)!;
+        }
+        if (node.kind === 'shape' || node.kind === 'path' || node.kind === 'connector') {
+          node.paint.fill = recolor(node.paint.fill);
+          node.paint.stroke = recolor(node.paint.stroke);
+        }
+      }
+      if (graph.theme) { graph.theme.primary = settings.accent; graph.theme.text = settings.text; }
+    }
     for (const layer of artifact.graphic?.composition?.layers || []) { layer.motion = settings.motion; layer.strength = settings.strength; }
   }
   project.diagnostics = project.diagnostics.filter(note => !note.code.startsWith('VISUAL_REVIEW_'));
