@@ -24,6 +24,14 @@ export function ScriptRunModal({
       const text = script.narration || script.extractedScript || script.content || [script.aiInstructions, ...script.prompts.map(prompt => prompt.content)].filter(Boolean).join('\n');
       initial.voice.language = /[\u0900-\u097F]|\bHindi\b/i.test(text) ? 'hi' : 'en';
     }
+    if (initial.youtube.publishMode === 'schedule') {
+      const ts = initial.youtube.scheduledPublishAt ? Date.parse(initial.youtube.scheduledPublishAt) : NaN;
+      if (!Number.isFinite(ts) || ts <= Date.now() + 5 * 60_000) {
+        const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        d.setHours(18, 0, 0, 0);
+        initial.youtube.scheduledPublishAt = d.toISOString();
+      }
+    }
     return initial;
   });
   const [voiceReady, setVoiceReady] = useState(false);
@@ -35,9 +43,16 @@ export function ScriptRunModal({
     if (!cleaned && !autoPilot) return;
     setError('');
     if (autoPilot && !voiceReady) { setError('Select an available narration voice before running.'); return; }
+    if (autoPilot && settings.presenter?.enabled && !settings.presenter.avatarId) {
+      setError('Select a MuseTalk avatar character before running with AI Presenter enabled.');
+      return;
+    }
     const parsed = AutoPilotSettingsSchema.safeParse(settings);
     if (autoPilot && !parsed.success) { setError(parsed.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).slice(0, 3).join('; ')); return; }
-    if (autoPilot && settings.youtube.publishMode === 'schedule' && Date.parse(settings.youtube.scheduledPublishAt) <= Date.now() + 5 * 60_000) { setError('Choose a publication time at least five minutes in the future, allowing time for production.'); return; }
+    if (autoPilot && settings.youtube.enabled && settings.youtube.publishMode === 'schedule' && Date.parse(settings.youtube.scheduledPublishAt) <= Date.now() + 5 * 60_000) {
+      setError('Choose a publication time at least five minutes in the future, allowing time for production.');
+      return;
+    }
     setBusy(true);
     try { await onSubmit(cleaned, instructions.trim(), { autoPilot, ...(autoPilot && parsed.success ? { settings: parsed.data } : {}) }); }
     catch (error) { setError(error instanceof Error ? error.message : 'Could not start this production.'); }
@@ -89,7 +104,11 @@ export function ScriptRunModal({
               autoFocus
             />
           </div>
-          {mode === 'auto' && <p className="text-xs leading-relaxed text-muted">Auto-Pilot checks this profile’s topic notes before production. After a successful YouTube export, the topic is saved so it won’t be selected again.</p>}
+          {mode === 'auto' && (
+            <p className="text-xs leading-relaxed text-muted">
+              Auto-Pilot checks this profile’s topic notes before production. {settings.youtube.enabled ? 'After a successful YouTube export, the topic is saved so it won’t be selected again.' : 'With No Export selected, the video will be rendered for you to export manually.'}
+            </p>
+          )}
           <div className="space-y-2">
             <label htmlFor="run-instructions" className="studio-label">
               AI instructions · Optional
@@ -106,13 +125,15 @@ export function ScriptRunModal({
           {mode === 'auto' && <AutoPilotSettingsPanel scriptExcerpt={script.narration || script.extractedScript || ''} value={settings} onChange={setSettings} onVoiceReady={setVoiceReady} />}
           {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
 
-          {mode === 'auto' && <div className="rounded-xl border border-accent/20 bg-accent/5 p-3 text-xs leading-relaxed text-gray-300">
-            <div className="flex items-center gap-1.5 font-semibold text-accent mb-0.5">
-              <Sparkles className="h-3.5 w-3.5" />
-              Auto-Pilot (Topic Research → YouTube Export)
+          {mode === 'auto' && (
+            <div className="rounded-xl border border-accent/20 bg-accent/5 p-3 text-xs leading-relaxed text-gray-300">
+              <div className="flex items-center gap-1.5 font-semibold text-accent mb-0.5">
+                <Sparkles className="h-3.5 w-3.5" />
+                Auto-Pilot ({settings.youtube.enabled ? 'Topic Research → YouTube Export' : 'Topic Research → Render & Review, Manual Export'})
+              </div>
+              AI selects a fresh topic, compares three hooks, plans the title and thumbnail, edits the story, produces the video{settings.presenter?.enabled ? ` with MuseTalk AI Presenter (${settings.presenter.widthPercent}% size)` : ''}, and reviews sampled final visuals and audio. {settings.youtube.enabled ? 'Uploads directly to YouTube upon passing review.' : 'Final video will be rendered and ready for manual export.'}
             </div>
-            AI selects a fresh topic, compares three hooks, plans the title and thumbnail, edits the story, produces the video, and reviews sampled final visuals and audio before YouTube export. Your selected production settings are saved with this script and used throughout the run.
-          </div>}
+          )}
 
           <div className="sticky bottom-0 z-10 -mx-5 flex flex-wrap items-center justify-between gap-2 border-t border-borderSoft bg-surface px-5 py-3 sm:-mx-6 sm:px-6">
             <button type="button" onClick={onClose} className="studio-btn-ghost text-xs">
@@ -120,7 +141,13 @@ export function ScriptRunModal({
             </button>
             <button type="submit" disabled={busy || (mode === 'auto' ? !voiceReady : !topic.trim())} className="studio-btn-primary flex items-center gap-2 text-xs !py-2.5 shadow-glow disabled:opacity-50">
               {mode === 'auto' ? <Sparkles className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {busy ? 'Starting…' : mode === 'auto' ? 'Run Auto-Pilot' : 'Run Script Only'}
+              {busy
+                ? 'Starting…'
+                : mode === 'auto' && !voiceReady
+                  ? 'Loading voice…'
+                  : mode === 'auto'
+                    ? 'Run Auto-Pilot'
+                    : 'Run Script Only'}
             </button>
           </div>
         </form>

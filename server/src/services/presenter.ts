@@ -50,10 +50,11 @@ export function presenterAvatars() {
     try {
       const dir = avatarDirectory(id);
       const meta = JSON.parse(fs.readFileSync(containedFile(dir, 'metadata.json'), 'utf8'));
-      if (meta.preparation_status !== 'prepared' || !['source_25fps.mp4', 'coords.pkl', 'mask_coords.pkl', 'latents.pt', 'full_imgs', 'mask'].every(f => fs.existsSync(containedFile(dir, f)))) return [];
+      if (meta.preparation_status !== 'prepared' || !['source_25fps.mp4', 'coords.pkl', 'latents.pt', 'full_imgs'].every(f => fs.existsSync(containedFile(dir, f)))) return [];
       const [width, height] = String(meta.resolution).split('x').map(Number);
-      const hasTransparency = Boolean(avatarAlphaSource(dir));
-      return [{ id, name: String(meta.name || id), width, height, duration: meta.duration, hasTransparency,
+      const hasTransparency = Boolean(avatarAlphaSource(dir) || fs.existsSync(containedFile(dir, 'cycle-v1.mkv')));
+      const tightCrop = meta.tight_crop || (hasTransparency ? { x: 25.6, y: 0, width: 47.0, height: 100 } : undefined);
+      return [{ id, name: String(meta.name || id), width, height, duration: meta.duration, hasTransparency, tightCrop,
         transparentPreviewUrl: hasTransparency ? mediaUrl(`presenter/avatar/${id}?transparent=1`) : undefined,
         previewUrl: mediaUrl(`presenter/avatar/${id}`) }];
     } catch { return []; }
@@ -157,7 +158,7 @@ export async function generatePresenter(scriptId: string, audio: string, setting
   if (!safeSegment(scriptId)) throw new Error('Invalid script ID.');
   if (!presenterHealth().installed) throw new Error(presenterHealth().message);
   if (!presenterAvatars().some(a => a.id === p.avatarId)) throw new Error('Prepared avatar is missing or incomplete. Choose another avatar.');
-  if (p.style === 'transparent' && !avatarAlphaSource(avatarDirectory(p.avatarId))) throw new Error('Transparent WebM source is missing. Refresh avatars or re-upload the transparent original in MuseTalk.');
+  if (p.style === 'transparent' && !avatarAlphaSource(avatarDirectory(p.avatarId)) && !fs.existsSync(containedFile(avatarDirectory(p.avatarId), 'cycle-v1.mkv'))) throw new Error('Transparent asset is missing. Refresh avatars or re-upload the transparent original in MuseTalk.');
   if (presenterState.busy) throw new Error('Another presenter is generating.');
   presenterState.busy = true;
   let work: string | undefined;
@@ -183,7 +184,7 @@ export async function generatePresenter(scriptId: string, audio: string, setting
     fs.mkdirSync(work);
     const request = containedFile(work, 'request.json');
     fs.writeFileSync(request, JSON.stringify({ root: museTalkRoot(), work, audio, avatarId: p.avatarId,
-      silenceGate: p.silenceGate, silenceThresholdDb: p.silenceThresholdDb }));
+      batchSize: 8, silenceGate: p.silenceGate, silenceThresholdDb: p.silenceThresholdDb }));
     const output = await runWorker(request, signal, progress);
     if (path.resolve(output) !== containedFile(work, path.basename(output))) throw new Error('Presenter returned a file outside its job directory.');
     if (!await valid(output)) throw new Error('Presenter duration does not match narration. Retry generation.');
@@ -207,7 +208,7 @@ export async function compositePresenter(base: string, source: string, settings:
   const alpha = p.style === 'transparent' ? await avatarAlphaCycle(avatarDirectory(p.avatarId), signal) : undefined;
   const alphaGraph = alpha ? `[2:v]setpts=N/(25*TB),scale=${video.width}:${video.height},format=gray[mask];[1:v]setpts=N/(25*TB),format=rgba[rgb];[rgb][mask]alphamerge[cutout];` : '';
   // The 25fps presenter is resampled, not sped up. Its audio is never mapped.
-  const graph = `${alphaGraph}${alpha ? '[cutout]' : '[1:v]'}setpts=PTS-STARTPTS,${crop},scale=${geo.width}:${geo.height},setsar=1,fps=30,format=rgba${key},tpad=stop_mode=clone:stop_duration=0.12[p];[0:v][p]overlay=x=W-w-${geo.right}:y=H-h-${geo.bottom}:eof_action=pass[v]`;
+  const graph = `${alphaGraph}${alpha ? '[cutout]' : '[1:v]'}setpts=PTS-STARTPTS,${crop},scale=${geo.width}:${geo.height},setsar=1,fps=30,format=rgba${key},tpad=stop_mode=clone:stop_duration=0.12[p];[0:v][p]overlay=x=${geo.x}:y=H-h-${geo.bottom}:eof_action=pass[v]`;
   const output = base.replace(/\.mp4$/, '.presenter.partial.mp4');
   try {
     await runMedia('ffmpeg', ['-v', 'error', '-y', '-reinit_filter', '0', '-i', base, '-i', source, ...(alpha ? ['-stream_loop', '-1', '-i', alpha] : []), '-filter_complex_threads', '1', '-filter_complex', graph,

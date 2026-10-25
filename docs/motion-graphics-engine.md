@@ -1,13 +1,14 @@
 # Original motion graphics and sound
 
-The Motion Studio offers **Original compositions** for new work. It plans useful
+The Motion Studio offers **Adaptive library & original compositions** for new work. It plans useful
 beats from the narration and visual inventory, then asks the configured model to
 compose text, shapes, images, paths, groups, connectors and numeric displays.
-The existing directed/image sequence engine remains available for older projects.
+Ancient Dharma can select from a shared [adaptive motion library](ancient-dharma-motion-library.md)
+or request a custom composition. The existing directed/image sequence engine remains available for older projects.
 
 ## Using it
 
-1. Open Motion Artifacts, select narration, and choose **Original compositions**.
+1. Open Motion Artifacts or Preview & Export, select narration, and choose **Adaptive library & original compositions**.
 2. Set graphic density, motion feel, sound design and optional art direction.
 3. Generate. A clean scene is a valid editorial choice; the director does not fill
    a quota. Invalid optional graphics leave the footage available with a reason.

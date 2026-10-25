@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Copy,
   Check,
+  Rocket,
 } from 'lucide-react';
 import { AUTO_PILOT_STAGES, type AutoPilotState } from '../../services/autoPilotTypes';
 import type { Script } from '../../data';
@@ -32,7 +33,7 @@ interface AutoPilotModalProps {
   onToggleMinimize: () => void;
   onClose: () => void;
   onRetryProduction?: () => void;
-  onNavigateTab: (tab: 'scripts' | 'preview' | 'assets' | 'generation' | 'artifacts' | 'review') => void;
+  onNavigateTab: (tab: 'scripts' | 'preview' | 'assets' | 'generation' | 'artifacts' | 'review' | 'export') => void;
 }
 
 export function AutoPilotModal({
@@ -181,6 +182,7 @@ export function AutoPilotModal({
               const isCurrent = idx === state.stageIndex && state.stage !== 'completed' && state.stage !== 'error';
               const isUpcoming = idx > state.stageIndex && state.stage !== 'completed';
 
+              const isManualExportStep = s.id === 'upload_youtube' && state.manualExport;
               return (
                 <div
                   key={s.id}
@@ -201,12 +203,22 @@ export function AutoPilotModal({
                           : 'bg-white/10 text-muted'
                     }`}
                   >
-                    {isPast ? <Check className="h-3.5 w-3.5 stroke-[3]" /> : isCurrent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : s.stepNumber}
+                    {isPast ? (isManualExportStep ? <Rocket className="h-3.5 w-3.5 stroke-[2.5]" /> : <Check className="h-3.5 w-3.5 stroke-[3]" />) : isCurrent ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : s.stepNumber}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold leading-tight">{s.label}</p>
+                    <p className="truncate text-xs font-semibold leading-tight">{isManualExportStep ? 'Manual Export' : s.label}</p>
                     <p className="truncate text-[10px] text-muted">
-                      {isPast ? 'Done' : state.stage === 'error' && idx === state.stageIndex ? 'Needs attention' : isCurrent ? 'Working…' : 'Waiting'}
+                      {isManualExportStep && state.stage === 'completed'
+                        ? 'Ready to export'
+                        : isPast
+                          ? 'Done'
+                          : state.stage === 'error' && idx === state.stageIndex
+                            ? 'Needs attention'
+                            : isCurrent
+                              ? 'Working…'
+                              : isManualExportStep
+                                ? 'Manual mode'
+                                : 'Waiting'}
                     </p>
                   </div>
                 </div>
@@ -267,6 +279,19 @@ export function AutoPilotModal({
                 </div>
                 <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
                   {state.youtubeVideoUrl && <a href={state.youtubeVideoUrl} target="_blank" rel="noreferrer" className="studio-btn-primary flex items-center gap-2 text-sm"><ExternalLink className="h-4 w-4" />Open on YouTube</a>}
+                  {state.manualExport && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onNavigateTab('export');
+                      }}
+                      className="studio-btn-primary flex items-center gap-2 !px-5 !py-2.5 text-sm bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 shadow-glow"
+                    >
+                      <Rocket className="h-4 w-4" />
+                      Export Manually (Export Hub)
+                    </button>
+                  )}
                   <a
                     href={state.renderedVideoUrl}
                     download="tubeflow-video.mp4"
@@ -289,8 +314,12 @@ export function AutoPilotModal({
                 </div>
                 <p className="mt-2 text-xs text-emerald-300">
                   {state.stage === 'completed'
-                    ? 'Video exported to YouTube and topic saved in this profile’s notes.'
-                    : 'MP4 rendered. Final review and YouTube export must finish before production is complete.'}
+                    ? (state.youtubeVideoUrl
+                        ? 'Video exported to YouTube and topic saved in this profile’s notes.'
+                        : 'Video rendered successfully! Ready for manual export in Export Hub.')
+                    : (state.manualExport
+                        ? 'MP4 rendered. Final retention review running before manual export.'
+                        : 'MP4 rendered. Final review and YouTube export must finish before production is complete.')}
                 </p>
               </div>
             ) : (

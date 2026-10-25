@@ -196,11 +196,11 @@ scriptsRouter.put('/:id', async (req, res) => {
 });
 
 async function deleteScriptOutputs(scriptId: string) {
-  await cancelScriptImages(scriptId);
-  await deleteScriptEditing(scriptId);
-  await cancelMusic(scriptId);
-  await cancelNarration(scriptId);
-  await clearScriptVideo(scriptId);
+  try { await cancelScriptImages(scriptId); } catch {}
+  try { await deleteScriptEditing(scriptId); } catch {}
+  try { await cancelMusic(scriptId); } catch {}
+  try { await cancelNarration(scriptId); } catch {}
+  try { await clearScriptVideo(scriptId); } catch {}
   fs.rmSync(path.join(generatedDir(), scriptId), { recursive: true, force: true });
   store.delete(`pipeline_${scriptId}`);
 }

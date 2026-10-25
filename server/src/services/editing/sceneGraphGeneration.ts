@@ -12,13 +12,16 @@ import { runMedia } from '../media-process.js';
 import { currentWorkspace } from '../workspace.js';
 import { inspectGraphLayout } from './sceneGraphLayout.js';
 import {motionEditorialContext,graphEditorialIssues} from './motionEditorial.js';
+import { motionLibraryForProject, generateLibraryGraph } from './motionLibrary.js';
 
 const normalize = (s: string) => s.normalize('NFC').toLocaleLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').trim();
 const phraseIn = (text: string, source: string) => (` ${normalize(source)} `).includes(` ${normalize(text)} `);
-const Beat = z.strictObject({ sceneId: z.string(), quote: z.string().min(1).max(1500), intent: z.string().min(1).max(300) });
+const Beat = z.strictObject({ sceneId: z.string(), quote: z.string().min(1).max(1500), intent: z.string().min(1).max(300), templateId: z.string().max(80).optional() });
 export type GraphBeat = z.infer<typeof Beat>;
 
 export async function planGraphBeats(project: EditingProject, ctx: MotionContext, model: string, scenes: ScenePlan[], observations: unknown, old?: ArtifactComposition): Promise<GraphBeat[]> {
+  const library=motionLibraryForProject(project);
+  const eligible=scenes.filter(s=>s.endFrame-s.startFrame>=project.inputs.fps*2);
   const budget = Math.max(0, Math.floor((ctx.maxCalls-ctx.job.usage.length-1)/(project.settings.visualReview?4:2)));
   const perMinute = {subtle:2,balanced:3,expressive:4}[project.settings.density];
   const cleanSceneLimit=motionEditorialContext(project).imageOnlyShorts ? Math.max(1,Math.floor(scenes.length*0.4)) : 12;
@@ -26,17 +29,18 @@ export async function planGraphBeats(project: EditingProject, ctx: MotionContext
   if (!limit) { project.diagnostics.push({severity:'warning',code:'GRAPHIC_BUDGET',stage:'planning',message:'The remaining provider budget cannot cover an original composition and its checks.',retryable:true}); return []; }
   const schema=z.strictObject({beats:z.array(Beat).max(limit)}).superRefine(({beats},check)=>{
     const used=new Set<string>();for(const [i,b] of beats.entries()){
-      const scene=scenes.find(s=>s.id===b.sceneId);
+      const scene=eligible.find(s=>s.id===b.sceneId);
       if(!scene||used.has(b.sceneId))check.addIssue({code:'custom',path:['beats',i],message:'Use each eligible scene at most once'});
       used.add(b.sceneId);
       if(scene&&!phraseIn(b.quote,sceneNarration(project,scene.id)))check.addIssue({code:'custom',path:['beats',i,'quote'],message:'Quote must be an exact contiguous narration span'});
+      if(b.templateId&&b.templateId!=='custom'&&!library.some(t=>t.id===b.templateId))check.addIssue({code:'custom',path:['beats',i,'templateId'],message:'Select an available library ID or custom'});
     }
   });
   const result=await motionJson(ctx,model,'plan-scene-graphs',schema,
-    `You are an editorial motion designer. Select only moments where a visual explanation makes the spoken point easier to understand. Plan bespoke comparisons, branching diagrams, chronological sequences, quantity displays, relationships, processes or concise annotations using a general 2D scene graph. You are not choosing a fixed template. No cards, panels, boxed labels, enclosing frames, photo badges or frosted-glass surfaces. Integrate free-floating typography, lines and explanatory diagrams into open areas of the original footage. Keep ordinary footage clean; zero beats is valid. Never fill a quota. Respect supplied visual observations: do not cover a face or important subject. A beat needs a complete exact quote from its own narration. Graph labels and values will come only from that narration. Do not invent statistics, routes, dates, archive credits or verification. Avoid repeated structures in adjacent beats. Follow the user's direction and language. For revision return one replacement in the original scene, preserving meaning.`,
+    `You are an editorial motion designer. Select only moments where a visual explanation makes the spoken point easier to understand. Choose templateId from the supplied motionLibrary when its useWhen, required item count and avoidWhen fit this scene. These are adaptable content-driven families, not reference images to paste into footage. Use templateId:custom for a bespoke 2D composition when no library family fits; omit any beat that does not help. Script sceneHints describe optional explanatory intent, never a requirement to decorate. No cards, panels, boxed labels, enclosing frames, photo badges or frosted-glass surfaces. Integrate free-floating typography, lines and explanatory diagrams into open areas of the original footage. Keep ordinary footage clean; zero beats is valid. Never fill a quota. Respect supplied visual observations: do not cover a face or important subject, and skip scenes whose openArea is none. A beat needs a complete exact quote from its own narration. Graph labels and values will come only from that narration. Do not invent statistics, routes, dates, archive credits or verification. Avoid repeated families in adjacent beats; do not change family merely to satisfy variety. Follow the user's direction and language. For revision return one replacement in the original scene, preserving meaning.`,
     {language:project.inputs.language,editorialPolicy:motionEditorialContext(project),direction:ctx.job.instruction||project.settings.stylePreference,density:project.settings.density,limit,
       pacing:'This is a maximum, not a target. Leave most scenes clean; prefer breathing room between useful beats. Metadata does not require a graphic in its scene.',
-      observations,scenes:scenes.filter(s=>s.endFrame-s.startFrame>=project.inputs.fps*2).map(s=>({sceneId:s.id,narration:sceneNarration(project,s.id),duration:(s.endFrame-s.startFrame)/project.inputs.fps})),
+      motionLibrary:library,observations,scenes:eligible.map(s=>({sceneId:s.id,narration:sceneNarration(project,s.id),duration:(s.endFrame-s.startFrame)/project.inputs.fps})),
       previous:old?.sceneGraph||old?.graphic});
   return result.beats;
 }
@@ -110,6 +114,8 @@ export async function generateSceneGraph(project: EditingProject, scene: ScenePl
   const endFrame=Math.min(scene.endFrame,Math.max(startFrame+Math.round(project.inputs.fps*2.5),cue?Math.ceil(cue.end*project.inputs.fps):scene.endFrame));
   const durationFrames=endFrame-startFrame;
   if(durationFrames<project.inputs.fps*1.5)throw new Error('Insufficient reading time for a useful motion graphic');
+  if(beat.templateId&&beat.templateId!=='custom')return generateLibraryGraph(project,scene,beat,{startFrame,endFrame},ctx,model,
+    graph=>graphEvidenceIssues(graph,project,scene,[]),old,observation);
   const portrait=project.inputs.height>project.inputs.width,w=project.inputs.width,h=project.inputs.height;
   const bounds={x:w*0.07,y:h*(portrait?0.21:0.12),width:w*(portrait?0.79:0.86),height:h*(portrait?0.49:0.65)};
   const editorialPolicy=motionEditorialContext(project);

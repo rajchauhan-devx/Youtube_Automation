@@ -18,11 +18,13 @@ import {
   CircleUserRound,
   LayoutDashboard,
   Check,
+  X,
 } from 'lucide-react';
 import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './services/workspaceApi';
 import type { Section, Tab, Channel, Script, PipelineStep, GeneratedAudio } from './data';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { ProfilePage } from './components/profile/ProfilePage';
+import { ProfileMotionTemplatesPage } from './components/profile/ProfileMotionTemplatesPage';
 import { YouTubeStudioDashboard } from './components/dashboard/YouTubeStudioDashboard';
 import { ScriptsTab } from './components/scripts/ScriptsTab';
 import { NewScriptModal } from './components/scripts/NewScriptModal';
@@ -65,6 +67,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     title: 'Studio',
     items: [
       { id: 'dashboard', label: 'YT Studio', icon: LayoutDashboard, badge: '3 YT' },
+      { id: 'motion-templates', label: 'Motion Templates', icon: Wand2, badge: 'Library' },
     ],
   },
   {
@@ -144,7 +147,7 @@ function saveUiState(state: PersistedUiState) {
   }
 }
 
-type SidebarId = Section | 'dashboard' | 'queue' | 'library' | 'settings' | 'profile';
+type SidebarId = Section | 'dashboard' | 'queue' | 'library' | 'settings' | 'profile' | 'motion-templates';
 
 function isMainSectionSidebar(id: SidebarId): boolean {
   return id === 'shorts' || id === 'long' || id === 'mixed';
@@ -168,6 +171,7 @@ export default function App() {
   const [saveError, setSaveError] = useState('');
   const generationAbortRef = useRef<AbortController | null>(null);
 
+  const [dismissedResumeScriptId, setDismissedResumeScriptId] = useState<string | null>(null);
   const [autoPilotState, setAutoPilotState] = useState<AutoPilotState>({
     isActive: false,
     isPaused: false,
@@ -216,8 +220,12 @@ export default function App() {
     setAutoPilotState((prev) => ({
       ...prev,
       isActive: false,
+      stage: 'idle',
       statusMessage: 'Auto-Pilot stopped',
     }));
+    try {
+      localStorage.removeItem(`tubeflow:autopilot:${scopeKey}`);
+    } catch {}
   }
 
   function handleAutoPilotMinimizeToggle() {
@@ -228,11 +236,16 @@ export default function App() {
   }
 
   function handleAutoPilotClose() {
+    autoPilotAbortRef.current?.abort();
+    autoPilotAbortRef.current = null;
     setAutoPilotState((prev) => ({
       ...prev,
       isActive: false,
-      stage: prev.stage === 'error' ? 'error' : 'idle',
+      stage: 'idle',
     }));
+    try {
+      localStorage.removeItem(`tubeflow:autopilot:${scopeKey}`);
+    } catch {}
   }
 
   // Persist lightweight UI state so a refresh restores the workspace.
@@ -767,8 +780,12 @@ export default function App() {
   }
 
   async function runAutoPilotPipeline(initialScript: Script, topic: string, instructions: string, resumeFrom?: number, resumeVideoUrl?: string | null) {
-    if (autoPilotAbortRef.current) return;
+    if (autoPilotAbortRef.current) {
+      autoPilotAbortRef.current.abort();
+      autoPilotAbortRef.current = null;
+    }
     generationAbortRef.current?.abort();
+    generationAbortRef.current = null;
     const controller = new AbortController();
     autoPilotAbortRef.current = controller;
     autoPilotPausedRef.current = false;
@@ -798,11 +815,18 @@ export default function App() {
       scriptId,
       logs: resuming ? autoPilotState.logs : [],
       renderedVideoUrl: resumeVideoUrl || null,
+      manualExport: !runSettings.youtube.enabled,
       error: null,
     });
 
     addAutoPilotLog('research_script', topic.trim() ? `Checking topic: "${topic}"` : `Finding the best unused topic for ${activeChannel.youtubeChannelTitle || activeChannel.name}...`, 'gemini');
     addAutoPilotLog('research_script', `Target profile: ${section === 'shorts' ? '9:16 Vertical Short' : '16:9 Landscape Video'}`, 'info');
+    if (runSettings.presenter?.enabled) {
+      addAutoPilotLog('research_script', `AI Presenter: MuseTalk avatar "${runSettings.presenter.avatarId}" enabled (${runSettings.presenter.widthPercent}% size, ${runSettings.presenter.style})`, 'info');
+    }
+    if (!runSettings.youtube.enabled) {
+      addAutoPilotLog('research_script', 'Export mode: Manual export (Will render video without auto-uploading to YouTube)', 'info');
+    }
 
     async function checkPauseOrAbort() {
       if (activeScope.current !== scopeKey) controller.abort();
@@ -1502,7 +1526,7 @@ export default function App() {
             scriptId,
             imagePaths,
             audioPath,
-            presenter: { enabled: false },
+            presenter: runSettings.presenter?.enabled ? runSettings.presenter : { enabled: false },
             narration: currentScript.narration || '',
             duration: currentScript.duration || 30,
             resolution: section === 'shorts' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 },
@@ -1535,10 +1559,11 @@ export default function App() {
             const statusData = await statusRes.json();
             if (statusData.status === 'running') {
               const pct = typeof statusData.progress === 'number' ? statusData.progress : 50;
+              const displayMsg = statusData.message || (statusData.stage ? `${statusData.stage} (${Math.round(pct)}%)...` : `Rendering video composition (${Math.round(pct)}%)...`);
               setAutoPilotState((prev) => ({
                 ...prev,
                 progressPercent: 88 + (pct / 100) * 7,
-                statusMessage: statusData.message || `Rendering video composition (${Math.round(pct)}%)...`,
+                statusMessage: displayMsg,
               }));
             } else if (statusData.status === 'done' && statusData.videos?.length > 0) {
               renderFinished = true;
@@ -1564,7 +1589,7 @@ export default function App() {
         patchScriptState(scriptId, { retentionReview: reviewed.review });
         for (const finding of reviewed.review.findings) addAutoPilotLog('review_retention', `${finding.category}: ${finding.detail}`, finding.severity === 'blocker' ? 'error' : 'info');
         if (reviewed.review.status !== 'passed') {
-          if (typeof window !== 'undefined' && localStorage.getItem('tubeflow:skip_youtube_upload') === 'true') {
+          if ((typeof window !== 'undefined' && localStorage.getItem('tubeflow:skip_youtube_upload') === 'true') || !runSettings.youtube.enabled) {
             addAutoPilotLog('review_retention', `Review findings noted: ${reviewBlockerMessage(reviewed.review)}. Export skipped as requested.`, 'warn');
           } else {
             throw new Error(reviewBlockerMessage(reviewed.review));
@@ -1574,7 +1599,7 @@ export default function App() {
         }
       }
       await checkPauseOrAbort();
-      if (typeof window !== 'undefined' && localStorage.getItem('tubeflow:skip_youtube_upload') === 'true') {
+      if ((typeof window !== 'undefined' && localStorage.getItem('tubeflow:skip_youtube_upload') === 'true') || !runSettings.youtube.enabled) {
         try { localStorage.setItem('tubeflow:autopilot_completed:' + activeScope.current, JSON.stringify({ stage: 'completed', progressPercent: 100, statusMessage: 'Production complete! Video rendered to final stage (YouTube export skipped).', renderedVideoUrl: finalVideoUrl, topic })); } catch {}
         setAutoPilotState((prev) => ({
           ...prev,
@@ -1582,9 +1607,10 @@ export default function App() {
           progressPercent: 100,
           statusMessage: 'Production complete! Video rendered to final stage (YouTube export skipped).',
           renderedVideoUrl: finalVideoUrl,
+          manualExport: true,
         }));
         addAutoPilotLog('render_video', `🎉 Full MP4 video successfully rendered: ${finalVideoUrl}`, 'success');
-        addAutoPilotLog('upload_youtube', 'YouTube export skipped as requested. Video is ready in final stage.', 'info');
+        addAutoPilotLog('upload_youtube', 'YouTube export skipped as configured (Manual export mode). Video is ready for manual export.', 'info');
         return;
       }
       enterStage('upload_youtube');
@@ -1660,7 +1686,7 @@ export default function App() {
     let script = runModalScript;
     if (options?.autoPilot) {
       const settings = AutoPilotSettingsSchema.parse(options.settings || defaultAutoPilotSettings(script));
-      const patch = { autoPilotSettings: settings, enableSubtitles: settings.captions !== 'off', editingProjectId: null };
+      const patch = { autoPilotSettings: settings, enableSubtitles: settings.captions !== 'off', presenter: settings.presenter, editingProjectId: null };
       const saved = await persistScript(script.id, patch);
       if (!saved) throw new Error('Could not save production settings. Please retry.');
       script = { ...script, ...patch };
@@ -1816,6 +1842,20 @@ export default function App() {
   async function handleClearScript(id: string) {
     generationAbortRef.current?.abort();
     generationAbortRef.current = null;
+    autoPilotAbortRef.current?.abort();
+    autoPilotAbortRef.current = null;
+    autoPilotPausedRef.current = false;
+    setAutoPilotState((prev) => ({
+      ...prev,
+      isActive: false,
+      stage: 'idle',
+      error: null,
+      statusMessage: '',
+      scriptId: prev.scriptId === id ? undefined : prev.scriptId,
+    }));
+    try {
+      localStorage.removeItem(`tubeflow:autopilot:${scopeKey}`);
+    } catch {}
     const scopeAtCall = scopeKey;
     await saveQueues.current.get(`${scopeKey}:${id}`);
     try {
@@ -2039,7 +2079,9 @@ export default function App() {
                 }}
                 onManageAccounts={() => setSidebar('profile')}
               />
-            ) : sidebar === 'profile' ? <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} /> : sidebar === 'settings' ? (
+            ) : sidebar === 'profile' ? <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} /> : sidebar === 'motion-templates' ? (
+              <ProfileMotionTemplatesPage account={activeChannel} accounts={accounts} onSelectAccount={switchChannel} />
+            ) : sidebar === 'settings' ? (
               <SetupTab />
             ) : !isMainSection ? (
               <PlaceholderPage label={sidebar.charAt(0).toUpperCase() + sidebar.slice(1)} />
@@ -2180,15 +2222,26 @@ export default function App() {
         />
       )}
 
-      {!autoPilotState.isActive && resumableScript && (
-        <button type="button" className="studio-btn-primary fixed bottom-6 right-6 z-40 shadow-pop"
-          onClick={() => { void runAutoPilotPipeline(resumableScript,
-            resumeCheckpoint ? autoPilotState.topic : resumableScript.topicName || resumableScript.retentionPlan?.topic || '',
-            resumeCheckpoint ? autoPilotState.instructions || '' : resumableScript.aiInstructions || '',
-            resumeCheckpoint ? autoPilotState.stageIndex : Math.min(6, savedProductionStage(resumableScript)),
-            resumeCheckpoint ? autoPilotState.renderedVideoUrl : null); }}>
-          <Play className="h-4 w-4" /> Resume Auto-Pilot
-        </button>
+      {!autoPilotState.isActive && resumableScript && dismissedResumeScriptId !== resumableScript.id && (
+        <div className="fixed bottom-6 right-6 z-40 flex items-center gap-1.5 rounded-2xl border border-border/80 bg-[#121620]/95 p-1.5 shadow-2xl backdrop-blur-xl animate-fade-in">
+          <button type="button" className="studio-btn-primary shadow-glow !py-2 !px-4 text-xs font-semibold"
+            onClick={() => { void runAutoPilotPipeline(resumableScript,
+              resumeCheckpoint ? autoPilotState.topic : resumableScript.topicName || resumableScript.retentionPlan?.topic || '',
+              resumeCheckpoint ? autoPilotState.instructions || '' : resumableScript.aiInstructions || '',
+              resumeCheckpoint ? autoPilotState.stageIndex : Math.min(6, savedProductionStage(resumableScript)),
+              resumeCheckpoint ? autoPilotState.renderedVideoUrl : null); }}>
+            <Play className="h-4 w-4" /> Resume Auto-Pilot
+          </button>
+          <button
+            type="button"
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-muted hover:bg-white/10 hover:text-white transition-colors"
+            title="Dismiss Auto-Pilot prompt (keeps all script and media files)"
+            aria-label="Dismiss Auto-Pilot prompt"
+            onClick={() => setDismissedResumeScriptId(resumableScript.id)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       )}
       {autoPilotState.isActive && (
         <AutoPilotModal

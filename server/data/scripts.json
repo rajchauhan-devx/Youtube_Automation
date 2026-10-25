@@ -126,19 +126,20 @@
     "model": "gemini-3.6-flash",
     "locked": false,
     "videoImportsEnabled": true,
-    "enableSubtitles": true,
+    "enableSubtitles": false,
     "presenter": {
-      "enabled": false,
-      "avatarId": "avatar_005",
-      "style": "card",
-      "widthPercent": 24,
-      "bottomPercent": 18,
-      "marginPercent": 2.5,
+      "enabled": true,
+      "avatarId": "avatar_013",
+      "style": "transparent",
+      "widthPercent": 41,
+      "bottomPercent": 0,
+      "marginPercent": 0,
+      "horizontalPercent": 100,
       "crop": {
-        "x": 32,
-        "y": 2,
-        "width": 40,
-        "height": 67
+        "x": 22,
+        "y": 0,
+        "width": 47,
+        "height": 100
       },
       "silenceGate": true,
       "silenceThresholdDb": -40
@@ -158,19 +159,19 @@
       "voice": {
         "provider": "google",
         "language": "hi",
-        "voiceId": "hi-IN-Chirp3-HD-Charon",
+        "voiceId": "hi-IN-Chirp3-HD-Fenrir",
         "rate": 0,
         "pitch": 0,
         "speed": 1
       },
-      "captions": "motion",
+      "captions": "off",
       "graphics": {
         "enabled": false,
         "mode": "images",
-        "density": "balanced",
+        "density": "subtle",
         "treatment": "auto",
-        "style": "Use image-led documentary storytelling with related source images and verified details.",
-        "model": "gemini-3.6-flash"
+        "style": "Let AI choose only moments where a graphic materially explains the narration. Metadata is a suggestion, never a command to decorate every scene. Leave ordinary footage clean, keep breathing room between beats, and allow zero graphics. No cards, panels, boxed labels, enclosing frames, blur backings or photo badges. Use free-floating type, fine lines and purposeful diagrams in open space around subjects. Never invent facts, coordinates, source labels or telemetry. Preview the actual result before export.",
+        "model": ""
       },
       "editing": {
         "mode": "story",
@@ -183,7 +184,7 @@
           "framing": "contain",
           "chapterTitles": false,
           "bookendFades": false,
-          "captionStyle": "boxed",
+          "captionStyle": "minimal",
           "captions": true,
           "colorLook": "none",
           "vignette": false,
@@ -204,22 +205,1163 @@
         "voiceVolume": 1
       },
       "youtube": {
+        "enabled": true,
         "privacyStatus": "private",
-        "publishMode": "now",
-        "scheduledPublishAt": ""
+        "publishMode": "schedule",
+        "scheduledPublishAt": "2026-10-26T08:30:00.000Z"
+      },
+      "presenter": {
+        "enabled": true,
+        "avatarId": "avatar_013",
+        "style": "transparent",
+        "widthPercent": 41,
+        "bottomPercent": 0,
+        "marginPercent": 0,
+        "horizontalPercent": 100,
+        "crop": {
+          "x": 22,
+          "y": 0,
+          "width": 47,
+          "height": 100
+        },
+        "silenceGate": true,
+        "silenceThresholdDb": -40
       }
     },
     "accountId": "default",
     "section": "shorts",
-    "status": "draft",
-    "lastUsed": "Never",
-    "aiResponse": "",
-    "extractedScript": "",
-    "narration": "",
-    "imagePrompts": [],
-    "generatedImages": [],
-    "generatedAudio": [],
-    "pipeline": []
+    "status": "active",
+    "lastUsed": "2026-10-25T15:16:53.258Z",
+    "aiResponse": "## PART 1 — 🕉️ WORKFLOW GUIDE & ASSET BLUEPRINT\n\n### DECISION MATRIX: IMAGE VS. VIDEO (50/50 SPLIT)\n- **Scene 1**: `<video_prompt1>` — Dynamic Opening Hook (Floating Brick Water Test)\n- **Scene 2**: `<image_prompt2>` — Majestic Establishing Shot (Ramappa Temple Facade)\n- **Scene 3**: `<video_prompt3>` — Architectural Planning (1213 CE Kakatiya Royal Court)\n- **Scene 4**: `<image_prompt4>` — Seismic Danger Threat (Deccan Plateau Geology)\n- **Scene 5**: `<video_prompt5>` — Foundation Excavation (3-Meter Trench Digging)\n- **Scene 6**: `<image_prompt6>` — Organic Ingredients (Sand, Lime, Jaggery, Haritaki)\n- **Scene 7**: `<video_prompt7>` — Subterranean Filling (Pouring & Packing Sandbox Cushion)\n- **Scene 8**: `<image_prompt8>` — Physics Concept (Shockwave Dissipation Base Isolation)\n- **Scene 9**: `<video_prompt9>` — Ceramic Kiln Crafting (Making Porous Light Bricks)\n- **Scene 10**: `<image_prompt10>` — Laboratory Density Test (0.9 g/cm³ Float Physics)\n- **Scene 11**: `<video_prompt11>` — Tower Assembly (Vimana & Melted Iron Dowel Joining)\n- **Scene 12**: `<image_prompt12>` — Basalt Sculptures (Dolerite Madanika Bracket Carvings)\n- **Scene 13**: `<video_prompt13>` — Climax Seismic Event (17th Century Catastrophic Tremor)\n- **Scene 14**: `<image_prompt14>` — Post-Earthquake Survival (Intact Sanctum & Shifted Slabs)\n- **Scene 15**: `<video_prompt15>` — Modern UNESCO Heritage Recognition (Architectural Inspection)\n- **Scene 16**: `<image_prompt16>` — Final Earned Payoff & Blessing (Golden Hour Triumph)\n\n---\n\n## SECTION 1 — SCRIPT & ASSET BLUEPRINT\n\n🎬 **SCENE 1** — The Floating Brick Mystery\n- **Duration**: 00:00–00:06 (6s)\n- **Asset Type**: VIDEO (`<video_prompt1>`)\n- **Emotion**: Wonder / Curiosity\n- **Visual Concept**: Porous Kakatiya ceramic brick floating in water next to dark polished basalt Madanika sculpture.\n- **Camera/Movement**: Slow push-in towards brass vessel as water ripples around the buoyant brick.\n\n🎬 **SCENE 2** — Grand Temple Overview\n- **Duration**: 00:06–00:12 (6s)\n- **Asset Type**: IMAGE (`<image_prompt2>`)\n- **Emotion**: Awe\n- **Visual Concept**: Ramappa Temple resting on its star-shaped sandstone platform in Palampet, Telangana.\n- **Camera/Movement**: Static grand low-angle majestic shot.\n\n🎬 **SCENE 3** — The Royal Royal Commission (1213 CE)\n- **Duration**: 00:12–00:18 (6s)\n- **Asset Type**: VIDEO (`<video_prompt3>`)\n- **Emotion**: Vision / Purpose\n- **Visual Concept**: Chief Architect Ramappa unrolling palm-leaf blueprints before Kakatiya General Recharla Rudra.\n- **Camera/Movement**: Slow tracking pan across architectural drawings to Ramappa’s resolute face.\n\n🎬 **SCENE 4** — The Threat of Earthquakes\n- **Duration**: 00:18–00:23 (5s)\n- **Asset Type**: IMAGE (`<image_prompt4>`)\n- **Emotion**: Tension\n- **Visual Concept**: Artistic depiction of subterranean tectonic fault lines stretching beneath the Deccan Plateau.\n- **Camera/Movement**: Frozen high-contrast cross-section framing.\n\n🎬 **SCENE 5** — Excavating the Sandbox Trench\n- **Duration**: 00:23–00:29 (6s)\n- **Asset Type**: VIDEO (`<video_prompt5>`)\n- **Emotion**: Industry / Determination\n- **Visual Concept**: Hundreds of ancient Kakatiya artisans excavating a massive 3-meter deep foundation trench.\n- **Camera/Movement**: High-angle crane shot slowly descending into the rectangular trench.\n\n🎬 **SCENE 6** — The Organic Binding Mixture\n- **Duration**: 00:29–00:34 (5s)\n- **Asset Type**: IMAGE (`<image_prompt6>`)\n- **Emotion**: Scientific Ingenuity\n- **Visual Concept**: Close-up of raw ingredients: yellow river sand, slaked lime, dark liquid jaggery, and dried Haritaki fruit.\n- **Camera/Movement**: Shallow depth-of-field still composition.\n\n🎬 **SCENE 7** — Packing the Sandbox Cushion\n- **Duration**: 00:34–00:40 (6s)\n- **Asset Type**: VIDEO (`<video_prompt7>`)\n- **Emotion**: Mastery\n- **Visual Concept**: Artisans pouring and compacting layers of organic slurry and sand into the foundation bed.\n- **Camera/Movement**: Lateral tracking shot along the edge of the filled foundation pit.\n\n🎬 **SCENE 8** — Seismic Base Isolation Mechanism\n- **Duration**: 00:40–00:46 (6s)\n- **Asset Type**: IMAGE (`<image_prompt8>`)\n- **Emotion**: Revelation\n- **Visual Concept**: Conceptual diagram showing kinetic shockwaves scattering into the granular sand cushion beneath the star platform.\n- **Camera/Movement**: Static cutaway technical illustration.\n\n🎬 **SCENE 9** — Crafting Light Ceramic Bricks\n- **Duration**: 00:46–00:52 (6s)\n- **Asset Type**: VIDEO (`<video_prompt9>`)\n- **Emotion**: Craftsmanship\n- **Visual Concept**: Potters mixing clay with sawdust in ancient kilns, trapping microscopic air pockets inside ceramic bricks.\n- **Camera/Movement**: Medium shot panning across glowing kiln fires to cooling terracotta bricks.\n\n🎬 **SCENE 10** — The Density Anomaly (0.9 g/cm³)\n- **Duration**: 00:52–00:57 (5s)\n- **Asset Type**: IMAGE (`<image_prompt10>`)\n- **Emotion**: Amazement\n- **Visual Concept**: Side-by-side comparison where heavy standard brick sinks while Kakatiya brick floats atop water.\n- **Camera/Movement**: High-contrast split static framing.\n\n🎬 **SCENE 11** — Interlocking Spire Assembly\n- **Duration**: 00:57–01:03 (6s)\n- **Asset Type**: VIDEO (`<video_prompt11>`)\n- **Emotion**: Architectural Splendor\n- **Visual Concept**: Artisans hoisting light bricks to construct the Vimana tower using tongue-and-groove joints and iron pins.\n- **Camera/Movement**: Upward tilt following a stone block being positioned onto the tower spire.\n\n🎬 **SCENE 12** — Basalt Madanika Bracket Statues\n- **Duration**: 01:03–01:08 (5s)\n- **Asset Type**: IMAGE (`<image_prompt12>`)\n- **Emotion**: Artistic Devotion\n- **Visual Concept**: Intricate polished dark dolerite bracket statue of a dancing maiden supporting the roof overhang.\n- **Camera/Movement**: Extreme detailed portrait still with golden rim light.\n\n🎬 **SCENE 13** — The Great 17th Century Earthquake\n- **Duration**: 01:08–01:15 (7s)\n- **Asset Type**: VIDEO (`<video_prompt13>`)\n- **Emotion**: Dramatic Tension / Triumph\n- **Visual Concept**: Ground shaking violently during a seismic event; nearby stone structures collapse while Ramappa Temple sways safely.\n- **Camera/Movement**: Shaky kinetic handheld camera stabilizing into a dynamic wide shot.\n\n🎬 **SCENE 14** — Unshakable Foundation Aftermath\n- **Duration**: 01:15–01:21 (6s)\n- **Asset Type**: IMAGE (`<image_prompt14>`)\n- **Emotion**: Relief / Resilience\n- **Visual Concept**: Floor slabs showing minor tremor shifts while main sandstone pillars and sanctum remain perfectly aligned.\n- **Camera/Movement**: Still low-angle perspective across the intact central aisle.\n\n🎬 **SCENE 15** — UNESCO World Heritage Scientific Honor\n- **Duration**: 01:21–01:27 (6s)\n- **Asset Type**: VIDEO (`<video_prompt15>`)\n- **Emotion**: Modern Reverence\n- **Visual Concept**: Modern architects studying the 800-year-old sandbox foundation near the official UNESCO inscription plaque.\n- **Camera/Movement**: Smooth arc shot around the UNESCO stone marker leading to the temple background.\n\n🎬 **SCENE 16** — Eternal Engineering Legacy\n- **Duration**: 01:27–01:32 (5s)\n- **Asset Type**: IMAGE (`<image_prompt16>`)\n- **Emotion**: Divine Pride\n- **Visual Concept**: Ramappa Temple glowing in warm sunset rays with incense smoke rising against the Telangana sky.\n- **Camera/Movement**: Panoramic closing still shot.\n\n---\n\n## SECTION 2 — TIMESTAMPS FOR EDITOR SYNC\n\n- `00:00 - 00:06`: Opening Hook — Floating Brick Mystery\n- `00:06 - 00:12`: Ramappa Temple Facade & Kakatiya Heritage\n- `00:12 - 00:18`: 1213 CE Royal Commission by General Recharla Rudra\n- `00:18 - 00:23`: Deccan Plateau Seismic Threat\n- `00:23 - 00:29`: Excavation of 3-Meter Deep Sandbox Pit\n- `00:29 - 00:34`: Organic Ingredients: Sand, Lime, Jaggery, Haritaki\n- `00:34 - 00:40`: Packing the Seismic Base Isolation Trench\n- `00:40 - 00:46`: Physics of Seismic Energy Dissipation (60% Absorption)\n- `00:46 - 00:52`: Crafting Lightweight Porous Vimana Ceramic Bricks\n- `00:52 - 00:57`: Superstructure Low Density Test (0.9 g/cm³)\n- `00:57 - 01:03`: Tongue-and-Groove Interlocking Joints & Iron Dowels\n- `01:03 - 01:08`: Polished Basalt Madanika Bracket Carvings\n- `01:08 - 01:15`: 17th Century Catastrophic Earthquake Survival Test\n- `01:15 - 01:21`: Intact Sanctum & Minor Floor Slab Displacement\n- `01:21 - 01:27`: Global UNESCO World Heritage Recognition\n- `01:27 - 01:32`: Concluding Tribute & Closing Blessing\n\n---\n\n## SECTION 2B — ELEVENLABS VOICED SCRIPT (PASTE-READY)\n\n<script>\n800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?\n\n(break)\n\nसन 1213 में काकतिया राजवंश के महान मूर्तिकार रामप्पा ने पालमपेट में एक ऐसा अद्भुत शिव मंदिर बनाया, जिसने विज्ञान को भी हैरान कर दिया। \n\n(break)\n\nदक्कन के इस भूकंपीय क्षेत्र में मंदिर को सुरक्षित रखने के लिए रामप्पा ने ज़मीन में 3 मीटर गहरा गड्ढा खोदा। \n\n(break)\n\nइसमें सिर्फ पत्थर नहीं, बल्कि नदी की रेत, चूना, गुड़ और हरड़ का खास जैविक मिश्रण भरा गया। इसे काकतिया 'सैंडबॉक्स टेक्नोलॉजी' कहते हैं—जो भूकंप के घातक झटकों को 60 प्रतिशत तक सोख लेती है।\n\n(break)\n\nइतना ही नहीं, मंदिर के ऊपरी शिखर को भारी पत्थरों की जगह हवा की थैलियों वाली हल्की ईंटों से बनाया गया। 0.9 ग्राम प्रति घन सेंटीमीटर घनत्व वाली ये ईंटें पानी पर तैर सकती हैं!\n\n(break)\n\nपत्थरों को बिना गारे के, लोहे की कीलों और खांचों से जोड़ा गया, जिससे इमारत को लचीलापन मिला।\n\n(break)\n\n17वीं सदी में जब भीषण भूकंप से आसपास की सारी इमारतें ढह गईं, तब भी रामप्पा मंदिर की नींव ने झटके सोख लिए और इसका मुख्य गर्भगृह अडिग रहा।\n\n(break)\n\n800 साल पहले काकतिया कारीगरों की यह 'बेस आइसोलेशन' तकनीक आज यूनेस्को की विश्व धरोहर है।\n\n(break)\n\nजय काकतिया शिल्प कला! जय श्री राम!\n</script>\n\n---\n\n## SECTION 3 — VISUAL GENERATION PROMPTS (CHRONOLOGICAL)\n\n<image_prompt0>\n#image 0\nASSET: THUMBNAIL\nPrompt:\nA dramatic high-contrast split 16:9 composition. The top half features the glowing red sandstone architecture and polished black basalt Madanika sculptures of the 13th-century Ramappa Temple under intense golden sunset light. The lower half features a glowing visual cross-section diagram showcasing a porous ancient brick floating effortlessly inside a decorative brass water bowl beside a glowing yellow subterranean sand pit foundation. Epic dramatic rim lighting, vibrant deep tones, hyper-realistic stone textures, historical accuracy of Kakatiya empire architecture in Palampet Telangana. Deep blue and warm amber color grading with negative space on the left for bold title text overlay.\nCharacter Consistency:\n13th-century Kakatiya architectural aesthetic, polished dark dolerite stone bracket figures, star-shaped raised platform, porous terracotta floating brick.\nNegative Prompt:\ncartoon, anime, 3d render, modern clothing, modern buildings, light-skinned Rama, wrong architecture, western faces, low contrast, text in image, watermark, blur, deformed hands, extra limbs.\nTHUMBNAIL TEXT: तैरती ईंटें! भूकंपरोधी मंदिर\n</image_prompt0>\n\n<video_prompt1>\n#video 1\nTIMELINE: 00:00–00:06\nASSET TYPE: VIDEO CLIP (OPENING HOOK)\nSCENE: Floating Brick Water Test\nPrompt:\nCinematic close-up shot inside a temple courtyard. A porous light reddish-brown terracotta Kakatiya brick floats steadily atop clear water in an antique carved brass vessel. In the background, out of focus, stands a highly polished dark basalt sculpture of a dancing maiden bracket figure. The camera slowly pushes in towards the floating brick, capturing subtle water ripples reflecting warm sunlight off the porous stone surface. Realistic physical liquid dynamics, pristine historical lighting, natural metallic sheen on basalt stone.\nCharacter Consistency:\nPorous Kakatiya ceramic brick with microscopic air pockets, antique brass water vessel, dark dolerite Madanika sculpture background.\nTemporal Constraints:\nNo sudden cuts, no dynamic morphing of the brick, smooth push-in camera track, stable water physics.\nNegative Prompt:\ncartoon, 3d render, plastic textures, sinking brick, erratic water motion, modern elements, text, watermark, flickering.\n</video_prompt1>\n\n<image_prompt2>\n#image 2\nTIMELINE: 00:06–00:12\nASSET TYPE: STATIC IMAGE\nSCENE: Ramappa Temple Facade\nPrompt:\nWide-angle majestic view of the historical Ramappa Temple (Rudreshwara Temple) built in 1213 CE in Palampet, Telangana. The grand temple rests atop a distinct 6-foot-high star-shaped raised sandstone platform (Upapitha). The lower walls are constructed from rich reddish-pink sandstone, crowned by a pyramidal stepped Vimana tower made of dark reddish-brown ceramic bricks. Soft morning mist settles around the tropical Deccan landscape. Warm sunlight illuminates the fine relief carvings along the outer stone galleries. Atmospheric depth, high architectural precision, cinematic historical realism.\nCharacter Consistency:\n6-foot star-shaped platform, reddish-pink sandstone lower walls, ceramic Vimana tower, Kakatiya era Treta Yuga architectural style.\nNegative Prompt:\nmodern tourists, concrete walls, electricity wires, cartoon, anime, low resolution, plastic stone, watermark, distorted geometry.\n</image_prompt2>\n\n<motion_graphic2>\nScene: 2\nIntent: Establish geographic location and historical timeline marker (1213 CE, Kakatiya Dynasty, Palampet).\nTemplate: lower_third_map_callout\n</motion_graphic2>\n\n<video_prompt3>\n#video 3\nTIMELINE: 00:12–00:18\nASSET TYPE: VIDEO CLIP\nSCENE: Architectural Planning (1213 CE)\nPrompt:\nInside a grand open-air Kakatiya royal pavilion lit by brass oil lamps and incense smoke. Chief Architect Ramappa, an intense Indian master artisan aged 45 with weathered hands and focused eyes, unrolls a dried palm-leaf architectural blueprint on a low wooden desk. Beside him stands Kakatiya General Recharla Rudra in silk drapery and gold ornaments. The camera performs a slow side-tracking move across the detailed carved drawings on the table, ending in a stable medium close-up of Ramappa pointing to the foundation layer.\nCharacter Consistency:\nArchitect Ramappa: 45 years old, brown skin, matted topknot hair, simple cotton dhoti, lotus seed beads. General Recharla Rudra: muscular build, silk dhoti, gold shoulder armor.\nTemporal Constraints:\nSingle smooth lateral movement, no face deformation, persistent flame lighting, stable hand gestures.\nNegative Prompt:\nmodern paper, plastic, modern clothing, Western features, jump cuts, erratic movement, blurred hands, extra fingers.\n</video_prompt3>\n\n<image_prompt4>\n#image 4\nTIMELINE: 00:18–00:23\nASSET TYPE: STATIC IMAGE\nSCENE: Deccan Seismic Threat\nPrompt:\nA dramatic cross-sectional artistic depiction of the subterranean earth beneath the Deccan Plateau. Dark underground rock strata displaying glowing red seismic shockwave fault lines extending beneath the surface. Above the ground level, silhouette outlines of ancient stone temples symbolize structural vulnerability. Moody high-contrast atmospheric lighting, deep amber and crimson color palette, technical subterranean visualization style combined with classical painterly texture.\nCharacter Consistency:\nDeccan plateau geology, subterranean rock layers, red stress vectors, ancient Indian temple silhouettes.\nNegative Prompt:\nfuturistic HUD, neon sci-fi graphics, modern city, bright daylight, cartoonish lines, text overlay, low quality.\n</image_prompt4>\n\n<video_prompt5>\n#video 5\nTIMELINE: 00:23–00:29\nASSET TYPE: VIDEO CLIP\nSCENE: Digging 3-Meter Foundation Pit\nPrompt:\nHigh-angle panoramic crane shot over an ancient Indian construction site in 1213 CE. Dozens of ancient Kakatiya artisans and laborers dig a deep 3-meter trench following a star-shaped foundation outline. Laborers carry woven baskets filled with soil up wooden ramps. Dust particles float through golden sunbeams penetrating tree canopies. The camera slowly descends vertically down into the excavation trench showing the vast scale of subterranean work.\nCharacter Consistency:\n13th-century South Indian artisans in simple linen loincloths, star-shaped excavated pit, red Deccan soil background.\nTemporal Constraints:\nContinuous vertical downward camera crane move, steady motion of workers without morphing limbs, persistent light rays.\nNegative Prompt:\nmodern excavators, hard hats, plastic buckets, modern tools, jump cuts, flickering, distorted human figures.\n</video_prompt5>\n\n<motion_graphic5>\nScene: 5\nIntent: Illustrate the subterranean depth scale of the foundation trench (3 Meters Deep / 10 Feet Excavation).\nTemplate: dimension_callout_overlay\n</motion_graphic5>\n\n<image_prompt6>\n#image 6\nTIMELINE: 00:29–00:34\nASSET TYPE: STATIC IMAGE\nSCENE: Kakatiya Organic Mixture Ingredients\nPrompt:\nA beautiful macro still-life shot of the natural raw components used in the Kakatiya sandbox recipe. Flat stone brass plates contain bright fine river sand, powdered white slaked lime (chuna), dark viscous liquid jaggery in a clay bowl, and dried black-brown Haritaki (Karakkaya) fruits. Warm atmospheric side-lighting highlights the rich textures of each organic binding agent against dark slate stone. Shallow depth of field, vivid authentic color, historical documentary aesthetic.\nCharacter Consistency:\nRiver sand, white slaked lime powder, dark jaggery paste, dried Haritaki myrobalan fruits, ancient brass and terracotta pottery.\nNegative Prompt:\nmodern glass jars, plastic bags, synthetic powders, chemical labels, low resolution, flash lighting, blurry text.\n</image_prompt6>\n\n<video_prompt7>\n#video 7\nTIMELINE: 00:34–00:40\nASSET TYPE: VIDEO CLIP\nSCENE: Packing the Sandbox Cushion\nPrompt:\nMedium tracking shot inside the excavated foundation trench. Artisans pour a golden mixture of sand, lime, jaggery paste, and Haritaki extract into the pit while others use heavy wooden rammers to compact the layer tightly. Dust rises in bright shafts of sunlight. The camera glides horizontally alongside the workers as they layer the cushion smooth, showing the dense compact texture of the sandbox bed forming underneath sandstone block pedestals.\nCharacter Consistency:\nKakatiya artisans, organic sandbox mixture, wooden compacting rammers, sandstone base blocks.\nTemporal Constraints:\nSingle smooth horizontal tracking move, realistic material spreading motion, zero frame stuttering or face drift.\nNegative Prompt:\ncement mixers, modern boots, modern tools, morphing limbs, sudden camera jumps, low light blur.\n</video_prompt7>\n\n<image_prompt8>\n#image 8\nTIMELINE: 00:40–00:46\nASSET TYPE: STATIC IMAGE\nSCENE: Seismic Base Isolation Graphic\nPrompt:\nA detailed technical cross-section schematic illustrating the sandbox foundation mechanism beneath Ramappa Temple. Glowing yellow subterranean shockwave arrows travel upward through hard bedrock but shatter and disperse horizontally upon hitting the packed 3-meter sand and organic slurry trench. The sandstone platform above remains stationary and calm. Clean architectural diagram style merged with realistic stone textures, warm amber energy vectors, informative structural engineering aesthetic.\nCharacter Consistency:\n3-meter packed sandbox layer, star-shaped sandstone platform, kinetic wave dissipation vectors.\nNegative Prompt:\nmodern buildings, sci-fi glowing blue grids, text in image, low quality render, chaotic background, blurry lines.\n</image_prompt8>\n\n<motion_graphic8>\nScene: 8\nIntent: Process diagram showing seismic energy reduction (60% Kinetic Dissipation through Sandbox Isolation).\nTemplate: physics_flow_diagram\n</motion_graphic8>\n\n<video_prompt9>\n#video 9\nTIMELINE: 00:46–00:52\nASSET TYPE: VIDEO CLIP\nSCENE: Crafting Light Ceramic Bricks\nPrompt:\nInside a 13th-century terracotta kiln workshop. Ancient potters knead reddish clay mixed with sawdust and organic chaff before shaping bricks in wooden molds. Smoke rises towards open rafters. Sparks fly softly from a glowing brick kiln in the background. The camera slowly pans left from the potter's skilled hands to stacked porous ceramic bricks cooling on stone racks, revealing tiny surface pores designed to trap air.\nCharacter Consistency:\nAncient Indian potters, wooden brick molds, sawdust-blended clay, glowing wood-fired brick kiln.\nTemporal Constraints:\nSlow horizontal pan, smooth hand motion molding clay, stable flame particles without flickering artifacts.\nNegative Prompt:\nmodern brick factories, electric kilns, rubber gloves, dynamic scene cuts, morphing objects, blur.\n</video_prompt9>\n\n<image_prompt10>\n#image 10\nTIMELINE: 00:52–00:57\nASSET TYPE: STATIC IMAGE\nSCENE: Laboratory Density Float Test (0.9 g/cm³)\nPrompt:\nA clear side-by-side scientific comparison inside a clear glass water vessel under bright laboratory spotlighting. On the left side underwater, a dense dark modern brick rests heavily at the bottom of the tank. On the right side, a porous reddish Kakatiya ceramic brick floats gracefully at the water surface level with visible buoyancy pockets. Superb liquid transparency, crisp detail on stone porosities, scientific historical documentation aesthetic.\nCharacter Consistency:\nDark dense standard clay brick underwater, porous lightweight Kakatiya ceramic brick floating at surface (0.9 g/cm³ density).\nNegative Prompt:\nsinking Kakatiya brick, dirty water, blurry physics, modern chemical beaker labels, plastic props, distorted frame.\n</image_prompt10>\n\n<motion_graphic10>\nScene: 10\nIntent: Density comparison visual (Standard Brick: 2.2 g/cm³ vs. Kakatiya Floating Brick: 0.9 g/cm³).\nTemplate: visual_comparison_scale\n</motion_graphic10>\n\n<video_prompt11>\n#video 11\nTIMELINE: 00:57–01:03\nASSET TYPE: VIDEO CLIP\nSCENE: Interlocking Spire Assembly\nPrompt:\nLow-angle tracking shot moving up the side of the Vimana tower during construction. Stonemasons carefully slide lightweight porous bricks into tongue-and-groove interlocking channels along the upper spire. An artisan pours molten iron into a dowel recess, securing adjacent stone blocks without mortar. The camera slowly tilts upward following the rising stepped pyramidal tower against a dramatic midday blue sky.\nCharacter Consistency:\nStepped pyramidal Vimana tower, porous light ceramic bricks, interlocking tongue-and-groove stonework, iron dowels.\nTemporal Constraints:\nContinuous upward tilting camera motion, realistic liquid metal pouring visual, clean frame resolution.\nNegative Prompt:\ncranes, metal scaffolding, hard hats, safety vests, morphing stone shapes, jump cuts, erratic tilt.\n</video_prompt11>\n\n<image_prompt12>\n#image 12\nTIMELINE: 01:03–01:08\nASSET TYPE: STATIC IMAGE\nSCENE: Polished Basalt Madanika Sculpture\nPrompt:\nAn exquisite close-up portrait of a dark dolerite basalt Madanika bracket statue mounted at a 45-degree angle beneath the roof cornice of Ramappa Temple. The sculpture depicts a slender dancing maiden with highly detailed jewelry, ornate headgear, and smooth glass-like metallic luster on dark black stone. Sunset golden light catches the high-gloss polished edges of the basalt surface. Magnificent detail, historical Kakatiya artistic brilliance.\nCharacter Consistency:\nDark dolerite basalt Madanika bracket sculpture, metallic polished finish, sandstone wall backdrop, Kakatiya art style.\nNegative Prompt:\nrough unpolished granite, broken nose, modern concrete, fair skin, cartoon, anime, flash exposure, low resolution.\n</image_prompt12>\n\n<video_prompt13>\n#video 13\nTIMELINE: 01:08–01:15\nASSET TYPE: VIDEO CLIP (CLIMAX SEISMIC EVENT)\nSCENE: The 17th Century Earthquake\nPrompt:\nDynamic wide action shot during a massive historical earthquake in the 17th century. The ground shakes violently, sending dust clouds rising into a dark stormy sky. In the foreground background, auxiliary stone structures crumble into rubble. In center frame, Ramappa Temple sways gently on its subterranean sandbox cushion; its lightweight floating brick Vimana shifts slightly on iron dowels without collapsing. Camera starts with realistic tremor shake and gradually stabilizes into a steady lock on the standing temple.\nCharacter Consistency:\nRamappa Temple main structure intact, sway cushion movement, crumbling secondary stone structures.\nTemporal Constraints:\nControlled kinetic camera shake settling into smooth static frame, realistic debris movement, no face or building morphing.\nNegative Prompt:\nmodern buildings collapsing, cartoon destruction, explosions, sci-fi effects, frame flickering, instant cuts.\n</video_prompt13>\n\n<image_prompt14>\n#image 14\nTIMELINE: 01:15–01:21\nASSET TYPE: STATIC IMAGE\nSCENE: Unshakable Foundation Aftermath\nPrompt:\nInterior wide shot of the central sanctum (Garbhagriha) corridor of Ramappa Temple following the earthquake. Sunlight beams through stone lattices illuminating minor floor slab displacements where sandstone paving shifted slightly over the sand layer. Yet the massive polished dark basalt pillars, stone lintels, and main sanctum remain perfectly vertical, intact, and unharmed. Peaceful quiet atmosphere, dramatic light rays, resilient ancient engineering.\nCharacter Consistency:\nShifted sandstone floor slabs, vertical polished basalt central pillars, undamaged sanctum doorway, sunlight beam dust.\nNegative Prompt:\ncollapsed roof, total destruction, modern debris, trash, bright artificial lights, cartoon render, watermark.\n</image_prompt14>\n\n<video_prompt15>\n#video 15\nTIMELINE: 01:21–01:27\nASSET TYPE: VIDEO CLIP\nSCENE: UNESCO World Heritage Honor\nPrompt:\nSmooth arc shot starting on a carved stone UNESCO World Heritage inscription plaque standing in a green garden bed at Palampet. The camera smoothly orbits around the plaque to reveal the grand Ramappa Temple standing proudly in the background under soft golden evening light. Modern Indian structural engineers in professional field attire subtly inspect the outer star platform with reverence. Atmospheric twilight sky, majestic heritage presence.\nCharacter Consistency:\nUNESCO stone emblem plaque, Ramappa Temple background, star-shaped sandstone platform, golden hour light.\nTemporal Constraints:\nContinuous smooth orbital camera motion, stable background architecture, steady lighting transition.\nNegative Prompt:\ncrowded tourists, trash, distorted plaque text, jump cuts, jerky camera movement, dark unlit scene.\n</video_prompt15>\n\n<image_prompt16>\n#image 16\nTIMELINE: 01:27–01:32\nASSET TYPE: STATIC IMAGE\nSCENE: Concluding Eternal Glory\nPrompt:\nA panoramic golden-hour hero shot of Ramappa Temple. Sunbeams cut through gentle morning mist surrounding the historic temple atop its star-shaped base. Incense smoke curls upwards from a brass lamp near the steps. The dark basalt Madanika figures gleam like black gold against the warm red sandstone facade. Dignified, divine, timeless atmospheric feel showcasing 800 years of unbroken scientific triumph.\nCharacter Consistency:\nRamappa Temple full facade, star-shaped platform, polished basalt bracket statues, incense smoke, sunset light.\nNegative Prompt:\nmodern cars, electric poles, tourists, rainy dark sky, plastic props, blurry, low quality, cartoon, extra limbs.\n</image_prompt16>\n\n---\n\n## SECTION 4 — HINDI TEXT OVERLAYS\n\n- **Thumbnail Text**: तैरती ईंटें! भूकंपरोधी मंदिर\n- **Opening Frame Text**: 800 साल पुराना रहस्य! 🏛️\n- **Scene Lower-Thirds**:\n  - `00:12`: पालमपेट, तेलंगाना | 1213 ईस्वी\n  - `00:34`: काकतिया 'सैंडबॉक्स' तकनीक 🥪\n  - `00:52`: तैरने वाली हल्की ईंटें (0.9 g/cc) 🧱\n  - `01:21`: यूनेस्को विश्व धरोहर स्थल 🌍\n- **Follow Frame Text**: ❤️ लाइक करें | 💬 कमेंट — जय श्री राम 🙏 | 🔔 जुड़े रहें\n- **End Card Text**: जय काकतिया शिल्प कला! जय श्री राम! 🙏\n\n---\n\n## SECTION 5 — THE REFLECTION ENGINE\n\n> **Pinned Comment Question**:\n> \"क्या आपको लगता है कि हमारे प्राचीन भारतीय कारीगरों की सैंडबॉक्स तकनीक और फ्लोटिंग ब्रिक्स का ज्ञान आज की आधुनिक इमारतों में भी इस्तेमाल होना चाहिए? अपनी राय कमेंट्स में जरूर लिखें! 🏛️👇 (जय श्री राम 🙏)\"",
+    "extractedScript": "800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?\n\nसन 1213 में काकतिया राजवंश के मुख्य मूर्तिकार रामप्पा ने तेलंगाना के पालमपेट में इस अद्भुत रुद्रेश्वर मंदिर का निर्माण शुरू किया।\n\nरामप्पा के सामने चुनौती थी एक ऐसा मंदिर बनाना, जो दक्कन के क्षेत्र में सदियों तक आने वाले भूकंपीय झटकों को सह सके।\n\nदक्कन का यह क्षेत्र गहरे भूगर्भीय झटकों की चपेट में आता रहा है, जहाँ सामान्य पत्थर की इमारतें आसानी से ढह जाती हैं।\n\nइस खतरे से निपटने के लिए रामप्पा ने नींव निर्माण के दौरान ज़मीन में 3 मीटर गहरा विशाल गड्ढा खोदा।\n\nइस गड्ढे को केवल कठोर पत्थरों से नहीं, बल्कि नदी की रेत, चूना, गुड़ और हरड़ के विशेष जैविक मिश्रण से भरा गया।\n\nकाकतिया साम्राज्य की यह 'सैंडबॉक्स तकनीक' भूकंपीय तरंगों की ऊर्जा को लगभग 60 प्रतिशत तक सोख लेती है।\n\nनींव की यह बालू-परत एक प्राकृतिक 'बेस आइसोलेशन' की तरह काम करती है, जिससे ऊपरी इमारत झटके से सुरक्षित रहती है।\n\nइंजीनियरिंग का दूसरा कमाल था मंदिर का ऊपरी शिखर, जिसे भारी पत्थरों के बजाय विशेष हल्की ईंटों से तैयार किया गया।\n\nइन ईंटों का घनत्व केवल 0.9 ग्राम प्रति घन सेंटीमीटर है, जिससे ये पानी की सतह पर भी आसानी से तैर सकती हैं!\n\nदीवारों और शिखरों के पत्थरों को बिना चूना-गारे के, लोहे की कीलों और खांचों से जोड़ा गया, जिससे पूरी संरचना में लचीलापन बना रहा।\n\n17वीं सदी में जब क्षेत्र में विनाशकारी भूकंप आया, तो आसपास की लगभग सभी मध्यकालीन इमारतें पूरी तरह ढह गईं।\n\nलेकिन सैंडबॉक्स नींव ने झटकों की शक्ति सोख ली और रामप्पा मंदिर का मुख्य गर्भगृह और शिखर पूरी तरह सुरक्षित रहे।\n\nभूकंप के कारण केवल फर्श की कुछ पट्टियां खिसकीं, जबकि मंदिर के विशाल काले बेसाल्ट स्तंभ अपनी जगह पर अडिग खड़े रहे।\n\n800 साल पुरानी यही अद्भुत प्राचीन इंजीनियरिंग आज इसे यूनेस्को की विश्व धरोहर स्थल के रूप में पहचान दिलाती है।\n\nकाकतिया कारीगरों की इस बेजोड़ वैज्ञानिक दृष्टि और कला को हमारा नमन। जय श्री राम!",
+    "narration": "800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?\n\nसन 1213 में काकतिया राजवंश के मुख्य मूर्तिकार रामप्पा ने तेलंगाना के पालमपेट में इस अद्भुत रुद्रेश्वर मंदिर का निर्माण शुरू किया।\n\nरामप्पा के सामने चुनौती थी एक ऐसा मंदिर बनाना, जो दक्कन के क्षेत्र में सदियों तक आने वाले भूकंपीय झटकों को सह सके।\n\nदक्कन का यह क्षेत्र गहरे भूगर्भीय झटकों की चपेट में आता रहा है, जहाँ सामान्य पत्थर की इमारतें आसानी से ढह जाती हैं।\n\nइस खतरे से निपटने के लिए रामप्पा ने नींव निर्माण के दौरान ज़मीन में 3 मीटर गहरा विशाल गड्ढा खोदा।\n\nइस गड्ढे को केवल कठोर पत्थरों से नहीं, बल्कि नदी की रेत, चूना, गुड़ और हरड़ के विशेष जैविक मिश्रण से भरा गया।\n\nकाकतिया साम्राज्य की यह 'सैंडबॉक्स तकनीक' भूकंपीय तरंगों की ऊर्जा को लगभग 60 प्रतिशत तक सोख लेती है।\n\nनींव की यह बालू-परत एक प्राकृतिक 'बेस आइसोलेशन' की तरह काम करती है, जिससे ऊपरी इमारत झटके से सुरक्षित रहती है।\n\nइंजीनियरिंग का दूसरा कमाल था मंदिर का ऊपरी शिखर, जिसे भारी पत्थरों के बजाय विशेष हल्की ईंटों से तैयार किया गया।\n\nइन ईंटों का घनत्व केवल 0.9 ग्राम प्रति घन सेंटीमीटर है, जिससे ये पानी की सतह पर भी आसानी से तैर सकती हैं!\n\nदीवारों और शिखरों के पत्थरों को बिना चूना-गारे के, लोहे की कीलों और खांचों से जोड़ा गया, जिससे पूरी संरचना में लचीलापन बना रहा।\n\n17वीं सदी में जब क्षेत्र में विनाशकारी भूकंप आया, तो आसपास की लगभग सभी मध्यकालीन इमारतें पूरी तरह ढह गईं।\n\nलेकिन सैंडबॉक्स नींव ने झटकों की शक्ति सोख ली और रामप्पा मंदिर का मुख्य गर्भगृह और शिखर पूरी तरह सुरक्षित रहे।\n\nभूकंप के कारण केवल फर्श की कुछ पट्टियां खिसकीं, जबकि मंदिर के विशाल काले बेसाल्ट स्तंभ अपनी जगह पर अडिग खड़े रहे।\n\n800 साल पुरानी यही अद्भुत प्राचीन इंजीनियरिंग आज इसे यूनेस्को की विश्व धरोहर स्थल के रूप में पहचान दिलाती है।\n\nकाकतिया कारीगरों की इस बेजोड़ वैज्ञानिक दृष्टि और कला को हमारा नमन। जय श्री राम!",
+    "imagePrompts": [
+      "Cinematic close-up shot inside a temple courtyard. A porous light reddish-brown terracotta Kakatiya brick floats steadily atop clear water in an antique carved brass vessel. In the background, out of focus, stands a highly polished dark basalt sculpture of a dancing maiden bracket figure. The camera slowly pushes in towards the floating brick, capturing subtle water ripples reflecting warm sunlight off the porous stone surface. Realistic physical liquid dynamics, pristine historical lighting, natural metallic sheen on basalt stone. Continuity Lock: Porous Kakatiya ceramic brick with microscopic air pockets, antique brass water vessel, dark dolerite Madanika sculpture background. Negative Prompt: cartoon, 3d render, plastic textures, sinking brick, erratic water motion, modern elements, text, watermark, flickering.",
+      "Wide-angle majestic view of the historical Ramappa Temple (Rudreshwara Temple) built in 1213 CE in Palampet, Telangana. The grand temple rests atop a distinct 6-foot-high star-shaped raised sandstone platform (Upapitha). The lower walls are constructed from rich reddish-pink sandstone, crowned by a pyramidal stepped Vimana tower made of dark reddish-brown ceramic bricks. Soft morning mist settles around the tropical Deccan landscape. Warm sunlight illuminates the fine relief carvings along the outer stone galleries. Atmospheric depth, high architectural precision, cinematic historical realism. Continuity Lock: 6-foot star-shaped platform, reddish-pink sandstone lower walls, ceramic Vimana tower, Kakatiya era Treta Yuga architectural style. Negative Prompt: modern tourists, concrete walls, electricity wires, cartoon, anime, low resolution, plastic stone, watermark, distorted geometry.",
+      "Inside a grand open-air Kakatiya royal pavilion lit by brass oil lamps and incense smoke. Chief Architect Ramappa, an intense Indian master artisan aged 45 with weathered hands and focused eyes, unrolls a dried palm-leaf architectural blueprint on a low wooden desk. Beside him stands Kakatiya General Recharla Rudra in silk drapery and gold ornaments. The camera performs a slow side-tracking move across the detailed carved drawings on the table, ending in a stable medium close-up of Ramappa pointing to the foundation layer. Continuity Lock: Architect Ramappa: 45 years old, brown skin, matted topknot hair, simple cotton dhoti, lotus seed beads. General Recharla Rudra: muscular build, silk dhoti, gold shoulder armor. Negative Prompt: modern paper, plastic, modern clothing, Western features, jump cuts, erratic movement, blurred hands, extra fingers.",
+      "A dramatic cross-sectional artistic depiction of the subterranean earth beneath the Deccan Plateau. Dark underground rock strata displaying glowing red seismic shockwave fault lines extending beneath the surface. Above the ground level, silhouette outlines of ancient stone temples symbolize structural vulnerability. Moody high-contrast atmospheric lighting, deep amber and crimson color palette, technical subterranean visualization style combined with classical painterly texture. Continuity Lock: Deccan plateau geology, subterranean rock layers, red stress vectors, ancient Indian temple silhouettes. Negative Prompt: futuristic HUD, neon sci-fi graphics, modern city, bright daylight, cartoonish lines, text overlay, low quality.",
+      "High-angle panoramic crane shot over an ancient Indian construction site in 1213 CE. Dozens of ancient Kakatiya artisans and laborers dig a deep 3-meter trench following a star-shaped foundation outline. Laborers carry woven baskets filled with soil up wooden ramps. Dust particles float through golden sunbeams penetrating tree canopies. The camera slowly descends vertically down into the excavation trench showing the vast scale of subterranean work. Continuity Lock: 13th-century South Indian artisans in simple linen loincloths, star-shaped excavated pit, red Deccan soil background. Negative Prompt: modern excavators, hard hats, plastic buckets, modern tools, jump cuts, flickering, distorted human figures.",
+      "A beautiful macro still-life shot of the natural raw components used in the Kakatiya sandbox recipe. Flat stone brass plates contain bright fine river sand, powdered white slaked lime (chuna), dark viscous liquid jaggery in a clay bowl, and dried black-brown Haritaki (Karakkaya) fruits. Warm atmospheric side-lighting highlights the rich textures of each organic binding agent against dark slate stone. Shallow depth of field, vivid authentic color, historical documentary aesthetic. Continuity Lock: River sand, white slaked lime powder, dark jaggery paste, dried Haritaki myrobalan fruits, ancient brass and terracotta pottery. Negative Prompt: modern glass jars, plastic bags, synthetic powders, chemical labels, low resolution, flash lighting, blurry text.",
+      "Medium tracking shot inside the excavated foundation trench. Artisans pour a golden mixture of sand, lime, jaggery paste, and Haritaki extract into the pit while others use heavy wooden rammers to compact the layer tightly. Dust rises in bright shafts of sunlight. The camera glides horizontally alongside the workers as they layer the cushion smooth, showing the dense compact texture of the sandbox bed forming underneath sandstone block pedestals. Continuity Lock: Kakatiya artisans, organic sandbox mixture, wooden compacting rammers, sandstone base blocks. Negative Prompt: cement mixers, modern boots, modern tools, morphing limbs, sudden camera jumps, low light blur.",
+      "A detailed technical cross-section schematic illustrating the sandbox foundation mechanism beneath Ramappa Temple. Glowing yellow subterranean shockwave arrows travel upward through hard bedrock but shatter and disperse horizontally upon hitting the packed 3-meter sand and organic slurry trench. The sandstone platform above remains stationary and calm. Clean architectural diagram style merged with realistic stone textures, warm amber energy vectors, informative structural engineering aesthetic. Continuity Lock: 3-meter packed sandbox layer, star-shaped sandstone platform, kinetic wave dissipation vectors. Negative Prompt: modern buildings, sci-fi glowing blue grids, text in image, low quality render, chaotic background, blurry lines.",
+      "Inside a 13th-century terracotta kiln workshop. Ancient potters knead reddish clay mixed with sawdust and organic chaff before shaping bricks in wooden molds. Smoke rises towards open rafters. Sparks fly softly from a glowing brick kiln in the background. The camera slowly pans left from the potter's skilled hands to stacked porous ceramic bricks cooling on stone racks, revealing tiny surface pores designed to trap air. Continuity Lock: Ancient Indian potters, wooden brick molds, sawdust-blended clay, glowing wood-fired brick kiln. Negative Prompt: modern brick factories, electric kilns, rubber gloves, dynamic scene cuts, morphing objects, blur.",
+      "A clear side-by-side scientific comparison inside a clear glass water vessel under bright laboratory spotlighting. On the left side underwater, a dense dark modern brick rests heavily at the bottom of the tank. On the right side, a porous reddish Kakatiya ceramic brick floats gracefully at the water surface level with visible buoyancy pockets. Superb liquid transparency, crisp detail on stone porosities, scientific historical documentation aesthetic. Continuity Lock: Dark dense standard clay brick underwater, porous lightweight Kakatiya ceramic brick floating at surface (0.9 g/cm³ density). Negative Prompt: sinking Kakatiya brick, dirty water, blurry physics, modern chemical beaker labels, plastic props, distorted frame.",
+      "Low-angle tracking shot moving up the side of the Vimana tower during construction. Stonemasons carefully slide lightweight porous bricks into tongue-and-groove interlocking channels along the upper spire. An artisan pours molten iron into a dowel recess, securing adjacent stone blocks without mortar. The camera slowly tilts upward following the rising stepped pyramidal tower against a dramatic midday blue sky. Continuity Lock: Stepped pyramidal Vimana tower, porous light ceramic bricks, interlocking tongue-and-groove stonework, iron dowels. Negative Prompt: cranes, metal scaffolding, hard hats, safety vests, morphing stone shapes, jump cuts, erratic tilt.",
+      "An exquisite close-up portrait of a dark dolerite basalt Madanika bracket statue mounted at a 45-degree angle beneath the roof cornice of Ramappa Temple. The sculpture depicts a slender dancing maiden with highly detailed jewelry, ornate headgear, and smooth glass-like metallic luster on dark black stone. Sunset golden light catches the high-gloss polished edges of the basalt surface. Magnificent detail, historical Kakatiya artistic brilliance. Continuity Lock: Dark dolerite basalt Madanika bracket sculpture, metallic polished finish, sandstone wall backdrop, Kakatiya art style. Negative Prompt: rough unpolished granite, broken nose, modern concrete, fair skin, cartoon, anime, flash exposure, low resolution.",
+      "Dynamic wide action shot during a massive historical earthquake in the 17th century. The ground shakes violently, sending dust clouds rising into a dark stormy sky. In the foreground background, auxiliary stone structures crumble into rubble. In center frame, Ramappa Temple sways gently on its subterranean sandbox cushion; its lightweight floating brick Vimana shifts slightly on iron dowels without collapsing. Camera starts with realistic tremor shake and gradually stabilizes into a steady lock on the standing temple. Continuity Lock: Ramappa Temple main structure intact, sway cushion movement, crumbling secondary stone structures. Negative Prompt: modern buildings collapsing, cartoon destruction, explosions, sci-fi effects, frame flickering, instant cuts.",
+      "Interior wide shot of the central sanctum (Garbhagriha) corridor of Ramappa Temple following the earthquake. Sunlight beams through stone lattices illuminating minor floor slab displacements where sandstone paving shifted slightly over the sand layer. Yet the massive polished dark basalt pillars, stone lintels, and main sanctum remain perfectly vertical, intact, and unharmed. Peaceful quiet atmosphere, dramatic light rays, resilient ancient engineering. Continuity Lock: Shifted sandstone floor slabs, vertical polished basalt central pillars, undamaged sanctum doorway, sunlight beam dust. Negative Prompt: collapsed roof, total destruction, modern debris, trash, bright artificial lights, cartoon render, watermark.",
+      "Smooth arc shot starting on a carved stone UNESCO World Heritage inscription plaque standing in a green garden bed at Palampet. The camera smoothly orbits around the plaque to reveal the grand Ramappa Temple standing proudly in the background under soft golden evening light. Modern Indian structural engineers in professional field attire subtly inspect the outer star platform with reverence. Atmospheric twilight sky, majestic heritage presence. Continuity Lock: UNESCO stone emblem plaque, Ramappa Temple background, star-shaped sandstone platform, golden hour light. Negative Prompt: crowded tourists, trash, distorted plaque text, jump cuts, jerky camera movement, dark unlit scene.",
+      "A panoramic golden-hour hero shot of Ramappa Temple. Sunbeams cut through gentle morning mist surrounding the historic temple atop its star-shaped base. Incense smoke curls upwards from a brass lamp near the steps. The dark basalt Madanika figures gleam like black gold against the warm red sandstone facade. Dignified, divine, timeless atmospheric feel showcasing 800 years of unbroken scientific triumph. Continuity Lock: Ramappa Temple full facade, star-shaped platform, polished basalt bracket statues, incense smoke, sunset light. Negative Prompt: modern cars, electric poles, tourists, rainy dark sky, plastic props, blurry, low quality, cartoon, extra limbs."
+    ],
+    "generatedImages": [
+      {
+        "index": 0,
+        "prompt": "Cinematic close-up shot inside a temple courtyard. A porous light reddish-brown terracotta Kakatiya brick floats steadily atop clear water in an antique carved brass vessel. In the background, out of focus, stands a highly polished dark basalt sculpture of a dancing maiden bracket figure. The camera slowly pushes in towards the floating brick, capturing subtle water ripples reflecting warm sunlight off the porous stone surface. Realistic physical liquid dynamics, pristine historical lighting, natural metallic sheen on basalt stone. Continuity Lock: Porous Kakatiya ceramic brick with microscopic air pockets, antique brass water vessel, dark dolerite Madanika sculpture background. Negative Prompt: cartoon, 3d render, plastic textures, sinking brick, erratic water motion, modern elements, text, watermark, flickering.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-00-1792941514059.png",
+        "seed": 291068311,
+        "elapsedMs": 10039
+      },
+      {
+        "index": 1,
+        "prompt": "Wide-angle majestic view of the historical Ramappa Temple (Rudreshwara Temple) built in 1213 CE in Palampet, Telangana. The grand temple rests atop a distinct 6-foot-high star-shaped raised sandstone platform (Upapitha). The lower walls are constructed from rich reddish-pink sandstone, crowned by a pyramidal stepped Vimana tower made of dark reddish-brown ceramic bricks. Soft morning mist settles around the tropical Deccan landscape. Warm sunlight illuminates the fine relief carvings along the outer stone galleries. Atmospheric depth, high architectural precision, cinematic historical realism. Continuity Lock: 6-foot star-shaped platform, reddish-pink sandstone lower walls, ceramic Vimana tower, Kakatiya era Treta Yuga architectural style. Negative Prompt: modern tourists, concrete walls, electricity wires, cartoon, anime, low resolution, plastic stone, watermark, distorted geometry.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-01-1792941552342.png",
+        "seed": 858103558,
+        "elapsedMs": 9762
+      },
+      {
+        "index": 2,
+        "prompt": "Inside a grand open-air Kakatiya royal pavilion lit by brass oil lamps and incense smoke. Chief Architect Ramappa, an intense Indian master artisan aged 45 with weathered hands and focused eyes, unrolls a dried palm-leaf architectural blueprint on a low wooden desk. Beside him stands Kakatiya General Recharla Rudra in silk drapery and gold ornaments. The camera performs a slow side-tracking move across the detailed carved drawings on the table, ending in a stable medium close-up of Ramappa pointing to the foundation layer. Continuity Lock: Architect Ramappa: 45 years old, brown skin, matted topknot hair, simple cotton dhoti, lotus seed beads. General Recharla Rudra: muscular build, silk dhoti, gold shoulder armor. Negative Prompt: modern paper, plastic, modern clothing, Western features, jump cuts, erratic movement, blurred hands, extra fingers.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-02-1792941562180.png",
+        "seed": 1447040744,
+        "elapsedMs": 15207
+      },
+      {
+        "index": 3,
+        "prompt": "A dramatic cross-sectional artistic depiction of the subterranean earth beneath the Deccan Plateau. Dark underground rock strata displaying glowing red seismic shockwave fault lines extending beneath the surface. Above the ground level, silhouette outlines of ancient stone temples symbolize structural vulnerability. Moody high-contrast atmospheric lighting, deep amber and crimson color palette, technical subterranean visualization style combined with classical painterly texture. Continuity Lock: Deccan plateau geology, subterranean rock layers, red stress vectors, ancient Indian temple silhouettes. Negative Prompt: futuristic HUD, neon sci-fi graphics, modern city, bright daylight, cartoonish lines, text overlay, low quality.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-03-1792941577461.png",
+        "seed": 2095632691,
+        "elapsedMs": 10801
+      },
+      {
+        "index": 4,
+        "prompt": "High-angle panoramic crane shot over an ancient Indian construction site in 1213 CE. Dozens of ancient Kakatiya artisans and laborers dig a deep 3-meter trench following a star-shaped foundation outline. Laborers carry woven baskets filled with soil up wooden ramps. Dust particles float through golden sunbeams penetrating tree canopies. The camera slowly descends vertically down into the excavation trench showing the vast scale of subterranean work. Continuity Lock: 13th-century South Indian artisans in simple linen loincloths, star-shaped excavated pit, red Deccan soil background. Negative Prompt: modern excavators, hard hats, plastic buckets, modern tools, jump cuts, flickering, distorted human figures.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-04-1792941588334.png",
+        "seed": 1869522827,
+        "elapsedMs": 5913
+      },
+      {
+        "index": 5,
+        "prompt": "A beautiful macro still-life shot of the natural raw components used in the Kakatiya sandbox recipe. Flat stone brass plates contain bright fine river sand, powdered white slaked lime (chuna), dark viscous liquid jaggery in a clay bowl, and dried black-brown Haritaki (Karakkaya) fruits. Warm atmospheric side-lighting highlights the rich textures of each organic binding agent against dark slate stone. Shallow depth of field, vivid authentic color, historical documentary aesthetic. Continuity Lock: River sand, white slaked lime powder, dark jaggery paste, dried Haritaki myrobalan fruits, ancient brass and terracotta pottery. Negative Prompt: modern glass jars, plastic bags, synthetic powders, chemical labels, low resolution, flash lighting, blurry text.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-05-1792941594304.png",
+        "seed": 1705864428,
+        "elapsedMs": 9278
+      },
+      {
+        "index": 6,
+        "prompt": "Medium tracking shot inside the excavated foundation trench. Artisans pour a golden mixture of sand, lime, jaggery paste, and Haritaki extract into the pit while others use heavy wooden rammers to compact the layer tightly. Dust rises in bright shafts of sunlight. The camera glides horizontally alongside the workers as they layer the cushion smooth, showing the dense compact texture of the sandbox bed forming underneath sandstone block pedestals. Continuity Lock: Kakatiya artisans, organic sandbox mixture, wooden compacting rammers, sandstone base blocks. Negative Prompt: cement mixers, modern boots, modern tools, morphing limbs, sudden camera jumps, low light blur.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-06-1792941603660.png",
+        "seed": 1790091968,
+        "elapsedMs": 26633
+      },
+      {
+        "index": 7,
+        "prompt": "A detailed technical cross-section schematic illustrating the sandbox foundation mechanism beneath Ramappa Temple. Glowing yellow subterranean shockwave arrows travel upward through hard bedrock but shatter and disperse horizontally upon hitting the packed 3-meter sand and organic slurry trench. The sandstone platform above remains stationary and calm. Clean architectural diagram style merged with realistic stone textures, warm amber energy vectors, informative structural engineering aesthetic. Continuity Lock: 3-meter packed sandbox layer, star-shaped sandstone platform, kinetic wave dissipation vectors. Negative Prompt: modern buildings, sci-fi glowing blue grids, text in image, low quality render, chaotic background, blurry lines.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-07-1792941630385.png",
+        "seed": 1773587661,
+        "elapsedMs": 38663
+      },
+      {
+        "index": 8,
+        "prompt": "Inside a 13th-century terracotta kiln workshop. Ancient potters knead reddish clay mixed with sawdust and organic chaff before shaping bricks in wooden molds. Smoke rises towards open rafters. Sparks fly softly from a glowing brick kiln in the background. The camera slowly pans left from the potter's skilled hands to stacked porous ceramic bricks cooling on stone racks, revealing tiny surface pores designed to trap air. Continuity Lock: Ancient Indian potters, wooden brick molds, sawdust-blended clay, glowing wood-fired brick kiln. Negative Prompt: modern brick factories, electric kilns, rubber gloves, dynamic scene cuts, morphing objects, blur.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-08-1792941669120.png",
+        "seed": 1845246685,
+        "elapsedMs": 10321
+      },
+      {
+        "index": 9,
+        "prompt": "A clear side-by-side scientific comparison inside a clear glass water vessel under bright laboratory spotlighting. On the left side underwater, a dense dark modern brick rests heavily at the bottom of the tank. On the right side, a porous reddish Kakatiya ceramic brick floats gracefully at the water surface level with visible buoyancy pockets. Superb liquid transparency, crisp detail on stone porosities, scientific historical documentation aesthetic. Continuity Lock: Dark dense standard clay brick underwater, porous lightweight Kakatiya ceramic brick floating at surface (0.9 g/cm³ density). Negative Prompt: sinking Kakatiya brick, dirty water, blurry physics, modern chemical beaker labels, plastic props, distorted frame.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-09-1792941679503.png",
+        "seed": 1953188064,
+        "elapsedMs": 8490
+      },
+      {
+        "index": 10,
+        "prompt": "Low-angle tracking shot moving up the side of the Vimana tower during construction. Stonemasons carefully slide lightweight porous bricks into tongue-and-groove interlocking channels along the upper spire. An artisan pours molten iron into a dowel recess, securing adjacent stone blocks without mortar. The camera slowly tilts upward following the rising stepped pyramidal tower against a dramatic midday blue sky. Continuity Lock: Stepped pyramidal Vimana tower, porous light ceramic bricks, interlocking tongue-and-groove stonework, iron dowels. Negative Prompt: cranes, metal scaffolding, hard hats, safety vests, morphing stone shapes, jump cuts, erratic tilt.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-10-1792941688059.png",
+        "seed": 1135183028,
+        "elapsedMs": 21990
+      },
+      {
+        "index": 11,
+        "prompt": "An exquisite close-up portrait of a dark dolerite basalt Madanika bracket statue mounted at a 45-degree angle beneath the roof cornice of Ramappa Temple. The sculpture depicts a slender dancing maiden with highly detailed jewelry, ornate headgear, and smooth glass-like metallic luster on dark black stone. Sunset golden light catches the high-gloss polished edges of the basalt surface. Magnificent detail, historical Kakatiya artistic brilliance. Continuity Lock: Dark dolerite basalt Madanika bracket sculpture, metallic polished finish, sandstone wall backdrop, Kakatiya art style. Negative Prompt: rough unpolished granite, broken nose, modern concrete, fair skin, cartoon, anime, flash exposure, low resolution.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-11-1792941710123.png",
+        "seed": 1367009485,
+        "elapsedMs": 10116
+      },
+      {
+        "index": 12,
+        "prompt": "Dynamic wide action shot during a massive historical earthquake in the 17th century. The ground shakes violently, sending dust clouds rising into a dark stormy sky. In the foreground background, auxiliary stone structures crumble into rubble. In center frame, Ramappa Temple sways gently on its subterranean sandbox cushion; its lightweight floating brick Vimana shifts slightly on iron dowels without collapsing. Camera starts with realistic tremor shake and gradually stabilizes into a steady lock on the standing temple. Continuity Lock: Ramappa Temple main structure intact, sway cushion movement, crumbling secondary stone structures. Negative Prompt: modern buildings collapsing, cartoon destruction, explosions, sci-fi effects, frame flickering, instant cuts.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-12-1792941720354.png",
+        "seed": 462461970,
+        "elapsedMs": 6350
+      },
+      {
+        "index": 13,
+        "prompt": "Interior wide shot of the central sanctum (Garbhagriha) corridor of Ramappa Temple following the earthquake. Sunlight beams through stone lattices illuminating minor floor slab displacements where sandstone paving shifted slightly over the sand layer. Yet the massive polished dark basalt pillars, stone lintels, and main sanctum remain perfectly vertical, intact, and unharmed. Peaceful quiet atmosphere, dramatic light rays, resilient ancient engineering. Continuity Lock: Shifted sandstone floor slabs, vertical polished basalt central pillars, undamaged sanctum doorway, sunlight beam dust. Negative Prompt: collapsed roof, total destruction, modern debris, trash, bright artificial lights, cartoon render, watermark.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-13-1792941726763.png",
+        "seed": 1709485918,
+        "elapsedMs": 40534
+      },
+      {
+        "index": 14,
+        "prompt": "Smooth arc shot starting on a carved stone UNESCO World Heritage inscription plaque standing in a green garden bed at Palampet. The camera smoothly orbits around the plaque to reveal the grand Ramappa Temple standing proudly in the background under soft golden evening light. Modern Indian structural engineers in professional field attire subtly inspect the outer star platform with reverence. Atmospheric twilight sky, majestic heritage presence. Continuity Lock: UNESCO stone emblem plaque, Ramappa Temple background, star-shaped sandstone platform, golden hour light. Negative Prompt: crowded tourists, trash, distorted plaque text, jump cuts, jerky camera movement, dark unlit scene.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-14-1792941767391.png",
+        "seed": 853886361,
+        "elapsedMs": 9194
+      },
+      {
+        "index": 15,
+        "prompt": "A panoramic golden-hour hero shot of Ramappa Temple. Sunbeams cut through gentle morning mist surrounding the historic temple atop its star-shaped base. Incense smoke curls upwards from a brass lamp near the steps. The dark basalt Madanika figures gleam like black gold against the warm red sandstone facade. Dignified, divine, timeless atmospheric feel showcasing 800 years of unbroken scientific triumph. Continuity Lock: Ramappa Temple full facade, star-shaped platform, polished basalt bracket statues, incense smoke, sunset light. Negative Prompt: modern cars, electric poles, tourists, rainy dark sky, plastic props, blurry, low quality, cartoon, extra limbs.",
+        "mediaType": "image",
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-15-1792941776689.png",
+        "seed": 1166240805,
+        "elapsedMs": 6694
+      }
+    ],
+    "generatedAudio": [
+      {
+        "filename": "narration_hi_a0c5d567-b9a0-48ed-b414-c94681b44736.wav",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/narration_hi_a0c5d567-b9a0-48ed-b414-c94681b44736.wav",
+        "language": "hi",
+        "voice": "hi-IN-Chirp3-HD-Fenrir",
+        "provider": "google",
+        "sync": {
+          "version": 1,
+          "timingMode": "narration",
+          "planHash": "60408faea202d795dc0446eb3eb118c7bdc9a2269745b3555f1adfd4aba9a22b",
+          "sampleRate": 48000,
+          "totalSamples": 5120640,
+          "scenes": [
+            {
+              "sceneId": "scene_001",
+              "startSample": 0,
+              "endSample": 180480
+            },
+            {
+              "sceneId": "scene_002",
+              "startSample": 180480,
+              "endSample": 554880
+            },
+            {
+              "sceneId": "scene_003",
+              "startSample": 554880,
+              "endSample": 917760
+            },
+            {
+              "sceneId": "scene_004",
+              "startSample": 917760,
+              "endSample": 1244160
+            },
+            {
+              "sceneId": "scene_005",
+              "startSample": 1244160,
+              "endSample": 1562880
+            },
+            {
+              "sceneId": "scene_006",
+              "startSample": 1562880,
+              "endSample": 1889280
+            },
+            {
+              "sceneId": "scene_007",
+              "startSample": 1889280,
+              "endSample": 2184960
+            },
+            {
+              "sceneId": "scene_008",
+              "startSample": 2184960,
+              "endSample": 2503680
+            },
+            {
+              "sceneId": "scene_009",
+              "startSample": 2503680,
+              "endSample": 2851200
+            },
+            {
+              "sceneId": "scene_010",
+              "startSample": 2851200,
+              "endSample": 3200640
+            },
+            {
+              "sceneId": "scene_011",
+              "startSample": 3200640,
+              "endSample": 3542400
+            },
+            {
+              "sceneId": "scene_012",
+              "startSample": 3542400,
+              "endSample": 3882240
+            },
+            {
+              "sceneId": "scene_013",
+              "startSample": 3882240,
+              "endSample": 4204800
+            },
+            {
+              "sceneId": "scene_014",
+              "startSample": 4204800,
+              "endSample": 4533120
+            },
+            {
+              "sceneId": "scene_015",
+              "startSample": 4533120,
+              "endSample": 4851840
+            },
+            {
+              "sceneId": "scene_016",
+              "startSample": 4851840,
+              "endSample": 5120640
+            }
+          ]
+        },
+        "narrationText": "800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?\n\nसन 1213 में काकतिया राजवंश के मुख्य मूर्तिकार रामप्पा ने तेलंगाना के पालमपेट में इस अद्भुत रुद्रेश्वर मंदिर का निर्माण शुरू किया।\n\nरामप्पा के सामने चुनौती थी एक ऐसा मंदिर बनाना, जो दक्कन के क्षेत्र में सदियों तक आने वाले भूकंपीय झटकों को सह सके।\n\nदक्कन का यह क्षेत्र गहरे भूगर्भीय झटकों की चपेट में आता रहा है, जहाँ सामान्य पत्थर की इमारतें आसानी से ढह जाती हैं।\n\nइस खतरे से निपटने के लिए रामप्पा ने नींव निर्माण के दौरान ज़मीन में 3 मीटर गहरा विशाल गड्ढा खोदा।\n\nइस गड्ढे को केवल कठोर पत्थरों से नहीं, बल्कि नदी की रेत, चूना, गुड़ और हरड़ के विशेष जैविक मिश्रण से भरा गया।\n\nकाकतिया साम्राज्य की यह 'सैंडबॉक्स तकनीक' भूकंपीय तरंगों की ऊर्जा को लगभग 60 प्रतिशत तक सोख लेती है।\n\nनींव की यह बालू-परत एक प्राकृतिक 'बेस आइसोलेशन' की तरह काम करती है, जिससे ऊपरी इमारत झटके से सुरक्षित रहती है।\n\nइंजीनियरिंग का दूसरा कमाल था मंदिर का ऊपरी शिखर, जिसे भारी पत्थरों के बजाय विशेष हल्की ईंटों से तैयार किया गया।\n\nइन ईंटों का घनत्व केवल 0.9 ग्राम प्रति घन सेंटीमीटर है, जिससे ये पानी की सतह पर भी आसानी से तैर सकती हैं!\n\nदीवारों और शिखरों के पत्थरों को बिना चूना-गारे के, लोहे की कीलों और खांचों से जोड़ा गया, जिससे पूरी संरचना में लचीलापन बना रहा।\n\n17वीं सदी में जब क्षेत्र में विनाशकारी भूकंप आया, तो आसपास की लगभग सभी मध्यकालीन इमारतें पूरी तरह ढह गईं।\n\nलेकिन सैंडबॉक्स नींव ने झटकों की शक्ति सोख ली और रामप्पा मंदिर का मुख्य गर्भगृह और शिखर पूरी तरह सुरक्षित रहे।\n\nभूकंप के कारण केवल फर्श की कुछ पट्टियां खिसकीं, जबकि मंदिर के विशाल काले बेसाल्ट स्तंभ अपनी जगह पर अडिग खड़े रहे।\n\n800 साल पुरानी यही अद्भुत प्राचीन इंजीनियरिंग आज इसे यूनेस्को की विश्व धरोहर स्थल के रूप में पहचान दिलाती है।\n\nकाकतिया कारीगरों की इस बेजोड़ वैज्ञानिक दृष्टि और कला को हमारा नमन। जय श्री राम!"
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "response",
+        "label": "Response",
+        "status": "done",
+        "summary": "Assets extracted in the shared scene format",
+        "inputLog": "The Earthquake-Resistant Engineering of Ramappa Temple: Kakatiya Sandbox Technology and Floating Bricks",
+        "outputPreview": "800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?\n\nसन 1213 में काकतिया राजवंश के मुख्य मूर्तिकार रामप्प"
+      }
+    ],
+    "editingProjectId": null,
+    "retentionPlan": {
+      "structure": "Intriguing question → authentic traditional story → clear explanation → meaningful insight",
+      "viewerPromise": "Understand how Kakatiya artisans engineered Ramappa Temple to survive massive earthquakes using sandbox foundations and buoyant brick technology.",
+      "hooks": [
+        {
+          "openingLine": "800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?",
+          "openingVisual": "Demonstration showing a porous Kakatiya brick floating in a vessel of water beside the intricate basalt carvings of Ramappa Temple.",
+          "curiosity": "How did 13th-century Kakatiya builders protect massive carved stone structures from severe seismic shockwaves?",
+          "payoff": "A clear breakdown of Kakatiya sandbox foundations and lightweight brick composition documented by modern archaeologists.",
+          "reason": "Directly presents the visual paradox of heavy stone architecture combined with lightweight floating brick science."
+        },
+        {
+          "openingLine": "जब विनाशकारी भूकंप आए, तब रामप्पा मंदिर की दीवारें सुरक्षित कैसे रहीं?",
+          "openingVisual": "Cinematic low-angle camera push-in on the towering red vimana spire and basalt bracket figures of Ramappa Temple.",
+          "curiosity": "What hidden underground technology absorbed centuries of regional seismic shockwaves?",
+          "payoff": "An architectural breakdown of the deep sandbox trench dampening system beneath the temple floor.",
+          "reason": "Focuses on survival against historical earthquakes to establish high stakes early."
+        },
+        {
+          "openingLine": "क्या रेत, चूना और गुड़ मिलकर किसी मंदिर को भूकंप-रोधी बना सकते हैं?",
+          "openingVisual": "Animated visual cross-section illustrating the sandbox foundation layer beneath the sculpted stone floor slabs.",
+          "curiosity": "Can organic binders mixed with powdered granite create a natural seismic damper?",
+          "payoff": "Scientific explanation of material composition and sandbox energy-dissipation mechanics.",
+          "reason": "Hooks viewers intrigued by ancient materials science and structural engineering."
+        }
+      ],
+      "selectedHookIndex": 0,
+      "titles": [
+        "How Ramappa Temple Defied Earthquakes: Ancient Sandbox Engineering",
+        "The Mystery of Floating Bricks: Kakatiya Temple Engineering Explained",
+        "Ramappa Temple: 800-Year-Old Seismic Protection Technology"
+      ],
+      "thumbnailConcept": "High-contrast split composition: upper half features the grand lit facade and basalt sculptures of Ramappa Temple; lower half features a glowing cross-section diagram of the sandbox trench and a floating brick in water.",
+      "description": "Explore the extraordinary 13th-century engineering of Telangana's UNESCO World Heritage Ramappa Temple. Discover how Kakatiya artisans used sandbox foundations and lightweight floating bricks to make this sacred monument resistant to severe earthquakes.",
+      "tags": [
+        "RamappaTemple",
+        "AncientDharma",
+        "KakatiyaDynasty",
+        "IndianArchitecture",
+        "AncientEngineering",
+        "FloatingBricks",
+        "SandboxTechnology",
+        "HistoryOfIndia",
+        "TempleEngineering",
+        "UNESCO"
+      ],
+      "musicMood": "cinematic",
+      "version": 1,
+      "topic": "The Earthquake-Resistant Engineering of Ramappa Temple: Kakatiya Sandbox Technology and Floating Bricks",
+      "createdAt": "2026-10-25T15:16:53.203Z",
+      "memoryEvidence": "No sufficiently sampled retention observations for this format and duration yet. Use editorial judgment; do not invent audience evidence or predicted retention scores."
+    },
+    "topicName": "The Earthquake-Resistant Engineering of Ramappa Temple: Kakatiya Sandbox Technology and Floating Bricks",
+    "aiInstructions": "\nNarration language selected for this run: Hindi / Hinglish. Write all spoken narration in this language.",
+    "researchData": "### 1. Verified Facts, Background & Key Data\n\n* **Location & Historical Context**: Located in Palampet village, Mulugu district, Telangana, India. Construction began in **1213 CE** under Kakatiya monarch **King Ganapati Deva** and his military general **Recharla Rudra**. The temple took approximately **40 years** to build.\n* **Naming Significance**: Officially named *Rudreshwara Temple*, but universally known as **Ramappa Temple**. It is one of the extremely rare historical temples in India named after its chief architect/sculptor, **Ramappa**, rather than the ruler or deity. It was inscribed as a **UNESCO World Heritage Site** on July 25, 2021.\n* **Innovation 1: Sandbox Foundation Technology (Base Isolation)**:\n  * Artisans excavated a **3-meter-deep foundation trench** underneath the structure.\n  * The trench was packed with a specialized seismic mixture: **fine sand**, **slaked lime**, **jaggery** (unrefined sugar for organic binding), and **Karakkaya / Haritaki** (black myrobalan fruit extract for elasticity and cohesive strength).\n  * *Mechanical Effect*: Functions as an ancient form of **seismic base isolation**. Ground shockwaves lose up to **60% of their kinetic energy** while passing through the granular sand cushion before reaching the main stone structure, allowing the temple to \"ride\" tremors rather than resist them rigidly.\n* **Innovation 2: Light Porous Floating Bricks (Low-Density Superstructure)**:\n  * The roof tower (*Vimana* / *Shikhara*) was constructed using ultra-light, porous ceramic bricks.\n  * *Density Data*: Modern clay bricks have a density of ~2.2 g/cm³; Kakatiya floating bricks have a density of **0.85 to 0.9 g/cm³**—making them less dense than water (1.0 g/cm³), allowing them to float when submerged.\n  * *Mechanical Effect*: Reduces the top-heavy dead weight of the *Vimana* on the underlying sandstone pillars and walls, lowering the center of gravity and preventing dynamic top-collapse during lateral seismic motion.\n* **Innovation 3: Interlocking Joint System & Iron Dowels**:\n  * Wall blocks and pillars were assembled without thick mortar, using **tongue-and-groove interlocking joints** reinforced with **melted iron dowels and pins**.\n  * *Mechanical Effect*: Permits controlled micro-movements during ground displacement without structural shearing or stone fracturing.\n* **Historical Seismic Proof**:\n  * In the **17th century**, a massive earthquake struck the region. Surrounding medieval stone structures collapsed into rubble, whereas Ramappa Temple survived with only minor displacement of floor slabs, keeping its main pillars, sanctum, and roof completely intact.\n\n---\n\n### 2. Chronological Story Arc & Scene Beats (~90s)\n\n```\n[00:00 - 00:12] BEAT 1: HOOK & MYSTERY DEMONSTRATION\nVisual: A porous Kakatiya brick floats inside a brass water vessel next to the dark polished basalt sculptures of Ramappa Temple.\nNarration (Hindi): 800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?\n\n[00:12 - 00:28] BEAT 2: HISTORICAL CONTEXT & ARCHITECTURAL CHALLENGES\nVisual: Cinematic wide sweep of 1213 CE Kakatiya kingdom construction site; Chief Architect Ramappa inspecting sandstone blocks and star-shaped platform designs.\nNarration (Hindi): 1213 ईस्वी में काकतिया राजवंश के मुख्य मूर्तिकार रामप्पा को एक ऐसा शिव मंदिर बनाना था जो सदियों तक अमर रहे। लेकिन दक्कन की ज़मीन भूकंपीय झटकों से घिरी थी।\n\n[00:28 - 00:46] BEAT 3: SANDBOX FOUNDATION DISCOVERY (BASE ISOLATION)\nVisual: 3D cross-sectional diagram showing the 3-meter deep foundation pit filled with layers of sand, granite powder, lime, jaggery, and black myrobalan (karakkaya).\nNarration (Hindi): रामप्पा ने ज़मीन में 3 मीटर गहरा गड्ढा खोदा और उसमें सिर्फ पत्थर नहीं, बल्कि रेत, चूना, गुड़ और हरड़ का खास मिश्रण भरा। इसे काकतिया 'सैंडबॉक्स टेक्नोलॉजी' कहते हैं—जो भूकंप के 60% झटकों को सोख लेती है।\n\n[00:46 - 01:04] BEAT 4: FLOATING BRICK SUPERSTRUCTURE & IRON DOWELS\nVisual: Cutaway showing the lightweight Vimana structure; porous bricks with trapped air pockets floating in water, locked together with iron dowels.\nNarration (Hindi): मंदिर का ऊपरी शिखर पत्थरों से नहीं, बल्कि हवा की थैलियों वाली हल्की ईंटों से बना है। इनका घनत्व पानी से भी कम (0.9 g/cc) है, जिससे मंदिर का ऊपरी भार बेहद कम हो गया।\n\n[01:04 - 01:20] BEAT 5: CLIMAX – THE 17TH CENTURY SEISMIC TEST\nVisual: Dramatic reconstruction of the 17th-century earthquake; ground shaking violently, floor slabs shifting slightly, while the sandbox dissipates kinetic waves and the flexible stone frame stays erect.\nNarration (Hindi): 17वीं सदी में जब भयानक भूकंप आया, तो आसपास की इमारतें ढह गईं। लेकिन रामप्पा मंदिर की नींव ने झटके सोखे, और इसकी लचीली ईंटों ने इसे गिरने से बचा लिया।\n\n[01:20 - 01:30] BEAT 6: RESOLUTION & EARNED PAYOFF\nVisual: UNESCO World Heritage plaque; sunset reflection over the star-shaped platform and glowing facade of Ramappa Temple.\nNarration (Hindi): 800 साल पहले काकतिया कारीगरों ने आधुनिक 'बेस आइसोलेशन' और 'लाइटवेट कंक्रीट' की नींव रखी थी। यही कारण है कि यह मंदिर आज भी शान से खड़ा है।\n```\n\n---\n\n### 3. Visual & World-Building Canon\n\n* **Setting & Environment**:\n  * 13th-century Deccan Plateau landscape (Palampet, Telangana), surrounded by lush greenery, red tropical soil, and the adjacent historic Ramappa Lake.\n* **Architecture & Materials**:\n  * **Platform**: 6-foot-high star-shaped raised sandstone platform (*Upapitha*).\n  * **Pillars & Carvings**: High-contrast, polished dark dolerite/basalt bracket figures (*Madanikas* / slender female dancers) with fine metallic luster, standing against warm reddish-pink sandstone walls.\n  * **Superstructure (Vimana)**: Pyramidal stepped tower crafted from light reddish-brown porous burnt clay bricks featuring microscopic air cavities.\n* **Technical Cross-Section Schematics**:\n  * Sub-surface view: Glowing 3-meter pit section clearly revealing yellow sand grains, dark organic binding paste (jaggery/haritaki mixture), and granite dust beneath the star platform.\n  * Brick micro-view: Close-up of porous terracotta material floating on water level in a clay/brass vessel.\n* **Lighting & Atmosphere**:\n  * Golden hour morning sun casting sharp shadows on carved basalt sculptures.\n  * Subterranean engineering shots lit with high-tech visual overlays (cyan/gold stress vectors showing shockwave absorption).\n\n---\n\n### 4. Scriptwriter Directives\n\n* **Narration Language**: Strictly write all spoken voiceover lines in clean Devanagari Hindi / Hinglish as specified.\n* **Mandatory Opening Line**: Must open narration with exact phrasing:\n  > `\"800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?\"`\n* **Key Terminology to Weave In**:\n  * **सैंडबॉक्स टेक्नोलॉजी (Sandbox Technology)**: Mention the 3-meter foundation pit (*3 मीटर गहरा गड्ढा*).\n  * **ऑर्गेनिक मिक्सचर (Organic binding mixture)**: Sand, slaked lime (*चूना*), jaggery (*गुड़*), and Karakkaya / Haritaki (*हरड़ / करक्काया*).\n  * **फ्लोटिंग ब्रिक्स (Floating Bricks)**: Porous bricks lighter than water (*घनत्व 0.9 g/cc*).\n  * **बेस आइसोलेशन (Seismic Base Isolation)**: Shock absorption cushion concept.\n  * **काकतिया राजवंश व मूर्तिकार रामप्पा (Kakatiya Dynasty & Architect Ramappa)**: Built in 1213 CE.\n* **Pacing & Emotional Arc**:\n  * Start with curiosity and intrigue (floating brick anomaly).\n  * Escalate into ancient scientific wonder (the deep sandbox mechanism).\n  * Deliver high tension during the 17th-century earthquake beat.\n  * Conclude with pride in ancient Indian engineering and UNESCO recognition.",
+    "researchSources": [
+      {
+        "title": "anantamias.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEbQdeKSXBM-rKyb0rC-QvIDDSiG_1zjuhf6SyJnPOMCKPUOvlRz6Pe8RVXyz03WysIXhJ2fuXATmN0pzy3V062BKWcSftxqgRo9gGqzsqkhpAVsXlE_qYCozBpq47QSuk="
+      },
+      {
+        "title": "insightsonindia.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFaYsmBwE1AJy-k_m_94DjJ9b0aAKbVQsQ5flSCHGIT0IZcExVSIGVOT-EbQubS1mMqLNj_SlKZ_JpIuJ83V4f-1jSC_6eCGR6_-FWAQMmtUj7UwnEu9Me-BoBK4ggZo2oGEFCdHjPocqVx-iTB5SPp7gwP_eFrEq0="
+      },
+      {
+        "title": "unesco.org",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH5QDRNvqBOcQ6SWVbnRgLNJfPXlOKo-fAjLWJf0xkzXYStT4BZQ7rmKByOeoxsjY-PN1FprwEDKdQhfm218Okt5I0AINv8-9JcJ7QHv_1iVYCeLv0ArKINFwNynijGo68="
+      },
+      {
+        "title": "youtube.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHLFdD0ukXnKw9eb_i-XECXNZMcGeIoQGH81Z8gGKVOtleFWB5CBzSvrssgYG4qZVnqOPpfGCDAyGdvHvKINpor6D1uic4MSrI70h2NfmykBOrbZzk8EVOqEbosxRj9bzMCDyCoxQ=="
+      },
+      {
+        "title": "feriadoresorts.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHluf0ZQV204yhmEAubYOET9KJ48WUw4ObYLlR55rMebFj-x69sF75JXX3YY5Kp_lB57ePBFbIXvByjz3p6lnuDVwnfMbLryszqIWakxa2Z82h49hkP3PZzua6dO5jTg9VzQOjobeSIb4Ti4sYdGWHIU7YSe4jP0lRbtI6o3Ipl-BPaT9gNGaQSR1FQ6Qo4gOZ0AyLNPKuWDCyUZ-GQXMdXiway3N-YVZjxPOxY"
+      },
+      {
+        "title": "resonantnews.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGkTFtijzHRmdmEYQHU6W5GDG24tdiidZTOivdkdwTX4Ogl6iU6NuAn0AiwvK4g-G741SPlrdWCHe9yQazPtZn9EuIi8AOmKQKHVkVVQHBH6UFFvZus1O3RV-f4vOkbWzELjuMbKpRb-M9xEWYjTvg9Spdf7iQ3DwRG2eMsBPSWhvXmyNBY7_GPfemC8d03Rtng9LV3"
+      },
+      {
+        "title": "indiatimes.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFg8tBWczyk3wEL1N-6_OpXkzALjUytHqK37v_nRuUCrr2vukgTZ3EknHKy8faMfBmJoG-oDVgylbfu18Sxubtg73Iux4_w7YevTlMfc_NJ51itFhZKTPIpFL3NEqubQ2e5DdqwS3UB85ZDfgym8zpDYFZqtm-tLGMF2dILSMmGFNSwbdMleB0mIXLI8krCdmq0qewptpvsrU0JDjoUg7rAtn7MFy4N5KNl_y-8yrOZMg=="
+      },
+      {
+        "title": "scribd.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGAuyM0sCpaKDts0d1O01yAYRQoViUtLFzrb2lq0cIY3dxk2nlC41NXJ5Cm0s-n3bXwSu1TXXCnd5u7VijE5CsYK5R0ft3iWqRxbIxThf0YGUaKUodwgVNa4ECiJ4XiD4grpC0o7xAWxJ88ARXQqhzXLyUDYeNP"
+      }
+    ],
+    "retentionEdit": {
+      "sourceHash": "b47a1d682132728da64a0ec94bfc7c8c74c913752bfc602300fbde150e7a75d6",
+      "plan": {
+        "version": 1,
+        "title": "Generated Episode",
+        "thumbnailPrompt": "High-contrast split composition: upper half features the grand lit facade and basalt sculptures of Ramappa Temple; lower half features a glowing cross-section diagram of the sandbox trench and a floating brick in water.",
+        "scenes": [
+          {
+            "id": "scene_001",
+            "chapter": "Floating Brick Water Test",
+            "role": "story",
+            "narration": "800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Cinematic close-up shot inside a temple courtyard. A porous light reddish-brown terracotta Kakatiya brick floats steadily atop clear water in an antique carved brass vessel. In the background, out of focus, stands a highly polished dark basalt sculpture of a dancing maiden bracket figure. The camera slowly pushes in towards the floating brick, capturing subtle water ripples reflecting warm sunlight off the porous stone surface. Realistic physical liquid dynamics, pristine historical lighting, natural metallic sheen on basalt stone. Continuity Lock: Porous Kakatiya ceramic brick with microscopic air pockets, antique brass water vessel, dark dolerite Madanika sculpture background. Negative Prompt: cartoon, 3d render, plastic textures, sinking brick, erratic water motion, modern elements, text, watermark, flickering.",
+            "videoPrompt": "Cinematic close-up shot inside a temple courtyard. A porous light reddish-brown terracotta Kakatiya brick floats steadily atop clear water in an antique carved brass vessel. In the background, out of focus, stands a highly polished dark basalt sculpture of a dancing maiden bracket figure. The camera slowly pushes in towards the floating brick, capturing subtle water ripples reflecting warm sunlight off the porous stone surface. Realistic physical liquid dynamics, pristine historical lighting, natural metallic sheen on basalt stone. Continuity Lock: Porous Kakatiya ceramic brick with microscopic air pockets, antique brass water vessel, dark dolerite Madanika sculpture background. Temporal Constraints: No sudden cuts, no dynamic morphing of the brick, smooth push-in camera track, stable water physics. Negative Prompt: cartoon, 3d render, plastic textures, sinking brick, erratic water motion, modern elements, text, watermark, flickering."
+          },
+          {
+            "id": "scene_002",
+            "chapter": "Ramappa Temple Facade",
+            "role": "story",
+            "narration": "सन 1213 में काकतिया राजवंश के मुख्य मूर्तिकार रामप्पा ने तेलंगाना के पालमपेट में इस अद्भुत रुद्रेश्वर मंदिर का निर्माण शुरू किया।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Wide-angle majestic view of the historical Ramappa Temple (Rudreshwara Temple) built in 1213 CE in Palampet, Telangana. The grand temple rests atop a distinct 6-foot-high star-shaped raised sandstone platform (Upapitha). The lower walls are constructed from rich reddish-pink sandstone, crowned by a pyramidal stepped Vimana tower made of dark reddish-brown ceramic bricks. Soft morning mist settles around the tropical Deccan landscape. Warm sunlight illuminates the fine relief carvings along the outer stone galleries. Atmospheric depth, high architectural precision, cinematic historical realism. Continuity Lock: 6-foot star-shaped platform, reddish-pink sandstone lower walls, ceramic Vimana tower, Kakatiya era Treta Yuga architectural style. Negative Prompt: modern tourists, concrete walls, electricity wires, cartoon, anime, low resolution, plastic stone, watermark, distorted geometry.",
+            "motionGraphics": [
+              {
+                "index": 2,
+                "sceneNum": 2,
+                "sceneId": "scene_002",
+                "type": "badge",
+                "intent": "Establish geographic location and historical timeline marker (1213 CE, Kakatiya Dynasty, Palampet).",
+                "templateId": "lower_third_map_callout",
+                "raw": "Scene: 2\nIntent: Establish geographic location and historical timeline marker (1213 CE, Kakatiya Dynasty, Palampet).\nTemplate: lower_third_map_callout"
+              }
+            ]
+          },
+          {
+            "id": "scene_003",
+            "chapter": "Architectural Planning (1213 CE)",
+            "role": "story",
+            "narration": "रामप्पा के सामने चुनौती थी एक ऐसा मंदिर बनाना, जो दक्कन के क्षेत्र में सदियों तक आने वाले भूकंपीय झटकों को सह सके।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Inside a grand open-air Kakatiya royal pavilion lit by brass oil lamps and incense smoke. Chief Architect Ramappa, an intense Indian master artisan aged 45 with weathered hands and focused eyes, unrolls a dried palm-leaf architectural blueprint on a low wooden desk. Beside him stands Kakatiya General Recharla Rudra in silk drapery and gold ornaments. The camera performs a slow side-tracking move across the detailed carved drawings on the table, ending in a stable medium close-up of Ramappa pointing to the foundation layer. Continuity Lock: Architect Ramappa: 45 years old, brown skin, matted topknot hair, simple cotton dhoti, lotus seed beads. General Recharla Rudra: muscular build, silk dhoti, gold shoulder armor. Negative Prompt: modern paper, plastic, modern clothing, Western features, jump cuts, erratic movement, blurred hands, extra fingers.",
+            "videoPrompt": "Inside a grand open-air Kakatiya royal pavilion lit by brass oil lamps and incense smoke. Chief Architect Ramappa, an intense Indian master artisan aged 45 with weathered hands and focused eyes, unrolls a dried palm-leaf architectural blueprint on a low wooden desk. Beside him stands Kakatiya General Recharla Rudra in silk drapery and gold ornaments. The camera performs a slow side-tracking move across the detailed carved drawings on the table, ending in a stable medium close-up of Ramappa pointing to the foundation layer. Continuity Lock: Architect Ramappa: 45 years old, brown skin, matted topknot hair, simple cotton dhoti, lotus seed beads. General Recharla Rudra: muscular build, silk dhoti, gold shoulder armor. Temporal Constraints: Single smooth lateral movement, no face deformation, persistent flame lighting, stable hand gestures. Negative Prompt: modern paper, plastic, modern clothing, Western features, jump cuts, erratic movement, blurred hands, extra fingers."
+          },
+          {
+            "id": "scene_004",
+            "chapter": "Deccan Seismic Threat",
+            "role": "story",
+            "narration": "दक्कन का यह क्षेत्र गहरे भूगर्भीय झटकों की चपेट में आता रहा है, जहाँ सामान्य पत्थर की इमारतें आसानी से ढह जाती हैं।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "A dramatic cross-sectional artistic depiction of the subterranean earth beneath the Deccan Plateau. Dark underground rock strata displaying glowing red seismic shockwave fault lines extending beneath the surface. Above the ground level, silhouette outlines of ancient stone temples symbolize structural vulnerability. Moody high-contrast atmospheric lighting, deep amber and crimson color palette, technical subterranean visualization style combined with classical painterly texture. Continuity Lock: Deccan plateau geology, subterranean rock layers, red stress vectors, ancient Indian temple silhouettes. Negative Prompt: futuristic HUD, neon sci-fi graphics, modern city, bright daylight, cartoonish lines, text overlay, low quality."
+          },
+          {
+            "id": "scene_005",
+            "chapter": "Digging 3-Meter Foundation Pit",
+            "role": "story",
+            "narration": "इस खतरे से निपटने के लिए रामप्पा ने नींव निर्माण के दौरान ज़मीन में 3 मीटर गहरा विशाल गड्ढा खोदा।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "High-angle panoramic crane shot over an ancient Indian construction site in 1213 CE. Dozens of ancient Kakatiya artisans and laborers dig a deep 3-meter trench following a star-shaped foundation outline. Laborers carry woven baskets filled with soil up wooden ramps. Dust particles float through golden sunbeams penetrating tree canopies. The camera slowly descends vertically down into the excavation trench showing the vast scale of subterranean work. Continuity Lock: 13th-century South Indian artisans in simple linen loincloths, star-shaped excavated pit, red Deccan soil background. Negative Prompt: modern excavators, hard hats, plastic buckets, modern tools, jump cuts, flickering, distorted human figures.",
+            "videoPrompt": "High-angle panoramic crane shot over an ancient Indian construction site in 1213 CE. Dozens of ancient Kakatiya artisans and laborers dig a deep 3-meter trench following a star-shaped foundation outline. Laborers carry woven baskets filled with soil up wooden ramps. Dust particles float through golden sunbeams penetrating tree canopies. The camera slowly descends vertically down into the excavation trench showing the vast scale of subterranean work. Continuity Lock: 13th-century South Indian artisans in simple linen loincloths, star-shaped excavated pit, red Deccan soil background. Temporal Constraints: Continuous vertical downward camera crane move, steady motion of workers without morphing limbs, persistent light rays. Negative Prompt: modern excavators, hard hats, plastic buckets, modern tools, jump cuts, flickering, distorted human figures.",
+            "motionGraphics": [
+              {
+                "index": 5,
+                "sceneNum": 5,
+                "sceneId": "scene_005",
+                "type": "badge",
+                "intent": "Illustrate the subterranean depth scale of the foundation trench (3 Meters Deep / 10 Feet Excavation).",
+                "templateId": "dimension_callout_overlay",
+                "raw": "Scene: 5\nIntent: Illustrate the subterranean depth scale of the foundation trench (3 Meters Deep / 10 Feet Excavation).\nTemplate: dimension_callout_overlay"
+              }
+            ]
+          },
+          {
+            "id": "scene_006",
+            "chapter": "Kakatiya Organic Mixture Ingredients",
+            "role": "story",
+            "narration": "इस गड्ढे को केवल कठोर पत्थरों से नहीं, बल्कि नदी की रेत, चूना, गुड़ और हरड़ के विशेष जैविक मिश्रण से भरा गया।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "A beautiful macro still-life shot of the natural raw components used in the Kakatiya sandbox recipe. Flat stone brass plates contain bright fine river sand, powdered white slaked lime (chuna), dark viscous liquid jaggery in a clay bowl, and dried black-brown Haritaki (Karakkaya) fruits. Warm atmospheric side-lighting highlights the rich textures of each organic binding agent against dark slate stone. Shallow depth of field, vivid authentic color, historical documentary aesthetic. Continuity Lock: River sand, white slaked lime powder, dark jaggery paste, dried Haritaki myrobalan fruits, ancient brass and terracotta pottery. Negative Prompt: modern glass jars, plastic bags, synthetic powders, chemical labels, low resolution, flash lighting, blurry text."
+          },
+          {
+            "id": "scene_007",
+            "chapter": "Packing the Sandbox Cushion",
+            "role": "story",
+            "narration": "काकतिया साम्राज्य की यह 'सैंडबॉक्स तकनीक' भूकंपीय तरंगों की ऊर्जा को लगभग 60 प्रतिशत तक सोख लेती है।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Medium tracking shot inside the excavated foundation trench. Artisans pour a golden mixture of sand, lime, jaggery paste, and Haritaki extract into the pit while others use heavy wooden rammers to compact the layer tightly. Dust rises in bright shafts of sunlight. The camera glides horizontally alongside the workers as they layer the cushion smooth, showing the dense compact texture of the sandbox bed forming underneath sandstone block pedestals. Continuity Lock: Kakatiya artisans, organic sandbox mixture, wooden compacting rammers, sandstone base blocks. Negative Prompt: cement mixers, modern boots, modern tools, morphing limbs, sudden camera jumps, low light blur.",
+            "videoPrompt": "Medium tracking shot inside the excavated foundation trench. Artisans pour a golden mixture of sand, lime, jaggery paste, and Haritaki extract into the pit while others use heavy wooden rammers to compact the layer tightly. Dust rises in bright shafts of sunlight. The camera glides horizontally alongside the workers as they layer the cushion smooth, showing the dense compact texture of the sandbox bed forming underneath sandstone block pedestals. Continuity Lock: Kakatiya artisans, organic sandbox mixture, wooden compacting rammers, sandstone base blocks. Temporal Constraints: Single smooth horizontal tracking move, realistic material spreading motion, zero frame stuttering or face drift. Negative Prompt: cement mixers, modern boots, modern tools, morphing limbs, sudden camera jumps, low light blur."
+          },
+          {
+            "id": "scene_008",
+            "chapter": "Seismic Base Isolation Graphic",
+            "role": "story",
+            "narration": "नींव की यह बालू-परत एक प्राकृतिक 'बेस आइसोलेशन' की तरह काम करती है, जिससे ऊपरी इमारत झटके से सुरक्षित रहती है।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "A detailed technical cross-section schematic illustrating the sandbox foundation mechanism beneath Ramappa Temple. Glowing yellow subterranean shockwave arrows travel upward through hard bedrock but shatter and disperse horizontally upon hitting the packed 3-meter sand and organic slurry trench. The sandstone platform above remains stationary and calm. Clean architectural diagram style merged with realistic stone textures, warm amber energy vectors, informative structural engineering aesthetic. Continuity Lock: 3-meter packed sandbox layer, star-shaped sandstone platform, kinetic wave dissipation vectors. Negative Prompt: modern buildings, sci-fi glowing blue grids, text in image, low quality render, chaotic background, blurry lines.",
+            "motionGraphics": [
+              {
+                "index": 8,
+                "sceneNum": 8,
+                "sceneId": "scene_008",
+                "type": "badge",
+                "intent": "Process diagram showing seismic energy reduction (60% Kinetic Dissipation through Sandbox Isolation).",
+                "templateId": "physics_flow_diagram",
+                "raw": "Scene: 8\nIntent: Process diagram showing seismic energy reduction (60% Kinetic Dissipation through Sandbox Isolation).\nTemplate: physics_flow_diagram"
+              }
+            ]
+          },
+          {
+            "id": "scene_009",
+            "chapter": "Crafting Light Ceramic Bricks",
+            "role": "story",
+            "narration": "इंजीनियरिंग का दूसरा कमाल था मंदिर का ऊपरी शिखर, जिसे भारी पत्थरों के बजाय विशेष हल्की ईंटों से तैयार किया गया।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Inside a 13th-century terracotta kiln workshop. Ancient potters knead reddish clay mixed with sawdust and organic chaff before shaping bricks in wooden molds. Smoke rises towards open rafters. Sparks fly softly from a glowing brick kiln in the background. The camera slowly pans left from the potter's skilled hands to stacked porous ceramic bricks cooling on stone racks, revealing tiny surface pores designed to trap air. Continuity Lock: Ancient Indian potters, wooden brick molds, sawdust-blended clay, glowing wood-fired brick kiln. Negative Prompt: modern brick factories, electric kilns, rubber gloves, dynamic scene cuts, morphing objects, blur.",
+            "videoPrompt": "Inside a 13th-century terracotta kiln workshop. Ancient potters knead reddish clay mixed with sawdust and organic chaff before shaping bricks in wooden molds. Smoke rises towards open rafters. Sparks fly softly from a glowing brick kiln in the background. The camera slowly pans left from the potter's skilled hands to stacked porous ceramic bricks cooling on stone racks, revealing tiny surface pores designed to trap air. Continuity Lock: Ancient Indian potters, wooden brick molds, sawdust-blended clay, glowing wood-fired brick kiln. Temporal Constraints: Slow horizontal pan, smooth hand motion molding clay, stable flame particles without flickering artifacts. Negative Prompt: modern brick factories, electric kilns, rubber gloves, dynamic scene cuts, morphing objects, blur."
+          },
+          {
+            "id": "scene_010",
+            "chapter": "Laboratory Density Float Test (0.9 g/cm³)",
+            "role": "story",
+            "narration": "इन ईंटों का घनत्व केवल 0.9 ग्राम प्रति घन सेंटीमीटर है, जिससे ये पानी की सतह पर भी आसानी से तैर सकती हैं!",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "A clear side-by-side scientific comparison inside a clear glass water vessel under bright laboratory spotlighting. On the left side underwater, a dense dark modern brick rests heavily at the bottom of the tank. On the right side, a porous reddish Kakatiya ceramic brick floats gracefully at the water surface level with visible buoyancy pockets. Superb liquid transparency, crisp detail on stone porosities, scientific historical documentation aesthetic. Continuity Lock: Dark dense standard clay brick underwater, porous lightweight Kakatiya ceramic brick floating at surface (0.9 g/cm³ density). Negative Prompt: sinking Kakatiya brick, dirty water, blurry physics, modern chemical beaker labels, plastic props, distorted frame.",
+            "motionGraphics": [
+              {
+                "index": 10,
+                "sceneNum": 10,
+                "sceneId": "scene_010",
+                "type": "badge",
+                "intent": "Density comparison visual (Standard Brick: 2.2 g/cm³ vs. Kakatiya Floating Brick: 0.9 g/cm³).",
+                "templateId": "visual_comparison_scale",
+                "raw": "Scene: 10\nIntent: Density comparison visual (Standard Brick: 2.2 g/cm³ vs. Kakatiya Floating Brick: 0.9 g/cm³).\nTemplate: visual_comparison_scale"
+              }
+            ]
+          },
+          {
+            "id": "scene_011",
+            "chapter": "Interlocking Spire Assembly",
+            "role": "story",
+            "narration": "दीवारों और शिखरों के पत्थरों को बिना चूना-गारे के, लोहे की कीलों और खांचों से जोड़ा गया, जिससे पूरी संरचना में लचीलापन बना रहा।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Low-angle tracking shot moving up the side of the Vimana tower during construction. Stonemasons carefully slide lightweight porous bricks into tongue-and-groove interlocking channels along the upper spire. An artisan pours molten iron into a dowel recess, securing adjacent stone blocks without mortar. The camera slowly tilts upward following the rising stepped pyramidal tower against a dramatic midday blue sky. Continuity Lock: Stepped pyramidal Vimana tower, porous light ceramic bricks, interlocking tongue-and-groove stonework, iron dowels. Negative Prompt: cranes, metal scaffolding, hard hats, safety vests, morphing stone shapes, jump cuts, erratic tilt.",
+            "videoPrompt": "Low-angle tracking shot moving up the side of the Vimana tower during construction. Stonemasons carefully slide lightweight porous bricks into tongue-and-groove interlocking channels along the upper spire. An artisan pours molten iron into a dowel recess, securing adjacent stone blocks without mortar. The camera slowly tilts upward following the rising stepped pyramidal tower against a dramatic midday blue sky. Continuity Lock: Stepped pyramidal Vimana tower, porous light ceramic bricks, interlocking tongue-and-groove stonework, iron dowels. Temporal Constraints: Continuous upward tilting camera motion, realistic liquid metal pouring visual, clean frame resolution. Negative Prompt: cranes, metal scaffolding, hard hats, safety vests, morphing stone shapes, jump cuts, erratic tilt."
+          },
+          {
+            "id": "scene_012",
+            "chapter": "Polished Basalt Madanika Sculpture",
+            "role": "story",
+            "narration": "17वीं सदी में जब क्षेत्र में विनाशकारी भूकंप आया, तो आसपास की लगभग सभी मध्यकालीन इमारतें पूरी तरह ढह गईं।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "An exquisite close-up portrait of a dark dolerite basalt Madanika bracket statue mounted at a 45-degree angle beneath the roof cornice of Ramappa Temple. The sculpture depicts a slender dancing maiden with highly detailed jewelry, ornate headgear, and smooth glass-like metallic luster on dark black stone. Sunset golden light catches the high-gloss polished edges of the basalt surface. Magnificent detail, historical Kakatiya artistic brilliance. Continuity Lock: Dark dolerite basalt Madanika bracket sculpture, metallic polished finish, sandstone wall backdrop, Kakatiya art style. Negative Prompt: rough unpolished granite, broken nose, modern concrete, fair skin, cartoon, anime, flash exposure, low resolution."
+          },
+          {
+            "id": "scene_013",
+            "chapter": "The 17th Century Earthquake",
+            "role": "story",
+            "narration": "लेकिन सैंडबॉक्स नींव ने झटकों की शक्ति सोख ली और रामप्पा मंदिर का मुख्य गर्भगृह और शिखर पूरी तरह सुरक्षित रहे।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Dynamic wide action shot during a massive historical earthquake in the 17th century. The ground shakes violently, sending dust clouds rising into a dark stormy sky. In the foreground background, auxiliary stone structures crumble into rubble. In center frame, Ramappa Temple sways gently on its subterranean sandbox cushion; its lightweight floating brick Vimana shifts slightly on iron dowels without collapsing. Camera starts with realistic tremor shake and gradually stabilizes into a steady lock on the standing temple. Continuity Lock: Ramappa Temple main structure intact, sway cushion movement, crumbling secondary stone structures. Negative Prompt: modern buildings collapsing, cartoon destruction, explosions, sci-fi effects, frame flickering, instant cuts.",
+            "videoPrompt": "Dynamic wide action shot during a massive historical earthquake in the 17th century. The ground shakes violently, sending dust clouds rising into a dark stormy sky. In the foreground background, auxiliary stone structures crumble into rubble. In center frame, Ramappa Temple sways gently on its subterranean sandbox cushion; its lightweight floating brick Vimana shifts slightly on iron dowels without collapsing. Camera starts with realistic tremor shake and gradually stabilizes into a steady lock on the standing temple. Continuity Lock: Ramappa Temple main structure intact, sway cushion movement, crumbling secondary stone structures. Temporal Constraints: Controlled kinetic camera shake settling into smooth static frame, realistic debris movement, no face or building morphing. Negative Prompt: modern buildings collapsing, cartoon destruction, explosions, sci-fi effects, frame flickering, instant cuts."
+          },
+          {
+            "id": "scene_014",
+            "chapter": "Unshakable Foundation Aftermath",
+            "role": "story",
+            "narration": "भूकंप के कारण केवल फर्श की कुछ पट्टियां खिसकीं, जबकि मंदिर के विशाल काले बेसाल्ट स्तंभ अपनी जगह पर अडिग खड़े रहे।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Interior wide shot of the central sanctum (Garbhagriha) corridor of Ramappa Temple following the earthquake. Sunlight beams through stone lattices illuminating minor floor slab displacements where sandstone paving shifted slightly over the sand layer. Yet the massive polished dark basalt pillars, stone lintels, and main sanctum remain perfectly vertical, intact, and unharmed. Peaceful quiet atmosphere, dramatic light rays, resilient ancient engineering. Continuity Lock: Shifted sandstone floor slabs, vertical polished basalt central pillars, undamaged sanctum doorway, sunlight beam dust. Negative Prompt: collapsed roof, total destruction, modern debris, trash, bright artificial lights, cartoon render, watermark."
+          },
+          {
+            "id": "scene_015",
+            "chapter": "UNESCO World Heritage Honor",
+            "role": "story",
+            "narration": "800 साल पुरानी यही अद्भुत प्राचीन इंजीनियरिंग आज इसे यूनेस्को की विश्व धरोहर स्थल के रूप में पहचान दिलाती है।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Smooth arc shot starting on a carved stone UNESCO World Heritage inscription plaque standing in a green garden bed at Palampet. The camera smoothly orbits around the plaque to reveal the grand Ramappa Temple standing proudly in the background under soft golden evening light. Modern Indian structural engineers in professional field attire subtly inspect the outer star platform with reverence. Atmospheric twilight sky, majestic heritage presence. Continuity Lock: UNESCO stone emblem plaque, Ramappa Temple background, star-shaped sandstone platform, golden hour light. Negative Prompt: crowded tourists, trash, distorted plaque text, jump cuts, jerky camera movement, dark unlit scene.",
+            "videoPrompt": "Smooth arc shot starting on a carved stone UNESCO World Heritage inscription plaque standing in a green garden bed at Palampet. The camera smoothly orbits around the plaque to reveal the grand Ramappa Temple standing proudly in the background under soft golden evening light. Modern Indian structural engineers in professional field attire subtly inspect the outer star platform with reverence. Atmospheric twilight sky, majestic heritage presence. Continuity Lock: UNESCO stone emblem plaque, Ramappa Temple background, star-shaped sandstone platform, golden hour light. Temporal Constraints: Continuous smooth orbital camera motion, stable background architecture, steady lighting transition. Negative Prompt: crowded tourists, trash, distorted plaque text, jump cuts, jerky camera movement, dark unlit scene."
+          },
+          {
+            "id": "scene_016",
+            "chapter": "Concluding Eternal Glory",
+            "role": "story",
+            "narration": "काकतिया कारीगरों की इस बेजोड़ वैज्ञानिक दृष्टि और कला को हमारा नमन। जय श्री राम!",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "A panoramic golden-hour hero shot of Ramappa Temple. Sunbeams cut through gentle morning mist surrounding the historic temple atop its star-shaped base. Incense smoke curls upwards from a brass lamp near the steps. The dark basalt Madanika figures gleam like black gold against the warm red sandstone facade. Dignified, divine, timeless atmospheric feel showcasing 800 years of unbroken scientific triumph. Continuity Lock: Ramappa Temple full facade, star-shaped platform, polished basalt bracket statues, incense smoke, sunset light. Negative Prompt: modern cars, electric poles, tourists, rainy dark sky, plastic props, blurry, low quality, cartoon, extra limbs."
+          }
+        ],
+        "motionMetadata": [
+          {
+            "index": 2,
+            "sceneNum": 2,
+            "sceneId": "scene_002",
+            "type": "badge",
+            "intent": "Establish geographic location and historical timeline marker (1213 CE, Kakatiya Dynasty, Palampet).",
+            "templateId": "lower_third_map_callout",
+            "raw": "Scene: 2\nIntent: Establish geographic location and historical timeline marker (1213 CE, Kakatiya Dynasty, Palampet).\nTemplate: lower_third_map_callout"
+          },
+          {
+            "index": 5,
+            "sceneNum": 5,
+            "sceneId": "scene_005",
+            "type": "badge",
+            "intent": "Illustrate the subterranean depth scale of the foundation trench (3 Meters Deep / 10 Feet Excavation).",
+            "templateId": "dimension_callout_overlay",
+            "raw": "Scene: 5\nIntent: Illustrate the subterranean depth scale of the foundation trench (3 Meters Deep / 10 Feet Excavation).\nTemplate: dimension_callout_overlay"
+          },
+          {
+            "index": 8,
+            "sceneNum": 8,
+            "sceneId": "scene_008",
+            "type": "badge",
+            "intent": "Process diagram showing seismic energy reduction (60% Kinetic Dissipation through Sandbox Isolation).",
+            "templateId": "physics_flow_diagram",
+            "raw": "Scene: 8\nIntent: Process diagram showing seismic energy reduction (60% Kinetic Dissipation through Sandbox Isolation).\nTemplate: physics_flow_diagram"
+          },
+          {
+            "index": 10,
+            "sceneNum": 10,
+            "sceneId": "scene_010",
+            "type": "badge",
+            "intent": "Density comparison visual (Standard Brick: 2.2 g/cm³ vs. Kakatiya Floating Brick: 0.9 g/cm³).",
+            "templateId": "visual_comparison_scale",
+            "raw": "Scene: 10\nIntent: Density comparison visual (Standard Brick: 2.2 g/cm³ vs. Kakatiya Floating Brick: 0.9 g/cm³).\nTemplate: visual_comparison_scale"
+          }
+        ],
+        "supportingNotes": "---\n\n## SECTION 4 — HINDI TEXT OVERLAYS\n\n- **Thumbnail Text**: तैरती ईंटें! भूकंपरोधी मंदिर\n- **Opening Frame Text**: 800 साल पुराना रहस्य! 🏛️\n- **Scene Lower-Thirds**:\n  - `00:12`: पालमपेट, तेलंगाना | 1213 ईस्वी\n  - `00:34`: काकतिया 'सैंडबॉक्स' तकनीक 🥪\n  - `00:52`: तैरने वाली हल्की ईंटें (0.9 g/cc) 🧱\n  - `01:21`: यूनेस्को विश्व धरोहर स्थल 🌍\n- **Follow Frame Text**: ❤️ लाइक करें | 💬 कमेंट — जय श्री राम 🙏 | 🔔 जुड़े रहें\n- **End Card Text**: जय काकतिया शिल्प कला! जय श्री राम! 🙏\n\n---\n\n## SECTION 5 — THE REFLECTION ENGINE\n\n> **Pinned Comment Question**:\n> \"क्या आपको लगता है कि हमारे प्राचीन भारतीय कारीगरों की सैंडबॉक्स तकनीक और फ्लोटिंग ब्रिक्स का ज्ञान आज की आधुनिक इमारतों में भी इस्तेमाल होना चाहिए? अपनी राय कमेंट्स में जरूर लिखें! 🏛️👇 (जय श्री राम 🙏)\""
+      },
+      "notes": [
+        "Retained exact opening hook narration verbatim as required by the brief.",
+        "Eliminated duplicate setup lines and streamlined the transition from historical planning directly to sandbox innovation.",
+        "Maintained strict 50/50 alternating video/image scene structure with exact scene IDs scene_001 through scene_016.",
+        "Ensured earned technical payoff (sandbox trench composition, 0.9 g/cm³ floating bricks, iron dowel interlocking) is delivered before the final CTA.",
+        "Cleaned up visual prompts by eliminating internal raw line-break control tokens for strict parseability."
+      ],
+      "sceneDirections": [
+        {
+          "sceneId": "scene_001",
+          "purpose": "Hooks the viewer with an intriguing floating brick visual anomaly and poses the core seismic mystery.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_002",
+          "purpose": "Establishes historical context, geographic location, and architect Ramappa.",
+          "motion": "hold",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_003",
+          "purpose": "Reveals the core engineering decision to design against regional seismic threats.",
+          "motion": "drift-right",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_004",
+          "purpose": "Illustrates the environmental threat and vulnerability of rigid stone structures.",
+          "motion": "hold",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_005",
+          "purpose": "Shows the first active architectural intervention: excavating the 3-meter foundation trench.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_006",
+          "purpose": "Breaks down the precise material formula of the ancient seismic binder.",
+          "motion": "hold",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_007",
+          "purpose": "Demonstrates the physical packing process and introduces the 60% shock absorption metric.",
+          "motion": "drift-left",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_008",
+          "purpose": "Provides clear scientific explanation of the subterranean base isolation mechanism.",
+          "motion": "hold",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_009",
+          "purpose": "Reveals the second key innovation: lightweight porous superstructure bricks.",
+          "motion": "drift-right",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_010",
+          "purpose": "Delivers the empirical density payoff comparing regular bricks to floating Kakatiya bricks.",
+          "motion": "hold",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_011",
+          "purpose": "Explains the interlocking tongue-and-groove and iron dowel joinery mechanism.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_012",
+          "purpose": "Sets the high-stakes historical trial of the 17th-century earthquake.",
+          "motion": "hold",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_013",
+          "purpose": "Presents the dramatic climax showing the structural survival during the earthquake.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_014",
+          "purpose": "Verifies physical evidence of survival documented by modern archaeologists.",
+          "motion": "hold",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_015",
+          "purpose": "Earned payoff connecting ancient technology to modern UNESCO recognition.",
+          "motion": "drift-right",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_016",
+          "purpose": "Concludes with meaningful reverence and concise final invocation.",
+          "motion": "hold",
+          "transition": "dissolve"
+        }
+      ],
+      "editedAt": "2026-10-25T15:18:33.843Z"
+    },
+    "scenePlan": {
+      "version": 1,
+      "title": "Generated Episode",
+      "thumbnailPrompt": "High-contrast split composition: upper half features the grand lit facade and basalt sculptures of Ramappa Temple; lower half features a glowing cross-section diagram of the sandbox trench and a floating brick in water.",
+      "scenes": [
+        {
+          "id": "scene_001",
+          "chapter": "Floating Brick Water Test",
+          "role": "story",
+          "narration": "800 साल पुराना यह मंदिर बड़े से बड़े भूकंप में भी क्यों नहीं गिरा?",
+          "mediaType": "image",
+          "duration": 8,
+          "imagePrompt": "Cinematic close-up shot inside a temple courtyard. A porous light reddish-brown terracotta Kakatiya brick floats steadily atop clear water in an antique carved brass vessel. In the background, out of focus, stands a highly polished dark basalt sculpture of a dancing maiden bracket figure. The camera slowly pushes in towards the floating brick, capturing subtle water ripples reflecting warm sunlight off the porous stone surface. Realistic physical liquid dynamics, pristine historical lighting, natural metallic sheen on basalt stone. Continuity Lock: Porous Kakatiya ceramic brick with microscopic air pockets, antique brass water vessel, dark dolerite Madanika sculpture background. Negative Prompt: cartoon, 3d render, plastic textures, sinking brick, erratic water motion, modern elements, text, watermark, flickering.",
+          "videoPrompt": "Cinematic close-up shot inside a temple courtyard. A porous light reddish-brown terracotta Kakatiya brick floats steadily atop clear water in an antique carved brass vessel. In the background, out of focus, stands a highly polished dark basalt sculpture of a dancing maiden bracket figure. The camera slowly pushes in towards the floating brick, capturing subtle water ripples reflecting warm sunlight off the porous stone surface. Realistic physical liquid dynamics, pristine historical lighting, natural metallic sheen on basalt stone. Continuity Lock: Porous Kakatiya ceramic brick with microscopic air pockets, antique brass water vessel, dark dolerite Madanika sculpture background. Temporal Constraints: No sudden cuts, no dynamic morphing of the brick, smooth push-in camera track, stable water physics. Negative Prompt: cartoon, 3d render, plastic textures, sinking brick, erratic water motion, modern elements, text, watermark, flickering."
+        },
+        {
+          "id": "scene_002",
+          "chapter": "Ramappa Temple Facade",
+          "role": "story",
+          "narration": "सन 1213 में काकतिया राजवंश के मुख्य मूर्तिकार रामप्पा ने तेलंगाना के पालमपेट में इस अद्भुत रुद्रेश्वर मंदिर का निर्माण शुरू किया।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "Wide-angle majestic view of the historical Ramappa Temple (Rudreshwara Temple) built in 1213 CE in Palampet, Telangana. The grand temple rests atop a distinct 6-foot-high star-shaped raised sandstone platform (Upapitha). The lower walls are constructed from rich reddish-pink sandstone, crowned by a pyramidal stepped Vimana tower made of dark reddish-brown ceramic bricks. Soft morning mist settles around the tropical Deccan landscape. Warm sunlight illuminates the fine relief carvings along the outer stone galleries. Atmospheric depth, high architectural precision, cinematic historical realism. Continuity Lock: 6-foot star-shaped platform, reddish-pink sandstone lower walls, ceramic Vimana tower, Kakatiya era Treta Yuga architectural style. Negative Prompt: modern tourists, concrete walls, electricity wires, cartoon, anime, low resolution, plastic stone, watermark, distorted geometry.",
+          "motionGraphics": [
+            {
+              "index": 2,
+              "sceneNum": 2,
+              "sceneId": "scene_002",
+              "type": "badge",
+              "intent": "Establish geographic location and historical timeline marker (1213 CE, Kakatiya Dynasty, Palampet).",
+              "templateId": "lower_third_map_callout",
+              "raw": "Scene: 2\nIntent: Establish geographic location and historical timeline marker (1213 CE, Kakatiya Dynasty, Palampet).\nTemplate: lower_third_map_callout"
+            }
+          ]
+        },
+        {
+          "id": "scene_003",
+          "chapter": "Architectural Planning (1213 CE)",
+          "role": "story",
+          "narration": "रामप्पा के सामने चुनौती थी एक ऐसा मंदिर बनाना, जो दक्कन के क्षेत्र में सदियों तक आने वाले भूकंपीय झटकों को सह सके।",
+          "mediaType": "image",
+          "duration": 8,
+          "imagePrompt": "Inside a grand open-air Kakatiya royal pavilion lit by brass oil lamps and incense smoke. Chief Architect Ramappa, an intense Indian master artisan aged 45 with weathered hands and focused eyes, unrolls a dried palm-leaf architectural blueprint on a low wooden desk. Beside him stands Kakatiya General Recharla Rudra in silk drapery and gold ornaments. The camera performs a slow side-tracking move across the detailed carved drawings on the table, ending in a stable medium close-up of Ramappa pointing to the foundation layer. Continuity Lock: Architect Ramappa: 45 years old, brown skin, matted topknot hair, simple cotton dhoti, lotus seed beads. General Recharla Rudra: muscular build, silk dhoti, gold shoulder armor. Negative Prompt: modern paper, plastic, modern clothing, Western features, jump cuts, erratic movement, blurred hands, extra fingers.",
+          "videoPrompt": "Inside a grand open-air Kakatiya royal pavilion lit by brass oil lamps and incense smoke. Chief Architect Ramappa, an intense Indian master artisan aged 45 with weathered hands and focused eyes, unrolls a dried palm-leaf architectural blueprint on a low wooden desk. Beside him stands Kakatiya General Recharla Rudra in silk drapery and gold ornaments. The camera performs a slow side-tracking move across the detailed carved drawings on the table, ending in a stable medium close-up of Ramappa pointing to the foundation layer. Continuity Lock: Architect Ramappa: 45 years old, brown skin, matted topknot hair, simple cotton dhoti, lotus seed beads. General Recharla Rudra: muscular build, silk dhoti, gold shoulder armor. Temporal Constraints: Single smooth lateral movement, no face deformation, persistent flame lighting, stable hand gestures. Negative Prompt: modern paper, plastic, modern clothing, Western features, jump cuts, erratic movement, blurred hands, extra fingers."
+        },
+        {
+          "id": "scene_004",
+          "chapter": "Deccan Seismic Threat",
+          "role": "story",
+          "narration": "दक्कन का यह क्षेत्र गहरे भूगर्भीय झटकों की चपेट में आता रहा है, जहाँ सामान्य पत्थर की इमारतें आसानी से ढह जाती हैं।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "A dramatic cross-sectional artistic depiction of the subterranean earth beneath the Deccan Plateau. Dark underground rock strata displaying glowing red seismic shockwave fault lines extending beneath the surface. Above the ground level, silhouette outlines of ancient stone temples symbolize structural vulnerability. Moody high-contrast atmospheric lighting, deep amber and crimson color palette, technical subterranean visualization style combined with classical painterly texture. Continuity Lock: Deccan plateau geology, subterranean rock layers, red stress vectors, ancient Indian temple silhouettes. Negative Prompt: futuristic HUD, neon sci-fi graphics, modern city, bright daylight, cartoonish lines, text overlay, low quality."
+        },
+        {
+          "id": "scene_005",
+          "chapter": "Digging 3-Meter Foundation Pit",
+          "role": "story",
+          "narration": "इस खतरे से निपटने के लिए रामप्पा ने नींव निर्माण के दौरान ज़मीन में 3 मीटर गहरा विशाल गड्ढा खोदा।",
+          "mediaType": "image",
+          "duration": 8,
+          "imagePrompt": "High-angle panoramic crane shot over an ancient Indian construction site in 1213 CE. Dozens of ancient Kakatiya artisans and laborers dig a deep 3-meter trench following a star-shaped foundation outline. Laborers carry woven baskets filled with soil up wooden ramps. Dust particles float through golden sunbeams penetrating tree canopies. The camera slowly descends vertically down into the excavation trench showing the vast scale of subterranean work. Continuity Lock: 13th-century South Indian artisans in simple linen loincloths, star-shaped excavated pit, red Deccan soil background. Negative Prompt: modern excavators, hard hats, plastic buckets, modern tools, jump cuts, flickering, distorted human figures.",
+          "videoPrompt": "High-angle panoramic crane shot over an ancient Indian construction site in 1213 CE. Dozens of ancient Kakatiya artisans and laborers dig a deep 3-meter trench following a star-shaped foundation outline. Laborers carry woven baskets filled with soil up wooden ramps. Dust particles float through golden sunbeams penetrating tree canopies. The camera slowly descends vertically down into the excavation trench showing the vast scale of subterranean work. Continuity Lock: 13th-century South Indian artisans in simple linen loincloths, star-shaped excavated pit, red Deccan soil background. Temporal Constraints: Continuous vertical downward camera crane move, steady motion of workers without morphing limbs, persistent light rays. Negative Prompt: modern excavators, hard hats, plastic buckets, modern tools, jump cuts, flickering, distorted human figures.",
+          "motionGraphics": [
+            {
+              "index": 5,
+              "sceneNum": 5,
+              "sceneId": "scene_005",
+              "type": "badge",
+              "intent": "Illustrate the subterranean depth scale of the foundation trench (3 Meters Deep / 10 Feet Excavation).",
+              "templateId": "dimension_callout_overlay",
+              "raw": "Scene: 5\nIntent: Illustrate the subterranean depth scale of the foundation trench (3 Meters Deep / 10 Feet Excavation).\nTemplate: dimension_callout_overlay"
+            }
+          ]
+        },
+        {
+          "id": "scene_006",
+          "chapter": "Kakatiya Organic Mixture Ingredients",
+          "role": "story",
+          "narration": "इस गड्ढे को केवल कठोर पत्थरों से नहीं, बल्कि नदी की रेत, चूना, गुड़ और हरड़ के विशेष जैविक मिश्रण से भरा गया।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "A beautiful macro still-life shot of the natural raw components used in the Kakatiya sandbox recipe. Flat stone brass plates contain bright fine river sand, powdered white slaked lime (chuna), dark viscous liquid jaggery in a clay bowl, and dried black-brown Haritaki (Karakkaya) fruits. Warm atmospheric side-lighting highlights the rich textures of each organic binding agent against dark slate stone. Shallow depth of field, vivid authentic color, historical documentary aesthetic. Continuity Lock: River sand, white slaked lime powder, dark jaggery paste, dried Haritaki myrobalan fruits, ancient brass and terracotta pottery. Negative Prompt: modern glass jars, plastic bags, synthetic powders, chemical labels, low resolution, flash lighting, blurry text."
+        },
+        {
+          "id": "scene_007",
+          "chapter": "Packing the Sandbox Cushion",
+          "role": "story",
+          "narration": "काकतिया साम्राज्य की यह 'सैंडबॉक्स तकनीक' भूकंपीय तरंगों की ऊर्जा को लगभग 60 प्रतिशत तक सोख लेती है।",
+          "mediaType": "image",
+          "duration": 8,
+          "imagePrompt": "Medium tracking shot inside the excavated foundation trench. Artisans pour a golden mixture of sand, lime, jaggery paste, and Haritaki extract into the pit while others use heavy wooden rammers to compact the layer tightly. Dust rises in bright shafts of sunlight. The camera glides horizontally alongside the workers as they layer the cushion smooth, showing the dense compact texture of the sandbox bed forming underneath sandstone block pedestals. Continuity Lock: Kakatiya artisans, organic sandbox mixture, wooden compacting rammers, sandstone base blocks. Negative Prompt: cement mixers, modern boots, modern tools, morphing limbs, sudden camera jumps, low light blur.",
+          "videoPrompt": "Medium tracking shot inside the excavated foundation trench. Artisans pour a golden mixture of sand, lime, jaggery paste, and Haritaki extract into the pit while others use heavy wooden rammers to compact the layer tightly. Dust rises in bright shafts of sunlight. The camera glides horizontally alongside the workers as they layer the cushion smooth, showing the dense compact texture of the sandbox bed forming underneath sandstone block pedestals. Continuity Lock: Kakatiya artisans, organic sandbox mixture, wooden compacting rammers, sandstone base blocks. Temporal Constraints: Single smooth horizontal tracking move, realistic material spreading motion, zero frame stuttering or face drift. Negative Prompt: cement mixers, modern boots, modern tools, morphing limbs, sudden camera jumps, low light blur."
+        },
+        {
+          "id": "scene_008",
+          "chapter": "Seismic Base Isolation Graphic",
+          "role": "story",
+          "narration": "नींव की यह बालू-परत एक प्राकृतिक 'बेस आइसोलेशन' की तरह काम करती है, जिससे ऊपरी इमारत झटके से सुरक्षित रहती है।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "A detailed technical cross-section schematic illustrating the sandbox foundation mechanism beneath Ramappa Temple. Glowing yellow subterranean shockwave arrows travel upward through hard bedrock but shatter and disperse horizontally upon hitting the packed 3-meter sand and organic slurry trench. The sandstone platform above remains stationary and calm. Clean architectural diagram style merged with realistic stone textures, warm amber energy vectors, informative structural engineering aesthetic. Continuity Lock: 3-meter packed sandbox layer, star-shaped sandstone platform, kinetic wave dissipation vectors. Negative Prompt: modern buildings, sci-fi glowing blue grids, text in image, low quality render, chaotic background, blurry lines.",
+          "motionGraphics": [
+            {
+              "index": 8,
+              "sceneNum": 8,
+              "sceneId": "scene_008",
+              "type": "badge",
+              "intent": "Process diagram showing seismic energy reduction (60% Kinetic Dissipation through Sandbox Isolation).",
+              "templateId": "physics_flow_diagram",
+              "raw": "Scene: 8\nIntent: Process diagram showing seismic energy reduction (60% Kinetic Dissipation through Sandbox Isolation).\nTemplate: physics_flow_diagram"
+            }
+          ]
+        },
+        {
+          "id": "scene_009",
+          "chapter": "Crafting Light Ceramic Bricks",
+          "role": "story",
+          "narration": "इंजीनियरिंग का दूसरा कमाल था मंदिर का ऊपरी शिखर, जिसे भारी पत्थरों के बजाय विशेष हल्की ईंटों से तैयार किया गया।",
+          "mediaType": "image",
+          "duration": 8,
+          "imagePrompt": "Inside a 13th-century terracotta kiln workshop. Ancient potters knead reddish clay mixed with sawdust and organic chaff before shaping bricks in wooden molds. Smoke rises towards open rafters. Sparks fly softly from a glowing brick kiln in the background. The camera slowly pans left from the potter's skilled hands to stacked porous ceramic bricks cooling on stone racks, revealing tiny surface pores designed to trap air. Continuity Lock: Ancient Indian potters, wooden brick molds, sawdust-blended clay, glowing wood-fired brick kiln. Negative Prompt: modern brick factories, electric kilns, rubber gloves, dynamic scene cuts, morphing objects, blur.",
+          "videoPrompt": "Inside a 13th-century terracotta kiln workshop. Ancient potters knead reddish clay mixed with sawdust and organic chaff before shaping bricks in wooden molds. Smoke rises towards open rafters. Sparks fly softly from a glowing brick kiln in the background. The camera slowly pans left from the potter's skilled hands to stacked porous ceramic bricks cooling on stone racks, revealing tiny surface pores designed to trap air. Continuity Lock: Ancient Indian potters, wooden brick molds, sawdust-blended clay, glowing wood-fired brick kiln. Temporal Constraints: Slow horizontal pan, smooth hand motion molding clay, stable flame particles without flickering artifacts. Negative Prompt: modern brick factories, electric kilns, rubber gloves, dynamic scene cuts, morphing objects, blur."
+        },
+        {
+          "id": "scene_010",
+          "chapter": "Laboratory Density Float Test (0.9 g/cm³)",
+          "role": "story",
+          "narration": "इन ईंटों का घनत्व केवल 0.9 ग्राम प्रति घन सेंटीमीटर है, जिससे ये पानी की सतह पर भी आसानी से तैर सकती हैं!",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "A clear side-by-side scientific comparison inside a clear glass water vessel under bright laboratory spotlighting. On the left side underwater, a dense dark modern brick rests heavily at the bottom of the tank. On the right side, a porous reddish Kakatiya ceramic brick floats gracefully at the water surface level with visible buoyancy pockets. Superb liquid transparency, crisp detail on stone porosities, scientific historical documentation aesthetic. Continuity Lock: Dark dense standard clay brick underwater, porous lightweight Kakatiya ceramic brick floating at surface (0.9 g/cm³ density). Negative Prompt: sinking Kakatiya brick, dirty water, blurry physics, modern chemical beaker labels, plastic props, distorted frame.",
+          "motionGraphics": [
+            {
+              "index": 10,
+              "sceneNum": 10,
+              "sceneId": "scene_010",
+              "type": "badge",
+              "intent": "Density comparison visual (Standard Brick: 2.2 g/cm³ vs. Kakatiya Floating Brick: 0.9 g/cm³).",
+              "templateId": "visual_comparison_scale",
+              "raw": "Scene: 10\nIntent: Density comparison visual (Standard Brick: 2.2 g/cm³ vs. Kakatiya Floating Brick: 0.9 g/cm³).\nTemplate: visual_comparison_scale"
+            }
+          ]
+        },
+        {
+          "id": "scene_011",
+          "chapter": "Interlocking Spire Assembly",
+          "role": "story",
+          "narration": "दीवारों और शिखरों के पत्थरों को बिना चूना-गारे के, लोहे की कीलों और खांचों से जोड़ा गया, जिससे पूरी संरचना में लचीलापन बना रहा।",
+          "mediaType": "image",
+          "duration": 8,
+          "imagePrompt": "Low-angle tracking shot moving up the side of the Vimana tower during construction. Stonemasons carefully slide lightweight porous bricks into tongue-and-groove interlocking channels along the upper spire. An artisan pours molten iron into a dowel recess, securing adjacent stone blocks without mortar. The camera slowly tilts upward following the rising stepped pyramidal tower against a dramatic midday blue sky. Continuity Lock: Stepped pyramidal Vimana tower, porous light ceramic bricks, interlocking tongue-and-groove stonework, iron dowels. Negative Prompt: cranes, metal scaffolding, hard hats, safety vests, morphing stone shapes, jump cuts, erratic tilt.",
+          "videoPrompt": "Low-angle tracking shot moving up the side of the Vimana tower during construction. Stonemasons carefully slide lightweight porous bricks into tongue-and-groove interlocking channels along the upper spire. An artisan pours molten iron into a dowel recess, securing adjacent stone blocks without mortar. The camera slowly tilts upward following the rising stepped pyramidal tower against a dramatic midday blue sky. Continuity Lock: Stepped pyramidal Vimana tower, porous light ceramic bricks, interlocking tongue-and-groove stonework, iron dowels. Temporal Constraints: Continuous upward tilting camera motion, realistic liquid metal pouring visual, clean frame resolution. Negative Prompt: cranes, metal scaffolding, hard hats, safety vests, morphing stone shapes, jump cuts, erratic tilt."
+        },
+        {
+          "id": "scene_012",
+          "chapter": "Polished Basalt Madanika Sculpture",
+          "role": "story",
+          "narration": "17वीं सदी में जब क्षेत्र में विनाशकारी भूकंप आया, तो आसपास की लगभग सभी मध्यकालीन इमारतें पूरी तरह ढह गईं।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "An exquisite close-up portrait of a dark dolerite basalt Madanika bracket statue mounted at a 45-degree angle beneath the roof cornice of Ramappa Temple. The sculpture depicts a slender dancing maiden with highly detailed jewelry, ornate headgear, and smooth glass-like metallic luster on dark black stone. Sunset golden light catches the high-gloss polished edges of the basalt surface. Magnificent detail, historical Kakatiya artistic brilliance. Continuity Lock: Dark dolerite basalt Madanika bracket sculpture, metallic polished finish, sandstone wall backdrop, Kakatiya art style. Negative Prompt: rough unpolished granite, broken nose, modern concrete, fair skin, cartoon, anime, flash exposure, low resolution."
+        },
+        {
+          "id": "scene_013",
+          "chapter": "The 17th Century Earthquake",
+          "role": "story",
+          "narration": "लेकिन सैंडबॉक्स नींव ने झटकों की शक्ति सोख ली और रामप्पा मंदिर का मुख्य गर्भगृह और शिखर पूरी तरह सुरक्षित रहे।",
+          "mediaType": "image",
+          "duration": 8,
+          "imagePrompt": "Dynamic wide action shot during a massive historical earthquake in the 17th century. The ground shakes violently, sending dust clouds rising into a dark stormy sky. In the foreground background, auxiliary stone structures crumble into rubble. In center frame, Ramappa Temple sways gently on its subterranean sandbox cushion; its lightweight floating brick Vimana shifts slightly on iron dowels without collapsing. Camera starts with realistic tremor shake and gradually stabilizes into a steady lock on the standing temple. Continuity Lock: Ramappa Temple main structure intact, sway cushion movement, crumbling secondary stone structures. Negative Prompt: modern buildings collapsing, cartoon destruction, explosions, sci-fi effects, frame flickering, instant cuts.",
+          "videoPrompt": "Dynamic wide action shot during a massive historical earthquake in the 17th century. The ground shakes violently, sending dust clouds rising into a dark stormy sky. In the foreground background, auxiliary stone structures crumble into rubble. In center frame, Ramappa Temple sways gently on its subterranean sandbox cushion; its lightweight floating brick Vimana shifts slightly on iron dowels without collapsing. Camera starts with realistic tremor shake and gradually stabilizes into a steady lock on the standing temple. Continuity Lock: Ramappa Temple main structure intact, sway cushion movement, crumbling secondary stone structures. Temporal Constraints: Controlled kinetic camera shake settling into smooth static frame, realistic debris movement, no face or building morphing. Negative Prompt: modern buildings collapsing, cartoon destruction, explosions, sci-fi effects, frame flickering, instant cuts."
+        },
+        {
+          "id": "scene_014",
+          "chapter": "Unshakable Foundation Aftermath",
+          "role": "story",
+          "narration": "भूकंप के कारण केवल फर्श की कुछ पट्टियां खिसकीं, जबकि मंदिर के विशाल काले बेसाल्ट स्तंभ अपनी जगह पर अडिग खड़े रहे।",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "Interior wide shot of the central sanctum (Garbhagriha) corridor of Ramappa Temple following the earthquake. Sunlight beams through stone lattices illuminating minor floor slab displacements where sandstone paving shifted slightly over the sand layer. Yet the massive polished dark basalt pillars, stone lintels, and main sanctum remain perfectly vertical, intact, and unharmed. Peaceful quiet atmosphere, dramatic light rays, resilient ancient engineering. Continuity Lock: Shifted sandstone floor slabs, vertical polished basalt central pillars, undamaged sanctum doorway, sunlight beam dust. Negative Prompt: collapsed roof, total destruction, modern debris, trash, bright artificial lights, cartoon render, watermark."
+        },
+        {
+          "id": "scene_015",
+          "chapter": "UNESCO World Heritage Honor",
+          "role": "story",
+          "narration": "800 साल पुरानी यही अद्भुत प्राचीन इंजीनियरिंग आज इसे यूनेस्को की विश्व धरोहर स्थल के रूप में पहचान दिलाती है।",
+          "mediaType": "image",
+          "duration": 8,
+          "imagePrompt": "Smooth arc shot starting on a carved stone UNESCO World Heritage inscription plaque standing in a green garden bed at Palampet. The camera smoothly orbits around the plaque to reveal the grand Ramappa Temple standing proudly in the background under soft golden evening light. Modern Indian structural engineers in professional field attire subtly inspect the outer star platform with reverence. Atmospheric twilight sky, majestic heritage presence. Continuity Lock: UNESCO stone emblem plaque, Ramappa Temple background, star-shaped sandstone platform, golden hour light. Negative Prompt: crowded tourists, trash, distorted plaque text, jump cuts, jerky camera movement, dark unlit scene.",
+          "videoPrompt": "Smooth arc shot starting on a carved stone UNESCO World Heritage inscription plaque standing in a green garden bed at Palampet. The camera smoothly orbits around the plaque to reveal the grand Ramappa Temple standing proudly in the background under soft golden evening light. Modern Indian structural engineers in professional field attire subtly inspect the outer star platform with reverence. Atmospheric twilight sky, majestic heritage presence. Continuity Lock: UNESCO stone emblem plaque, Ramappa Temple background, star-shaped sandstone platform, golden hour light. Temporal Constraints: Continuous smooth orbital camera motion, stable background architecture, steady lighting transition. Negative Prompt: crowded tourists, trash, distorted plaque text, jump cuts, jerky camera movement, dark unlit scene."
+        },
+        {
+          "id": "scene_016",
+          "chapter": "Concluding Eternal Glory",
+          "role": "story",
+          "narration": "काकतिया कारीगरों की इस बेजोड़ वैज्ञानिक दृष्टि और कला को हमारा नमन। जय श्री राम!",
+          "mediaType": "image",
+          "duration": 5,
+          "imagePrompt": "A panoramic golden-hour hero shot of Ramappa Temple. Sunbeams cut through gentle morning mist surrounding the historic temple atop its star-shaped base. Incense smoke curls upwards from a brass lamp near the steps. The dark basalt Madanika figures gleam like black gold against the warm red sandstone facade. Dignified, divine, timeless atmospheric feel showcasing 800 years of unbroken scientific triumph. Continuity Lock: Ramappa Temple full facade, star-shaped platform, polished basalt bracket statues, incense smoke, sunset light. Negative Prompt: modern cars, electric poles, tourists, rainy dark sky, plastic props, blurry, low quality, cartoon, extra limbs."
+        }
+      ],
+      "motionMetadata": [
+        {
+          "index": 2,
+          "sceneNum": 2,
+          "sceneId": "scene_002",
+          "type": "badge",
+          "intent": "Establish geographic location and historical timeline marker (1213 CE, Kakatiya Dynasty, Palampet).",
+          "templateId": "lower_third_map_callout",
+          "raw": "Scene: 2\nIntent: Establish geographic location and historical timeline marker (1213 CE, Kakatiya Dynasty, Palampet).\nTemplate: lower_third_map_callout"
+        },
+        {
+          "index": 5,
+          "sceneNum": 5,
+          "sceneId": "scene_005",
+          "type": "badge",
+          "intent": "Illustrate the subterranean depth scale of the foundation trench (3 Meters Deep / 10 Feet Excavation).",
+          "templateId": "dimension_callout_overlay",
+          "raw": "Scene: 5\nIntent: Illustrate the subterranean depth scale of the foundation trench (3 Meters Deep / 10 Feet Excavation).\nTemplate: dimension_callout_overlay"
+        },
+        {
+          "index": 8,
+          "sceneNum": 8,
+          "sceneId": "scene_008",
+          "type": "badge",
+          "intent": "Process diagram showing seismic energy reduction (60% Kinetic Dissipation through Sandbox Isolation).",
+          "templateId": "physics_flow_diagram",
+          "raw": "Scene: 8\nIntent: Process diagram showing seismic energy reduction (60% Kinetic Dissipation through Sandbox Isolation).\nTemplate: physics_flow_diagram"
+        },
+        {
+          "index": 10,
+          "sceneNum": 10,
+          "sceneId": "scene_010",
+          "type": "badge",
+          "intent": "Density comparison visual (Standard Brick: 2.2 g/cm³ vs. Kakatiya Floating Brick: 0.9 g/cm³).",
+          "templateId": "visual_comparison_scale",
+          "raw": "Scene: 10\nIntent: Density comparison visual (Standard Brick: 2.2 g/cm³ vs. Kakatiya Floating Brick: 0.9 g/cm³).\nTemplate: visual_comparison_scale"
+        }
+      ],
+      "supportingNotes": "---\n\n## SECTION 4 — HINDI TEXT OVERLAYS\n\n- **Thumbnail Text**: तैरती ईंटें! भूकंपरोधी मंदिर\n- **Opening Frame Text**: 800 साल पुराना रहस्य! 🏛️\n- **Scene Lower-Thirds**:\n  - `00:12`: पालमपेट, तेलंगाना | 1213 ईस्वी\n  - `00:34`: काकतिया 'सैंडबॉक्स' तकनीक 🥪\n  - `00:52`: तैरने वाली हल्की ईंटें (0.9 g/cc) 🧱\n  - `01:21`: यूनेस्को विश्व धरोहर स्थल 🌍\n- **Follow Frame Text**: ❤️ लाइक करें | 💬 कमेंट — जय श्री राम 🙏 | 🔔 जुड़े रहें\n- **End Card Text**: जय काकतिया शिल्प कला! जय श्री राम! 🙏\n\n---\n\n## SECTION 5 — THE REFLECTION ENGINE\n\n> **Pinned Comment Question**:\n> \"क्या आपको लगता है कि हमारे प्राचीन भारतीय कारीगरों की सैंडबॉक्स तकनीक और फ्लोटिंग ब्रिक्स का ज्ञान आज की आधुनिक इमारतों में भी इस्तेमाल होना चाहिए? अपनी राय कमेंट्स में जरूर लिखें! 🏛️👇 (जय श्री राम 🙏)\""
+    },
+    "sceneAnalysis": {
+      "transitions": [
+        "none",
+        "dissolve",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve"
+      ],
+      "effects": [
+        "slow-zoom-in",
+        "hold",
+        "drift-right",
+        "hold",
+        "slow-zoom-in",
+        "hold",
+        "drift-left",
+        "hold",
+        "drift-right",
+        "hold",
+        "slow-zoom-in",
+        "hold",
+        "slow-zoom-in",
+        "hold",
+        "drift-right",
+        "hold"
+      ],
+      "timings": [],
+      "mood": "cinematic",
+      "colorGrade": "warm-vintage"
+    },
+    "referenceFrames": {
+      "0": {
+        "index": 0,
+        "prompt": "Cinematic close-up shot inside a temple courtyard. A porous light reddish-brown terracotta Kakatiya brick floats steadily atop clear water in an antique carved brass vessel. In the background, out of focus, stands a highly polished dark basalt sculpture of a dancing maiden bracket figure. The camera slowly pushes in towards the floating brick, capturing subtle water ripples reflecting warm sunlight off the porous stone surface. Realistic physical liquid dynamics, pristine historical lighting, natural metallic sheen on basalt stone. Continuity Lock: Porous Kakatiya ceramic brick with microscopic air pockets, antique brass water vessel, dark dolerite Madanika sculpture background. Negative Prompt: cartoon, 3d render, plastic textures, sinking brick, erratic water motion, modern elements, text, watermark, flickering.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-00-1792941514059.png",
+        "seed": 291068311,
+        "elapsedMs": 10039,
+        "createdAt": "2026-10-25T15:18:44.100Z"
+      },
+      "1": {
+        "index": 1,
+        "prompt": "Wide-angle majestic view of the historical Ramappa Temple (Rudreshwara Temple) built in 1213 CE in Palampet, Telangana. The grand temple rests atop a distinct 6-foot-high star-shaped raised sandstone platform (Upapitha). The lower walls are constructed from rich reddish-pink sandstone, crowned by a pyramidal stepped Vimana tower made of dark reddish-brown ceramic bricks. Soft morning mist settles around the tropical Deccan landscape. Warm sunlight illuminates the fine relief carvings along the outer stone galleries. Atmospheric depth, high architectural precision, cinematic historical realism. Continuity Lock: 6-foot star-shaped platform, reddish-pink sandstone lower walls, ceramic Vimana tower, Kakatiya era Treta Yuga architectural style. Negative Prompt: modern tourists, concrete walls, electricity wires, cartoon, anime, low resolution, plastic stone, watermark, distorted geometry.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-01-1792941552342.png",
+        "seed": 858103558,
+        "elapsedMs": 9762,
+        "createdAt": "2026-10-25T15:19:22.106Z"
+      },
+      "2": {
+        "index": 2,
+        "prompt": "Inside a grand open-air Kakatiya royal pavilion lit by brass oil lamps and incense smoke. Chief Architect Ramappa, an intense Indian master artisan aged 45 with weathered hands and focused eyes, unrolls a dried palm-leaf architectural blueprint on a low wooden desk. Beside him stands Kakatiya General Recharla Rudra in silk drapery and gold ornaments. The camera performs a slow side-tracking move across the detailed carved drawings on the table, ending in a stable medium close-up of Ramappa pointing to the foundation layer. Continuity Lock: Architect Ramappa: 45 years old, brown skin, matted topknot hair, simple cotton dhoti, lotus seed beads. General Recharla Rudra: muscular build, silk dhoti, gold shoulder armor. Negative Prompt: modern paper, plastic, modern clothing, Western features, jump cuts, erratic movement, blurred hands, extra fingers.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-02-1792941562180.png",
+        "seed": 1447040744,
+        "elapsedMs": 15207,
+        "createdAt": "2026-10-25T15:19:37.389Z"
+      },
+      "3": {
+        "index": 3,
+        "prompt": "A dramatic cross-sectional artistic depiction of the subterranean earth beneath the Deccan Plateau. Dark underground rock strata displaying glowing red seismic shockwave fault lines extending beneath the surface. Above the ground level, silhouette outlines of ancient stone temples symbolize structural vulnerability. Moody high-contrast atmospheric lighting, deep amber and crimson color palette, technical subterranean visualization style combined with classical painterly texture. Continuity Lock: Deccan plateau geology, subterranean rock layers, red stress vectors, ancient Indian temple silhouettes. Negative Prompt: futuristic HUD, neon sci-fi graphics, modern city, bright daylight, cartoonish lines, text overlay, low quality.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-03-1792941577461.png",
+        "seed": 2095632691,
+        "elapsedMs": 10801,
+        "createdAt": "2026-10-25T15:19:48.265Z"
+      },
+      "4": {
+        "index": 4,
+        "prompt": "High-angle panoramic crane shot over an ancient Indian construction site in 1213 CE. Dozens of ancient Kakatiya artisans and laborers dig a deep 3-meter trench following a star-shaped foundation outline. Laborers carry woven baskets filled with soil up wooden ramps. Dust particles float through golden sunbeams penetrating tree canopies. The camera slowly descends vertically down into the excavation trench showing the vast scale of subterranean work. Continuity Lock: 13th-century South Indian artisans in simple linen loincloths, star-shaped excavated pit, red Deccan soil background. Negative Prompt: modern excavators, hard hats, plastic buckets, modern tools, jump cuts, flickering, distorted human figures.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-04-1792941588334.png",
+        "seed": 1869522827,
+        "elapsedMs": 5913,
+        "createdAt": "2026-10-25T15:19:54.249Z"
+      },
+      "5": {
+        "index": 5,
+        "prompt": "A beautiful macro still-life shot of the natural raw components used in the Kakatiya sandbox recipe. Flat stone brass plates contain bright fine river sand, powdered white slaked lime (chuna), dark viscous liquid jaggery in a clay bowl, and dried black-brown Haritaki (Karakkaya) fruits. Warm atmospheric side-lighting highlights the rich textures of each organic binding agent against dark slate stone. Shallow depth of field, vivid authentic color, historical documentary aesthetic. Continuity Lock: River sand, white slaked lime powder, dark jaggery paste, dried Haritaki myrobalan fruits, ancient brass and terracotta pottery. Negative Prompt: modern glass jars, plastic bags, synthetic powders, chemical labels, low resolution, flash lighting, blurry text.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-05-1792941594304.png",
+        "seed": 1705864428,
+        "elapsedMs": 9278,
+        "createdAt": "2026-10-25T15:20:03.583Z"
+      },
+      "6": {
+        "index": 6,
+        "prompt": "Medium tracking shot inside the excavated foundation trench. Artisans pour a golden mixture of sand, lime, jaggery paste, and Haritaki extract into the pit while others use heavy wooden rammers to compact the layer tightly. Dust rises in bright shafts of sunlight. The camera glides horizontally alongside the workers as they layer the cushion smooth, showing the dense compact texture of the sandbox bed forming underneath sandstone block pedestals. Continuity Lock: Kakatiya artisans, organic sandbox mixture, wooden compacting rammers, sandstone base blocks. Negative Prompt: cement mixers, modern boots, modern tools, morphing limbs, sudden camera jumps, low light blur.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-06-1792941603660.png",
+        "seed": 1790091968,
+        "elapsedMs": 26633,
+        "createdAt": "2026-10-25T15:20:30.298Z"
+      },
+      "7": {
+        "index": 7,
+        "prompt": "A detailed technical cross-section schematic illustrating the sandbox foundation mechanism beneath Ramappa Temple. Glowing yellow subterranean shockwave arrows travel upward through hard bedrock but shatter and disperse horizontally upon hitting the packed 3-meter sand and organic slurry trench. The sandstone platform above remains stationary and calm. Clean architectural diagram style merged with realistic stone textures, warm amber energy vectors, informative structural engineering aesthetic. Continuity Lock: 3-meter packed sandbox layer, star-shaped sandstone platform, kinetic wave dissipation vectors. Negative Prompt: modern buildings, sci-fi glowing blue grids, text in image, low quality render, chaotic background, blurry lines.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-07-1792941630385.png",
+        "seed": 1773587661,
+        "elapsedMs": 38663,
+        "createdAt": "2026-10-25T15:21:09.049Z"
+      },
+      "8": {
+        "index": 8,
+        "prompt": "Inside a 13th-century terracotta kiln workshop. Ancient potters knead reddish clay mixed with sawdust and organic chaff before shaping bricks in wooden molds. Smoke rises towards open rafters. Sparks fly softly from a glowing brick kiln in the background. The camera slowly pans left from the potter's skilled hands to stacked porous ceramic bricks cooling on stone racks, revealing tiny surface pores designed to trap air. Continuity Lock: Ancient Indian potters, wooden brick molds, sawdust-blended clay, glowing wood-fired brick kiln. Negative Prompt: modern brick factories, electric kilns, rubber gloves, dynamic scene cuts, morphing objects, blur.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-08-1792941669120.png",
+        "seed": 1845246685,
+        "elapsedMs": 10321,
+        "createdAt": "2026-10-25T15:21:19.444Z"
+      },
+      "9": {
+        "index": 9,
+        "prompt": "A clear side-by-side scientific comparison inside a clear glass water vessel under bright laboratory spotlighting. On the left side underwater, a dense dark modern brick rests heavily at the bottom of the tank. On the right side, a porous reddish Kakatiya ceramic brick floats gracefully at the water surface level with visible buoyancy pockets. Superb liquid transparency, crisp detail on stone porosities, scientific historical documentation aesthetic. Continuity Lock: Dark dense standard clay brick underwater, porous lightweight Kakatiya ceramic brick floating at surface (0.9 g/cm³ density). Negative Prompt: sinking Kakatiya brick, dirty water, blurry physics, modern chemical beaker labels, plastic props, distorted frame.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-09-1792941679503.png",
+        "seed": 1953188064,
+        "elapsedMs": 8490,
+        "createdAt": "2026-10-25T15:21:27.994Z"
+      },
+      "10": {
+        "index": 10,
+        "prompt": "Low-angle tracking shot moving up the side of the Vimana tower during construction. Stonemasons carefully slide lightweight porous bricks into tongue-and-groove interlocking channels along the upper spire. An artisan pours molten iron into a dowel recess, securing adjacent stone blocks without mortar. The camera slowly tilts upward following the rising stepped pyramidal tower against a dramatic midday blue sky. Continuity Lock: Stepped pyramidal Vimana tower, porous light ceramic bricks, interlocking tongue-and-groove stonework, iron dowels. Negative Prompt: cranes, metal scaffolding, hard hats, safety vests, morphing stone shapes, jump cuts, erratic tilt.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-10-1792941688059.png",
+        "seed": 1135183028,
+        "elapsedMs": 21990,
+        "createdAt": "2026-10-25T15:21:50.053Z"
+      },
+      "11": {
+        "index": 11,
+        "prompt": "An exquisite close-up portrait of a dark dolerite basalt Madanika bracket statue mounted at a 45-degree angle beneath the roof cornice of Ramappa Temple. The sculpture depicts a slender dancing maiden with highly detailed jewelry, ornate headgear, and smooth glass-like metallic luster on dark black stone. Sunset golden light catches the high-gloss polished edges of the basalt surface. Magnificent detail, historical Kakatiya artistic brilliance. Continuity Lock: Dark dolerite basalt Madanika bracket sculpture, metallic polished finish, sandstone wall backdrop, Kakatiya art style. Negative Prompt: rough unpolished granite, broken nose, modern concrete, fair skin, cartoon, anime, flash exposure, low resolution.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-11-1792941710123.png",
+        "seed": 1367009485,
+        "elapsedMs": 10116,
+        "createdAt": "2026-10-25T15:22:00.241Z"
+      },
+      "12": {
+        "index": 12,
+        "prompt": "Dynamic wide action shot during a massive historical earthquake in the 17th century. The ground shakes violently, sending dust clouds rising into a dark stormy sky. In the foreground background, auxiliary stone structures crumble into rubble. In center frame, Ramappa Temple sways gently on its subterranean sandbox cushion; its lightweight floating brick Vimana shifts slightly on iron dowels without collapsing. Camera starts with realistic tremor shake and gradually stabilizes into a steady lock on the standing temple. Continuity Lock: Ramappa Temple main structure intact, sway cushion movement, crumbling secondary stone structures. Negative Prompt: modern buildings collapsing, cartoon destruction, explosions, sci-fi effects, frame flickering, instant cuts.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-12-1792941720354.png",
+        "seed": 462461970,
+        "elapsedMs": 6350,
+        "createdAt": "2026-10-25T15:22:06.705Z"
+      },
+      "13": {
+        "index": 13,
+        "prompt": "Interior wide shot of the central sanctum (Garbhagriha) corridor of Ramappa Temple following the earthquake. Sunlight beams through stone lattices illuminating minor floor slab displacements where sandstone paving shifted slightly over the sand layer. Yet the massive polished dark basalt pillars, stone lintels, and main sanctum remain perfectly vertical, intact, and unharmed. Peaceful quiet atmosphere, dramatic light rays, resilient ancient engineering. Continuity Lock: Shifted sandstone floor slabs, vertical polished basalt central pillars, undamaged sanctum doorway, sunlight beam dust. Negative Prompt: collapsed roof, total destruction, modern debris, trash, bright artificial lights, cartoon render, watermark.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-13-1792941726763.png",
+        "seed": 1709485918,
+        "elapsedMs": 40534,
+        "createdAt": "2026-10-25T15:22:47.298Z"
+      },
+      "14": {
+        "index": 14,
+        "prompt": "Smooth arc shot starting on a carved stone UNESCO World Heritage inscription plaque standing in a green garden bed at Palampet. The camera smoothly orbits around the plaque to reveal the grand Ramappa Temple standing proudly in the background under soft golden evening light. Modern Indian structural engineers in professional field attire subtly inspect the outer star platform with reverence. Atmospheric twilight sky, majestic heritage presence. Continuity Lock: UNESCO stone emblem plaque, Ramappa Temple background, star-shaped sandstone platform, golden hour light. Negative Prompt: crowded tourists, trash, distorted plaque text, jump cuts, jerky camera movement, dark unlit scene.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-14-1792941767391.png",
+        "seed": 853886361,
+        "elapsedMs": 9194,
+        "createdAt": "2026-10-25T15:22:56.586Z"
+      },
+      "15": {
+        "index": 15,
+        "prompt": "A panoramic golden-hour hero shot of Ramappa Temple. Sunbeams cut through gentle morning mist surrounding the historic temple atop its star-shaped base. Incense smoke curls upwards from a brass lamp near the steps. The dark basalt Madanika figures gleam like black gold against the warm red sandstone facade. Dignified, divine, timeless atmospheric feel showcasing 800 years of unbroken scientific triumph. Continuity Lock: Ramappa Temple full facade, star-shaped platform, polished basalt bracket statues, incense smoke, sunset light. Negative Prompt: modern cars, electric poles, tourists, rainy dark sky, plastic props, blurry, low quality, cartoon, extra limbs.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-15-1792941776689.png",
+        "seed": 1166240805,
+        "elapsedMs": 6694,
+        "createdAt": "2026-10-25T15:23:03.384Z"
+      }
+    }
   },
   {
     "id": "test_e2e_video",

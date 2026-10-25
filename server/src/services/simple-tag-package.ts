@@ -519,6 +519,8 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
     const sceneMatch = raw.match(/(?:Scene|#scene|#image)[:\s]+\s*#?(?:image\s*|scene\s*)?(\d+)/i);
     const titleMatch = raw.match(/Title:\s*([^\n]+)/i);
     const detailMatch = raw.match(/Detail:\s*([^\n]+)/i);
+    const intentMatch = raw.match(/Intent:\s*([^\n]+)/i);
+    const templateMatch = raw.match(/Template(?:\s*ID)?:\s*([^\n]+)/i);
     const targetMatch = raw.match(/Target:\s*([^\n]+)/i);
     const unitMatch = raw.match(/Unit:\s*([^\n]+)/i);
     const labelMatch = raw.match(/Label:\s*([^\n]+)/i);
@@ -538,6 +540,8 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
       type: typeMatch ? typeMatch[1].trim().toLowerCase() : 'badge',
       title: titleMatch ? titleMatch[1].trim() : undefined,
       detail: detailMatch ? detailMatch[1].trim() : undefined,
+      intent: intentMatch ? intentMatch[1].trim() : undefined,
+      templateId: templateMatch ? templateMatch[1].trim() : undefined,
       target: targetMatch ? targetMatch[1].trim() : undefined,
       unit: unitMatch ? unitMatch[1].trim() : undefined,
       label: labelMatch ? labelMatch[1].trim() : undefined,

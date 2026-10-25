@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HyperFramesPlayer as Player, type PlayerRef } from './HyperFramesPlayer';
-import { cardBounds, graphicNames } from '@tubeflow/video-composition';
+import { cardBounds, graphicNames, motionLibraryTemplate } from '@tubeflow/video-composition';
 import type { ArtifactComposition, MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { useEditingProject } from '../../hooks/useEditingProject';
 import { editingRequest, type EditingPayload } from '../../services/editingApi';
@@ -162,7 +162,9 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
     </div>
     <MotionDemoGallery />
     {state.error && <div role="alert" className="rounded-xl border border-red-500/30 bg-red-950/30 p-3.5 text-sm text-red-200">{state.error}</div>}
-    {!editor && <div className="grid gap-4 rounded-2xl border border-border/80 bg-surface/90 p-5 shadow-card md:grid-cols-2">
+    <details open={!editor || !p} className="rounded-2xl border border-border/80 bg-surface/90 shadow-card">
+    <summary className="cursor-pointer px-5 py-4 text-sm font-semibold text-white">Choose narration &amp; let AI plan motion graphics</summary>
+    <div className="grid gap-4 p-5 md:grid-cols-2">
       <label className="text-xs font-semibold text-gray-300">Narration<select className={input} value={audio} onChange={e => setAudio(e.target.value)}>
         <option value="">Select generated narration</option>{script.generatedAudio?.map(a => <option key={a.filename} value={a.filename}>{a.language === 'hi' ? 'Hindi' : 'English'} · {a.voiceName || a.voice || a.filename}</option>)}
       </select></label>
@@ -175,7 +177,7 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
       </select></label>
       <label className="text-xs font-semibold text-gray-300">Frame rate<select className={input} value={fps} onChange={e => setFps(Number(e.target.value))}><option value={60}>60 fps · smooth motion</option><option value={30}>30 fps · faster export</option></select></label>
       <label className="text-xs font-semibold text-gray-300">Composition style<select aria-label="Composition style" className={input} value={engine} disabled={imageOnly} onChange={e => setEngine(e.target.value as typeof engine)}>
-        <option value="generative">Original compositions · diagrams, comparisons &amp; timelines</option><option value="directed">Directed sequences &amp; source images</option>
+        <option value="generative">Adaptive library &amp; original compositions</option><option value="directed">Directed sequences &amp; source images</option>
       </select></label>
       {imageOnly && <p className="text-xs text-gray-400 md:col-span-2">AI uses the scene metadata to choose useful moments. Most scenes stay clean; graphics follow the channel’s language and visual style.</p>}
       <label className="text-xs font-semibold text-gray-300">Motion feel<select aria-label="Motion feel" className={input} value={motionLevel} onChange={e => setMotionLevel(e.target.value as typeof motionLevel)}>
@@ -205,8 +207,8 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
           state.setSelectedRevision(''); state.setData(next); setSelected(''); setFrame(0);
         })}>Clear Graphics</button>}
       </div>
-      <p className="text-[11px] leading-relaxed text-muted md:col-span-2">Original compositions combine text, shapes, images and animated connections to explain selected moments. Sound stays beneath the narration. Ordinary footage stays clean; every design is checked for readable text and overlap.</p>
-    </div>}
+      <p className="text-[11px] leading-relaxed text-muted md:col-span-2">AI chooses an adaptive family or original composition from the narration, script hints and actual scene media. Ordinary footage stays clean. Preview the checked result here, then export the saved composition.</p>
+    </div></details>
     {!!data?.legacyArtifactCount && <p className="rounded-lg border border-amber-800 p-3 text-sm text-amber-200">This saved revision contains {data.legacyArtifactCount} retired graphics. They are hidden from preview and new exports. Generate motion graphics to replace them; original media and revision history remain available.</p>}
     {job && <div role="status" className="flex items-center justify-between rounded-lg border border-amber-700/50 p-3 text-sm"><span>{job.stage}{job.total ? ` · ${job.completed}/${job.total}` : ''}</span><button className="text-red-300" disabled={job.state === 'cancel_requested'} onClick={() => void act(async () => { await editingRequest(fetch, `/jobs/${job.id}/cancel`, {}); await state.refresh(); })}>{job.state === 'cancel_requested' ? 'Cancelling…' : 'Cancel'}</button></div>}
     {lastJob && !job && ['needs_configuration', 'interrupted', 'failed'].includes(lastJob.state) && <div role="alert" className="rounded-lg border border-amber-800 p-3 text-sm text-amber-100">
@@ -329,7 +331,7 @@ function GraphCard({ artifact, value, fps, busy, selected, onSelect, onChange, o
   const graph = value.sceneGraph!;
   const dirty = JSON.stringify(graph) !== JSON.stringify(artifact.sceneGraph);
   return <div className={`space-y-3 rounded-xl border p-4 bg-surface ${selected ? 'border-amber-400/70' : 'border-border'}`}>
-    <button className="text-left" onClick={onSelect}><span className="text-[11px] uppercase tracking-wider text-sky-300">Original composition</span><span className="mt-1 block text-sm font-semibold">{artifact.intent}</span></button>
+    <button className="text-left" onClick={onSelect}><span className="text-[11px] uppercase tracking-wider text-sky-300">{graph.template ? motionLibraryTemplate(graph.template.id)?.name || 'Adaptive composition' : 'Original composition'}</span><span className="mt-1 block text-sm font-semibold">{artifact.intent}</span></button>
     <p className="text-xs text-gray-400">{(value.startFrame / fps).toFixed(1)}–{(value.endFrame / fps).toFixed(1)} s · {graph.nodes.length} elements · {graph.soundCues.length} sound cues · {artifact.enabled ? 'Visible' : 'Hidden'}</p>
     <p className="text-xs text-gray-400" title={artifact.visualReview?.reason}>{artifact.visualReview?.status === 'passed' ? 'Rendered review passed' : artifact.visualReview?.status === 'rejected' ? 'Review rejected · hidden' : 'Rendered review pending'}</p>
     {graph.nodes.filter(n => n.kind === 'text').map(n => n.kind === 'text' && <label key={n.id} className="block text-xs text-gray-400">Display text<textarea aria-label={`Composition text ${n.id}`} className={input} rows={2} value={n.text} disabled={busy} onChange={e => onChange({ ...value, sceneGraph: { ...graph, nodes: graph.nodes.map(node => node.id === n.id && node.kind === 'text' ? { ...node, text: e.target.value } : node) } })} /></label>)}

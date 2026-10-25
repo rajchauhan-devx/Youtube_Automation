@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Id, Frame, Point, Rect, Color, Transform, Paint, Clip, Track, TextStyle, PathCommand, Geometry, Anchor } from "./primitives.js";
+import { MotionTemplateSelection } from './motion-template.js';
 
 export const SCENE_GRAPH_VERSION = 1;
 
@@ -109,6 +110,7 @@ export const SceneGraphNode = z.discriminatedUnion("kind", [
 ]);
 
 const SceneGraphBase = z.strictObject({
+  template: MotionTemplateSelection.optional(),
   version: z.literal(1).default(1),
   seed: z.number().int().default(42),
   bounds: Rect,
@@ -161,7 +163,11 @@ export function sceneGraphIssues(graph: SceneGraphData, durationFrames?: number)
     if (n.kind === 'path' && n.commands[0].op !== 'M') issues.push(`${n.id}: path must begin with M`);
   }
   for (const e of graph.evidence) if (!ids.has(e.targetNodeId)) issues.push(`Evidence references missing node ${e.targetNodeId}`);
-  for (const c of graph.soundCues) if (durationFrames !== undefined && c.localFrame >= durationFrames) issues.push(`${c.id}: sound cue outside artifact interval`);
+  if (durationFrames !== undefined) {
+    for (const c of graph.soundCues) {
+      if (c.localFrame >= durationFrames) issues.push(`${c.id}: sound cue outside artifact interval`);
+    }
+  }
   return [...new Set(issues)];
 }
 export const SceneGraph = SceneGraphBase.superRefine((graph, ctx) => {

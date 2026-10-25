@@ -60,3 +60,8 @@ services/alignment/.venv/
 server/data/cloudflare-image-config.json
 server/data/flow/
 server/shots/
+
+server/data/*-test-*/
+server/data/.upload-jobs/
+server/data/presenter-api-*/
+scratch/

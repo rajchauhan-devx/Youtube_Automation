@@ -4,6 +4,7 @@ One process per job: exiting releases model memory, cancellation kills this
 process tree, and all new output/temp files stay inside the script workspace.
 """
 import argparse
+import inspect
 import json
 import os
 from pathlib import Path
@@ -37,8 +38,13 @@ def main():
     from app.musetalk_service import MuseTalkService
     import torch
     import cv2
-    torch.set_num_threads(2)
-    cv2.setNumThreads(2)
+    num_threads = min(8, os.cpu_count() or 4)
+    torch.set_num_threads(num_threads)
+    cv2.setNumThreads(num_threads)
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
     original_imread = cv2.imread
     def cancellable_imread(*args, **kwargs):
         if (work / "cancel.request").exists():
@@ -52,13 +58,20 @@ def main():
         event(stage=stage, progress=round(pct * 100))
     try:
         progress("Presenter engine ready", 0.03)
-        result = service.generate_lipsync(
-            audio_path=request["audio"], avatar_id=request["avatarId"],
-            batch_size=4, reuse_prepared=True,
-            silence_gate=request["silenceGate"],
-            silence_threshold_db=request["silenceThresholdDb"],
-            progress_cb=progress,
-        )
+        sig = inspect.signature(service.generate_lipsync)
+        kwargs = {
+            "audio_path": request["audio"],
+            "avatar_id": request["avatarId"],
+            "batch_size": request.get("batchSize", 8),
+            "reuse_prepared": True,
+            "progress_cb": progress,
+        }
+        if "silence_gate" in sig.parameters:
+            kwargs["silence_gate"] = request.get("silenceGate", True)
+        if "silence_threshold_db" in sig.parameters:
+            kwargs["silence_threshold_db"] = request.get("silenceThresholdDb", -40)
+
+        result = service.generate_lipsync(**kwargs)
         output = Path(result["output_path"]).resolve()
         if output.parent != work:
             raise RuntimeError("MuseTalk output escaped the job directory")

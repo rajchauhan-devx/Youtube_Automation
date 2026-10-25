@@ -1,9 +1,29 @@
 import { defaultGoogleVoice } from './voice-settings.js';
 import { z } from 'zod';
 import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
-import {SELECTIVE_MOTION_DIRECTION,isImageOnlyShorts} from './motion-editorial-policy.js';
+import { SELECTIVE_MOTION_DIRECTION, isImageOnlyShorts } from './motion-editorial-policy.js';
+import { defaultPresenter, type PresenterSettings } from './presenter-settings.js';
 
 export const VoiceProvider = z.enum(['default', 'google', 'edge', 'openrouter', 'omni']);
+
+export const PresenterSettingsSchema = z.strictObject({
+  enabled: z.boolean().default(false),
+  avatarId: z.string().default('avatar_013'),
+  style: z.enum(['card', 'green-screen', 'transparent']).default('transparent'),
+  widthPercent: z.number().min(10).max(100).default(35),
+  bottomPercent: z.number().min(0).max(80).default(2),
+  marginPercent: z.number().min(0).max(100).default(0),
+  horizontalPercent: z.number().min(0).max(100).default(100).optional(),
+  crop: z.strictObject({
+    x: z.number().min(0).max(90).default(32),
+    y: z.number().min(0).max(90).default(2),
+    width: z.number().min(10).max(100).default(40),
+    height: z.number().min(10).max(100).default(67),
+  }).default({ x: 32, y: 2, width: 40, height: 67 }),
+  silenceGate: z.boolean().default(true),
+  silenceThresholdDb: z.number().min(-55).max(-25).default(-40),
+});
+
 export const AutoPilotSettingsSchema = z.strictObject({
   version: z.literal(1),
   media: z.strictObject({
@@ -36,25 +56,37 @@ export const AutoPilotSettingsSchema = z.strictObject({
     music: z.enum(['auto', 'none', 'calm', 'cinematic', 'epic', 'upbeat']),
     musicVolume: z.number().min(0).max(1), voiceVolume: z.number().min(0).max(2),
   }),
-  youtube: z.strictObject({ privacyStatus: z.enum(['private', 'unlisted', 'public']),
-    publishMode: z.enum(['now', 'schedule']).default('now'), scheduledPublishAt: z.string().max(100).default(''),
+  youtube: z.strictObject({
+    enabled: z.boolean().default(true),
+    privacyStatus: z.enum(['private', 'unlisted', 'public']),
+    publishMode: z.enum(['now', 'schedule']).default('now'),
+    scheduledPublishAt: z.string().max(100).default(''),
   }).superRefine((value, ctx) => {
-    if (value.publishMode === 'schedule' && !Number.isFinite(Date.parse(value.scheduledPublishAt))) ctx.addIssue({ code: 'custom', path: ['scheduledPublishAt'], message: 'Choose a valid scheduled publication time.' });
+    if (value.enabled && value.publishMode === 'schedule' && !Number.isFinite(Date.parse(value.scheduledPublishAt))) {
+      ctx.addIssue({ code: 'custom', path: ['scheduledPublishAt'], message: 'Choose a valid scheduled publication time.' });
+    }
   }),
+  presenter: PresenterSettingsSchema.default(defaultPresenter()),
 });
 export type AutoPilotSettings = z.infer<typeof AutoPilotSettingsSchema>;
 
-export function defaultAutoPilotSettings(script: { section?:string;name?:string;prompts?:{content?:string}[];videoImportsEnabled?:boolean;enableSubtitles?: boolean; editing?: EditingSettings; generatedAudio?: { voice?: string; language?: string }[]; youtubeExport?: { privacyStatus?: 'private' | 'unlisted' | 'public'; publishMode?: 'now' | 'schedule'; scheduledPublishAt?: string }; ttsVolume?: number } = {}): AutoPilotSettings {
-  const imageOnly=isImageOnlyShorts(script,script.section || 'shorts');
+export function defaultAutoPilotSettings(script: { section?: string; name?: string; prompts?: { content?: string }[]; videoImportsEnabled?: boolean; enableSubtitles?: boolean; editing?: EditingSettings; presenter?: PresenterSettings; generatedAudio?: { voice?: string; language?: string }[]; youtubeExport?: { privacyStatus?: 'private' | 'unlisted' | 'public'; publishMode?: 'now' | 'schedule'; scheduledPublishAt?: string }; ttsVolume?: number } = {}): AutoPilotSettings {
+  const imageOnly = isImageOnlyShorts(script, script.section || 'shorts');
   return {
     version: 1,
     media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: !imageOnly, flowResolution: '720p', flowDuration: 8, allowImageFallback: true },
     voice: { provider: 'google', language: 'auto', voiceId: defaultGoogleVoice(script.generatedAudio?.[0]?.language === 'hi' ? 'hi' : 'en'), rate: 0, pitch: 0, speed: 1 },
     captions: script.enableSubtitles === true ? 'motion' : 'off',
-    graphics: { enabled: true, mode: imageOnly?'callouts':'images', density: 'subtle', treatment: 'auto', style: SELECTIVE_MOTION_DIRECTION, model: '' },
+    graphics: { enabled: true, mode: imageOnly ? 'callouts' : 'images', density: 'subtle', treatment: 'auto', style: SELECTIVE_MOTION_DIRECTION, model: '' },
     editing: { mode: script.editing?.enabled ? 'custom' : 'story', settings: script.editing || { ...editingPreset('documentary'), bookendFades: false, colorLook: 'none' } },
     audio: { music: 'auto', musicVolume: 0.10, voiceVolume: script.ttsVolume ?? 1 },
-    youtube: { privacyStatus: script.youtubeExport?.privacyStatus || 'private', publishMode: script.youtubeExport?.publishMode || 'now', scheduledPublishAt: script.youtubeExport?.scheduledPublishAt || '' },
+    youtube: {
+      enabled: true,
+      privacyStatus: script.youtubeExport?.privacyStatus || 'private',
+      publishMode: script.youtubeExport?.publishMode || 'now',
+      scheduledPublishAt: script.youtubeExport?.scheduledPublishAt || (script.youtubeExport?.publishMode === 'schedule' ? new Date(Date.now() + 24 * 3600 * 1000).toISOString() : ''),
+    },
+    presenter: script.presenter ? { ...defaultPresenter(), ...script.presenter } : defaultPresenter(),
   };
 }
 

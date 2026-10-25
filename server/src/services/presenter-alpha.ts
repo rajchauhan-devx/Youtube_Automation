@@ -10,6 +10,8 @@ const probes = new Map<string, boolean>();
 /** Preserve the uploaded WebM before Gradio clears its temporary upload folder. */
 export function avatarAlphaSource(directory: string): string | undefined {
   try {
+    const localWebm = path.join(directory, 'transparent.webm');
+    if (fs.existsSync(localWebm)) return localWebm;
     const metadata = fs.readFileSync(path.join(directory, 'metadata.json'), 'utf8');
     const meta = JSON.parse(metadata);
     if (typeof meta.source_path !== 'string' || path.extname(meta.source_path).toLowerCase() !== '.webm') return;
@@ -39,6 +41,8 @@ export function avatarAlphaSource(directory: string): string | undefined {
 
 /** Match MuseTalk's 25fps frames, including its forward/reverse avatar cycle. */
 export async function avatarAlphaCycle(directory: string, signal?: AbortSignal): Promise<string> {
+  const localCycle = path.join(directory, 'cycle-v1.mkv');
+  if (fs.existsSync(localCycle)) return localCycle;
   const source = avatarAlphaSource(directory);
   if (!source) throw new Error('This avatar has no original transparent WebM. Re-upload a transparent VP9 WebM in MuseTalk, then refresh avatars.');
   const meta = JSON.parse(fs.readFileSync(path.join(directory, 'metadata.json'), 'utf8'));

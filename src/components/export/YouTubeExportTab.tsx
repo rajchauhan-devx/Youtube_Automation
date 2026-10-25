@@ -430,9 +430,10 @@ export function YouTubeExportTab({
     setUploadProgress(10);
     setUploadStage('Preparing video payload and authenticating...');
 
-    const images = script.generatedImages || [];
-    const selectedImg = images.find((_, i) => i === selectedThumbnailIndex);
-    const thumbnailFilename = selectedImg?.url ? selectedImg.url.split('/').pop() : undefined;
+    const images = (script.generatedImages || []).filter((img) => img.status === 'done' && img.url && img.mediaType !== 'video' && !img.url.toLowerCase().endsWith('.mp4'));
+    const selectedImg = images[selectedThumbnailIndex] || images[0];
+    const rawFilename = selectedImg?.url ? selectedImg.url.split('/').pop() : undefined;
+    const thumbnailFilename = rawFilename && /\.(png|jpe?g)$/i.test(rawFilename) ? rawFilename : undefined;
 
     const progressTimer = setInterval(() => {
       setUploadProgress((prev) => {
@@ -501,7 +502,7 @@ export function YouTubeExportTab({
   }
 
   // Ready images for thumbnail selection
-  const readyImages = (script?.generatedImages || []).filter((img) => img.status === 'done' && img.url);
+  const readyImages = (script?.generatedImages || []).filter((img) => img.status === 'done' && img.url && img.mediaType !== 'video' && !img.url.toLowerCase().endsWith('.mp4'));
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-4 md:p-6">

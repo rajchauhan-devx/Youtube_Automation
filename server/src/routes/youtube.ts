@@ -129,9 +129,11 @@ youtubeRouter.post('/upload', async (req, res) => {
     thumbnailFilename,
   } = req.body || {};
 
+  const safeThumbnail = (thumbnailFilename && typeof thumbnailFilename === 'string' && safeSegment(thumbnailFilename) && /\.(png|jpe?g)$/i.test(thumbnailFilename))
+    ? thumbnailFilename : undefined;
+
   if (!safeSegment(scriptId) || typeof title !== 'string' || !title.trim() || typeof description !== 'string' ||
-      !safeSegment(videoFilename) || !videoFilename.endsWith('.mp4') || videoFilename.endsWith('.partial.mp4') ||
-      (thumbnailFilename && (!safeSegment(thumbnailFilename) || !/\.(png|jpg|jpeg)$/i.test(thumbnailFilename)))) {
+      !safeSegment(videoFilename) || !videoFilename.endsWith('.mp4') || videoFilename.endsWith('.partial.mp4')) {
     res.status(400).json({ error: 'A script, title and completed MP4 filename are required.' }); return;
   }
   let validatedPublishAt: string | undefined;
@@ -229,11 +231,11 @@ youtubeRouter.post('/upload', async (req, res) => {
     console.log(`YouTube upload successful! Video URL: ${videoUrl}`);
 
     // Optional Thumbnail Upload if provided
-    if (thumbnailFilename) {
-      const thumbPath = fs.existsSync(path.join(genScriptDir, thumbnailFilename))
-        ? path.join(genScriptDir, thumbnailFilename)
-        : fs.existsSync(path.join(outputScriptDir, thumbnailFilename))
-        ? path.join(outputScriptDir, thumbnailFilename)
+    if (safeThumbnail) {
+      const thumbPath = fs.existsSync(path.join(genScriptDir, safeThumbnail))
+        ? path.join(genScriptDir, safeThumbnail)
+        : fs.existsSync(path.join(outputScriptDir, safeThumbnail))
+        ? path.join(outputScriptDir, safeThumbnail)
         : null;
 
       if (thumbPath) {

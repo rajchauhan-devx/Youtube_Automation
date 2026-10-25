@@ -40,6 +40,7 @@ export interface AutoPilotState {
   logs: AutoPilotLog[];
   renderedVideoUrl?: string | null;
   youtubeVideoUrl?: string | null;
+  manualExport?: boolean;
   error?: string | null;
 }
 
@@ -91,7 +92,7 @@ export const AUTO_PILOT_STAGES: {
   {
     id: 'upload_youtube',
     label: 'YouTube Export',
-    description: 'Uploads the final video and records its topic in this profile’s notes',
+    description: 'Uploads the final video or readies it for manual export',
     stepNumber: 10,
   },
 ];

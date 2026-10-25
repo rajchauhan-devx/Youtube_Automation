@@ -884,3 +884,4 @@ export function validateProject(value: unknown): EditingProject {
   }
   return p;
 }
+export * from './motion-template.js';

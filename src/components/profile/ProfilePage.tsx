@@ -1,24 +1,126 @@
+import { useState } from 'react';
 import type { Channel } from '../../data';
 import { YouTubeAccountsPanel } from './YouTubeAccountsPanel';
 import { MetaAccountsPanel } from './MetaAccountsPanel';
 import { ProfileTopicNotes } from './ProfileTopicNotes';
 import { RecoveryPanel } from './RecoveryPanel';
+import { ProfileMotionTemplatesPage } from './ProfileMotionTemplatesPage';
 import { useWorkspaceApi } from '../../services/workspaceApi';
+import { Sparkles, Users, FileText, Wrench } from 'lucide-react';
 
-export function ProfilePage({ accounts, onAccountsChange, onSelectAccount, onOpenDashboard }: { accounts: Channel[]; onAccountsChange: (accounts: Channel[]) => void; onSelectAccount: (account: Channel) => void; onOpenDashboard?: () => void }) {
+export function ProfilePage({
+  accounts,
+  onAccountsChange,
+  onSelectAccount,
+  onOpenDashboard,
+  initialTab = 'templates'
+}: {
+  accounts: Channel[];
+  onAccountsChange: (accounts: Channel[]) => void;
+  onSelectAccount: (account: Channel) => void;
+  onOpenDashboard?: () => void;
+  initialTab?: 'templates' | 'accounts' | 'topics' | 'recovery';
+}) {
   const { account } = useWorkspaceApi();
-  return <div className="mx-auto max-w-5xl space-y-7">
-    <YouTubeAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} onOpenDashboard={onOpenDashboard} />
-    <MetaAccountsPanel accounts={accounts} onAccountsChange={onAccountsChange} onSelectAccount={onSelectAccount} />
-    <ProfileTopicNotes />
-    <RecoveryPanel />
-    <div className="border-t border-border/70 pt-6">
-      <p className="mb-1 flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-accent">
-        <span className="h-1 w-5 rounded-full bg-accent" />
-        Profile · {account.name}
-      </p>
-      <h1 className="text-2xl font-bold tracking-tight text-white">Narration voices</h1>
-      <p className="mt-1.5 max-w-2xl text-[13px] leading-relaxed text-muted">Choose Google Hindi or English narrators and listen to samples in Generation → Audio or the voice settings before starting Auto-Pilot. Your narrator choices are saved with each production.</p>
+  const [activeTab, setActiveTab] = useState<'templates' | 'accounts' | 'topics' | 'recovery'>(initialTab);
+
+  return (
+    <div className="mx-auto max-w-7xl space-y-6 animate-fade-up">
+      {/* Profile Header Navigation Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-border/80 pb-4">
+        <div>
+          <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-accent">
+            <span className="h-1.5 w-5 rounded-full bg-accent" />
+            Channel Profile · {account.name}
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-white mt-1">Profile Workspace & Motion Studio</h1>
+        </div>
+
+        {/* Tab Switcher */}
+        <div className="flex items-center gap-1.5 rounded-xl border border-border bg-surface/90 p-1">
+          <button
+            onClick={() => setActiveTab('templates')}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+              activeTab === 'templates'
+                ? 'bg-accent text-white shadow-glow'
+                : 'text-muted hover:text-white'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
+            Motion Templates
+          </button>
+          <button
+            onClick={() => setActiveTab('accounts')}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+              activeTab === 'accounts'
+                ? 'bg-accent text-white shadow-glow'
+                : 'text-muted hover:text-white'
+            }`}
+          >
+            <Users className="h-3.5 w-3.5" />
+            Accounts
+          </button>
+          <button
+            onClick={() => setActiveTab('topics')}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+              activeTab === 'topics'
+                ? 'bg-accent text-white shadow-glow'
+                : 'text-muted hover:text-white'
+            }`}
+          >
+            <FileText className="h-3.5 w-3.5" />
+            Topic Notes
+          </button>
+          <button
+            onClick={() => setActiveTab('recovery')}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+              activeTab === 'recovery'
+                ? 'bg-accent text-white shadow-glow'
+                : 'text-muted hover:text-white'
+            }`}
+          >
+            <Wrench className="h-3.5 w-3.5" />
+            Recovery
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Contents */}
+      {activeTab === 'templates' && (
+        <ProfileMotionTemplatesPage
+          account={account}
+          accounts={accounts}
+          onSelectAccount={onSelectAccount}
+        />
+      )}
+
+      {activeTab === 'accounts' && (
+        <div className="space-y-6">
+          <YouTubeAccountsPanel
+            accounts={accounts}
+            onAccountsChange={onAccountsChange}
+            onSelectAccount={onSelectAccount}
+            onOpenDashboard={onOpenDashboard}
+          />
+          <MetaAccountsPanel
+            accounts={accounts}
+            onAccountsChange={onAccountsChange}
+            onSelectAccount={onSelectAccount}
+          />
+        </div>
+      )}
+
+      {activeTab === 'topics' && (
+        <div className="space-y-6">
+          <ProfileTopicNotes />
+        </div>
+      )}
+
+      {activeTab === 'recovery' && (
+        <div className="space-y-6">
+          <RecoveryPanel />
+        </div>
+      )}
     </div>
-  </div>;
+  );
 }

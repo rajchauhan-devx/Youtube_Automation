@@ -349,16 +349,20 @@ export async function deleteScriptEditing(scriptId: string) {
   if (projectCreationActive() || controllers.size) return;
   for (const id of candidates) {
     if (retained.has(id)) continue;
-    const record = assetRecord(id),
-      base = fs.realpathSync(assetRoot()),
-      file = path.resolve(base, record.path),
-      relative = path.relative(base, file);
-    if (relative.startsWith("..") || path.isAbsolute(relative))
-      throw new EditingError(
-        "INVALID_STORAGE",
-        "Asset escaped editing storage",
-      );
-    fs.rmSync(file, { force: true });
-    fs.rmSync(path.join(base, "records", `${id}.json`), { force: true });
+    try {
+      const record = assetRecord(id),
+        base = fs.realpathSync(assetRoot()),
+        file = path.resolve(base, record.path),
+        relative = path.relative(base, file);
+      if (relative.startsWith("..") || path.isAbsolute(relative))
+        throw new EditingError(
+          "INVALID_STORAGE",
+          "Asset escaped editing storage",
+        );
+      fs.rmSync(file, { force: true });
+      fs.rmSync(path.join(base, "records", `${id}.json`), { force: true });
+    } catch {
+      // Ignore missing or dangling asset records during cleanup
+    }
   }
 }

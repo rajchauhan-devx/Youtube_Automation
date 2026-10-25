@@ -2,11 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import { presenterGeometry, type PresenterSettings } from '../../../server/src/services/presenter-settings';
 
-export interface PresenterAvatar { id: string; name: string; width: number; height: number; duration: number; previewUrl: string; hasTransparency?: boolean; transparentPreviewUrl?: string }
+export interface PresenterAvatar {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  duration: number;
+  previewUrl: string;
+  hasTransparency?: boolean;
+  transparentPreviewUrl?: string;
+  tightCrop?: { x: number; y: number; width: number; height: number };
+}
 
 export function PresenterPreview({ avatar, value, playing = false, landscape }: { avatar: PresenterAvatar; value: PresenterSettings; playing?: boolean; landscape: boolean }) {
   const video = useRef<HTMLVideoElement>(null);
-  const previewUrl = value.style === 'transparent' ? avatar.transparentPreviewUrl : avatar.previewUrl;
+  const previewUrl = value.style === 'transparent' ? (avatar.transparentPreviewUrl || avatar.previewUrl) : avatar.previewUrl;
   useEffect(() => {
     if (playing) void video.current?.play().catch(() => {});
     else video.current?.pause();
@@ -15,7 +25,7 @@ export function PresenterPreview({ avatar, value, playing = false, landscape }: 
   const g = presenterGeometry(value, width, height, avatar.width, avatar.height);
   if (!previewUrl) return null;
   return <div aria-label="Presenter placement preview" className={`absolute overflow-hidden ${value.style === 'transparent' ? '' : 'rounded-sm shadow-lg'}`} style={{
-    width: `${g.width / width * 100}%`, height: `${g.height / height * 100}%`, right: `${value.marginPercent}%`, bottom: `${value.bottomPercent}%`,
+    width: `${g.width / width * 100}%`, height: `${g.height / height * 100}%`, left: `${g.x / width * 100}%`, bottom: `${value.bottomPercent}%`,
   }}>
     <video ref={video} key={previewUrl} src={previewUrl} muted loop playsInline preload="auto" style={{
       position: 'absolute', maxWidth: 'none', width: `${10000 / value.crop.width}%`, height: `${10000 / value.crop.height}%`,
@@ -38,12 +48,44 @@ export function PresenterPanel({ value, onChange, onSave, onAvatars, disabled }:
       const response = await fetch('/api/presenter/status');
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Cannot check presenter engine');
-      setAvatars(data.avatars || []); onAvatars(data.avatars || []); setMessage(data.message); setError('');
+      const list = (data.avatars || []) as PresenterAvatar[];
+      setAvatars(list);
+      onAvatars(list);
+      setMessage(data.message);
+      setError('');
+      if (list.length > 0 && (!value.avatarId || !list.some(a => a.id === value.avatarId))) {
+        onChange({
+          ...value,
+          avatarId: list[0].id,
+          style: list[0].hasTransparency ? 'transparent' : value.style === 'transparent' ? 'card' : value.style,
+        });
+      }
     } catch { setError('Cannot reach the presenter service. Restart the application server and refresh.'); }
   }
   useEffect(() => { void refresh(); }, [fetch]);
   const change = (patch: Partial<PresenterSettings>) => onChange({ ...value, ...patch });
   const selected = avatars.find(a => a.id === value.avatarId);
+  const tight = selected?.tightCrop || (selected?.hasTransparency ? { x: 25.6, y: 0, width: 47, height: 100 } : undefined);
+  const isFull = value.crop.x === 0 && value.crop.y === 0 && value.crop.width === 100 && value.crop.height === 100;
+  const isChest = value.crop.x === 32 && value.crop.y === 2 && value.crop.width === 40 && value.crop.height === 67;
+  const isTight = Boolean(tight && Math.abs(value.crop.x - tight.x) < 1 && Math.abs(value.crop.width - tight.width) < 1 && Math.abs(value.crop.height - tight.height) < 1);
+  const framingMode = isTight ? 'tight' : isFull ? 'full' : isChest ? 'chest' : 'custom';
+
+  const updateCropKey = (key: 'x' | 'y' | 'width' | 'height', rawVal: number) => {
+    let { x, y, width, height } = value.crop;
+    if (key === 'x') {
+      x = Math.max(0, Math.min(90, rawVal));
+      if (x + width > 100) width = Math.max(10, 100 - x);
+    } else if (key === 'y') {
+      y = Math.max(0, Math.min(90, rawVal));
+      if (y + height > 100) height = Math.max(10, 100 - y);
+    } else if (key === 'width') {
+      width = Math.max(10, Math.min(100 - x, rawVal));
+    } else if (key === 'height') {
+      height = Math.max(10, Math.min(100 - y, rawVal));
+    }
+    change({ crop: { x, y, width, height } });
+  };
   return <section className="space-y-3 rounded-xl border border-border bg-surface/60 p-4" aria-label="AI Presenter">
     <div className="flex items-center justify-between gap-3">
       <label className="flex items-center gap-2 font-semibold text-white"><input type="checkbox" checked={value.enabled} disabled={disabled || saving} onChange={e => change({ enabled: e.target.checked })} /> AI Presenter</label>
@@ -67,17 +109,41 @@ export function PresenterPanel({ value, onChange, onSave, onAvatars, disabled }:
           <option value="card">Picture-in-picture card</option><option value="green-screen">Green-screen cutout</option>
           <option value="transparent" disabled={!selected?.hasTransparency}>Transparent cutout{selected?.hasTransparency ? '' : ' (transparent WebM required)'}</option>
         </select></label>
-        <label>Framing<select aria-label="Presenter framing" className="mt-1 w-full rounded bg-surface2 p-2" value={value.crop.width === 100 && value.crop.height === 100 ? 'full' : 'chest'} onChange={e => change({ crop: e.target.value === 'full' ? { x: 0, y: 0, width: 100, height: 100 } : { x: 32, y: 2, width: 40, height: 67 } })}>
-          <option value="chest">Chest-up / custom crop</option><option value="full">Full source frame</option>
+        <label>Framing<select aria-label="Presenter framing" className="mt-1 w-full rounded bg-surface2 p-2" value={framingMode} onChange={e => {
+          const mode = e.target.value;
+          if (mode === 'tight' && tight) change({ crop: tight });
+          else if (mode === 'chest') change({ crop: { x: 32, y: 2, width: 40, height: 67 } });
+          else if (mode === 'full') change({ crop: { x: 0, y: 0, width: 100, height: 100 } });
+        }}>
+          {tight && <option value="tight">Full body (tight crop / edge-to-edge)</option>}
+          <option value="chest">Chest-up (focus on face & torso)</option>
+          <option value="full">Full source frame (16:9 canvas with margins)</option>
+          {framingMode === 'custom' && <option value="custom">Custom crop</option>}
         </select></label>
-        {([['widthPercent', 'Width (%)', 10, 40], ['bottomPercent', 'Bottom space (%)', 0, 30], ['marginPercent', 'Right margin (%)', 0, 10]] as const).map(([key, label, min, max]) => <label key={key}>{label}
-          <input aria-label={label} type="number" min={min} max={max} step="0.5" className="mt-1 w-full rounded bg-surface2 p-2" value={value[key]} onChange={e => { const n = Number(e.target.value); if (Number.isFinite(n)) change({ [key]: Math.max(min, Math.min(max, n)) }); }} />
-        </label>)}
+        {([['widthPercent', 'Width (%)', 10, 100], ['bottomPercent', 'Bottom space (%)', 0, 70], ['horizontalPercent', 'Horizontal position (% 0=left, 100=right)', 0, 100]] as const).map(([key, label, min, max]) => <div key={key}>
+          <label className="block">{label}
+            <input aria-label={label} type="number" min={min} max={max} step="0.5" className="mt-1 w-full rounded bg-surface2 p-2" value={value[key]} onChange={e => { const n = Number(e.target.value); if (Number.isFinite(n)) change({ [key]: Math.max(min, Math.min(max, n)) }); }} />
+          </label>
+          {key === 'horizontalPercent' && (
+            <div className="mt-1 flex gap-1">
+              {[0, 50, 100].map(hp => (
+                <button key={hp} type="button" onClick={() => change({ horizontalPercent: hp })} className={`rounded px-1.5 py-0.5 text-[10px] ${value.horizontalPercent === hp ? 'bg-accent text-white font-bold' : 'bg-surface2 text-gray-400 hover:text-white'}`}>
+                  {hp === 0 ? 'Left (0%)' : hp === 50 ? 'Center (50%)' : 'Right (100%)'}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>)}
       </div>
       <details><summary className="cursor-pointer">Adjust crop and silence protection</summary>
-        <div className="mt-2 grid grid-cols-2 gap-2">{(['x', 'y', 'width', 'height'] as const).map(key => <label key={key}>Crop {key} (%)<input aria-label={`Presenter crop ${key}`} type="number" min={0} max={100} className="mt-1 w-full rounded bg-surface2 p-2" value={value.crop[key]} onChange={e => {
-          const crop = { ...value.crop, [key]: Number(e.target.value) };
-          if (crop.x >= 0 && crop.y >= 0 && crop.width >= 10 && crop.height >= 10 && crop.x + crop.width <= 100 && crop.y + crop.height <= 100) change({ crop });
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {tight && <button type="button" onClick={() => change({ crop: tight })} className="rounded bg-surface2 px-2 py-1 text-[11px] text-accent hover:bg-surface2/80 font-medium">Fit to character (tight crop)</button>}
+          <button type="button" onClick={() => change({ crop: { x: 32, y: 2, width: 40, height: 67 } })} className="rounded bg-surface2 px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2/80">Chest-up</button>
+          <button type="button" onClick={() => change({ crop: { x: 0, y: 0, width: 100, height: 100 } })} className="rounded bg-surface2 px-2 py-1 text-[11px] text-gray-300 hover:bg-surface2/80">Full 16:9 frame</button>
+        </div>
+        <div className="mt-2 grid grid-cols-2 gap-2">{(['x', 'y', 'width', 'height'] as const).map(key => <label key={key}>Crop {key} (%)<input aria-label={`Presenter crop ${key}`} type="number" min={0} max={100} step="0.5" className="mt-1 w-full rounded bg-surface2 p-2" value={value.crop[key]} onChange={e => {
+          const val = Number(e.target.value);
+          if (Number.isFinite(val)) updateCropKey(key, val);
         }} /></label>)}</div>
         <label className="mt-3 flex items-center gap-2"><input type="checkbox" checked={value.silenceGate} onChange={e => change({ silenceGate: e.target.checked })} /> Preserve original mouth during silence</label>
         <label className="mt-2 block">Silence threshold (dB)<input aria-label="Silence threshold" type="number" min={-55} max={-25} value={value.silenceThresholdDb} className="ml-2 w-20 rounded bg-surface2 p-2" onChange={e => change({ silenceThresholdDb: Math.max(-55, Math.min(-25, Number(e.target.value))) })} /></label>

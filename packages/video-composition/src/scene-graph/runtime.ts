@@ -98,9 +98,12 @@ export function renderSceneGraphSvg(graph: SceneGraphData, frame: number, option
     }lines.push(line);line='';length=0;}return lines;
   };
   const text=(value:string,b:{x:number;y:number;width:number;height:number},st:Extract<SceneGraphData['nodes'][number],{kind:'text'}>['style'],id:string) => {
-    const lines=wrap(value,b.width,st.fontSize),primary=options.fonts?.[st.fontAssetId]||graph.theme?.fontFamily||'sans-serif';
+    // Devanagari glyph ink can extend left of its advance box. Keep that ink
+    // and the contrast stroke inside the persisted clipping rectangle.
+    const inset=Math.max(3,st.fontSize*0.08);
+    const lines=wrap(value,Math.max(1,b.width-inset*2),st.fontSize),primary=options.fonts?.[st.fontAssetId]||graph.theme?.fontFamily||'sans-serif';
     const family=[primary,...Object.values(options.fonts||{}).filter(font=>font!==primary),'sans-serif'].join(', ');
-    const x=st.align==='center'?b.x+b.width/2:st.align==='right'?b.x+b.width:b.x;
+    const x=st.align==='center'?b.x+b.width/2:st.align==='right'?b.x+b.width-inset:b.x+inset;
     defs.push(`<clipPath id="${id}-text"><rect x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}"/></clipPath>`);
     return `${st.background?`<rect x="${b.x-8}" y="${b.y-4}" width="${b.width+16}" height="${b.height+8}" rx="6" fill="${esc(st.background)}"/>`:''}<text data-text-node="${id}" data-layout-x="${b.x}" data-layout-y="${b.y}" data-layout-width="${b.width}" data-layout-height="${b.height}" clip-path="url(#${id}-text)" fill="${esc(st.color)}" font-family="${esc(family)}" font-size="${st.fontSize}" font-weight="${st.fontWeight}" dominant-baseline="text-before-edge" text-anchor="${st.align==='center'?'middle':st.align==='right'?'end':'start'}" style="paint-order:stroke;stroke:#000000b3;stroke-width:2px;stroke-linejoin:round">${lines.map((line,i)=>`<tspan x="${x}" y="${b.y+st.fontSize*i*st.lineHeight}">${esc(line)}</tspan>`).join('')}</text>`;
   };

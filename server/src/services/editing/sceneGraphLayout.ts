@@ -46,7 +46,16 @@ export async function inspectGraphLayout(project: EditingProject, artifact: Arti
       for(let frame=0;frame<options.durationFrames;frame++){
         stage.innerHTML=render(graph,frame,options);
         const texts=Array.from(stage.querySelectorAll<SVGTextElement>('text'));
-        const visible=texts.filter(t=>{let el:Element|null=t;let opacity=1;while(el&&el!==stage){opacity*=Number(el.getAttribute('opacity')||1);el=el.parentElement;}return opacity>0.15;});
+        const isVisible=(t:Element)=>{let el:Element|null=t;let opacity=1;while(el&&el!==stage){opacity*=Number(el.getAttribute('opacity')||1);el=el.parentElement;}return opacity>0.15;};
+        const visible=texts.filter(isVisible);
+        // Inspect actual drawable leaves as well as text; paths/shapes can leave
+        // the frame or cover protected areas even when their labels fit.
+        for(const el of Array.from(stage.querySelectorAll<SVGGraphicsElement>('[data-node-id] > path, [data-node-id] > rect, [data-node-id] > ellipse, [data-node-id] > polygon, [data-node-id] > image'))){
+          if(!isVisible(el))continue;
+          const r=el.getBoundingClientRect(),id=el.parentElement?.getAttribute('data-node-id');
+          if(r.left<options.width*0.04-1||r.right>options.width*0.96+1||r.top<options.height*0.06-1||r.bottom>options.height*0.82+1)issues.add(`${id}: diagram geometry leaves the safe area during animation`);
+          if(regions.some(region=>overlap(r,region)))issues.add(`${id}: diagram geometry overlaps a protected scene region`);
+        }
         for(const t of visible){
           const key=t.dataset.textNode||'';const read=readable.get(key)||{count:0,words:(t.textContent||'').trim().split(/\s+/u).length};read.count++;readable.set(key,read);
           const box=t.getBBox(),x=Number(t.dataset.layoutX),y=Number(t.dataset.layoutY),w=Number(t.dataset.layoutWidth),h=Number(t.dataset.layoutHeight),id=t.dataset.textNode;

@@ -114,7 +114,14 @@ export function listProjects() {
   return fs
     .readdirSync(editingRoot())
     .filter((id) => UUID.safeParse(id).success)
-    .map(current);
+    .map((id) => {
+      try {
+        return current(id);
+      } catch {
+        return null;
+      }
+    })
+    .filter((p): p is EditingProject => Boolean(p));
 }
 export function jobs(projectId?: string): JobRecord[] {
   const root = path.join(editingRoot(), "jobs");
@@ -122,8 +129,14 @@ export function jobs(projectId?: string): JobRecord[] {
   return fs
     .readdirSync(root)
     .filter((f) => f.endsWith(".json"))
-    .map((f) => Job.parse(read(path.join(root, f))))
-    .filter((j) => !projectId || j.projectId === projectId);
+    .map((f) => {
+      try {
+        return Job.parse(read(path.join(root, f)));
+      } catch {
+        return null;
+      }
+    })
+    .filter((j): j is JobRecord => Boolean(j && (!projectId || j.projectId === projectId)));
 }
 export function getJob(id: string) {
   UUID.parse(id);

@@ -1,4 +1,4 @@
-import { withScenePlanFormat } from './scene-plan-format.js';
+import { withScenePlanFormat, MOTION_SCRIPT_HINTS } from './scene-plan-format.js';
 import { isImageOnlyTemplate, parseScenePlan, spokenText } from './scene-plan.js';
 import { incompleteResponse } from './generation-status.js';
 
@@ -21,6 +21,8 @@ export const GENERATION_RESPONSE_SCHEMA = {
         duration: { type: 'number', maximum: 60 },
         imagePrompt: { type: 'string', description: 'Complete standalone still prompt, at most 8000 characters.' },
         videoPrompt: { type: 'string', description: 'Only for video scenes: at least 80 words of shot direction, at most 8000 characters. Omit for images.' },
+        motionGraphics: { type:'array', maxItems:1, description:'Optional explanatory intent only. Omit for ordinary scenes. The motion director chooses graphics later from the actual narration and media; never bake these into source images.',
+          items:{type:'object',required:['intent'],properties:{intent:{type:'string',maxLength:300,description:'What needs explaining, using only supported narration facts.'},templateId:{type:'string',description:'Optional family suggestion, for example ad_process or ad_timeline. The director may override it.'}}} },
       },
     } },
     supportingNotes: { type: 'string', description: 'Complete requested research, character/location canon, editorial, reflection, overlay and publishing sections using their original Markdown headings.' },
@@ -158,6 +160,7 @@ export function buildFreePrompt(template: string, topic: string, instructions: s
   const tail = [
     `Topic: ${(topic || '').trim()}`,
     `Target duration: ~${target} seconds. MANDATORY: this selected runtime overrides any default, example or maximum runtime in the template. Scale the episode to ~${target} seconds with at least ${minScenes} story scenes. ${tagRules} Write every prompt block in full; never use placeholders such as [...Repeat...] or "following the same standard".`,
+    `${MOTION_SCRIPT_HINTS} If useful, put an optional <motion_graphicN> block after scene N with Scene: N, Intent: explanation goal, and optional Template: family ID. Keep it outside narration and source-media prompts.`,
   ];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
   if (cleanResearch) {

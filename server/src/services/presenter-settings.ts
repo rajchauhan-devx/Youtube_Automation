@@ -5,14 +5,15 @@ export interface PresenterSettings {
   widthPercent: number;
   bottomPercent: number;
   marginPercent: number;
+  horizontalPercent?: number;
   crop: { x: number; y: number; width: number; height: number };
   silenceGate: boolean;
   silenceThresholdDb: number;
 }
 
 export const defaultPresenter = (): PresenterSettings => ({
-  enabled: false, avatarId: 'avatar_005', style: 'card', widthPercent: 24,
-  bottomPercent: 18, marginPercent: 2.5,
+  enabled: false, avatarId: 'avatar_013', style: 'transparent', widthPercent: 35,
+  bottomPercent: 2, marginPercent: 0, horizontalPercent: 100,
   crop: { x: 32, y: 2, width: 40, height: 67 },
   silenceGate: true, silenceThresholdDb: -40,
 });
@@ -25,25 +26,34 @@ export function validatePresenter(value: unknown): PresenterSettings {
   const range = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
   if (!p || typeof p !== 'object' || typeof p.enabled !== 'boolean' ||
     typeof p.avatarId !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(p.avatarId) ||
-    !['card', 'green-screen', 'transparent'].includes(p.style) || !range(p.widthPercent, 10, 40) ||
-    !range(p.bottomPercent, 0, 30) || !range(p.marginPercent, 0, 10) ||
+    !['card', 'green-screen', 'transparent'].includes(p.style) || !range(p.widthPercent, 10, 100) ||
+    !range(p.bottomPercent, 0, 80) || (p.marginPercent !== undefined && !range(p.marginPercent, 0, 100)) ||
+    (p.horizontalPercent !== undefined && !range(p.horizontalPercent, 0, 100)) ||
     typeof p.silenceGate !== 'boolean' || !range(p.silenceThresholdDb, -55, -25) ||
     !p.crop || !range(p.crop.x, 0, 90) || !range(p.crop.y, 0, 90) ||
     !range(p.crop.width, 10, 100) || !range(p.crop.height, 10, 100) ||
     p.crop.x + p.crop.width > 100 || p.crop.y + p.crop.height > 100) {
     throw new Error('Invalid presenter settings. Check the crop and size.');
   }
+  const hp = p.horizontalPercent !== undefined ? p.horizontalPercent : Math.max(0, 100 - (p.marginPercent ?? 0) * 2);
   return { enabled: p.enabled, avatarId: p.avatarId, style: p.style, widthPercent: p.widthPercent,
-    bottomPercent: p.bottomPercent, marginPercent: p.marginPercent, crop: { ...p.crop },
-    silenceGate: p.silenceGate, silenceThresholdDb: p.silenceThresholdDb };
+    bottomPercent: p.bottomPercent, marginPercent: p.marginPercent ?? 0, horizontalPercent: hp,
+    crop: { ...p.crop }, silenceGate: p.silenceGate, silenceThresholdDb: p.silenceThresholdDb };
 }
 
 /** Bounded overlay geometry, shared by the editor preview and FFmpeg. */
 export function presenterGeometry(p: PresenterSettings, width: number, height: number, sourceWidth: number, sourceHeight: number) {
   const aspect = sourceWidth * p.crop.width / (sourceHeight * p.crop.height);
-  const w = Math.max(2, Math.floor(Math.min(width * p.widthPercent / 100, height * 0.6 * aspect) / 2) * 2);
+  const maxW = Math.min(width * p.widthPercent / 100, height * 0.95 * aspect);
+  const w = Math.max(2, Math.floor(maxW / 2) * 2);
   const h = Math.max(2, Math.floor(w / aspect / 2) * 2);
-  return { width: w, height: h, right: Math.round(width * p.marginPercent / 100), bottom: Math.round(height * p.bottomPercent / 100) };
+  const hPct = typeof p.horizontalPercent === 'number' && Number.isFinite(p.horizontalPercent)
+    ? Math.max(0, Math.min(100, p.horizontalPercent))
+    : Math.max(0, Math.min(100, 100 - (p.marginPercent ?? 0) * 2));
+  const x = Math.max(0, Math.min(width - w, Math.round((width - w) * (hPct / 100))));
+  const right = Math.max(0, width - w - x);
+  const bottom = Math.max(0, Math.round(height * (p.bottomPercent ?? 0) / 100));
+  return { width: w, height: h, x, right, bottom };
 }
 
 /** Keep captions horizontally centered, with their bottom edge above the avatar. */
