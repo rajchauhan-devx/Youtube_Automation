@@ -21,7 +21,7 @@ import { TTS_PROVIDER, TTS_PROVIDER_NAME, TTS_PROVIDER_KIND, getTtsProviderStatu
 import { MUSIC_MODELS } from '../services/local-music.js';
 import { editingConfig } from '../services/editing/config.js';
 import { resolveComfyPath, resolveComfyPython, resolveWorkflowPath } from '../services/comfyui.js';
-import { museTalkRoot } from '../services/presenter.js';
+import { museTalkRoot, presenterPythonPath } from '../services/presenter.js';
 
 export const setupRouter = Router();
 
@@ -207,9 +207,9 @@ setupRouter.get('/', async (_req, res) => {
       setup: 'artifacts/comfy-venv Python → node server/scripts/setup-local-music.py (writes repo ComfyUI/models; copy to external COMFYUI_PATH if used)',
     },
     presenter: {
-      note: 'Requires SEPARATE custom MuseTalk-Demo app (app/ wrapper). Upstream MuseTalk clone alone is NOT enough.',
+      note: 'Bundled MuseTalk 1.5. Run npm run setup:presenter once, then upload an avatar in Timeline & Render → AI Presenter.',
       root: { path: museTalkDir, installed: exists(path.join(museTalkDir, 'app', 'musetalk_service.py')) },
-      python: { path: process.env.MUSETALK_PYTHON || '(miniconda3/envs/musetalk-demo lookup)', installed: exists(process.env.MUSETALK_PYTHON || '') },
+      python: { path: presenterPythonPath() || '(run npm run setup:presenter)', installed: Boolean(presenterPythonPath()) },
       env: { MUSETALK_ROOT: process.env.MUSETALK_ROOT || '(unset)', MUSETALK_PYTHON: process.env.MUSETALK_PYTHON || '(unset)' },
     },
     editing: {
@@ -259,7 +259,7 @@ setupRouter.get('/', async (_req, res) => {
       '5. Clone ComfyUI separately + comfy-venv + SDXL checkpoint juggernautXL_ragnarok.safetensors → ComfyUI/models/checkpoints',
       '6. Run server/scripts/setup-local-music.py with comfy-venv Python for ACE-Step music weights',
       '7. Paste server API keys into server/.env (GEMINI/OPENCODE/GROQ/OPENROUTER); paste browser OpenRouter key in app Settings (localStorage, per-PC)',
-      '8. Transfer or reinstall MuseTalk-Demo app + conda env only if you need AI Presenter; otherwise leave it off',
+      '8. For AI Presenter, run npm run setup:presenter, then upload a face photo or short video in Timeline & Render',
       '9. npm run build:all + npm test, then npm run dev; verify /api/health, /api/generate/models, /api/tts/status, /api/presenter/status',
       '10. Never commit server/.env, server/data tokens, model weights, or venvs — they are git-ignored by design',
     ],

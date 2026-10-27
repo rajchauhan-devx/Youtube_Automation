@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { 
-  Play, Pause, RotateCcw, SkipBack, SkipForward, Layers, Sparkles, 
-  Volume2, Key, Film, CheckCircle2, ShieldCheck, Sliders, Edit3, RefreshCw 
+import React, { useState, useEffect, useMemo } from 'react';
+import '@fontsource/noto-sans/600.css';
+import '@fontsource/noto-sans-devanagari/600.css';
+import {
+  Play, Pause, RotateCcw, SkipBack, SkipForward, Layers, Sparkles,
+  Key, CheckCircle2, ShieldCheck, Sliders, RefreshCw, Download, Search
 } from 'lucide-react';
 import type { Channel } from '../../data';
-import { 
-  getTemplatesForProfile, 
-  MotionTemplate, 
-  ANCIENT_DHARMA_TEMPLATES 
+import {
+  getTemplatesForProfile,
+  MotionTemplate,
+  ANCIENT_DHARMA_TEMPLATES
 } from '../../services/motionTemplates';
 
 interface Props {
@@ -25,6 +27,8 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
   const templates = useMemo(() => getTemplatesForProfile(account.id), [account.id]);
   const [selectedId, setSelectedId] = useState<string>(templates[0]?.id || '');
   const [category, setCategory] = useState<string>('all');
+  const [search, setSearch] = useState('');
+  const [duration, setDuration] = useState(6);
   const [aspect, setAspect] = useState<'16:9' | '9:16'>('16:9');
   const [frame, setFrame] = useState<number>(0);
   const [playing, setPlaying] = useState<boolean>(true);
@@ -32,7 +36,7 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
   const [background, setBackground] = useState<'artwork' | 'dark' | 'checker'>('artwork');
 
   // Interactive Scene Customizer parameters
-  const [customParams, setCustomParams] = useState<Record<string, Record<string, any>>>({});
+  const [customParams, setCustomParams] = useState<Record<string, Record<string, string | number>>>({});
 
   // Ensure selectedId is valid if templates change
   const selected: MotionTemplate = useMemo(() => {
@@ -46,7 +50,7 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
     };
   }, [selected, customParams]);
 
-  const updateParam = (key: string, value: any) => {
+  const updateParam = (key: string, value: string | number) => {
     setCustomParams(prev => ({
       ...prev,
       [selected.id]: {
@@ -64,13 +68,11 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
     });
   };
 
-  const totalFrames = selected?.durationFrames || 90;
+  const totalFrames = duration * (selected?.fps || 30);
   const fps = selected?.fps || 30;
   const width = aspect === '16:9' ? 1920 : 1080;
   const height = aspect === '16:9' ? 1080 : 1920;
 
-  const frameRef = useRef(frame);
-  frameRef.current = frame;
 
   // Animation loop with requestAnimationFrame
   useEffect(() => {
@@ -93,7 +95,7 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
   // Reset frame when switching template or aspect
   useEffect(() => {
     setFrame(0);
-  }, [selectedId, aspect]);
+  }, [selectedId, aspect, duration]);
 
   // Render SVG string for current frame with live parameters
   const renderedSvg = useMemo(() => {
@@ -113,12 +115,11 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
   }, [templates]);
 
   const filteredTemplates = useMemo(() => {
-    if (category === 'all') return templates;
-    return templates.filter(t => t.category === category);
-  }, [templates, category]);
+    return templates.filter(t => (category === 'all' || t.category === category) && `${t.name} ${t.description} ${t.triggerKeywords.join(' ')}`.toLowerCase().includes(search.toLowerCase()));
+  }, [templates, category, search]);
 
   // Background artwork selector for Ancient Dharma / realistic preview
-  const sampleArtworkUrl = '/motion-templates/ancient-dharma/vedic_metallurgy_title_card_1792859160762.jpg';
+  const sampleArtworkUrl = '/motion-templates/ancient-dharma/ancient_dharma_07_temple_ramp_engineering_1792859269312.jpg';
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 pb-16 px-2 sm:px-4">
@@ -129,17 +130,17 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
             <Layers className="h-4 w-4" />
             <span>Universal Motion Graphics Library</span>
             <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] text-accent font-mono">
-              ZERO-CARD ARCHITECTURE
+              EDITABLE OVERLAYS
             </span>
           </div>
           <h1 className="mt-2 text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-3">
             {account.name}
             <span className="text-xs font-normal font-mono px-2.5 py-1 rounded-md bg-white/10 text-gray-300">
-              {templates.length} Universal FX
+              {templates.length} motions · 20 new
             </span>
           </h1>
           <p className="mt-1 text-sm text-muted max-w-2xl">
-            Foundational, scene-agnostic motion graphics that fit <strong>every scene</strong> in your videos. Highlights, maps, volumetric lighting, distance calipers, timelines, and scale meters with 100% transparent vector overlays.
+            Reusable titles, labels, emphasis, charts and diagrams. Edit the sample content, choose a format and preview the motion over a transparent background.
           </p>
         </div>
 
@@ -183,13 +184,13 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
               </div>
 
               {/* Viewport Display Settings */}
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
                 {/* Aspect Ratio */}
                 <select
                   aria-label="Preview aspect ratio"
                   value={aspect}
                   onChange={e => setAspect(e.target.value as '16:9' | '9:16')}
-                  className="rounded-lg border border-border bg-bg/80 px-2.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-accent"
+                  className="max-w-full rounded-lg border border-border bg-bg/80 px-2.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-accent"
                 >
                   <option value="16:9">16:9 Landscape (Video)</option>
                   <option value="9:16">9:16 Portrait (Shorts)</option>
@@ -200,9 +201,9 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
                   aria-label="Preview background"
                   value={background}
                   onChange={e => setBackground(e.target.value as 'artwork' | 'dark' | 'checker')}
-                  className="rounded-lg border border-border bg-bg/80 px-2.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-accent"
+                  className="max-w-full rounded-lg border border-border bg-bg/80 px-2.5 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-accent"
                 >
-                  <option value="artwork">Background: Video Footage</option>
+                  <option value="artwork">Background: Sample Artwork</option>
                   <option value="dark">Background: Obsidian Dark</option>
                   <option value="checker">Background: Alpha Grid</option>
                 </select>
@@ -235,6 +236,7 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
 
                 {/* Kinetic Motion SVG Render Layer */}
                 <div
+                  aria-label="Motion template preview"
                   className="absolute inset-0 h-full w-full pointer-events-none"
                   dangerouslySetInnerHTML={{ __html: renderedSvg }}
                 />
@@ -245,13 +247,13 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
                   <span className="text-gray-500">|</span>
                   <span>{(frame / fps).toFixed(2)}s</span>
                   <span className="text-gray-500">|</span>
-                  <span className="text-emerald-400">30 FPS</span>
+                  <span className="text-emerald-400">{fps} FPS</span>
                 </div>
 
                 {/* Zero Card Proof Tag */}
-                <div className="absolute top-3 right-3 rounded bg-black/70 backdrop-blur-md px-2.5 py-1 text-[10px] font-mono text-amber-300 border border-amber-500/20 flex items-center gap-1.5">
+                <div className="absolute bottom-3 right-3 rounded bg-black/70 backdrop-blur-md px-2.5 py-1 text-[10px] font-mono text-amber-300 border border-amber-500/20 flex items-center gap-1.5">
                   <ShieldCheck className="h-3 w-3 text-amber-400" />
-                  <span>100% TRANSPARENT (NO CARDS)</span>
+                  <span>TRANSPARENT OVERLAY</span>
                 </div>
               </div>
             </div>
@@ -306,6 +308,7 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
                   <button
                     onClick={() => setPlaying(!playing)}
                     title={playing ? 'Pause' : 'Play'}
+                    aria-label={playing ? 'Pause preview' : 'Play preview'}
                     className="rounded-lg bg-accent px-4 py-2 text-white font-medium flex items-center gap-2 shadow-lg shadow-accent/25 hover:bg-accent/90 transition-all"
                   >
                     {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-white" />}
@@ -350,7 +353,7 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
                 <div className="flex items-center gap-2">
                   <Sliders className="h-4 w-4 text-accent" />
                   <h3 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                    Scene Customizer · Fits Any Video Scene
+                    Scene Customizer
                   </h3>
                 </div>
                 <button
@@ -363,276 +366,29 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
                 </button>
               </div>
 
-              {/* Dynamic Parameter Inputs based on template category */}
+              <p className="text-xs text-muted">The script AI can select this motion and supply scene-specific content in motion metadata. Artifacts adapts its layout, timing and channel style to your footage. These demo edits stay in the gallery; sample values are not used in production.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Distance Caliper Inputs */}
-                {selected.category === 'measurement' && (
-                  <>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Distance Value
-                      </label>
-                      <input
-                        type="number"
-                        value={activeParams.valNumber ?? 1240}
-                        onChange={e => updateParam('valNumber', Number(e.target.value))}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Unit of Measure
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.unit ?? 'KM'}
-                        onChange={e => updateParam('unit', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Highlight Reticle Inputs */}
-                {selected.category === 'highlight' && (
-                  <>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Focal Title
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.title ?? 'FOCAL POINT // ARTIFACT DETAIL'}
-                        onChange={e => updateParam('title', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Subtitle
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.subtitle ?? 'PRECISION INSPECTION RETICLE'}
-                        onChange={e => updateParam('subtitle', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Map Route Inputs */}
-                {selected.category === 'map' && (
-                  <>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Origin Location
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.origin ?? 'MUZIRIS // ANCIENT PORT'}
-                        onChange={e => updateParam('origin', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Destination Location
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.destination ?? 'SRIVIJAYA // STRAIT'}
-                        onChange={e => updateParam('destination', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Timeline Scrubber Inputs */}
-                {selected.category === 'timeline' && (
-                  <>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Active Year / Date
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.currentYear ?? '250 BCE'}
-                        onChange={e => updateParam('currentYear', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Era / Event Name
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.eraName ?? 'MAURYAN GOLDEN AGE'}
-                        onChange={e => updateParam('eraName', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Radial Metric Inputs */}
-                {selected.category === 'metric' && (
-                  <>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Percentage Target (0-100%)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={activeParams.targetPercent ?? 88}
-                        onChange={e => updateParam('targetPercent', Number(e.target.value))}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Stat Label
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.label ?? 'COMPUTED STRUCTURAL PURITY'}
-                        onChange={e => updateParam('label', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Side-by-Side Comparison Inputs */}
-                {selected.category === 'comparison' && (
-                  <>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Side A Title
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.leftTitle ?? 'CONVENTIONAL BELIEF'}
-                        onChange={e => updateParam('leftTitle', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Side B Title
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.rightTitle ?? 'ARCHAEOLOGICAL FINDINGS'}
-                        onChange={e => updateParam('rightTitle', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Vertical Scale Inputs */}
-                {selected.category === 'scale' && (
-                  <>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Maximum Elevation / Height
-                      </label>
-                      <input
-                        type="number"
-                        value={activeParams.maxHeight ?? 66}
-                        onChange={e => updateParam('maxHeight', Number(e.target.value))}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Elevation Label
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.label ?? 'MONUMENTAL ELEVATION // SUMMIT'}
-                        onChange={e => updateParam('label', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Lighting Sweep Inputs */}
-                {selected.category === 'lighting' && (
-                  <div className="sm:col-span-2">
-                    <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                      Illumination Banner Text
-                    </label>
-                    <input
-                      type="text"
-                      value={activeParams.label ?? 'VOLUMETRIC ILLUMINATION // SOLAR ALIGNMENT'}
-                      onChange={e => updateParam('label', e.target.value)}
-                      className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                    />
-                  </div>
-                )}
-
-                {/* Flow Vector Inputs */}
-                {selected.category === 'flow' && (
-                  <>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Flow Velocity Text
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.speed ?? '3.8 M/S'}
-                        onChange={e => updateParam('speed', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Flow Label
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.label ?? 'CONTINUOUS HYDRODYNAMIC DRAINAGE VECTOR'}
-                        onChange={e => updateParam('label', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                  </>
-                )}
-
-                {/* Magnifier Inputs */}
-                {selected.category === 'magnifier' && (
-                  <>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Zoom Level Factor
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.zoom ?? '8.5X'}
-                        onChange={e => updateParam('zoom', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[11px] font-mono text-muted uppercase block mb-1">
-                        Inspection Subtitle
-                      </label>
-                      <input
-                        type="text"
-                        value={activeParams.label ?? 'OPTICAL INSPECTION // MICRO-DETAIL'}
-                        onChange={e => updateParam('label', e.target.value)}
-                        className="w-full rounded-lg border border-border bg-black/40 px-3 py-1.5 text-xs text-white font-mono focus:border-accent focus:outline-none"
-                      />
-                    </div>
-                  </>
-                )}
+                {Object.entries(selected.defaultParams || {}).map(([key, defaultValue]) => {
+                  const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase());
+                  const multiline = key === 'items';
+                  return <label key={key} className={multiline ? 'sm:col-span-2' : ''}>
+                    <span className="text-[11px] font-mono text-muted block mb-1">{label}{multiline ? ' (one per line, up to 4)' : key === 'values' ? ' (comma-separated, in label order)' : ''}</span>
+                    {multiline ? <textarea aria-label={label} rows={4} maxLength={320} value={activeParams[key] ?? defaultValue} onChange={e => updateParam(key, e.target.value)} className="w-full rounded-lg border border-border bg-black/40 px-3 py-2 text-sm text-white" /> :
+                      <input aria-label={label} type={typeof defaultValue === 'number' ? 'number' : 'text'} min={typeof defaultValue === 'number' ? 0 : undefined} max={key === 'x' || key === 'y' ? 1 : key === 'targetPercent' || (key === 'value' && ['progress_bar','donut_chart'].some(id => selected.id.endsWith(id))) ? 100 : undefined} step={key === 'x' || key === 'y' ? 0.05 : 'any'} maxLength={100} value={activeParams[key] ?? defaultValue} onChange={e => updateParam(key, typeof defaultValue === 'number' ? Number(e.target.value) : e.target.value)} className="w-full rounded-lg border border-border bg-black/40 px-3 py-2 text-sm text-white" />}
+                  </label>;
+                })}
+              </div>
+              <div className="flex flex-wrap gap-3 items-center">
+                <label className="text-xs text-muted">Duration
+                  <select aria-label="Preview duration" value={duration} onChange={e => setDuration(Number(e.target.value))} className="ml-2 rounded border border-border bg-bg p-2 text-white">
+                    {[3, 6, 8, 10].map(seconds => <option key={seconds} value={seconds}>{seconds}s</option>)}
+                  </select>
+                </label>
+                <button onClick={() => {
+                  const url = URL.createObjectURL(new Blob([renderedSvg], { type: 'image/svg+xml' }));
+                  const link = document.createElement('a'); link.href = url; link.download = `${selected.id}-frame-${Math.floor(frame)}.svg`; link.click();
+                  setTimeout(() => URL.revokeObjectURL(url), 1000);
+                }} className="flex items-center gap-2 rounded border border-border px-3 py-2 text-xs text-white"><Download className="h-4 w-4" />Download current frame (SVG)</button>
               </div>
 
               {/* Technical Specs & Emerging Physics Breakdown */}
@@ -650,7 +406,7 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
               <div>
                 <p className="text-[10px] font-mono text-muted uppercase flex items-center gap-1.5 mb-1.5">
                   <Key className="h-3 w-3 text-accent" />
-                  Auto-Editing Script Trigger Keywords:
+                  Suggested use keywords:
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {selected.triggerKeywords.slice(0, 10).map(kw => (
@@ -674,6 +430,11 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
 
         {/* Right Column: Template Catalog & Category Filters (4 Cols) */}
         <div className="space-y-4 lg:col-span-4 min-w-0">
+          <label className="flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2">
+            <Search className="h-4 w-4 text-muted" />
+            <input aria-label="Search motion templates" placeholder="Search motions or use cases…" value={search} onChange={e => setSearch(e.target.value)} className="min-w-0 w-full bg-transparent text-sm text-white outline-none" />
+          </label>
+          <p className="text-xs text-muted">{filteredTemplates.length} of {templates.length} motions · silent preview</p>
           {/* Category Filter Pills */}
           <div className="flex flex-wrap gap-1.5">
             {categories.map(c => (
@@ -692,7 +453,8 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
           </div>
 
           {/* Template List Cards */}
-          <div className="max-h-[760px] space-y-2.5 overflow-y-auto pr-1">
+          <div aria-label="Motion template catalog" className="max-h-[760px] space-y-2.5 overflow-y-auto pr-1">
+            {filteredTemplates.length === 0 && <p className="p-4 text-sm text-muted">No motions match. Try another search or category.</p>}
             {filteredTemplates.map((t, idx) => {
               const isCurrent = t.id === selectedId;
               return (
@@ -729,10 +491,10 @@ function ProfileMotionLibrary({ account, accounts, onSelectAccount }: Props) {
                   <div className="mt-2.5 flex items-center justify-between border-t border-white/5 pt-2 text-[10px] font-mono text-gray-400">
                     <span className="flex items-center gap-1 text-emerald-400">
                       <CheckCircle2 className="h-3 w-3" />
-                      Fits Any Scene
+                      Editable overlay
                     </span>
                     <span className="text-amber-300">
-                      {t.soundCue.replace('.wav', '')}
+                      {t.collection === 'essentials' ? 'NEW · Essentials' : 'Original'}
                     </span>
                   </div>
                 </button>

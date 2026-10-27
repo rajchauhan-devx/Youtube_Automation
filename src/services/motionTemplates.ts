@@ -1,3 +1,5 @@
+import { createReusableTemplates, escapeSvgText } from './reusableMotionTemplates';
+
 /**
  * Universal Documentary Motion Graphics Library
  * Foundational, reusable kinetic graphics designed to fit ANY scene across all channel profiles.
@@ -18,8 +20,9 @@ export interface MotionTemplate {
   aspectRatio: '9:16' | '16:9';
   triggerKeywords: string[];
   soundCue: string;
-  defaultParams?: Record<string, any>;
-  renderSvg: (frame: number, totalFrames: number, width: number, height: number, params?: Record<string, any>) => string;
+  collection?: 'essentials';
+  defaultParams?: Record<string, string | number>;
+  renderSvg: (frame: number, totalFrames: number, width: number, height: number, params?: Record<string, string | number>) => string;
 }
 
 // Math and easing helpers
@@ -89,7 +92,7 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
   const theme = getTheme(profileId);
   const prefix = profileId === 'rule_zero' ? 'rz_' : profileId === 'against_the_odds' ? 'ato_' : 'ad_';
 
-  return [
+  const templates: MotionTemplate[] = [
     // 1. Highlight / Focus Reticle (Target Tracker & Spotlight)
     {
       id: `${prefix}highlight_reticle`,
@@ -111,8 +114,8 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
         subtitle: 'PRECISION ARCHAEOLOGICAL INSPECTION'
       },
       renderSvg: (frame, totalFrames, w, h, params) => {
-        const cx = (params?.x ?? 0.5) * w;
-        const cy = (params?.y ?? 0.45) * h;
+        const cx = Number(params?.x ?? 0.5) * w;
+        const cy = Number(params?.y ?? 0.45) * h;
         const title = params?.title ?? 'FOCAL POINT // ARTIFACT DETAIL';
         const subtitle = params?.subtitle ?? 'PRECISION INSPECTION RETICLE';
 
@@ -148,9 +151,9 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
               <!-- Rotating Outer Calibrated Brackets -->
               <g transform="rotate(${rot})">
                 <circle cx="0" cy="0" r="${r2}" fill="none" stroke="${theme.secondary}" stroke-width="1.5" stroke-dasharray="14 10"/>
-                <line x1="-${r2 + 10}" y1="0" x2="-${r2 - 6}" y2="0" stroke="${theme.primary}" stroke-width="2.5"/>
+                <line x1="${-(r2 + 10)}" y1="0" x2="${-(r2 - 6)}" y2="0" stroke="${theme.primary}" stroke-width="2.5"/>
                 <line x1="${r2 - 6}" y1="0" x2="${r2 + 10}" y2="0" stroke="${theme.primary}" stroke-width="2.5"/>
-                <line x1="0" y1="-${r2 + 10}" x2="0" y2="-${r2 - 6}" stroke="${theme.primary}" stroke-width="2.5"/>
+                <line x1="0" y1="${-(r2 + 10)}" x2="0" y2="${-(r2 - 6)}" stroke="${theme.primary}" stroke-width="2.5"/>
                 <line x1="0" y1="${r2 - 6}" x2="0" y2="${r2 + 10}" stroke="${theme.primary}" stroke-width="2.5"/>
               </g>
 
@@ -249,7 +252,7 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
             <!-- Animated Drawn Trajectory Beam -->
             <path d="M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}"
                   fill="none" stroke="${theme.primary}" stroke-width="4" stroke-linecap="round"
-                  stroke-dasharray="1400" stroke-dashoffset="${1400 * (1 - t)}"
+                  pathLength="1" stroke-dasharray="1" stroke-dashoffset="${1 - t}"
                   filter="url(#bloom-map-${prefix})"/>
 
             <!-- Origin Waypoint Radar -->
@@ -382,7 +385,7 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
       profileId,
       profileName,
       category: 'measurement',
-      description: 'High-precision measurement caliper measuring distance, length, or span across subjects with dual snap crosshairs, extending dimension laser, and spinning odometer ticker.',
+      description: 'Schematic dimension overlay for a supplied distance or span. Positions are illustrative; this does not measure the footage.',
       emergingEffect: 'Opposing anchor crosshairs drop, dimension line stretches between them, and numeric distance odometer spins up.',
       durationFrames: 90,
       fps: 30,
@@ -395,7 +398,7 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
         label: 'RECORDED SPAN // GEOGRAPHIC DISTANCE'
       },
       renderSvg: (frame, totalFrames, w, h, params) => {
-        const maxVal = params?.valNumber ?? 1240;
+        const maxVal = Number(params?.valNumber ?? 1240);
         const unit = params?.unit ?? 'KM';
         const label = params?.label ?? 'RECORDED SPAN // GEOGRAPHIC DISTANCE';
 
@@ -479,7 +482,7 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
         startYear: '1500 BCE',
         currentYear: '250 BCE',
         endYear: '1000 CE',
-        eraName: 'MAURYAN GOLDEN AGE'
+        eraName: 'EXAMPLE ERA'
       },
       renderSvg: (frame, totalFrames, w, h, params) => {
         const startYear = params?.startYear ?? '1500 BCE';
@@ -564,7 +567,7 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
         label: 'MONUMENTAL ELEVATION // VERTICAL SUMMIT'
       },
       renderSvg: (frame, totalFrames, w, h, params) => {
-        const maxHeight = params?.maxHeight ?? 66;
+        const maxHeight = Number(params?.maxHeight ?? 66);
         const unit = params?.unit ?? 'METERS';
         const label = params?.label ?? 'MONUMENTAL ELEVATION // VERTICAL SUMMIT';
 
@@ -595,7 +598,7 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
               return `
                 <line x1="${x - 12}" y1="${ty}" x2="${x}" y2="${ty}" stroke="${isPast ? theme.primary : theme.secondary}" stroke-width="${i % 5 === 0 ? 2.5 : 1.5}"/>
                 <text x="${x - 22}" y="${ty + 4}" text-anchor="end" fill="${isPast ? theme.primary : theme.secondary}" font-family="${theme.fontMono}" font-size="11" font-weight="700">
-                  ${val}m
+                  ${val} ${unit}
                 </text>
               `;
             }).join('')}
@@ -639,11 +642,11 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
       soundCue: 'sfx_gauge_fill.wav',
       defaultParams: {
         targetPercent: 88,
-        label: 'COMPUTED STRUCTURAL PURITY',
-        sublabel: 'SAMPLE ANALYSIS // 99.2% HOMOGENEITY'
+        label: 'EXAMPLE PERCENTAGE',
+        sublabel: 'REPLACE WITH YOUR VERIFIED VALUE'
       },
       renderSvg: (frame, totalFrames, w, h, params) => {
-        const targetPercent = params?.targetPercent ?? 88;
+        const targetPercent = Number(params?.targetPercent ?? 88);
         const label = params?.label ?? 'COMPUTED STATISTIC // DATA RATIO';
         const sublabel = params?.sublabel ?? 'CALCULATED EMPIRICAL METRIC';
 
@@ -710,11 +713,11 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
     // 8. Inspection Loupe & Detail Zoom (Micro-Analysis Lens)
     {
       id: `${prefix}magnifier_loupe`,
-      name: 'Inspection Loupe & Detail Zoom',
+      name: 'Inspection Focus Ring',
       profileId,
       profileName,
       category: 'magnifier',
-      description: 'Precision circular optical loupe gliding over any scene artifact with counter-rotating calibration rings, dual-axis reticle crosshairs, and dynamic magnification factor.',
+      description: 'Decorative focus ring with rotating crosshairs and an editable label. It does not magnify the underlying footage.',
       emergingEffect: 'Circular loupe spring slide into position, dual reticle rotation, and optic rim reflection pulse.',
       durationFrames: 90,
       fps: 30,
@@ -724,13 +727,13 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
       defaultParams: {
         x: 0.5,
         y: 0.45,
-        zoom: '8.5X',
+        zoom: 'DETAIL',
         label: 'OPTICAL MAGNIFICATION // SURFACE INSPECTION'
       },
       renderSvg: (frame, totalFrames, w, h, params) => {
-        const cx = (params?.x ?? 0.5) * w;
-        const cy = (params?.y ?? 0.45) * h;
-        const zoom = params?.zoom ?? '8.5X';
+        const cx = Number(params?.x ?? 0.5) * w;
+        const cy = Number(params?.y ?? 0.45) * h;
+        const zoom = params?.zoom ?? 'DETAIL';
         const label = params?.label ?? 'OPTICAL INSPECTION // MICRO-DETAIL';
 
         const p = easeOutBack(clamp(frame / 30));
@@ -774,7 +777,7 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
               <!-- Dynamic Zoom Badge -->
               <g transform="translate(0, ${r + 42})" opacity="${p}">
                 <text x="0" y="0" text-anchor="middle" fill="#FFFFFF" font-family="${theme.fontMono}" font-size="24" font-weight="900" filter="drop-shadow(0 3px 8px rgba(0,0,0,0.9))">
-                  MAGNIFICATION <tspan fill="${theme.primary}">${zoom}</tspan>
+                  FOCUS <tspan fill="${theme.primary}">${zoom}</tspan>
                 </text>
                 <text x="0" y="22" text-anchor="middle" fill="${theme.primary}" font-family="${theme.fontMono}" font-size="12" font-weight="700" letter-spacing="2">
                   ${label}
@@ -802,9 +805,9 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
       soundCue: 'sfx_laser_slice.wav',
       defaultParams: {
         leftTitle: 'CONVENTIONAL BELIEF',
-        leftDesc: 'TRADITIONAL HISTORIOGRAPHY',
+        leftDesc: 'FIRST ACCOUNT',
         rightTitle: 'ARCHAEOLOGICAL FINDINGS',
-        rightDesc: 'CARBON-DATED EXCAVATIONS'
+        rightDesc: 'SECOND ACCOUNT'
       },
       renderSvg: (frame, totalFrames, w, h, params) => {
         const leftTitle = params?.leftTitle ?? 'CONVENTIONAL BELIEF';
@@ -939,15 +942,37 @@ function createUniversalTemplates(profileId: string, profileName: string): Motio
       }
     }
   ];
+  // Escape every supplied/default label before inserting it into SVG markup.
+  // Legacy layouts use a landscape design canvas, fitted inside either output format.
+  const safeTemplates = templates.map(template => ({
+    ...template,
+    renderSvg: (frame: number, totalFrames: number, w: number, h: number, params?: Record<string, string | number>) => {
+      const safe = Object.fromEntries(Object.entries({ ...template.defaultParams, ...params }).map(([key, value]) => {
+        if (typeof template.defaultParams?.[key] === 'number') {
+          const numeric = Number(value);
+          const max = key === 'targetPercent' ? 100 : key === 'x' || key === 'y' ? 1 : 1e9;
+          return [key, Math.max(0, Math.min(max, Number.isFinite(numeric) ? numeric : 0))];
+        }
+        return [key, escapeSvgText(String(value))];
+      }));
+      const progress = clamp(frame / Math.max(1, totalFrames - 1));
+      const raw = template.renderSvg(progress * (template.durationFrames - 1), template.durationFrames, 1920, 1080, safe);
+      const inner = raw.slice(raw.indexOf('>') + 1, raw.lastIndexOf('</svg>'));
+      const scale = Math.min(w / 1920, h / 1080);
+      const opacity = easeOutCubic(progress / 0.08) * easeOutCubic((1-progress) / 0.10);
+      return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="100%" height="100%"><g opacity="${opacity}" transform="translate(${(w-1920*scale)/2},${(h-1080*scale)/2}) scale(${scale})">${inner}</g></svg>`;
+    },
+  }));
+  return [...safeTemplates, ...createReusableTemplates(profileId, profileName, theme.primary, theme.secondary, prefix)];
 }
 
-// Generate the 10 universal templates for Ancient Dharma, Rule Zero, and Against the Odds
+// Generate 30 reusable templates for Ancient Dharma, Rule Zero, and Against the Odds
 export const ANCIENT_DHARMA_TEMPLATES: MotionTemplate[] = createUniversalTemplates('default', 'Ancient Dharma');
 export const RULE_ZERO_TEMPLATES: MotionTemplate[] = createUniversalTemplates('rule_zero', 'Rule Zero');
 export const AGAINST_THE_ODDS_TEMPLATES: MotionTemplate[] = createUniversalTemplates('against_the_odds', 'Against the Odds');
 
 /**
- * Returns the 10 universal motion graphics templates tailored to the selected channel profile.
+ * Returns the motion graphics templates tailored to the selected channel profile.
  */
 export function getTemplatesForProfile(profileId: string): MotionTemplate[] {
   if (profileId === 'acct_3ea89878-0f41-4dc9-86e5-3f55cda46ef7' || profileId === 'rule_zero') {
@@ -992,11 +1017,10 @@ export function templateDemoContent(templateId: string): { items: { text: string
  */
 export function findMatchingTemplate(scriptText: string, profileId: string): MotionTemplate | null {
   const templates = getTemplatesForProfile(profileId);
-  const lower = scriptText.toLowerCase();
-  for (const t of templates) {
-    if (t.triggerKeywords.some(kw => lower.includes(kw.toLowerCase()))) {
-      return t;
-    }
-  }
-  return templates[0] || null;
+  const words = ` ${scriptText.toLocaleLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').trim()} `;
+  const ranked = templates.map(template => ({ template, score: template.triggerKeywords.filter(keyword => {
+    const normalized = keyword.toLocaleLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').trim();
+    return normalized && words.includes(` ${normalized} `);
+  }).length })).sort((a, b) => b.score - a.score);
+  return ranked[0]?.score ? ranked[0].template : null;
 }

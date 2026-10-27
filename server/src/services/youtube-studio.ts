@@ -480,6 +480,27 @@ export async function fetchAccountStudioOverview(
         })
         .catch(() => null);
 
+      const shortsPlaylistId =
+        typeof rawChannel.id === "string" && rawChannel.id.startsWith("UC")
+          ? rawChannel.id.replace(/^UC/, "UUSH")
+          : null;
+
+      const shortsPlaylistRes = shortsPlaylistId
+        ? await youtube.playlistItems
+            .list({
+              part: ["snippet"],
+              playlistId: shortsPlaylistId,
+              maxResults: 50,
+            })
+            .catch(() => null)
+        : null;
+
+      const shortsVideoIdSet = new Set(
+        (shortsPlaylistRes?.data?.items || [])
+          .map((item) => item.snippet?.resourceId?.videoId)
+          .filter((id): id is string => typeof id === "string" && id.length > 0)
+      );
+
       const videoIds = (playlistRes?.data?.items || [])
         .map((item) => item.contentDetails?.videoId)
         .filter((id): id is string => typeof id === "string" && id.length > 0);
@@ -499,8 +520,9 @@ export async function fetchAccountStudioOverview(
           const durationIso = item.contentDetails?.duration || "PT0S";
           const durationSeconds = parseIsoDurationSeconds(durationIso);
           const isShort =
+            shortsVideoIdSet.has(item.id) ||
             (durationSeconds > 0 && durationSeconds <= 65) ||
-            /#shorts\b/i.test(`${title} ${description}`);
+            (durationSeconds > 0 && durationSeconds <= 185 && /#shorts\b/i.test(`${title} ${description}`));
           const viewCount = Number(item.statistics?.viewCount || 0);
           const likeCount = Number(item.statistics?.likeCount || 0);
           const commentCount = Number(item.statistics?.commentCount || 0);

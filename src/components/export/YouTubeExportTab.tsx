@@ -457,15 +457,28 @@ export function YouTubeExportTab({
         .map((t) => t.trim())
         .filter(Boolean);
 
+      const isShort = profile === 'shorts';
+      const finalTitle = isShort && !/#shorts\b/i.test(title)
+        ? (title.length > 92 ? `${title.slice(0, 92).trim()} #Shorts` : `${title.trim()} #Shorts`)
+        : title;
+      const finalDescription = isShort && !/#shorts\b/i.test(description)
+        ? (description ? `${description.trim()}\n\n#Shorts` : '#Shorts')
+        : description;
+      let finalTags = parsedTags;
+      if (isShort && !finalTags.some((t) => /^#?shorts$/i.test(t))) {
+        finalTags = ['Shorts', ...finalTags];
+      }
+
       const res = await fetch('/api/youtube/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scriptId: script.id,
           videoFilename: videoFilename || undefined,
-          title,
-          description,
-          tags: parsedTags,
+          isShort,
+          title: finalTitle,
+          description: finalDescription,
+          tags: finalTags,
           privacyStatus: isoPublishAt ? 'private' : privacyStatus,
           publishAt: isoPublishAt,
           categoryId,

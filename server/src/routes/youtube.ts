@@ -70,15 +70,15 @@ Narration / Content:
 ${narration || script || topic}
 
 Generate:
-1. "titles": An array of 3 distinct, high-CTR viral titles.
-2. "description": An engaging description with hook, summary, call-to-action, and hashtags.
-3. "tags": An array of 12-18 search keyword tags.
+1. "titles": An array of 3 distinct, high-CTR viral titles${isShort ? ' (each title MUST end with #Shorts)' : ''}.
+2. "description": An engaging description with hook, summary, call-to-action, and hashtags${isShort ? ' (must include #Shorts)' : ''}.
+3. "tags": An array of 12-18 search keyword tags${isShort ? ' (must include "Shorts")' : ''}.
 
 Return ONLY valid JSON in this exact shape:
 {
-  "titles": ["Title 1", "Title 2", "Title 3"],
+  "titles": [${isShort ? '"Title 1 #Shorts", "Title 2 #Shorts", "Title 3 #Shorts"' : '"Title 1", "Title 2", "Title 3"'}],
   "description": "Full formatted description text...",
-  "tags": ["tag1", "tag2", "tag3"]
+  "tags": [${isShort ? '"Shorts", "tag1", "tag2"' : '"tag1", "tag2", "tag3"'}]
 }`;
     }
 
@@ -95,10 +95,28 @@ Return ONLY valid JSON in this exact shape:
     raw = raw.replace(/^```[a-zA-Z]*\n?/, '').replace(/```$/, '').trim();
     const parsed = JSON.parse(raw);
 
+    let parsedTitles = Array.isArray(parsed.titles) ? parsed.titles : (parsed.title ? [parsed.title] : undefined);
+    let parsedDescription = typeof parsed.description === 'string' ? parsed.description : undefined;
+    let parsedTags = Array.isArray(parsed.tags) ? parsed.tags : undefined;
+
+    if (isShort) {
+      if (parsedTitles) {
+        parsedTitles = parsedTitles.map((t: string) => /#shorts\b/i.test(t) ? t.trim() : `${t.trim()} #Shorts`);
+      }
+      if (parsedDescription && !/#shorts\b/i.test(parsedDescription)) {
+        parsedDescription = `${parsedDescription.trim()}\n\n#Shorts`;
+      }
+      if (parsedTags) {
+        if (!parsedTags.some((t: string) => /^#?shorts$/i.test(String(t).trim()))) {
+          parsedTags.unshift('Shorts');
+        }
+      }
+    }
+
     res.json({
-      titles: Array.isArray(parsed.titles) ? parsed.titles : (parsed.title ? [parsed.title] : undefined),
-      description: typeof parsed.description === 'string' ? parsed.description : undefined,
-      tags: Array.isArray(parsed.tags) ? parsed.tags : undefined,
+      titles: parsedTitles,
+      description: parsedDescription,
+      tags: parsedTags,
     });
   } catch (err: any) {
     console.error('Metadata generation error:', err);
@@ -170,12 +188,35 @@ youtubeRouter.post('/upload', async (req, res) => {
     const youtube = google.youtube({ version: 'v3', auth: client });
     const fileSize = fs.statSync(videoPath).size;
 
-    console.log(`Starting YouTube upload: "${title}" from ${videoPath} (${fileSize} bytes)`);
+    const isShortWorkspace = currentWorkspace().profile === 'shorts' || req.body?.isShort === true;
+
+    let uploadTitle = title.trim();
+    if (isShortWorkspace && !/#shorts\b/i.test(uploadTitle)) {
+      if (uploadTitle.length + 8 > 100) {
+        uploadTitle = `${uploadTitle.slice(0, 92).trim()} #Shorts`;
+      } else {
+        uploadTitle = `${uploadTitle} #Shorts`;
+      }
+    }
+
+    let uploadDescription = description.trim();
+    if (isShortWorkspace && !/#shorts\b/i.test(uploadDescription)) {
+      uploadDescription = uploadDescription ? `${uploadDescription}\n\n#Shorts` : '#Shorts';
+    }
+
+    let uploadTags = Array.isArray(tags) ? tags.map((t: string) => String(t).trim()).filter(Boolean) : [];
+    if (isShortWorkspace) {
+      if (!uploadTags.some(t => /^#?shorts$/i.test(t))) {
+        uploadTags.unshift('Shorts');
+      }
+    }
+
+    console.log(`Starting YouTube upload: "${uploadTitle}" from ${videoPath} (${fileSize} bytes)`);
 
     const snippetPayload: Record<string, any> = {
-      title: title.slice(0, 100),
-      description: description.slice(0, 5000),
-      tags: Array.isArray(tags) ? tags.map((t: string) => String(t).trim()).filter(Boolean).slice(0, 40) : [],
+      title: uploadTitle.slice(0, 100),
+      description: uploadDescription.slice(0, 5000),
+      tags: uploadTags.slice(0, 40),
     };
     if (categoryId) {
       snippetPayload.categoryId = String(categoryId);
@@ -202,13 +243,13 @@ youtubeRouter.post('/upload', async (req, res) => {
       throw new Error('YouTube did not return a valid video ID.');
     }
 
-    const videoUrl = `https://youtu.be/${videoId}`;
+    const videoUrl = isShortWorkspace ? `https://www.youtube.com/shorts/${videoId}` : `https://youtu.be/${videoId}`;
     const uploadedAt = new Date().toISOString();
-    const topic = script.topicName?.trim() || title.trim();
+    const topic = script.topicName?.trim() || uploadTitle.trim();
     const production = productionMemory(script, script.retentionReview?.duration || script.duration || 30);
-    if (production) production.title = title;
+    if (production) production.title = uploadTitle;
     const effectivePrivacy = validatedPublishAt ? 'private' : (['public', 'unlisted', 'private'].includes(privacyStatus) ? privacyStatus : 'private');
-    const uploadResult = { accountId, channelId: destination.id, success: true, topicHistorySaved: false, videoId, videoUrl, title,
+    const uploadResult = { accountId, channelId: destination.id, success: true, topicHistorySaved: false, videoId, videoUrl, title: uploadTitle,
       privacyStatus: effectivePrivacy, scheduled: Boolean(validatedPublishAt), publishAt: validatedPublishAt, uploadedAt };
     upload.complete!(uploadResult);
     // Save the durable upload receipt before optional thumbnail work. History can
@@ -225,7 +266,7 @@ youtubeRouter.post('/upload', async (req, res) => {
     } catch (error) { console.error('YouTube upload succeeded; topic notes will recover from the upload receipt:', error); }
     const latestScript = store.getById<any>('scripts', scriptId);
     if (latestScript) store.add('scripts', { ...latestScript, retentionProduction: production, youtubeExport: {
-      ...latestScript.youtubeExport, title, description, tags, privacyStatus: effectivePrivacy,
+      ...latestScript.youtubeExport, title: uploadTitle, description: uploadDescription, tags: uploadTags, privacyStatus: effectivePrivacy,
       uploadedVideoId: videoId, uploadedVideoUrl: videoUrl, uploadedAt,
     } });
     console.log(`YouTube upload successful! Video URL: ${videoUrl}`);

@@ -5,8 +5,8 @@ avatar, adjust the crop and placement, then generate the video. The application
 starts its Python worker automatically. You do not need to start the MuseTalk web
 interface. Save settings explicitly or let Generate Video save them.
 
-The initial settings use `avatar_005`, a chest-up crop of the sage, a width of 24%,
-and a bottom gap of 18%. Adjust the four crop percentages for other characters.
+Choose an available avatar or upload a new one; imported avatars start with their
+full source framing. Adjust the crop, size and placement for the actual character.
 The preview shows source movement, not generated lip-sync. Final renders reserve
 space above the presenter for centered captions. Subtitle left and right margins
 stay equal when the avatar is resized; only their vertical clearance follows its
@@ -19,21 +19,53 @@ again to replace subtitles that were already burned into an exported video.
 
 ## Installation
 
-This integration reuses the installed MuseTalk-Demo engine, weights, Conda Python
-environment, and prepared avatars. Defaults detect:
+The project includes the source from
+[`rajchauhan-devx/MuseTalk`](https://github.com/rajchauhan-devx/MuseTalk), pinned in
+`MuseTalk-Demo/UPSTREAM.json`, plus a TubeFlow adapter in `MuseTalk-Demo/app`.
+The upstream files and license are retained. No separate Gradio lab or ComfyUI is
+required. Install with Python 3.10–3.12 and FFmpeg available:
 
-```
-<user>/OneDrive/Documents/MuseTalk-Demo
-<user>/miniconda3/envs/musetalk-demo/python.exe
+```sh
+npm run setup:presenter
 ```
 
-For another installation, follow the [new-PC migration guide](NEW_PC_SETUP.md),
-then set `MUSETALK_ROOT` and `MUSETALK_PYTHON` in `server/.env` and restart
-`npm run dev`. The separate custom `MuseTalk-Demo/app` wrapper must also be
-transferred; upstream MuseTalk alone does not provide it. Models are not copied into Git. This is an
-integration with that local installation, not a standalone distribution of the
-MuseTalk weights. Prepare additional avatar videos using MuseTalk's existing lab,
-then click Refresh avatars in the editor. The lab can be closed afterward.
+Setup creates an isolated `.venv` and downloads only MuseTalk 1.5, the SD VAE,
+Whisper Tiny and the small OpenCV YuNet face detector. Model revisions are recorded
+in `MuseTalk-Demo/MuseTalk/models/sources.json`. Weights, environments, avatars and
+temporary files are excluded from Git. Expect roughly 5 GB for the runtime/models,
+plus prepared avatar frames and generated clips. The old F5 and ComfyUI installs
+are not used.
+
+Start/restart `npm run dev`, open **Timeline & Render → AI Presenter**, and upload
+one forward-facing face photo or a video up to 40 MB. Preparation uses at most the
+first 10 seconds, normalized to 25fps. The original motion plays forward/backward
+to cover the narration. Preparation runs in the background with progress and
+cancellation; completed avatars are reusable. Keep one face visible throughout.
+
+The adapter uses the fork's neural VAE, UNet and audio processor. Face detection
+uses CPU YuNet and a feathered lower-face mask instead of the upstream MMLab
+DWPose/face-parsing preparation. This avoids CUDA-only build extensions on Macs;
+it is a different preparation/blending path, and profile faces, occlusions and
+stylized faces may need a better source. The app rejects frames without exactly
+one confidently detected face. A still image animates the mouth only.
+
+CUDA, Apple MPS and CPU are selected in that order. Set `MUSETALK_DEVICE=cpu`,
+`mps` or `cuda` to force a device. Laptop/CPU rendering is not promised to be
+real time. CPU and MPS use single-frame batches to limit memory. VAE decoding
+uses float32 to avoid fp16 overflow. Apple MPS also needs float32 for UNet/audio
+conditioning; CUDA uses fp16 for those models.
+
+Optional CLI preparation (use `.venv/Scripts/python.exe` on Windows):
+
+```sh
+MuseTalk-Demo/.venv/bin/python MuseTalk-Demo/app/cli.py health
+MuseTalk-Demo/.venv/bin/python MuseTalk-Demo/app/cli.py prepare --source /path/to/avatar.mp4 --id my_avatar --name "My presenter" --seconds 10
+```
+
+The bundled `.venv` is detected automatically. An existing custom installation can
+still be selected with `MUSETALK_ROOT` and `MUSETALK_PYTHON` in `server/.env`.
+Relative paths resolve from the project root. Invalid explicit overrides are
+reported instead of silently selecting another installation.
 
 ## Appearance
 
@@ -77,7 +109,10 @@ is active. It checks ComfyUI's queue and unloads idle ComfyUI models, before sta
 each generation to release GPU memory. Independently started GPU applications
 remain running; close the standalone MuseTalk lab if an out-of-memory error occurs.
 
-Routes: `GET /api/presenter/status`, `GET /api/presenter/avatar/:id`, and the existing
+Routes: `GET /api/presenter/status`, `GET /api/presenter/avatar/:id`,
+`POST /api/presenter/avatars?filename=avatar.mp4` (raw `application/octet-stream`,
+maximum 40 MB), `GET /api/presenter/preparation/:id`,
+`POST /api/presenter/preparation/:id/cancel`, and the existing
 `POST /api/render/start` with a `presenter` settings object. The same routes work
 under the account/profile workspace prefix. Paths and crop/size settings are
 validated on the server.
@@ -89,10 +124,14 @@ green-screen, cache and presenter API tests. `npm run build:all` checks both app
 Optional tests that use the installed avatar are:
 
 ```
-node server/tests/presenter.browser.mjs
-node server/scripts/test-presenter.mjs
-node server/scripts/test-presenter.mjs --cancel
+node server/scripts/test-presenter.mjs --avatar my_avatar
+node server/scripts/test-presenter.mjs --avatar my_avatar --cancel
+node server/tests/presenter-upload.browser.mjs
 ```
 
 The real GPU test writes a four-second sample to
 `artifacts/presenter/presenter-demo.mp4`. It does not modify saved stories.
+The upload browser test uses the bundled sample video, verifies a real upload and
+prepared preview, and removes its temporary avatar afterward. The older
+`presenter.browser.mjs` test requires the legacy `avatar_005` and transparent
+`avatar_007` fixtures from the original custom installation.

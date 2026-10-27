@@ -71,7 +71,7 @@ test('the director receives the library and script intent, can choose custom or 
   const ctx=()=>({signal:AbortSignal.timeout(30000),job:{usage:[]},maxCalls:8,persist:()=>{},stage:()=>{}});
   try{
     const result=await planGraphBeats(p,ctx(),'gemini-fixture',p.scenes,[]);
-    assert.equal(result[0].templateId,'custom');assert.equal(payload.motionLibrary.length,20);
+    assert.equal(result[0].templateId,'custom');assert.equal(payload.motionLibrary.length,50);
     assert.equal(payload.editorialPolicy.sceneHints[0].hints[0].intent,'Explain change');
     mode='clean';assert.deepEqual(await planGraphBeats(p,ctx(),'gemini-fixture',p.scenes,[]),[]);
     mode='ad_unknown';await assert.rejects(()=>planGraphBeats(p,ctx(),'gemini-fixture',p.scenes,[]),/available library ID/);

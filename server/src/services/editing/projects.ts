@@ -20,7 +20,7 @@ import { supportedMotionModel } from "./motionProvider.js";
 import { applyMotionTheme, inferMotionTheme } from './motionTheme.js';
 import {currentWorkspace} from '../workspace.js';
 import {isImageOnlyShorts} from '../motion-editorial-policy.js';
-import {motionEditorialContext} from './motionEditorial.js';
+import {motionEditorialContext,hasScriptMotionPlan} from './motionEditorial.js';
 export interface ScriptInput {
   id: string;
   name?: string;
@@ -252,6 +252,7 @@ async function createProjectSnapshot(value: unknown, publishNew = true) {
   p.scenes = mapScenes(p);
   applyMotionTheme(p, inferMotionTheme(`${request.settings.stylePreference} ${narration} ${selected.map(image => image.prompt).join(' ')}`));
   if(isImageOnlyShorts(script,currentWorkspace().profile) && selected.every(image=>image.mediaType!=='video')) p.settings.graphicEngine='generative';
+  if(hasScriptMotionPlan(p))p.settings.graphicEngine='generative';
   if(motionEditorialContext(p).key==='ancient_dharma') {
     p.style.colors={background:'#281B24',text:'#FFF3D7',accent:'#C59B52'};
     p.style.shapeTreatment='Restrained historical linework and legible Devanagari; no modern electronic treatments';

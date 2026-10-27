@@ -8,7 +8,7 @@ Audited against this repository and the original Windows installation on 2026-09
 
 The repository explicitly ignores `ComfyUI/`, `artifacts/`, Python virtual environments, `.env`, and much of `server/data/`. Other models live outside the repository in the Windows user profile. This is not a Git LFS or submodule download problem.
 
-**The AI presenter requires a separate custom application, `MuseTalk-Demo`. Its `app/` wrapper is not included here. A clone of upstream MuseTalk alone cannot replace it. Transfer that application from the old PC or obtain its matching source before claiming presenter setup is complete.** The rest of TubeFlow can be installed without it.
+**The AI presenter source and TubeFlow adapter are now bundled in `MuseTalk-Demo/`.** Run `npm run setup:presenter` to install its isolated environment and inference models. Prepared avatars and weights remain local; they are not stored in Git. The rest of TubeFlow can be installed without enabling the presenter.
 
 ### Locations found on the original PC
 
@@ -21,10 +21,10 @@ These are an inventory, not paths to paste into the new PC's configuration. `<ol
 | SDXL image checkpoint | `<old-repo>/ComfyUI/models/checkpoints/juggernautXL_ragnarok.safetensors` | Transfer this file or download the publisher's checkpoint |
 | ACE-Step music weights | `<old-repo>/ComfyUI/models/{diffusion_models,text_encoders,vae}` | Included downloader, section 7 |
 | Ollama weights | `C:/Users/zrajc/.ollama/models` | `ollama pull qwen3.5:4b` or transfer complete model store |
-| Custom presenter application | `C:/Users/zrajc/OneDrive/Documents/MuseTalk-Demo` | Transfer application, including `app/`, nested engine, weights, and avatars |
-| Presenter Python | `C:/Users/zrajc/miniconda3/envs/musetalk-demo/python.exe` (default lookup) | Recreate Conda environment and verify on destination |
+| Presenter application | Formerly `C:/Users/zrajc/OneDrive/Documents/MuseTalk-Demo` | Now bundled in this repository; see section 8 |
+| Presenter Python | Formerly a Conda `musetalk-demo` environment | `npm run setup:presenter` creates `MuseTalk-Demo/.venv` |
 | Presenter weights | `<MuseTalk-Demo>/MuseTalk/models` | Transfer or use its `download_models.py` |
-| Prepared presenter avatars | `<MuseTalk-Demo>/avatars/prepared` | Transfer or prepare again in the separate lab |
+| Prepared presenter avatars | `<MuseTalk-Demo>/avatars/prepared` | Prepare with the built-in upload control; preserve transparent originals |
 | Saved projects, voices, media | `<old-repo>/server/data` and browser local storage | Optional private data migration; section 11 |
 
 The inspected ComfyUI folder was an ordinary folder containing a separate Git checkout; no `extra_model_paths.yaml` was present. On another installation also inspect that YAML file, directory junctions, and `HF_HOME`, `HF_HUB_CACHE`, and `OLLAMA_MODELS` overrides. The old Hugging Face cache contained OmniVoice and LivePortrait too; neither is required for the default Cloud speech/MuseTalk setup described here.
@@ -43,9 +43,9 @@ ComfyUI with the documented SDXL checkpoint, and ACE-Step local music.
 Configure server/.env using absolute paths for THIS PC. Use separate Python
 environments. Download/restore and verify the weights; npm install is insufficient.
 Enable and verify local AI editing after basic generation works.
-For the presenter, inspect whether the custom MuseTalk-Demo app or a transfer
-bundle is available. If absent, report the exact missing dependency and continue
-with all independent setup; do not substitute a bare upstream MuseTalk clone.
+For the presenter, run npm run setup:presenter and prepare a face photo or short
+video in Timeline & Render > AI Presenter. Verify an actual lip-sync render.
+A legacy external MuseTalk-Demo can still be selected with environment overrides.
 Artifacts uses the saved narration scene timing.
 Do not overwrite secrets or existing environments. Do not print credentials.
 Check every external command's exit code and actual readiness, since some bundled
@@ -214,61 +214,24 @@ The downloader requires Python 3.11+ (`hashlib.file_digest`) and `requests`, alr
 
 Check ComfyUI's `/object_info` includes `TextEncodeAceStepAudio1.5`, `EmptyAceStep1.5LatentAudio`, `VAEDecodeAudioTiled`, and `SaveAudio`. Missing classes indicate an incompatible/failed ComfyUI installation, not necessarily missing weights. Generate and audition a 30-second instrumental in **Timeline & Render > Audio & Voiceover Mix > AI-generated music** with other GPU tasks idle.
 
-## 8. Restore the custom MuseTalk presenter application
+## 8. Install the bundled MuseTalk presenter
 
-This feature has an additional source dependency outside Git. The TubeFlow worker imports `app.config` and `app.musetalk_service.MuseTalkService` from the external application. It calls a custom `generate_lipsync(...)` interface with prepared avatars and silence settings. Merely installing a PyPI package, downloading weights, or cloning upstream MuseTalk does not supply this interface.
+The repository includes `rajchauhan-devx/MuseTalk`, pinned in `MuseTalk-Demo/UPSTREAM.json`, and the `app/` adapter required by TubeFlow. Do not install the upstream training/Gradio stack for the integrated presenter.
 
-### On the old PC, before losing access
-
-Copy the complete `C:/Users/zrajc/OneDrive/Documents/MuseTalk-Demo` application to a private transfer drive, including:
-
-- `app/`, `requirements_demo.txt`, `setup.bat`, `run.bat`, `download_models.py`;
-- `MuseTalk/` engine source, configuration files, and `MuseTalk/models/`;
-- `avatars/prepared/`, `avatars/source/`, and original avatar media;
-- any local source modifications and model/engine configuration files.
-
-Also export the working Conda environment's specifications to the transfer bundle. Run from an Anaconda/Miniconda prompt where `conda` works; choose an existing transfer directory:
+With Python 3.10–3.12 and FFmpeg installed:
 
 ```powershell
-conda env export -n musetalk-demo --no-builds | Out-File -Encoding utf8 D:/TubeFlow-transfer/musetalk-environment.yml
-conda list -n musetalk-demo --explicit | Out-File -Encoding utf8 D:/TubeFlow-transfer/musetalk-conda-explicit.txt
-conda run -n musetalk-demo python -m pip freeze | Out-File -Encoding utf8 D:/TubeFlow-transfer/musetalk-pip-freeze.txt
+npm run setup:presenter
+./MuseTalk-Demo/.venv/Scripts/python.exe MuseTalk-Demo/app/cli.py health
 ```
 
-Treat exports as private; review local paths or authenticated package URLs before sharing. Copy the application while generation is stopped. A Python/Conda environment directory is not a portable replacement for reinstalling dependencies.
+On macOS/Linux, the interpreter is `MuseTalk-Demo/.venv/bin/python`. Setup downloads MuseTalk 1.5, SD VAE, Whisper Tiny and OpenCV YuNet, recording model revisions locally. It creates an isolated environment and fails on unsuccessful install/download/health commands. Expect about 5 GB plus avatar/output storage. CUDA, Apple MPS and CPU inference are supported; Apple MPS uses float32 after fp16 was observed to overflow. Performance depends on hardware.
 
-### On the new PC
+Open **Timeline & Render → AI Presenter → Add an avatar**. Use a photo or a short video with exactly one clear face, up to 40 MB. Preparation normalizes the first 10 seconds to 25fps and stores the reusable frame/latent cache. The UI reports progress and supports cancellation. Enable the presenter, choose the prepared avatar and render a short story. No separate lab is required.
 
-1. Restore the application to, for example, `C:/AI/MuseTalk-Demo`.
-2. Recreate the environment from the exported YAML after removing its old absolute `prefix:` line and reviewing any local file dependencies. Use `conda env create -n musetalk-demo -f <reviewed-yaml-path>` for a new environment; do not overwrite an existing working environment.
-3. If no environment export exists, inspect and run the transferred `setup.bat` from its own directory. It attempts Python 3.10, PyTorch 2.0.1 / torchvision 0.15.2 / torchaudio 2.0.2 with CUDA 11.8, plus OpenMMLab dependencies. Its dependencies are not fully pinned; modern GPU support and Windows wheel compatibility need verification. The script has interactive pauses and does not reliably stop on all failures. The copied application and current upstream requirements must be reconciled if this bootstrap fails.
-4. Run `download_models.py` with that environment's Python if weights are missing. Its success messages/existing-file size checks are not a full checksum verification; inspect failures and perform real inference.
-5. Use the separate lab (`run.bat`) to prepare a short avatar if none were transferred. Close the lab before rendering in TubeFlow to release GPU memory.
+Verify `GET http://localhost:3001/api/presenter/status` reports `installed: true`. A file check alone is insufficient: finish with a real render, for example `node server/scripts/test-presenter.mjs --avatar YOUR_AVATAR_ID`.
 
-Set actual destination paths in **`server/.env`**, then restart TubeFlow:
-
-```dotenv
-MUSETALK_ROOT=C:/AI/MuseTalk-Demo
-MUSETALK_PYTHON=C:/Users/NEW_USERNAME/miniconda3/envs/musetalk-demo/python.exe
-```
-
-Required weight/config groups under `MuseTalk-Demo/MuseTalk/models` include:
-
-| Folder | Files / source used by the external downloader |
-| --- | --- |
-| `musetalkV15` | `unet.pth`, `musetalk.json` from `TMElyralab/MuseTalk` |
-| `sd-vae` | `config.json`, `diffusion_pytorch_model.bin` from `stabilityai/sd-vae-ft-mse` |
-| `whisper` | `config.json`, `pytorch_model.bin`, `preprocessor_config.json` from `openai/whisper-tiny` |
-| `dwpose` | `dw-ll_ucoco_384.pth` from `yzd-v/DWPose` |
-| `face-parse-bisent` | `79999_iter.pth`, `resnet18-5c106cde.pth` from `ManyOtherFunctions/face-parse-bisent` |
-
-The downloader also attempts optional SyncNet evaluation weights. The inspected upstream MuseTalk checkout was `0a89dec45a0192b824e3cf4daf96c239440c5ed8`; this does not identify or restore the separate custom `app/` source.
-
-Each visible avatar needs `metadata.json` with `preparation_status: "prepared"`, `source_25fps.mp4`, `coords.pkl`, `mask_coords.pkl`, `latents.pt`, `full_imgs/`, and `mask/` under `avatars/prepared/<avatar-id>/`. The original default selection was `avatar_005`; select an avatar that actually exists on the new PC. Preserve transparent WebM originals and `server/data/presenter-alpha` for transparent presenters, and reselect/reprepare sources if saved metadata points to old absolute paths or temporary uploads.
-
-The TubeFlow worker sets Hugging Face/Transformers **offline mode**. Finish downloads and a successful standalone lab generation before testing integration; runtime cannot be relied upon to fetch missing files.
-
-Verify `GET http://localhost:3001/api/presenter/status`: `installed` should be true and the expected avatars should appear. That status only checks a subset of files; finish with a short real presenter render. If the custom application is unavailable, leave AI Presenter off and explicitly record the feature as blocked. See [presenter usage](ai-presenter.md).
+Existing external custom installations may still use `MUSETALK_ROOT` and `MUSETALK_PYTHON` in `server/.env`; bundled setup requires neither. Relative overrides resolve from the repository root. Re-prepare legacy avatars when moving to the bundled adapter, whose face detection/blending cache differs from the old lab. Preserve transparent WebM originals for cutouts. Runtime inference is offline; complete model downloads during setup. See [presenter usage and verification](ai-presenter.md).
 
 ## 9. Set up Artifacts motion graphics
 
@@ -340,7 +303,7 @@ YouTube uploading is optional. Supply your own OAuth application credentials thr
 | Music reports weights missing after download | Downloader wrote repo-local ComfyUI; compare it with `COMFYUI_PATH/models`. |
 | Music says a node class does not exist | Confirm compatible ComfyUI revision and successful dependency installation; inspect startup errors. |
 | MuseTalk installed but no avatars | Restore complete prepared-avatar folders, metadata, and original media; refresh avatar selection. |
-| Presenter fails importing `app` | Missing custom MuseTalk-Demo wrapper or wrong `MUSETALK_ROOT`; upstream engine alone is insufficient. |
+| Presenter fails importing `app` | Check the bundled `MuseTalk-Demo/app` source and remove stale `MUSETALK_ROOT` / `MUSETALK_PYTHON` overrides. Run `npm run setup:presenter`. |
 | CUDA out of memory | Stop competing GPU tasks, use low-VRAM ComfyUI mode, and test one service at a time. |
 | FFmpeg/ffprobe not found | Install both and restart terminals/Node after updating PATH. |
 | API requests rejected after Vite starts on 5174 | Free port 5173 or update the configured CORS origin to the actual frontend address. |

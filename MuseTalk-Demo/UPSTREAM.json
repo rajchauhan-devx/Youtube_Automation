@@ -1,0 +1,5 @@
+{
+  "repository": "https://github.com/rajchauhan-devx/MuseTalk",
+  "commit": "ed998377e7cd05ae605460314d837df599c0bfd7",
+  "integration": "TubeFlow adapter in app/. Upstream source retained; .gitignore models rule anchored to keep musetalk/models Python source trackable."
+}

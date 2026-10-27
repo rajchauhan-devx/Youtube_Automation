@@ -58,6 +58,11 @@ def main():
         event(stage=stage, progress=round(pct * 100))
     try:
         progress("Presenter engine ready", 0.03)
+        if request.get("action") == "prepare":
+            result = service.prepare_avatar(request["source"], request["avatarId"],
+                                            request.get("name", ""), request.get("seconds", 10), progress)
+            event(result=result)
+            return
         sig = inspect.signature(service.generate_lipsync)
         kwargs = {
             "audio_path": request["audio"],

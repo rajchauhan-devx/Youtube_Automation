@@ -1,81 +1,96 @@
-# Ancient Dharma adaptive motion library
+# Script-aware motion library
 
-The profile gallery and the production director share 20 content-driven families
-in `packages/video-composition/src/motion-library.ts`. They use eleven reusable
-layout recipes. The original JPG/PNG reference assets remain in `public/motion-templates`;
-their baked-in facts and labels are not inserted into production graphics.
+Preview's script AI and the Artifacts planner now have access to all **30 gallery
+motions** plus the original **20 adaptive families**. The shared production
+catalog is `MOTION_LIBRARY` in `packages/video-composition/src/motion-library.ts`.
+`gallery-motion-library.ts` supplies the gallery IDs, intended uses, item counts,
+and restrictions. Canonical `ad_` IDs work across channels; older `rz_` and `ato_`
+gallery IDs normalize to the corresponding `ad_` ID.
 
-## Using it
+## Workflow
 
-Open **Motion Templates** to browse families. Change demo labels, duration and
-landscape/portrait format to see the shared renderer adapt. Demo content is local
-to the gallery; it does not edit a script or production revision.
+1. Generate a script in **Preview**. The prompt supplies the full catalog and asks
+   the AI to select only useful explanatory moments. Most scenes can stay clean.
+2. Review **planned motion graphics** beneath the Preview controls. It lists the
+   scene, template name, purpose, narration cue, suggested position, duration and
+   supplied text. The complete metadata remains in the tagged response.
+3. **Extract Assets** saves the motion plan with its source scene. Metadata is not
+   spoken narration and is not included in generated image/video prompts.
+4. Generate the scene media and narration, then generate motion graphics in
+   **Artifacts**. A script with an explicit motion template automatically uses
+   the adaptive library engine, including older projects and mixed/video scenes.
+5. The artifact planner checks actual footage and narration. When its selected
+   template matches the script plan, valid content is reused without another
+   content-generation call. It may choose a different template or omit a beat
+   when that better fits the real scene. Saved native nodes, evidence, geometry
+   and animation tracks are replayed in preview and export.
 
-In **Motion Studio** or **Preview & Export**, expand **Choose narration & let AI
-plan motion graphics**, select narration and **Adaptive library & original
-compositions**, then generate. The AI sees scene media observations, narration,
-channel policy and optional script hints. It chooses a suitable library family,
-`custom` for an original graph, or no graphic. Other channel profiles continue to
-use their existing custom/director paths.
+Old scripts without metadata still use the existing narration-based planner.
+Existing line-based `Intent:` / `Template:` metadata remains supported. Merely
+opening an old script does not generate new assets or alter existing artifacts.
 
-Review the resulting composition over the actual scene. Export uses those saved
-nodes, evidence and animation tracks; it does not ask the model to design again.
-Existing revision and stale-input checks continue to apply.
+## Metadata format
 
-## Script hints
+Each chosen scene has at most one separate numbered JSON tag. For narration
+containing “प्राचीन ज्ञान”, an example is:
 
-Structured script generation accepts an optional `motionGraphics` array, with at
-most one explanatory hint per scene:
-
-```json
-{"motionGraphics":[{"intent":"Explain the sequence described in this scene","templateId":"ad_process"}]}
-```
-
-Numbered-tag scripts can use:
-
-```text
+```xml
 <motion_graphic3>
-Scene: 3
-Intent: Explain the order of the narrated events
-Template: ad_timeline
+{
+  "version": 1,
+  "templateId": "ad_lower_third",
+  "intent": "Introduce the subject mentioned by the narrator",
+  "quote": "प्राचीन ज्ञान",
+  "position": "bottom",
+  "durationSec": 4,
+  "layout": "auto",
+  "content": {
+    "items": [{"text": "प्राचीन ज्ञान"}],
+    "links": []
+  }
+}
 </motion_graphic3>
 ```
 
-The hint is outside spoken narration and image/video prompts. `Template` is
-optional. Parsing and scene-plan serialization preserve these hints. A hint never
-forces a graphic or authorizes adding unsupported facts.
+The tag number identifies the source scene. JSON transport uses the same object
+in that scene's `motionGraphics` array. `position` allows `auto`, `top`, `bottom`,
+`left`, `right`, or `center`; `layout` allows `auto`, `horizontal`, or `vertical`.
+`durationSec` allows 1.5–15 seconds and is clamped to the actual scene end. Measured
+word/phrase alignment anchors the entrance to `quote`; approximate alignment
+starts at the scene boundary and is identified as approximate in Artifacts.
 
-## Content and fitting
+Every item `text`, optional `detail`, and `quote` must occur in that scene's
+narration. Numeric diagrams additionally require an item `value` matching a
+number in its displayed phrase. Progress/donut graphics require an explicit
+percentage between 0 and 100. Bars and trends must compare the same narrated unit;
+no conversions or observations are invented. Trees use explicit zero-based
+`{from,to}` links, one earlier parent per child. Other templates use no links.
 
-The director chooses a family by its purpose, required item count and unsuitable
-uses. A second provider request supplies short exact narration phrases as
-`items: [{text, detail?}]`, optional parent-child links for relationship trees,
-and automatic/horizontal/vertical layout. The provider supplies no executable
-markup or template geometry.
+The serializer escapes angle brackets inside JSON strings. Invalid template IDs,
+placement values, durations, links, malformed numbered tags, and unsupported text
+are rejected. Narration edits preserve intent/template choice but clear stale
+content or cues so production can adapt them to the revised wording.
 
-The deterministic compiler supplies final-pixel positions, historical colors,
-Devanagari font selection, progressive line reveals, staggered phrase entrance,
-reading holds and caption clearance. Timelines/processes support two to seven
-items. Dense portrait trees become indented vertical relationships. The selected
-family ID, version and resulting layout are stored on `sceneGraph.template`.
+## Production behavior
 
-Every displayed phrase binds to matching narration tokens, including a label
-inside a measured scene-length phrase. Narration support is not independent
-historical verification. Family definitions contain no sample dates, shlokas,
-measurements, laboratory IDs or source credits.
+Gallery visuals demonstrate the motion concept. Production rebuilds them as
+editable, evidence-bound scene-graph nodes and adapts layout and treatment to the
+channel. Ancient Dharma uses Hindi narration phrases, muted gold/ivory, calm
+reveals and reading holds. Electronic HUDs, rolling counters and terminal effects
+become restrained emphasis; it never silently translates or adds source claims.
+The gallery's demo edits and sample facts are not production inputs.
 
-Chromium checks actual font ink, text overlap, reading time, animation bounds and
-protected regions at every artifact frame. Diagram geometry is checked alongside
-text. Failed layout receives a bounded correction request, then the scene is
-skipped if it still cannot fit. Rendered visual review remains responsible for
-semantic relevance, subject occlusion and contrast over actual media.
+Observed open space takes precedence over the suggested position. Scenes with no
+open area are skipped. Browser validation checks actual glyph bounds, reading
+holds, text overlap, animation bounds and protected caption regions. Invalid
+saved content or a poor fit receives a bounded adaptation attempt; failures are
+reported in generation notes. Narration support is not independent historical
+verification, and semantic review still matters for real footage.
 
-Journeys, celestial relationships, dimensions and cross-sections are schematic.
-These families do not infer real coordinates, trace buildings, track moving
-objects, reproduce exact sacred geometry or generate 3D reconstructions. Use
-verified source-map/spotlight tooling or a suitable custom composition for work
-requiring those capabilities. Silence is valid; library recipes do not invent
-sound measurements or force an effect on every reveal.
+Routes, dimensions, focus rings, pins, celestial diagrams and cycles are
+schematic. They do not measure, magnify, track subjects or infer coordinates.
+Gallery downloads remain still SVG frames; Artifacts exports the saved animation
+through the existing video renderer.
 
 ## Verification
 
@@ -83,22 +98,19 @@ sound measurements or force an effect on every reveal.
 npm run typecheck
 npm run build --prefix server
 npm run build
-node --test --test-concurrency=1 tests/editing/motion-library.test.mjs tests/editing/scene-graph.test.mjs tests/editing/scene-graph-engine.test.mjs tests/editing/scene-graph-render.test.mjs server/tests/motion-editorial-policy.test.mjs
+node --test --test-concurrency=1 tests/editing/script-motion.test.mjs tests/editing/motion-library.test.mjs tests/editing/scene-graph-render.test.mjs server/tests/motion-editorial-policy.test.mjs
+node tests/editing/script-motion-browser.mjs
 node tests/editing/motion-library-browser.mjs
 ```
 
-The library suite covers real Hindi font layout for all 20 families at maximum
-item counts in both video formats, supported-content correction, optional script
-hints, custom/clean choices, tree validation, saved rendering and checkpoint
-replay. Provider responses in these tests are mocked; actual browser rendering,
-font measurement and export parity are exercised. Browser screenshots are written
-under `artifacts/motion-library-proof/`.
+Integration tests cover the actual Preview prompt, both metadata transports,
+invalid/stale data, selective planning, spoken cues, placement overrides, native
+Hindi layout for all 30 gallery choices in both video formats, artifact
+persistence, checkpoint replay and preview/export parity. Provider responses are
+mocked; browser font measurement and rendering are real. Screenshots are under
+`artifacts/script-motion-proof/` and `artifacts/motion-gallery-proof/`.
 
-Workspace verification on 24 October 2026: client typecheck, server build, client
-production build, focused lint, 31 focused tests, the library browser proof and
-the existing studio browser proof passed. The export regression compared actual
-HyperFrames captures with the shared evaluator and checked encoded duration.
-Three broader script-generation/legacy-parser assertions fail identically against
-the original HEAD modules; the isolated baseline report is in
-`artifacts/motion-library-baseline/results.txt`. No live provider proof was used
-for this change.
+The broader script-generation suite contains an existing narration-length
+assertion failure: it expects a 773-character overflow error but receives the
+video-quota error instead. The same result was reproduced using the original HEAD
+script-generation/parser modules; see `artifacts/script-motion-proof/baseline.txt`.

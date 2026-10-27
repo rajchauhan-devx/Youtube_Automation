@@ -1,3 +1,5 @@
+import { MotionScriptHint, type MotionScriptHintData } from '@tubeflow/editing-contracts';
+
 export interface ParsedMetadata {
   index: number;
   type: string;
@@ -6,6 +8,7 @@ export interface ParsedMetadata {
   detail?: string;
   assetPrompt?: string;
   raw: string;
+  motionPlan?: MotionScriptHintData;
 }
 
 export interface ParsedAIResponse {
@@ -107,13 +110,30 @@ function findScript(text: string): string {
   return text.trim();
 }
 
-function findMetadata(text: string): ParsedMetadata[] {
+export function findMetadata(text: string): ParsedMetadata[] {
   const list: ParsedMetadata[] = [];
+  if(text.trimStart().startsWith('{')) {
+    try {
+      const plan=JSON.parse(text);
+      for(const [i,scene] of (plan.scenes||[]).entries())for(const raw of scene.motionGraphics||[]) {
+        const parsed=MotionScriptHint.safeParse(raw);
+        if(parsed.success)list.push({index:i+1,scene:String(i+1),type:'motion',title:parsed.data.intent,raw:JSON.stringify(raw),motionPlan:parsed.data});
+      }
+    } catch { /* A streamed response may still be incomplete. */ }
+    return list;
+  }
   const regex = /<(?:metadata|motion_graphic)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic)(?:\d+)?\s*>/gi;
   let m;
   let idx = 1;
   while ((m = regex.exec(text)) !== null) {
     const raw = m[2].trim();
+    if(raw.startsWith('{')) {
+      try {
+        const parsed=MotionScriptHint.safeParse(JSON.parse(raw));
+        if(parsed.success)list.push({index:Number(m[1])||idx++,scene:m[1],type:'motion',title:parsed.data.intent,raw,motionPlan:parsed.data});
+      } catch { /* Leave malformed metadata visible in the original response. */ }
+      continue;
+    }
     const typeMatch = raw.match(/Type:\s*([^\n]+)/i);
     const sceneMatch = raw.match(/(?:Scene|#scene|#image)[:\s]+\s*([^\n]+)/i);
     const titleMatch = raw.match(/Title:\s*([^\n]+)/i);

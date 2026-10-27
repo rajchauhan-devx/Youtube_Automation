@@ -1,4 +1,5 @@
 import { chat } from './gemini.js';
+import { refreshMotionHints } from './script-motion.js';
 import { validateScenePlan, spokenText, type ScenePlan } from './scene-plan.js';
 import { narrationWordBudget } from './script-generation.js';
 
@@ -45,7 +46,7 @@ export async function repairNarrationBudget(apiKey: string, input: ScenePlan, du
         ? Array.isArray(edit.narrationWords) && edit.narrationWords.length >= minimumWords && edit.narrationWords.length <= maximumWords
           && edit.narrationWords.every((word: unknown) => typeof word === 'string' && /^\S+$/u.test(word)) ? edit.narrationWords.join(' ') : undefined
         : edit.narration;
-      return typeof narration === 'string' ? { ...scene, narration } : scene;
+      return typeof narration === 'string' ? { ...scene, narration, ...(scene.motionGraphics ? {motionGraphics:refreshMotionHints(scene.motionGraphics,narration)} : {}) } : scene;
     });
     try { validateScenePlan({ ...plan, scenes: next }); plan.scenes = next; } catch { /* Retry unsafe or overlong speech. */ }
   }

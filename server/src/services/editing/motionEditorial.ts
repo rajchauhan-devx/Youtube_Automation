@@ -1,3 +1,5 @@
+import { MotionScriptHint } from '@tubeflow/editing-contracts';
+import { motionLibraryTemplate } from '@tubeflow/video-composition';
 import type {EditingProject,SceneGraphData} from '@tubeflow/editing-contracts';
 import {getAccount} from '../accounts.js';
 import {store} from '../store.js';
@@ -40,4 +42,11 @@ export function graphEditorialIssues(project:EditingProject,graph:SceneGraphData
       issues.push('Replace neon electronic colors with muted stone, saffron, gold or ivory for Ancient India.');
   }
   return issues;
+}
+
+export function hasScriptMotionPlan(project: EditingProject): boolean {
+  return motionEditorialContext(project).sceneHints.some(scene=>Array.isArray(scene.hints)&&scene.hints.some(raw=>{
+    const parsed=MotionScriptHint.safeParse(raw);
+    return parsed.success && !!parsed.data.templateId && (parsed.data.templateId==='custom'||!!motionLibraryTemplate(parsed.data.templateId));
+  }));
 }

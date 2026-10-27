@@ -1,3 +1,4 @@
+import { parseMotionScriptHint } from './script-motion.js';
 import type { NarrationScene, ScenePlan } from './scene-plan.js';
 
 /**
@@ -510,11 +511,26 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
     'Generated Episode';
 
   // 5. Extract Motion Graphics Metadata (<metadata[N]> or <motion_graphic[N]>)
+  for (const tag of ['metadata','motion_graphic']) {
+    const opens=(text.match(new RegExp(`<${tag}(?:\\d+)?\\b[^>]*>`,'gi'))||[]).length;
+    const closes=(text.match(new RegExp(`</${tag}(?:\\d+)?\\s*>`,'gi'))||[]).length;
+    if(opens!==closes)throw new Error(`Unfinished or unmatched <${tag}> block`);
+  }
   const motionMetadata: any[] = [];
-  const metadataRegex = /<(?:metadata|motion_graphic)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic)(?:\d+)?\s*>/gi;
+  const metadataRegex = /<(?:metadata|motion_graphic)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic)(\d+)?\s*>/gi;
   let metaIdx = 1;
   for (const m of text.matchAll(metadataRegex)) {
     const raw = m[2].trim();
+    if (m[1] !== m[3])throw new Error('Motion metadata opening and closing scene numbers must match');
+    if (raw.startsWith('{')) {
+      const sceneNum=Number(m[1]);
+      if(!Number.isInteger(sceneNum)||sceneNum<1||!scenes[sceneNum-1])throw new Error('JSON motion metadata requires a numbered tag matching an existing scene');
+      let json: unknown;
+      try { json=JSON.parse(raw); } catch { throw new Error(`Scene ${sceneNum}: invalid motion metadata JSON`); }
+      const hint=parseMotionScriptHint(json,scenes[sceneNum-1].narration);
+      motionMetadata.push({...hint,index:sceneNum,sceneNum,sceneId:scenes[sceneNum-1].id,raw});
+      continue;
+    }
     const typeMatch = raw.match(/Type:\s*([^\n]+)/i);
     const sceneMatch = raw.match(/(?:Scene|#scene|#image)[:\s]+\s*#?(?:image\s*|scene\s*)?(\d+)/i);
     const titleMatch = raw.match(/Title:\s*([^\n]+)/i);
@@ -532,7 +548,7 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
     const highMatch = raw.match(/Highlight:\s*([^\n]+)/i);
     const assetPromptMatch = raw.match(/Asset\s*Prompt:\s*([\s\S]*?)(?=(?:\n[A-Z][a-z]+:|$))/i);
 
-    const sceneNum = sceneMatch ? parseInt(sceneMatch[1], 10) : undefined;
+    const sceneNum = sceneMatch ? parseInt(sceneMatch[1], 10) : m[1] ? Number(m[1]) : undefined;
     motionMetadata.push({
       index: m[1] ? Number(m[1]) : metaIdx++,
       sceneNum,

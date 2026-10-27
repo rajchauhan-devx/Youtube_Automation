@@ -12,7 +12,8 @@ Recovery controls, persistent render/upload handling, measured speech timing, ed
 All profiles share [one script extraction format](docs/SHARED_SCRIPT_FORMAT.md), with content-preserving conversion for supported older responses.
 It includes a prompt to give an AI installer, model download steps, external folder
 dependencies, `server/.env` configuration, and runtime verification. Git clone alone
-does not include ComfyUI, model weights, or the separate custom MuseTalk-Demo app.
+does not include ComfyUI or model weights. The MuseTalk source and TubeFlow adapter
+are included; run `npm run setup:presenter` to install their local runtime and weights.
 
 AI-directed visual editing is available under **Artifacts** with a shared preview/MP4
 renderer and an explicit enhanced mode in **Timeline & Render**. Legacy **Start Video Generation** also includes saved, enabled Artifacts graphics over the edited footage. See
@@ -35,7 +36,8 @@ Performance memory imports actual watch duration, average percentage viewed and 
 
 AI presenter: enable **Timeline & Render → AI Presenter** to add a chest-up,
 lip-synced character to the bottom-right of your video. The app starts the worker
-using the existing MuseTalk installation. See [presenter setup and usage](docs/ai-presenter.md).
+using the bundled MuseTalk integration. Upload a face photo or short video in the
+presenter panel. See [presenter setup and usage](docs/ai-presenter.md).
 
 See [the production review](PRODUCTION_REVIEW.md) for verified fixes, RTX 3050 model guidance, scene/audio synchronization instructions, and remaining release blockers.
 

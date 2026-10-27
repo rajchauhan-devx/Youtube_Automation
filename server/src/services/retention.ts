@@ -1,3 +1,4 @@
+import { refreshMotionHints } from './script-motion.js';
 import type { AutoPilotSettings } from './autopilot-settings.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
@@ -78,10 +79,22 @@ export async function createRetentionPlan(options: {
   const memoryEvidence = retentionMemory(notes, options.duration);
   const result = await validatedModelJson({ ...options, messages: [
     { role: 'system', content: 'You are a meticulous story editor and YouTube packaging editor. Return only JSON. Quality judgments are editorial hypotheses, never predicted audience retention scores. Never invent historical facts, quotations, metrics or prior episode canon.' },
-    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${notes.guidance}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${options.template.slice(0, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
+    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${notes.guidance}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${options.template.slice(0, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
   ] }, PlanOutput, 'Hook planning');
   if (new Set(result.hooks.map(hook => hook.openingLine.toLocaleLowerCase())).size !== 3) throw new Error('Hook planning returned duplicate openings. Generate three distinct hooks.');
-  return { ...result, hooks: result.hooks.map(hook => ({ ...hook, reason: hook.reason || '' })),
+
+  const isShortsProfile = currentWorkspace().profile === 'shorts';
+  const titles = isShortsProfile
+    ? result.titles.map(t => /#shorts\b/i.test(t) ? t.trim() : `${t.trim()} #Shorts`)
+    : result.titles;
+  const description = (isShortsProfile && result.description && !/#shorts\b/i.test(result.description))
+    ? `${result.description.trim()}\n\n#Shorts`
+    : result.description;
+  const tags = (isShortsProfile && Array.isArray(result.tags) && !result.tags.some(t => /^#?shorts$/i.test(t)))
+    ? ['Shorts', ...result.tags]
+    : result.tags;
+
+  return { ...result, titles, description, tags, hooks: result.hooks.map(hook => ({ ...hook, reason: hook.reason || '' })),
     version: 1, topic: options.topic, createdAt: new Date().toISOString(), memoryEvidence };
 }
 
@@ -119,6 +132,7 @@ export async function editForRetention(options: {
     const edit = result.scenes[i];
     if (scene.mediaType === 'video' && !edit.videoPrompt) throw new Error('The retention edit omitted a required video prompt.');
     return { ...scene, narration: edit.narration, imagePrompt: edit.imagePrompt,
+      ...(scene.motionGraphics ? {motionGraphics:refreshMotionHints(scene.motionGraphics,edit.narration)} : {}),
       ...(scene.mediaType === 'video' ? { videoPrompt: edit.videoPrompt } : {}) };
   }) };
   validateScenePlan(edited);
