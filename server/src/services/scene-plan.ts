@@ -1,3 +1,4 @@
+import { parseMotionScriptHint, refreshMotionHints } from './script-motion.js';
 import { isTaggedShortsResponse, parseShortsPackage } from './shorts-package.js';
 import { parseLegacyScenePackage } from './legacy-scene-package.js';
 import {
@@ -45,6 +46,7 @@ export function syncScenePlanNarration(plan: ScenePlan, fullNarration: string): 
     scenes: plan.scenes.map((scene, index) => ({
       ...scene,
       narration: narrations[index] || scene.narration,
+      ...(scene.motionGraphics ? {motionGraphics:refreshMotionHints(scene.motionGraphics,narrations[index] || scene.narration)} : {}),
     })),
   };
 }
@@ -72,6 +74,10 @@ export function validateScenePlan(value: unknown): ScenePlan {
         typeof scene.narration !== 'string' || !scene.narration.trim() ||
         typeof scene.imagePrompt !== 'string' || !scene.imagePrompt.trim() || scene.imagePrompt.length > 8000) {
       throw new Error('Each scene needs a unique ID, chapter, role, image prompt and spoken narration.');
+    }
+    if(scene.motionGraphics !== undefined) {
+      if(!Array.isArray(scene.motionGraphics)||scene.motionGraphics.length>1)throw new Error('Use at most one motion plan per scene');
+      scene.motionGraphics=scene.motionGraphics.map(hint=>hint?.intent ? {...hint,...parseMotionScriptHint(hint,scene.narration)} : hint);
     }
     ids.add(scene.id);
   }

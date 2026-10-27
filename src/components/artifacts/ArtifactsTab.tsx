@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HyperFramesPlayer as Player, type PlayerRef } from './HyperFramesPlayer';
 import { cardBounds, graphicNames, motionLibraryTemplate } from '@tubeflow/video-composition';
-import type { ArtifactComposition, MotionGraphicSpec } from '@tubeflow/editing-contracts';
+import { MotionScriptHint, type ArtifactComposition, type MotionGraphicSpec } from '@tubeflow/editing-contracts';
 import { useEditingProject } from '../../hooks/useEditingProject';
 import { editingRequest, type EditingPayload } from '../../services/editingApi';
 import { useWorkspaceApi } from '../../services/workspaceApi';
@@ -21,6 +21,10 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
   const state = useEditingProject(script?.id, script?.editingProjectId || undefined, model || undefined);
   const { data, fetch } = state, { profile } = useWorkspaceApi();
   const imageOnly=isImageOnlyShorts(script || {},profile);
+  const hasMotionPlan=!!script?.scenePlan?.scenes.some(scene=>scene.motionGraphics?.some(raw=>{
+    const parsed=MotionScriptHint.safeParse(raw);
+    return parsed.success&&!!parsed.data.templateId&&(parsed.data.templateId==='custom'||!!motionLibraryTemplate(parsed.data.templateId));
+  }));
   const [audio, setAudio] = useState(''), [style, setStyle] = useState(''), [density, setDensity] = useState<'subtle' | 'balanced' | 'expressive'>('subtle');
   const [documentary, setDocumentary] = useState(true), [visualReview, setVisualReview] = useState(true);
   const [engine, setEngine] = useState<'generative' | 'directed'>('generative');
@@ -61,11 +65,11 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
       setDocumentary(p.settings.documentary ?? true);
       setVisualReview(p.settings.visualReview ?? true);
       setTreatment(p.settings.treatment ?? 'auto');
-      setEngine(imageOnly?'generative':p.settings.graphicEngine ?? 'directed');
+      setEngine(imageOnly||hasMotionPlan?'generative':p.settings.graphicEngine ?? 'directed');
       setMotionLevel(p.settings.motionLevel ?? 'balanced');
       setSoundDesign(p.settings.soundDesign ?? 'subtle');
     }
-  }, [p,imageOnly]);
+  }, [p,imageOnly,hasMotionPlan]);
   useEffect(()=>{
     setStyle(script?.autoPilotSettings?.graphics.style || p?.settings.stylePreference || SELECTIVE_MOTION_DIRECTION);
     setDensity(script?.autoPilotSettings?.graphics.density || p?.settings.density || 'subtle');
@@ -176,10 +180,10 @@ export function ArtifactsTab({ script, onUpdate, editor = false }: { script: Scr
         <option value="subtle">Subtle · fewer narrative beats</option><option value="balanced">Balanced</option><option value="expressive">Expressive · more emphasis</option>
       </select></label>
       <label className="text-xs font-semibold text-gray-300">Frame rate<select className={input} value={fps} onChange={e => setFps(Number(e.target.value))}><option value={60}>60 fps · smooth motion</option><option value={30}>30 fps · faster export</option></select></label>
-      <label className="text-xs font-semibold text-gray-300">Composition style<select aria-label="Composition style" className={input} value={engine} disabled={imageOnly} onChange={e => setEngine(e.target.value as typeof engine)}>
+      <label className="text-xs font-semibold text-gray-300">Composition style<select aria-label="Composition style" className={input} value={engine} disabled={imageOnly||hasMotionPlan} onChange={e => setEngine(e.target.value as typeof engine)}>
         <option value="generative">Adaptive library &amp; original compositions</option><option value="directed">Directed sequences &amp; source images</option>
       </select></label>
-      {imageOnly && <p className="text-xs text-gray-400 md:col-span-2">AI uses the scene metadata to choose useful moments. Most scenes stay clean; graphics follow the channel’s language and visual style.</p>}
+      {(imageOnly||hasMotionPlan) && <p className="text-xs text-gray-400 md:col-span-2">AI uses the script’s motion plan and the full template library, then checks narration timing and open space in the footage. Unsuitable graphics are skipped; saved artifacts are used for export.</p>}
       <label className="text-xs font-semibold text-gray-300">Motion feel<select aria-label="Motion feel" className={input} value={motionLevel} onChange={e => setMotionLevel(e.target.value as typeof motionLevel)}>
         <option value="subtle">Calm &amp; restrained</option><option value="balanced">Balanced</option><option value="expressive">Expressive</option><option value="still">Still · no animation</option>
       </select></label>

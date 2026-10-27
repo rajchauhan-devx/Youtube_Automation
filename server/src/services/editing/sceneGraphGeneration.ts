@@ -1,7 +1,9 @@
+import { canonicalMotionTemplateId } from '@tubeflow/video-composition';
+import { parseMotionScriptHint } from '../script-motion.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
-import { Artifact, SceneGraph, SoundCue, EvidenceBinding, sceneGraphIssues, identity, Id, Frame, Color, Track, type EditingProject, type ScenePlan, type ArtifactComposition, type SceneGraphData } from '@tubeflow/editing-contracts';
+import { Artifact, SceneGraph, SoundCue, EvidenceBinding, sceneGraphIssues, identity, Id, Frame, Color, Track, MotionPlacement, type MotionScriptHintData, type EditingProject, type ScenePlan, type ArtifactComposition, type SceneGraphData } from '@tubeflow/editing-contracts';
 import { motionJson, type MotionContext } from './motionProvider.js';
 import { sceneNarration } from './motionPackArtifacts.js';
 import { narrationCue } from './narrationCue.js';
@@ -12,15 +14,15 @@ import { runMedia } from '../media-process.js';
 import { currentWorkspace } from '../workspace.js';
 import { inspectGraphLayout } from './sceneGraphLayout.js';
 import {motionEditorialContext,graphEditorialIssues} from './motionEditorial.js';
-import { motionLibraryForProject, generateLibraryGraph } from './motionLibrary.js';
+import { motionLibraryForProject, generateLibraryGraph, resolveMotionPlacement } from './motionLibrary.js';
 
 const normalize = (s: string) => s.normalize('NFC').toLocaleLowerCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, ' ').trim();
 const phraseIn = (text: string, source: string) => (` ${normalize(source)} `).includes(` ${normalize(text)} `);
-const Beat = z.strictObject({ sceneId: z.string(), quote: z.string().min(1).max(1500), intent: z.string().min(1).max(300), templateId: z.string().max(80).optional() });
-export type GraphBeat = z.infer<typeof Beat>;
+const Beat = z.strictObject({ sceneId: z.string(), quote: z.string().min(1).max(1500), intent: z.string().min(1).max(300), templateId: z.string().max(80).optional(), position: MotionPlacement.optional(), durationSec: z.number().min(1.5).max(15).optional(), layout: z.enum(['auto','horizontal','vertical']).optional() });
+export type GraphBeat = z.infer<typeof Beat> & Pick<MotionScriptHintData,'content'>;
 
 export async function planGraphBeats(project: EditingProject, ctx: MotionContext, model: string, scenes: ScenePlan[], observations: unknown, old?: ArtifactComposition): Promise<GraphBeat[]> {
-  const library=motionLibraryForProject(project);
+  const library=motionLibraryForProject();
   const eligible=scenes.filter(s=>s.endFrame-s.startFrame>=project.inputs.fps*2);
   const budget = Math.max(0, Math.floor((ctx.maxCalls-ctx.job.usage.length-1)/(project.settings.visualReview?4:2)));
   const perMinute = {subtle:2,balanced:3,expressive:4}[project.settings.density];
@@ -33,16 +35,29 @@ export async function planGraphBeats(project: EditingProject, ctx: MotionContext
       if(!scene||used.has(b.sceneId))check.addIssue({code:'custom',path:['beats',i],message:'Use each eligible scene at most once'});
       used.add(b.sceneId);
       if(scene&&!phraseIn(b.quote,sceneNarration(project,scene.id)))check.addIssue({code:'custom',path:['beats',i,'quote'],message:'Quote must be an exact contiguous narration span'});
-      if(b.templateId&&b.templateId!=='custom'&&!library.some(t=>t.id===b.templateId))check.addIssue({code:'custom',path:['beats',i,'templateId'],message:'Select an available library ID or custom'});
+      if(b.templateId&&b.templateId!=='custom'&&!library.some(t=>t.id===canonicalMotionTemplateId(b.templateId!)))check.addIssue({code:'custom',path:['beats',i,'templateId'],message:'Select an available library ID or custom'});
     }
   });
   const result=await motionJson(ctx,model,'plan-scene-graphs',schema,
-    `You are an editorial motion designer. Select only moments where a visual explanation makes the spoken point easier to understand. Choose templateId from the supplied motionLibrary when its useWhen, required item count and avoidWhen fit this scene. These are adaptable content-driven families, not reference images to paste into footage. Use templateId:custom for a bespoke 2D composition when no library family fits; omit any beat that does not help. Script sceneHints describe optional explanatory intent, never a requirement to decorate. No cards, panels, boxed labels, enclosing frames, photo badges or frosted-glass surfaces. Integrate free-floating typography, lines and explanatory diagrams into open areas of the original footage. Keep ordinary footage clean; zero beats is valid. Never fill a quota. Respect supplied visual observations: do not cover a face or important subject, and skip scenes whose openArea is none. A beat needs a complete exact quote from its own narration. Graph labels and values will come only from that narration. Do not invent statistics, routes, dates, archive credits or verification. Avoid repeated families in adjacent beats; do not change family merely to satisfy variety. Follow the user's direction and language. For revision return one replacement in the original scene, preserving meaning.`,
+    `You are an editorial motion designer. Select only moments where a visual explanation makes the spoken point easier to understand. Choose templateId from the supplied motionLibrary when its useWhen, required item count and avoidWhen fit this scene. These are adaptable content-driven families, not reference images to paste into footage. Use templateId:custom for a bespoke 2D composition when no library family fits; omit any beat that does not help. Script sceneHints contain the preview AI motion plan: template, content, exact quote, suggested position and duration. Prefer that template and quote when they still help the current narration. Reuse its content unless a new template is required. You may override position/duration/layout to fit actual media, or omit the beat when it does not help. Do not add graphics just because metadata exists. No cards, panels, boxed labels, enclosing frames, photo badges or frosted-glass surfaces. Integrate free-floating typography, lines and explanatory diagrams into open areas of the original footage. Keep ordinary footage clean; zero beats is valid. Never fill a quota. Respect supplied visual observations: do not cover a face or important subject, and skip scenes whose openArea is none. A beat needs a complete exact quote from its own narration. Graph labels and values will come only from that narration. Do not invent statistics, routes, dates, archive credits or verification. Avoid repeated families in adjacent beats; do not change family merely to satisfy variety. Follow the user's direction and language. For revision return one replacement in the original scene, preserving meaning.`,
     {language:project.inputs.language,editorialPolicy:motionEditorialContext(project),direction:ctx.job.instruction||project.settings.stylePreference,density:project.settings.density,limit,
       pacing:'This is a maximum, not a target. Leave most scenes clean; prefer breathing room between useful beats. Metadata does not require a graphic in its scene.',
       motionLibrary:library,observations,scenes:eligible.map(s=>({sceneId:s.id,narration:sceneNarration(project,s.id),duration:(s.endFrame-s.startFrame)/project.inputs.fps})),
       previous:old?.sceneGraph||old?.graphic});
-  return result.beats;
+  return result.beats.map(beat=>{
+    const normalized={...beat,...(beat.templateId?{templateId:canonicalMotionTemplateId(beat.templateId)}:{})};
+    if(old)return normalized;
+    const hints=motionEditorialContext(project).sceneHints.find(s=>s.sceneId===beat.sceneId)?.hints;
+    if(!Array.isArray(hints))return normalized;
+    for(const raw of hints) {
+      try {
+        const hint=parseMotionScriptHint(raw);
+        if(hint.templateId!==normalized.templateId)continue;
+        return {...hint,...normalized,quote:normalized.quote,sceneId:normalized.sceneId};
+      } catch { /* Malformed older metadata must not block narration-based planning. */ }
+    }
+    return normalized;
+  });
 }
 
 export async function graphSoundPalette(project: EditingProject) {
@@ -111,13 +126,18 @@ export async function generateSceneGraph(project: EditingProject, scene: ScenePl
   const tokens=project.alignment.tokens.filter(t=>scene.narrativeRefs.includes(t.id));
   const cue=project.alignment.mode==='approximate'?undefined:narrationCue(tokens,beat.quote);
   const startFrame=Math.max(scene.startFrame,Math.min(scene.endFrame-1,cue?Math.round(cue.start*project.inputs.fps):scene.startFrame));
-  const endFrame=Math.min(scene.endFrame,Math.max(startFrame+Math.round(project.inputs.fps*2.5),cue?Math.ceil(cue.end*project.inputs.fps):scene.endFrame));
+  const endFrame=Math.min(scene.endFrame,beat.durationSec!==undefined
+    ? startFrame+Math.round(beat.durationSec*project.inputs.fps)
+    : Math.max(startFrame+Math.round(project.inputs.fps*2.5),cue?Math.ceil(cue.end*project.inputs.fps):scene.endFrame));
   const durationFrames=endFrame-startFrame;
   if(durationFrames<project.inputs.fps*1.5)throw new Error('Insufficient reading time for a useful motion graphic');
   if(beat.templateId&&beat.templateId!=='custom')return generateLibraryGraph(project,scene,beat,{startFrame,endFrame},ctx,model,
     graph=>graphEvidenceIssues(graph,project,scene,[]),old,observation);
   const portrait=project.inputs.height>project.inputs.width,w=project.inputs.width,h=project.inputs.height;
   const bounds={x:w*0.07,y:h*(portrait?0.21:0.12),width:w*(portrait?0.79:0.86),height:h*(portrait?0.49:0.65)};
+  const placement=resolveMotionPlacement(project,scene,beat.position,observation);
+  if(placement==='left'||placement==='right') {bounds.width=w*0.40;bounds.x=w*(placement==='left'?0.07:0.53);}
+  if(placement==='top'||placement==='bottom') {bounds.height=h*0.30;bounds.y=h*(placement==='top'?0.10:0.46);}
   const editorialPolicy=motionEditorialContext(project);
   const theme=getChannelUniverseTheme(currentWorkspace().accountId,`${editorialPolicy.channelName} ${project.style.direction}`);
   if(editorialPolicy.key!=='ancient_dharma'){theme.primary=project.style.colors.accent;theme.text=project.style.colors.text;}

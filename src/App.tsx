@@ -1622,10 +1622,24 @@ export default function App() {
         statusMessage: 'Final review passed. Exporting the video with its planned title and promise...' }));
       const metadata = retention.plan;
       const exportSettings = initialScript.youtubeExport || {};
+      const isShort = section === 'shorts';
+      const rawTitle = metadata.titles?.[0] || topic;
+      const finalTitle = isShort && !/#shorts\b/i.test(rawTitle)
+        ? (rawTitle.length > 92 ? `${rawTitle.slice(0, 92).trim()} #Shorts` : `${rawTitle.trim()} #Shorts`)
+        : rawTitle;
+      const rawDesc = metadata.description || '';
+      const finalDesc = isShort && !/#shorts\b/i.test(rawDesc)
+        ? (rawDesc ? `${rawDesc.trim()}\n\n#Shorts` : '#Shorts')
+        : rawDesc;
+      const rawTags: string[] = metadata.tags || [];
+      const finalTags = isShort && !rawTags.some((t: string) => /^#?shorts$/i.test(t))
+        ? ['Shorts', ...rawTags]
+        : rawTags;
+
       const uploadResponse = await fetch('/api/youtube/upload', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scriptId, videoFilename, autoPilot: true,
-          title: metadata.titles?.[0] || topic, description: metadata.description || '', tags: metadata.tags || [],
+        body: JSON.stringify({ scriptId, videoFilename, autoPilot: true, isShort,
+          title: finalTitle, description: finalDesc, tags: finalTags,
           privacyStatus: runSettings.youtube.privacyStatus, categoryId: exportSettings.categoryId || '22',
           ...(runSettings.youtube.publishMode === 'schedule' ? { publishAt: runSettings.youtube.scheduledPublishAt } : {}),
         }),
@@ -1634,7 +1648,7 @@ export default function App() {
       const uploaded = await uploadResponse.json();
       if (!uploadResponse.ok || !uploaded.success) throw new Error(uploaded.error || 'YouTube export failed');
       patchScriptState(scriptId, { youtubeExport: { ...exportSettings,
-        title: metadata.titles?.[0] || topic, description: metadata.description || '', tags: metadata.tags || [],
+        title: uploaded.title || finalTitle, description: finalDesc, tags: finalTags,
         publishMode: runSettings.youtube.publishMode, scheduledPublishAt: runSettings.youtube.scheduledPublishAt,
         privacyStatus: uploaded.privacyStatus, uploadedVideoId: uploaded.videoId,
         uploadedVideoUrl: uploaded.videoUrl, uploadedAt: uploaded.uploadedAt,
@@ -1855,7 +1869,7 @@ export default function App() {
       stage: 'idle',
       error: null,
       statusMessage: '',
-      scriptId: prev.scriptId === id ? undefined : prev.scriptId,
+      scriptId: prev.scriptId === id ? null : prev.scriptId,
     }));
     try {
       localStorage.removeItem(`tubeflow:autopilot:${scopeKey}`);

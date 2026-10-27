@@ -15,7 +15,7 @@ const directory = path.join(generatedDir(), id);
 fs.mkdirSync(directory, { recursive: true });
 const ff = args => execFileSync('ffmpeg', ['-v', 'error', '-y', ...args], { windowsHide: true, stdio: 'pipe' });
 const probe = file => JSON.parse(execFileSync('ffprobe', ['-v', 'error', '-show_streams', '-of', 'json', file], { encoding: 'utf8' }));
-const p = { ...defaultPresenter(), enabled: true, widthPercent: 25, bottomPercent: 10, marginPercent: 5, crop: { x: 0, y: 0, width: 100, height: 100 } };
+const p = { ...defaultPresenter(), enabled: true, style: 'card', widthPercent: 25, bottomPercent: 10, marginPercent: 5, horizontalPercent: undefined, crop: { x: 0, y: 0, width: 100, height: 100 } };
 const source = path.join(directory, 'presenter.mp4');
 ff(['-f', 'lavfi', '-i', 'color=blue:s=80x80:r=25', '-f', 'lavfi', '-i', 'sine=frequency=1900', '-t', '1.96', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', source]);
 ff(['-f', 'lavfi', '-i', 'color=red:s=320x180', '-frames:v', '1', path.join(directory, 'red.png')]);

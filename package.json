@@ -11,6 +11,7 @@
     "dev:client": "vite",
     "dev:server": "npm run dev --prefix server",
     "setup:alignment": "node server/scripts/setup-alignment.mjs",
+    "setup:presenter": "node server/scripts/setup-musetalk.mjs",
     "build:packages": "npm run build -w @tubeflow/editing-contracts && npm run build -w @tubeflow/video-composition",
     "build": "npm run build:packages && vite build",
     "lint": "eslint .",

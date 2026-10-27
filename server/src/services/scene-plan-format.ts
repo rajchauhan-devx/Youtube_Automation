@@ -1,7 +1,8 @@
+import { MOTION_SCRIPT_INSTRUCTIONS, MOTION_SCRIPT_PLAN_MARKER, parseMotionScriptHint } from './script-motion.js';
 import { isImageOnlyTemplate, spokenText, type ScenePlan } from './scene-plan.js';
 
 export const SCENE_PLAN_FORMAT_MARKER = '## Shared extraction format V1';
-export const MOTION_SCRIPT_HINTS = 'Motion graphics: optionally record a concise explanatory intent for a scene that benefits from a comparison, process, chronology, relationship or evidence explanation. Most scenes need no hint. Do not pre-render infographics, labels or HUDs into image/video prompts. Final family selection, wording, timing and placement happen after the actual narration and scene media are available in Motion Studio. A suggested template is optional and the director may choose custom or no graphic. Never add facts merely to populate a graphic.';
+export const MOTION_SCRIPT_HINTS = MOTION_SCRIPT_INSTRUCTIONS;
 
 /** Override serialization only; retain every user-authored production instruction. */
 export function withScenePlanFormat(prompt: string, profile: 'shorts' | 'long' | 'mixed'): string {
@@ -72,8 +73,8 @@ Complete standalone continuous-shot video generation prompt for scene 3...
 </video_prompt3>
 
 Profile: ${profile}. ${profile === 'shorts' ? 'Use portrait 9:16.' : 'Use landscape 16:9.'} Write actual finished content in every tag without placeholders or "[...Repeat...]" shortcuts.`;
-  const motionFormat = `${MOTION_SCRIPT_HINTS}\nFor tag output only, an optional <motion_graphicN> block may follow scene N with Scene: N, Intent: a short explanation goal, and optional Template: family ID. Keep this outside the spoken <script> and outside image/video prompts. For structured JSON put the hint in that scene's optional motionGraphics array instead.`;
-  return prompt.includes(SCENE_PLAN_FORMAT_MARKER) ? prompt : `${prompt.trimEnd()}\n\n${contract}\n\n${motionFormat}`;
+  const base = prompt.includes(SCENE_PLAN_FORMAT_MARKER) ? prompt : `${prompt.trimEnd()}\n\n${contract}`;
+  return base.includes(MOTION_SCRIPT_PLAN_MARKER) ? base : `${base}\n\n${MOTION_SCRIPT_HINTS}`;
 }
 
 export function serializeScenePlan(plan: ScenePlan): string {
@@ -96,9 +97,10 @@ export function serializeScenePlan(plan: ScenePlan): string {
     }
     for (const hint of (scene.motionGraphics || []).slice(0,1)) {
       if (typeof hint?.intent !== 'string' || !hint.intent.trim()) continue;
-      const intent=hint.intent.replace(/[<>\r\n]/g,' ').slice(0,300);
-      const template=typeof hint.templateId==='string' && /^(?:ad_[a-z_]+|custom)$/.test(hint.templateId) ? `\nTemplate: ${hint.templateId}` : '';
-      parts.push(`<motion_graphic${num}>\nScene: ${num}\nIntent: ${intent}${template}\n</motion_graphic${num}>`);
+      const metadata=parseMotionScriptHint(hint);
+      // JSON inside tags must not be able to close the surrounding metadata block.
+      const json=JSON.stringify(metadata,null,2).replace(/</g,'\\u003c').replace(/>/g,'\\u003e');
+      parts.push(`<motion_graphic${num}>\n${json}\n</motion_graphic${num}>`);
     }
   });
 

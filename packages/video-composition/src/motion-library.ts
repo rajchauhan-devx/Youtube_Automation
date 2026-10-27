@@ -1,6 +1,7 @@
+import { GALLERY_MOTION_LIBRARY, canonicalMotionTemplateId } from './gallery-motion-library.js';
 import { SceneGraph, MotionTemplateContent, identity, type MotionTemplateContentData, type SceneGraphData, type SceneGraphNodeData, type SceneGraphThemeData } from '@tubeflow/editing-contracts';
 
-type Recipe = 'rings' | 'dimension' | 'quote' | 'radial' | 'scale' | 'sequence' | 'annotation' | 'comparison' | 'tree' | 'list' | 'layers';
+export type Recipe = 'rings' | 'dimension' | 'quote' | 'radial' | 'scale' | 'sequence' | 'annotation' | 'comparison' | 'tree' | 'list' | 'layers' | 'focus' | 'underline' | 'arrow' | 'lower-third' | 'title' | 'highlight' | 'reveal' | 'pin' | 'date' | 'quantity' | 'progress' | 'bars' | 'donut' | 'trend' | 'cycle';
 export interface MotionLibraryTemplate {
   id: string;
   name: string;
@@ -40,7 +41,8 @@ export const ANCIENT_DHARMA_LIBRARY: readonly MotionLibraryTemplate[] = [
   family('ad_stratigraphy', 'Layers & cross-section', 'science', 'layers', 'Schematic stacked layers with native labels and staged rule reveals.', 'Narration explicitly describes ordered material or excavation layers.', 'Inventing layer depths, dating results or laboratory identifiers.', 2, 5, ['layer', 'stratigraphy', 'परत', 'स्तर']),
 ];
 
-export const motionLibraryTemplate = (id: string) => ANCIENT_DHARMA_LIBRARY.find(t => t.id === id);
+export const MOTION_LIBRARY: readonly MotionLibraryTemplate[] = [...ANCIENT_DHARMA_LIBRARY, ...GALLERY_MOTION_LIBRARY];
+export const motionLibraryTemplate = (id: string) => MOTION_LIBRARY.find(t => t.id === canonicalMotionTemplateId(id));
 export const ANCIENT_DHARMA_THEME: SceneGraphThemeData = {
   name: 'Ancient Dharma', primary: '#C59B52', accent: '#BC8056', background: '#281B24', text: '#FFF3D7',
   fontFamily: 'Noto Sans Devanagari', lineWeight: 2, radius: 0,
@@ -64,7 +66,7 @@ export interface MotionTemplateOptions {
 export function compileMotionTemplate(options: MotionTemplateOptions): SceneGraphData {
   const t = motionLibraryTemplate(options.templateId);
   if (!t) throw new Error('Unknown motion library template');
-  const content = MotionTemplateContent.parse(options.content), items = content.items;
+  const content = validateMotionTemplateContent(t.id, options.content), items = content.items;
   if(t.recipe!=='tree'&&content.links.length)throw new Error('Only relationship trees accept explicit links');
   if (items.length < t.minItems || items.length > t.maxItems) throw new Error(`${t.name} requires ${t.minItems}–${t.maxItems} items`);
   if (options.openArea === 'none') throw new Error('No open area for a readable overlay');
@@ -82,7 +84,7 @@ export function compileMotionTemplate(options: MotionTemplateOptions): SceneGrap
     bounds.y = options.openArea === 'top' ? h * 0.10 : h * 0.46;
   }
   const W = bounds.width, H = bounds.height, pad = Math.max(12, w * 0.008);
-  const vertical = ['rings','list','layers'].includes(t.recipe) || options.layout === 'vertical' || (options.layout !== 'horizontal' && (W / H < 1.55 || items.length > 4));
+  const vertical = ['rings','list','layers','bars','trend','cycle'].includes(t.recipe) || options.layout === 'vertical' || (options.layout !== 'horizontal' && (W / H < 1.55 || items.length > 4));
   const layout = t.recipe === 'radial' && W / H > 1.3 && items.length <= 4 ? 'radial' : vertical ? 'vertical' : 'horizontal';
   const nodes: SceneGraphNodeData[] = [], evidence: SceneGraphData['evidence'] = [];
   const fontSize = Math.max(18, Math.round(w * (h > w ? 0.031 : 0.020)));
@@ -128,7 +130,61 @@ export function compileMotionTemplate(options: MotionTemplateOptions): SceneGrap
   };
   const count = items.length;
   const cells: { x: number; y: number; width: number; height: number }[] = [];
-  if (layout === 'radial') {
+  if (['lower-third','title','underline','highlight','reveal','pin','date','quantity','arrow'].includes(t.recipe)) {
+    const low = t.recipe === 'lower-third';
+    cells.push({x:pad,y:H*(low?0.55:0.30),width:W-2*pad,height:H*(low?0.38:0.46)});
+    if(count===2) {
+      cells[0].height=H*0.24;
+      cells.push({x:pad,y:H*0.58,width:W-2*pad,height:H*0.24});
+    }
+  } else if (t.recipe === 'progress' || t.recipe === 'donut') {
+    cells.push({x:pad,y:H*(t.recipe==='donut'?0.62:0.20),width:W-2*pad,height:H*0.30});
+    const value=items[0].value!;
+    if(t.recipe==='progress') {
+      line('percentage-track',pad,H*0.68,W-pad,H*0.68);
+      line('percentage-value',pad,H*0.68,pad+(W-2*pad)*value/100,H*0.68);
+      const active=nodes[nodes.length-1];if(active.kind==='path')active.paint={...paint,stroke:theme.accent,strokeWidth:theme.lineWeight*3};
+    } else {
+      const r=Math.min(W*0.30,H*0.22),cx=W/2,cy=H*0.29;
+      dot('percentage-track',cx,cy,0,r);
+      const steps=Math.max(1,Math.ceil(value/100*64));
+      const commands=Array.from({length:steps+1},(_,i)=>{const a=-Math.PI/2+Math.PI*2*value/100*i/steps;return {op:i?'L' as const:'M' as const,x:cx+Math.cos(a)*r,y:cy+Math.sin(a)*r};});
+      const b=base('percentage-value');
+      nodes.push({...b,tracks:[...b.tracks,strokeReveal(0)],kind:'path',commands,paint:{...paint,stroke:theme.accent,strokeWidth:theme.lineWeight*3}});
+    }
+  } else if(t.recipe==='bars') {
+    const step=(H-2*pad)/count,max=Math.max(1,...items.map(item=>item.value!));
+    items.forEach((item,i)=>{
+      const y=pad+i*step;
+      cells.push({x:pad,y,width:W-2*pad,height:step*0.68});
+      line(`bar-${i}`,pad,y+step*0.85,pad+(W-2*pad)*item.value!/max,y+step*0.85,i);
+      const n=nodes[nodes.length-1];if(n.kind==='path')n.paint={...paint,strokeWidth:Math.min(16,fontSize*0.30)};
+    });
+  } else if(t.recipe==='trend') {
+    const max=Math.max(1,...items.map(item=>item.value!)),chartHeight=H*0.38,step=(H*0.48-pad)/count;
+    const points=items.map((item,i)=>({x:pad+(W-2*pad)*i/(count-1),y:pad+chartHeight*(1-item.value!/max)}));
+    line('zero-baseline',pad,pad+chartHeight,W-pad,pad+chartHeight);
+    points.forEach((p,i)=>{
+      dot(`observation-${i}`,p.x,p.y,i);
+      if(i)line(`trend-${i}`,points[i-1].x,points[i-1].y,p.x,p.y,i);
+      cells.push({x:pad,y:H*0.52+i*step,width:W-2*pad,height:step-pad*0.3});
+    });
+  } else if (t.recipe==='focus') {
+    items.forEach((_,i)=>cells.push({x:pad,y:pad+i*(H-2*pad)/count,width:W*0.55-pad,height:(H-2*pad)/count-pad}));
+    dot('focus-ring',W*0.78,H*0.5,0,Math.min(W*0.15,H*0.25));
+  } else if(t.recipe==='cycle') {
+    const step=(H-2*pad)/count;
+    items.forEach((_,i)=>{
+      cells.push({x:pad+fontSize*1.5,y:pad+i*step,width:W-2*pad-fontSize*1.5,height:step-pad});
+      dot(`stage-${i}`,pad+fontSize,pad+i*step+fontSize*0.6,i);
+      if(i)line(`cycle-step-${i}`,pad+fontSize,pad+(i-1)*step+fontSize*0.6,pad+fontSize,pad+i*step+fontSize*0.6,i);
+    });
+    const first=pad+fontSize*0.6,last=pad+(count-1)*step+fontSize*0.6;
+    line('return-bottom',pad+fontSize,last,pad,last,count);
+    line('return-up',pad,last,pad,first,count);
+    line('return-top',pad,first,pad+fontSize,first,count);
+    line('return-arrow',pad+fontSize-fontSize*0.2,first-fontSize*0.2,pad+fontSize,first,count);
+  } else if (layout === 'radial') {
     const cx = W/2, cy = H/2;
     dot('origin', cx, cy);
     items.forEach((_, i) => {
@@ -180,6 +236,29 @@ export function compileMotionTemplate(options: MotionTemplateOptions): SceneGrap
     if (cell.width < fontSize*3 || cell.height < fontSize*1.5) throw new Error('Content cannot fit this layout; simplify it or choose another open area');
     label(i,cell.x,cell.y,cell.width,cell.height);
   });
+  if (['lower-third','title','underline','highlight','reveal','pin','date','quantity','arrow'].includes(t.recipe)) {
+    const cell=cells[0],y=Math.min(H-pad-fontSize*0.5,cell.y+cell.height+pad*0.4);
+    line('accent-rule',pad,y,W-pad,y);
+    if(t.recipe==='highlight') {
+      const n=nodes[nodes.length-1];if(n.kind==='path')n.paint={...paint,strokeWidth:Math.min(16,fontSize*0.25)};
+    }
+    if(t.recipe==='reveal') {
+      const n=nodes.find(n=>n.id==='item-0');if(n)n.tracks.push({property:'clipProgress',keyframes:[{frame:0,value:0,easing:{kind:'linear'}},{frame:Math.max(1,Math.round(revealSpan)),value:1,easing:{kind:'linear'}}]});
+    }
+    if(t.recipe==='pin') {
+      const cx=W/2,cy=H*0.14,r=Math.min(fontSize,H*0.06);
+      dot('place',cx,cy,0,r);line('place-stem',cx,cy+r,cx,cy+r*1.6);
+    }
+    if(t.recipe==='date') {
+      line('date-top',pad,H*0.12,pad+fontSize*2,H*0.12);
+      line('date-tick-a',pad+fontSize*0.4,H*0.12-pad/2,pad+fontSize*0.4,H*0.12+pad/2);
+      line('date-tick-b',pad+fontSize*1.6,H*0.12-pad/2,pad+fontSize*1.6,H*0.12+pad/2);
+    }
+    if(t.recipe==='arrow') {
+      line('direction-upper',W-pad-fontSize*0.4,y-fontSize*0.4,W-pad,y);
+      line('direction-lower',W-pad-fontSize*0.4,y+fontSize*0.4,W-pad,y);
+    }
+  }
   if (t.recipe === 'rings') {
     // Diagram geometry only: no bell glyph, sacred symbol or claimed measurement.
     const radius = Math.min(W,H)*0.13;
@@ -195,4 +274,23 @@ export function compileMotionTemplate(options: MotionTemplateOptions): SceneGrap
   if (t.recipe === 'quote' || t.recipe === 'comparison' || t.recipe === 'scale') line('editorial-rule',pad,H-pad,W-pad,H-pad);
   return SceneGraph.parse({version:1,seed:42,bounds,theme,nodes,evidence,soundCues:[],capabilities:['svg-2d','frame-animation'],
     template:{id:t.id,version:1,layout}});
+}
+
+/** Numeric geometry must be supported by the displayed phrase, never by demo defaults. */
+export function validateMotionTemplateContent(templateId: string, input: MotionTemplateContentData): MotionTemplateContentData {
+  const template=motionLibraryTemplate(templateId);
+  if(!template)throw new Error('Unknown motion library template');
+  const content=MotionTemplateContent.parse(input);
+  if(content.items.length<template.minItems||content.items.length>template.maxItems)throw new Error(`${template.name} requires ${template.minItems}–${template.maxItems} items`);
+  const numeric=['progress','donut','bars','trend'].includes(template.recipe);
+  for(const item of content.items) {
+    if(numeric&&item.value===undefined)throw new Error('Numeric templates require a value for each item');
+    if(item.value!==undefined) {
+      const normalized=item.text.replace(/[०-९]/g,c=>String(c.charCodeAt(0)-0x0966));
+      const numbers=(normalized.match(/[+-]?\d[\d,]*(?:\.\d+)?/g)||[]).map(v=>Number(v.replace(/,/g,'')));
+      if(!numbers.includes(item.value))throw new Error('Each numeric value must occur exactly in its displayed narration phrase');
+      if(['progress','donut'].includes(template.recipe)&&(item.value>100||!/(?:%|percent|प्रतिशत)/i.test(item.text)))throw new Error('Percentage graphics require a stated percentage from 0 to 100');
+    }
+  }
+  return content;
 }

@@ -218,6 +218,13 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
       await page.waitForTimeout(600);
     }
 
+    // Dismiss any announcement / feature dialogs if present (e.g., Gemini Omni Flash intro)
+    const gotItBtn = page.locator('button:has-text("Got it"), [aria-label*="Got it" i]').first();
+    if (await gotItBtn.isVisible().catch(() => false)) {
+      await gotItBtn.click().catch(() => {});
+      await page.waitForTimeout(500);
+    }
+
     // 4. Wait for the prompt composer to be ready
     const composer = page.locator('div[contenteditable="true"].ProseMirror, div[contenteditable="true"]').first();
     try {
@@ -231,7 +238,27 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     input.onStage('Configuring video settings (aspect, model, duration)', 25);
     input.signal.throwIfAborted();
     try {
+      // Toggle off Google Flow's Agent mode if active, so the standard video settings trigger is available
+      const agentChip = page.locator('.agent-mode-chip, button:has-text("Agent")').first();
+      if (await agentChip.count()) {
+        const cls = (await agentChip.getAttribute('class').catch(() => '')) || '';
+        if (cls.includes('checked') || cls.includes('active') || cls.includes('selected')) {
+          await agentChip.click().catch(() => {});
+          await page.waitForTimeout(800);
+        }
+      }
+
       const settingsBtn = page.locator('button.settings-trigger-button, button[aria-label="Settings trigger"]').first();
+      // If settingsBtn is not yet visible, retry toggling agentChip once
+      if (!await settingsBtn.isVisible().catch(() => false)) {
+        if (await agentChip.count()) {
+          const cls = (await agentChip.getAttribute('class').catch(() => '')) || '';
+          if (cls.includes('checked') || cls.includes('active') || cls.includes('selected')) {
+            await agentChip.click().catch(() => {});
+            await page.waitForTimeout(800);
+          }
+        }
+      }
       await settingsBtn.waitFor({ state: 'visible', timeout: 15000 });
 
       // Open settings overlay if not already visible
@@ -366,11 +393,22 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
             await fileChooser.setFiles(input.referenceImagePath);
             await page.waitForTimeout(1000);
 
+            // Google Flow policy popup: "Rights to use this image" -> click "I agree"
+            const iAgreeBtn = page.locator('button:has-text("I agree"), [aria-label*="I agree" i]').first();
+            if (await iAgreeBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+              console.log('[Flow Worker] Dismissing "Rights to use this image" policy dialog...');
+              await iAgreeBtn.click().catch(() => {});
+              await page.waitForTimeout(800);
+            }
+
             const addToPromptBtn = page.locator('button:has-text("Add to prompt")').first();
             await addToPromptBtn.waitFor({ state: 'visible', timeout: 15000 });
 
             for (let i = 0; i < 20; i++) {
               if (await addToPromptBtn.isEnabled().catch(() => false)) break;
+              if (await iAgreeBtn.isVisible().catch(() => false)) {
+                await iAgreeBtn.click().catch(() => {});
+              }
               await page.waitForTimeout(500);
             }
             await addToPromptBtn.click();
@@ -385,6 +423,19 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
         }
       } catch (refErr) {
         console.warn('[Flow Worker] Could not attach reference image (proceeding with text prompt):', refErr);
+        // Ensure any open dialog or upload drawer is dismissed so composer is unblocked
+        const iAgreeBtn = page.locator('button:has-text("I agree")').first();
+        if (await iAgreeBtn.isVisible().catch(() => false)) {
+          await iAgreeBtn.click().catch(() => {});
+          await page.waitForTimeout(500);
+        }
+        await page.keyboard.press('Escape').catch(() => {});
+        await page.waitForTimeout(400);
+        const closeUploadDrawer = page.locator('button[aria-label="Close"], button:has-text("Cancel")').first();
+        if (await closeUploadDrawer.isVisible().catch(() => false)) {
+          await closeUploadDrawer.click().catch(() => {});
+          await page.waitForTimeout(400);
+        }
       }
     }
 
@@ -392,6 +443,11 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     input.onStage('Pasting scene prompt into Google Flow', 35);
     input.signal.throwIfAborted();
     try {
+      const iAgreeBtn = page.locator('button:has-text("I agree")').first();
+      if (await iAgreeBtn.isVisible().catch(() => false)) {
+        await iAgreeBtn.click().catch(() => {});
+        await page.waitForTimeout(500);
+      }
       if (await page.locator('.cdk-overlay-backdrop').isVisible().catch(() => false)) {
         await page.keyboard.press('Escape').catch(() => {});
         await page.waitForTimeout(400);
@@ -426,11 +482,25 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     input.onStage('Submitting generation to Google Flow', 45);
     input.signal.throwIfAborted();
     try {
+      const iAgreeBtn = page.locator('button:has-text("I agree")').first();
+      if (await iAgreeBtn.isVisible().catch(() => false)) {
+        await iAgreeBtn.click().catch(() => {});
+        await page.waitForTimeout(500);
+      }
       if (await page.locator('.cdk-overlay-backdrop').isVisible().catch(() => false)) {
         await page.keyboard.press('Escape').catch(() => {});
         await page.waitForTimeout(400);
       }
       const startBtn = page.locator('button[aria-label="Start generation"], button.generate-icon-button, button[type="submit"]:has(mat-icon:has-text("arrow_forward"))').first();
+      await startBtn.waitFor({ state: 'visible', timeout: 10000 });
+
+      // If button is still disabled, ensure composer text has registered
+      for (let i = 0; i < 6; i++) {
+        if (await startBtn.isEnabled().catch(() => false)) break;
+        await composer.click({ force: true }).catch(() => {});
+        await page.waitForTimeout(400);
+      }
+
       await startBtn.click({ force: true }).catch(async () => {
         await page.keyboard.press('Escape').catch(() => {});
         await startBtn.click();

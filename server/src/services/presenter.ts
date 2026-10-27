@@ -5,7 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { spawn, execFile } from 'node:child_process';
 import { containedFile, safeSegment } from './paths.js';
-import { generatedDir, mediaUrl } from './workspace.js';
+import { generatedDir, mediaUrl, workspaceKey } from './workspace.js';
 import { runMedia } from './media-process.js';
 import { presenterState } from './presenter-state.js';
 import { validatePresenter, presenterGeometry, type PresenterSettings } from './presenter-settings.js';
@@ -16,19 +16,22 @@ import { avatarAlphaSource, avatarAlphaCycle } from './presenter-alpha.js';
 const SERVER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const REPO_ROOT = path.resolve(SERVER, '..');
 export function museTalkRoot() {
+  if (process.env.MUSETALK_ROOT) return path.resolve(REPO_ROOT, process.env.MUSETALK_ROOT);
   const candidates = [
-    process.env.MUSETALK_ROOT,
-    process.env.MUSETALK_ROOT ? path.resolve(REPO_ROOT, process.env.MUSETALK_ROOT) : null,
     path.join(REPO_ROOT, 'MuseTalk-Demo'),
     path.join(os.homedir(), 'MuseTalk-Demo'),
     path.join(os.homedir(), 'Documents', 'MuseTalk-Demo'),
     path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo'),
   ].filter(Boolean) as string[];
-  return path.resolve(candidates.find(p => fs.existsSync(p)) || process.env.MUSETALK_ROOT || path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo'));
+  return path.resolve(candidates.find(p => fs.existsSync(p)) || path.join(REPO_ROOT, 'MuseTalk-Demo'));
 }
-function pythonPath() {
+export function presenterPythonPath() {
+  if (process.env.MUSETALK_PYTHON) {
+    const configured = path.resolve(REPO_ROOT, process.env.MUSETALK_PYTHON);
+    return fs.existsSync(configured) ? configured : undefined;
+  }
   const candidates = [
-    process.env.MUSETALK_PYTHON,
+    path.join(museTalkRoot(), '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'),
     path.join(os.homedir(), 'miniconda3', 'envs', 'musetalk-demo', 'python.exe'),
     path.join(os.homedir(), 'anaconda3', 'envs', 'musetalk-demo', 'python.exe'),
     'C:/ProgramData/miniconda3/envs/musetalk-demo/python.exe',
@@ -97,9 +100,12 @@ export function presenterAvatars() {
 }
 export function presenterHealth() {
   const weights = ['musetalkV15/unet.pth', 'musetalkV15/musetalk.json', 'sd-vae/diffusion_pytorch_model.bin', 'whisper/pytorch_model.bin'];
-  const installed = Boolean(pythonPath() && fs.existsSync(path.join(museTalkRoot(), 'app', 'musetalk_service.py')) && weights.every(file => fs.existsSync(path.join(museTalkRoot(), 'MuseTalk', 'models', file))));
-  return { installed, busy: presenterState.busy, avatars: presenterAvatars(),
-    message: installed ? 'Presenter engine installed. Starts automatically when rendering.' : 'Set MUSETALK_ROOT and MUSETALK_PYTHON in .env to your MuseTalk installation.' };
+  const bundled = fs.existsSync(path.join(museTalkRoot(), 'UPSTREAM.json'));
+  if (bundled) weights.push('sd-vae/config.json', 'whisper/config.json', 'whisper/preprocessor_config.json', 'face_detection_yunet_2023mar.onnx');
+  const missing = weights.filter(file => !fs.existsSync(path.join(museTalkRoot(), 'MuseTalk', 'models', file)));
+  const installed = Boolean(presenterPythonPath() && fs.existsSync(path.join(museTalkRoot(), 'app', 'musetalk_service.py')) && !missing.length);
+  return { installed, busy: presenterState.busy, avatars: presenterAvatars(), canPrepare: bundled && installed, missing,
+    message: installed ? 'MuseTalk is installed. Choose or upload an avatar; lip-sync runs locally when rendering.' : 'MuseTalk setup is incomplete. Run npm run setup:presenter, or configure MUSETALK_ROOT and MUSETALK_PYTHON for an existing installation.' };
 }
 export function avatarPreview(id: string, transparent = false) {
   const directory = avatarDirectory(id);
@@ -117,8 +123,9 @@ async function hashFile(file: string) {
 export async function presenterCacheKey(audio: string, p: PresenterSettings) {
   const dir = avatarDirectory(p.avatarId);
   const inputs = await Promise.all([audio, containedFile(dir, 'metadata.json'), containedFile(dir, 'latents.pt'),
-    path.join(museTalkRoot(), 'app', 'musetalk_service.py')].map(hashFile));
-  return createHash('sha256').update(JSON.stringify(['presenter-v1', inputs, p.avatarId, p.silenceGate, p.silenceThresholdDb])).digest('hex');
+    path.join(museTalkRoot(), 'app', 'musetalk_service.py'),
+    ...['UPSTREAM.json', 'MuseTalk/models/sources.json'].map(file => path.join(museTalkRoot(), file)).filter(file => fs.existsSync(file))].map(hashFile));
+  return createHash('sha256').update(JSON.stringify(['presenter-v2', inputs, process.env.MUSETALK_DEVICE || 'auto', p.avatarId, p.silenceGate, p.silenceThresholdDb])).digest('hex');
 }
 
 async function releaseIdleGpu(signal: AbortSignal) {
@@ -137,16 +144,20 @@ async function releaseIdleGpu(signal: AbortSignal) {
   signal.throwIfAborted();
 }
 
-function runWorker(request: string, signal: AbortSignal, progress: (stage: string, percent: number) => void): Promise<string> {
+function runWorker(request: string, signal: AbortSignal, progress: (stage: string, percent: number) => void): Promise<{ output_path?: string; avatar_id?: string }> {
   return new Promise((resolve, reject) => {
     signal.throwIfAborted();
-    const child = spawn(pythonPath()!, ['-u', path.join(SERVER, 'musetalk', 'worker.py'), '--request', request], {
+    const python = presenterPythonPath();
+    if (!python) { reject(new Error('MuseTalk Python environment is missing. Run npm run setup:presenter.')); return; }
+    const child = spawn(python, ['-u', path.join(SERVER, 'musetalk', 'worker.py'), '--request', request], {
       windowsHide: true, cwd: museTalkRoot(), stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, PATH: [path.dirname(pythonPath()!), path.join(path.dirname(pythonPath()!), 'Library', 'bin'), process.env.PATH || process.env.Path || ''].join(path.delimiter),
+      env: { ...process.env, PATH: [path.dirname(python), path.join(path.dirname(python), 'Library', 'bin'), process.env.PATH || process.env.Path || ''].join(path.delimiter),
         NUMBA_CACHE_DIR: path.join(os.tmpdir(), 'tubeflow-musetalk-numba'),
         PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', PYTHONDONTWRITEBYTECODE: '1' },
     });
-    let lines = '', logs = '', output = '', workerError = '';
+    let lines = '', logs = '', workerError = '';
+    let result: { output_path?: string; avatar_id?: string } | undefined;
+    let killTimer: ReturnType<typeof setTimeout> | undefined;
     let killing: Promise<void> | undefined;
     const cancel = () => {
       if (killing) return;
@@ -156,7 +167,13 @@ function runWorker(request: string, signal: AbortSignal, progress: (stage: strin
       killing = new Promise<void>(done => {
         if (process.platform === 'win32' && child.pid) {
           execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true }, () => done());
-        } else { done(); }
+        } else {
+          // Cooperative cancellation gets a short grace period, then terminate
+          // a model load/kernel that has not reached another progress callback.
+          killTimer = setTimeout(() => child.kill('SIGKILL'), 10000);
+          killTimer.unref();
+          done();
+        }
       });
     };
     signal.addEventListener('abort', cancel, { once: true });
@@ -170,7 +187,7 @@ function runWorker(request: string, signal: AbortSignal, progress: (stage: strin
           try {
             const event = JSON.parse(line.slice(15));
             if (event.error) workerError = String(event.error);
-            if (event.result?.output_path) output = event.result.output_path;
+            if (event.result) result = event.result;
             if (event.stage && !signal.aborted) progress(event.stage, Number(event.progress) || 0);
           } catch { /* Other model logging is not protocol data. */ }
         }
@@ -179,13 +196,66 @@ function runWorker(request: string, signal: AbortSignal, progress: (stage: strin
     child.stderr.on('data', chunk => { logs = (logs + String(chunk)).slice(-4000); });
     child.on('error', error => { signal.removeEventListener('abort', cancel); reject(error); });
     child.on('close', async code => {
+      if (killTimer) clearTimeout(killTimer);
       signal.removeEventListener('abort', cancel);
       if (killing) await killing;
       if (signal.aborted) reject(new Error('Presenter generation cancelled.'));
-      else if (code !== 0 || !output) reject(new Error(`MuseTalk failed: ${workerError || logs || `exit ${code}`}. Close the standalone MuseTalk lab if it is holding GPU memory.`));
-      else resolve(output);
+      else if (code !== 0 || !result) reject(new Error(`MuseTalk failed: ${workerError || logs || `exit ${code}`}.`));
+      else resolve(result);
     });
   });
+}
+
+type Preparation = { id: string; status: 'running' | 'done' | 'error'; stage: string; percent: number; avatarId: string; error?: string; controller: AbortController };
+const preparations = new Map<string, Preparation>();
+export function presenterPreparation(id: string) {
+  const job = preparations.get(workspaceKey('presenter-preparation'));
+  if (!job || job.id !== id) return undefined;
+  const { controller: _controller, ...status } = job;
+  return status;
+}
+export function cancelPresenterPreparation(id: string) {
+  const job = preparations.get(workspaceKey('presenter-preparation'));
+  if (!job || job.id !== id) throw new Error('Avatar preparation not found.');
+  if (job.status === 'running') job.controller.abort();
+}
+export function preparePresenterAvatar(bytes: Buffer, filename: string, name: string) {
+  if (!presenterHealth().canPrepare) throw new Error('Install the bundled MuseTalk engine before preparing an avatar.');
+  const ext = path.extname(filename).toLowerCase();
+  if (!['.mp4', '.mov', '.webm', '.mkv', '.png', '.jpg', '.jpeg'].includes(ext)) throw new Error('Choose an MP4, MOV, WebM, MKV, PNG or JPEG.');
+  if (!bytes.length || bytes.length > 40 * 1024 * 1024) throw new Error('Avatar uploads must be between 1 byte and 40 MB.');
+  if (presenterState.busy || narrationBusy() || localMusicBusy() || presenterState.mediaRequests || presenterState.editingRequests) throw new Error('Wait for active media generation to finish.');
+  const id = randomUUID(), avatarId = `avatar_${id.replace(/-/g, '')}`;
+  const controller = new AbortController();
+  const job: Preparation = { id, avatarId, controller, status: 'running', stage: 'Preparing avatar', percent: 0 };
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'tubeflow-avatar-'));
+  try {
+    fs.writeFileSync(path.join(work, `source${ext}`), bytes);
+    fs.writeFileSync(path.join(work, 'request.json'), JSON.stringify({ action: 'prepare', root: museTalkRoot(), work,
+      source: path.join(work, `source${ext}`), avatarId, name: name.trim().slice(0, 100) || path.basename(filename, ext), seconds: 10 }));
+  } catch (error) { fs.rmSync(work, { recursive: true, force: true }); throw error; }
+  const key = workspaceKey('presenter-preparation');
+  preparations.set(key, job);
+  presenterState.busy = true;
+  const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(30 * 60 * 1000)]);
+  void (async () => {
+    try {
+      await releaseIdleGpu(signal);
+      const result = await runWorker(path.join(work, 'request.json'), signal, (stage, percent) => { job.stage = stage; job.percent = percent; });
+      if (result.avatar_id !== avatarId || !presenterAvatars().some(a => a.id === avatarId)) throw new Error('MuseTalk returned an incomplete avatar.');
+      job.status = 'done'; job.stage = 'Avatar ready'; job.percent = 100;
+    } catch (error) {
+      job.status = 'error'; job.error = signal.aborted ? 'Avatar preparation cancelled.' : error instanceof Error ? error.message : 'Avatar preparation failed.';
+      // The ID belongs only to this upload. A cancellation just after the
+      // worker's final rename must not leave an apparently successful avatar.
+      fs.rmSync(path.join(museTalkRoot(), 'avatars', 'prepared', avatarId), { recursive: true, force: true });
+    } finally {
+      presenterState.busy = false;
+      fs.rmSync(work, { recursive: true, force: true });
+      fs.rmSync(path.join(museTalkRoot(), 'avatars', 'prepared', `.prepare-${avatarId}`), { recursive: true, force: true });
+    }
+  })();
+  return presenterPreparation(id)!;
 }
 
 export async function generatePresenter(scriptId: string, audio: string, settings: PresenterSettings, signal: AbortSignal, progress: (stage: string, percent: number) => void) {
@@ -220,7 +290,8 @@ export async function generatePresenter(scriptId: string, audio: string, setting
     const request = containedFile(work, 'request.json');
     fs.writeFileSync(request, JSON.stringify({ root: museTalkRoot(), work, audio, avatarId: p.avatarId,
       batchSize: 8, silenceGate: p.silenceGate, silenceThresholdDb: p.silenceThresholdDb }));
-    const output = await runWorker(request, signal, progress);
+    const { output_path: output } = await runWorker(request, signal, progress);
+    if (!output) throw new Error('MuseTalk did not return a presenter video.');
     if (path.resolve(output) !== containedFile(work, path.basename(output))) throw new Error('Presenter returned a file outside its job directory.');
     if (!await valid(output)) throw new Error('Presenter duration does not match narration. Retry generation.');
     signal.throwIfAborted();

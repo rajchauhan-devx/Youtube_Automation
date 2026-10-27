@@ -13,7 +13,7 @@ import { compileGraphic, GraphicProposal, sceneNarration, type Proposal } from '
 import { runMedia } from '../media-process.js';
 import { currentWorkspace } from '../workspace.js';
 import { applyMotionTheme, type MotionTheme } from './motionTheme.js';
-import {motionEditorialContext} from './motionEditorial.js';
+import {motionEditorialContext,hasScriptMotionPlan} from './motionEditorial.js';
 import { reviewGraphics } from './visualReview.js';
 import { reflowDiagram } from './reflowDiagram.js';
 import { compileEditorial } from './editorial.js';
@@ -137,7 +137,8 @@ export async function runPipeline(input: EditingProject, ctx: MotionContext): Pr
     const outcome = p.sceneOutcomes?.find(s => s.sceneId === sceneId);
     if (outcome) { outcome.state = 'failed'; outcome.reason = message; }
   };
-  if (p.settings.graphicEngine === 'generative' && !reviewOnly) {
+  if ((p.settings.graphicEngine === 'generative' || hasScriptMotionPlan(p)) && !reviewOnly) {
+    p.settings.graphicEngine='generative';
     const old = revise ? p.artifacts.find(a => a.id === ctx.job.artifactId) : undefined;
     if (revise && !old) throw new EditingError('NOT_FOUND', 'Graphic not found', 404);
     if (!checkpoint.observations) { checkpoint.observations = await inspectScenes(ctx, model, p.scenes); save(); }

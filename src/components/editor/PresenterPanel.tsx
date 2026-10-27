@@ -43,6 +43,12 @@ export function PresenterPanel({ value, onChange, onSave, onAvatars, disabled }:
   const [message, setMessage] = useState('Checking presenter engine...');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [canPrepare, setCanPrepare] = useState(false);
+  const [preparing, setPreparing] = useState(false);
+  const [prepareProgress, setPrepareProgress] = useState('');
+  const [prepareId, setPrepareId] = useState('');
+  const uploadAbort = useRef<AbortController | null>(null);
+  useEffect(() => () => uploadAbort.current?.abort(), []);
   async function refresh() {
     try {
       const response = await fetch('/api/presenter/status');
@@ -52,17 +58,54 @@ export function PresenterPanel({ value, onChange, onSave, onAvatars, disabled }:
       setAvatars(list);
       onAvatars(list);
       setMessage(data.message);
+      setCanPrepare(data.canPrepare === true);
       setError('');
       if (list.length > 0 && (!value.avatarId || !list.some(a => a.id === value.avatarId))) {
         onChange({
           ...value,
           avatarId: list[0].id,
           style: list[0].hasTransparency ? 'transparent' : value.style === 'transparent' ? 'card' : value.style,
+          crop: list[0].tightCrop || value.crop,
         });
       }
     } catch { setError('Cannot reach the presenter service. Restart the application server and refresh.'); }
   }
   useEffect(() => { void refresh(); }, [fetch]);
+  async function uploadAvatar(file: File) {
+    if (file.size > 40 * 1024 * 1024) { setError('Choose a file smaller than 40 MB.'); return; }
+    const controller = new AbortController();
+    uploadAbort.current?.abort(); uploadAbort.current = controller;
+    setPreparing(true); setError(''); setPrepareProgress('Uploading avatar…');
+    try {
+      const response = await fetch(`/api/presenter/avatars?filename=${encodeURIComponent(file.name)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file, signal: controller.signal,
+      });
+      const job = await response.json();
+      if (!response.ok) throw new Error(job.error || 'Could not upload avatar.');
+      setPrepareId(job.id);
+      while (!controller.signal.aborted) {
+        const statusResponse = await fetch(`/api/presenter/preparation/${job.id}`, { signal: controller.signal });
+        const status = await statusResponse.json();
+        if (!statusResponse.ok || status.status === 'error') throw new Error(status.error || 'Avatar preparation failed.');
+        setPrepareProgress(`${status.stage} (${Math.round(status.percent)}%)`);
+        if (status.status === 'done') {
+          await refresh();
+          const avatarResponse = await fetch('/api/presenter/status', { signal: controller.signal });
+          if (!avatarResponse.ok) throw new Error('Avatar was prepared, but the list could not refresh.');
+          const data = await avatarResponse.json();
+          const avatar = (data.avatars as PresenterAvatar[]).find(a => a.id === status.avatarId);
+          if (avatar) onChange({ ...value, avatarId: avatar.id, enabled: true, style: avatar.hasTransparency ? 'transparent' : 'card',
+            crop: avatar.tightCrop || { x: 0, y: 0, width: 100, height: 100 } });
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1500));
+      }
+    } catch (e) {
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : 'Avatar upload failed.');
+    } finally {
+      if (!controller.signal.aborted) { setPreparing(false); setPrepareId(''); }
+    }
+  }
   const change = (patch: Partial<PresenterSettings>) => onChange({ ...value, ...patch });
   const selected = avatars.find(a => a.id === value.avatarId);
   const tight = selected?.tightCrop || (selected?.hasTransparency ? { x: 25.6, y: 0, width: 47, height: 100 } : undefined);
@@ -93,7 +136,21 @@ export function PresenterPanel({ value, onChange, onSave, onAvatars, disabled }:
     </div>
     <p className="text-xs text-gray-400">{message}</p>
     {error && <p role="alert" className="text-sm text-amber-300">{error}</p>}
-    {value.enabled && <fieldset disabled={disabled || saving} className="space-y-3 text-xs text-gray-300 disabled:opacity-60">
+    {canPrepare && <div className="space-y-2 text-xs text-gray-300">
+      <label className="block">Add an avatar
+        <input aria-label="Upload presenter avatar" type="file" accept=".mp4,.mov,.webm,.mkv,.png,.jpg,.jpeg" disabled={disabled || preparing}
+          className="mt-1 block w-full text-xs" onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; if (file) void uploadAvatar(file); }} />
+      </label>
+      <p className="text-gray-400">Use one clearly visible, forward-facing face. Photo or video, up to 40 MB. The first 10 seconds loop with your narration.</p>
+      {preparing && <p role="status">{prepareProgress} {prepareId && <button type="button" className="ml-2 text-accent" onClick={async () => {
+        try {
+          const response = await fetch(`/api/presenter/preparation/${prepareId}/cancel`, { method: 'POST' });
+          if (!response.ok) throw new Error('Could not cancel avatar preparation.');
+          setPrepareProgress('Cancelling…');
+        } catch (e) { setError(e instanceof Error ? e.message : 'Could not cancel.'); }
+      }}>Cancel</button>}</p>}
+    </div>}
+    {value.enabled && <fieldset disabled={disabled || saving || preparing} className="space-y-3 text-xs text-gray-300 disabled:opacity-60">
       <label className="block">Character
         <select aria-label="Presenter character" className="mt-1 w-full rounded bg-surface2 p-2" value={value.avatarId} onChange={e => {
           const avatar = avatars.find(a => a.id === e.target.value);
@@ -103,7 +160,7 @@ export function PresenterPanel({ value, onChange, onSave, onAvatars, disabled }:
           {avatars.map(a => <option key={a.id} value={a.id}>{a.name} ({a.duration}s)</option>)}
         </select>
       </label>
-      {!selected && <p role="alert" className="text-amber-300">No matching prepared avatar. Prepare one in MuseTalk and refresh this list.</p>}
+      {!selected && <p role="alert" className="text-amber-300">No matching prepared avatar. Upload one above, or prepare one with the MuseTalk CLI and refresh this list.</p>}
       <div className="grid grid-cols-2 gap-3">
         <label>Appearance<select aria-label="Presenter appearance" className="mt-1 w-full rounded bg-surface2 p-2" value={value.style} onChange={e => change({ style: e.target.value as PresenterSettings['style'] })}>
           <option value="card">Picture-in-picture card</option><option value="green-screen">Green-screen cutout</option>

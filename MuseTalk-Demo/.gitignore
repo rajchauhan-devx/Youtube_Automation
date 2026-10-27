@@ -1,0 +1,8 @@
+.venv/
+MuseTalk/models/
+avatars/
+outputs/
+temp/
+*.log
+__pycache__/
+health.json

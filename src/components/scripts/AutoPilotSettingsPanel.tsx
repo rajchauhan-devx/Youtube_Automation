@@ -570,10 +570,10 @@ export function AutoPilotSettingsPanel({
                     label="Framing & Crop"
                     value={presenterFramingMode}
                     choices={[
-                      ...(tight ? [['tight', 'Full body (tight crop / edge-to-edge)']] : []),
+                      ...(tight ? [['tight', 'Full body (tight crop / edge-to-edge)'] as const] : []),
                       ['chest', 'Chest-up crop (Default)'],
                       ['full', 'Full source frame (16:9 canvas with margins)'],
-                      ...(presenterFramingMode === 'custom' ? [['custom', 'Custom crop']] : []),
+                      ...(presenterFramingMode === 'custom' ? [['custom', 'Custom crop'] as const] : []),
                     ]}
                     onChange={val => {
                       if (val === 'tight' && tight) patchPresenter({ crop: tight });
