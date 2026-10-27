@@ -265,7 +265,8 @@ export function AutoPilotSettingsPanel({
   }, [value.voice.voiceId, value.voice.speed, value.voice.rate, value.voice.pitch]);
 
   const configured = providers.find(p => p.id === effectiveProvider)?.configured !== false;
-  const voiceReady = !voiceLoading && configured && voices.some(v => v.id === value.voice.voiceId);
+  const hasVoice = voices.some(v => v.id === value.voice.voiceId);
+  const voiceReady = (!voiceLoading || voices.length > 0) && configured && (hasVoice || voices.length > 0);
   useEffect(() => {
     onVoiceReady(voiceReady && !previewLoading);
   }, [voiceReady, previewLoading, onVoiceReady]);

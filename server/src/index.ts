@@ -33,6 +33,8 @@ import { recoveryRouter } from './routes/recovery.js';
 import { workspaceMutationGuard } from './services/workspace-activity.js';
 
 import { supervisorRouter } from './routes/supervisor.js';
+import { retentionRouter } from './routes/retention.js';
+import { mediaImportRouter } from './routes/media-import.js';
 
 const app = express();
 try { initializeTopicNotes(); } catch (error) { if (error instanceof StoreCorruptionError) console.error(error.message); else throw error; }
@@ -72,6 +74,8 @@ app.use('/api/setup', setupRouter);
 app.use('/api/flow', flowRouter);
 app.use('/api/editing', editingRouter);
 app.use('/api/supervisor', supervisorRouter);
+app.use('/api/retention', retentionRouter);
+app.use('/api/media-import', mediaImportRouter);
 app.use('/api/youtube', youtubeRouter);
 app.use('/api/facebook', facebookRouter);
 app.use('/api/instagram', instagramRouter);

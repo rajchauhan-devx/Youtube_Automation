@@ -34,7 +34,7 @@ export function ScriptRunModal({
     }
     return initial;
   });
-  const [voiceReady, setVoiceReady] = useState(false);
+  const [voiceReady, setVoiceReady] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -61,8 +61,8 @@ export function ScriptRunModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="studio-card max-h-[calc(100dvh-2rem)] w-full max-w-[800px] overflow-y-auto shadow-pop animate-scale-in">
-        <div className="flex items-center justify-between border-b border-borderSoft p-5">
+      <div className="studio-card flex max-h-[calc(100dvh-2rem)] w-full max-w-[800px] flex-col overflow-hidden shadow-pop animate-scale-in">
+        <div className="flex shrink-0 items-center justify-between border-b border-borderSoft p-5">
           <div className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/15 text-accent shadow-glow">
               <Sparkles className="h-4 w-4" />
@@ -77,11 +77,12 @@ export function ScriptRunModal({
           </button>
         </div>
         <form
+          id="run-script-modal-form"
           onSubmit={(e) => {
             e.preventDefault();
             void handleSubmit(mode === 'auto');
           }}
-          className="space-y-4 p-5 sm:p-6"
+          className="flex-1 overflow-y-auto space-y-4 p-5 sm:p-6"
         >
           <p className="-mt-1 text-[13px] leading-relaxed text-muted">
             Running <strong className="text-white">{script.name}</strong>. {mode === 'auto' ? 'Leave the topic blank to let AI choose a fresh topic for this profile.' : 'Enter a topic to generate the script.'}
@@ -134,23 +135,28 @@ export function ScriptRunModal({
               AI selects a fresh topic, compares three hooks, plans the title and thumbnail, edits the story, produces the video{settings.presenter?.enabled ? ` with MuseTalk AI Presenter (${settings.presenter.widthPercent}% size)` : ''}, and reviews sampled final visuals and audio. {settings.youtube.enabled ? 'Uploads directly to YouTube upon passing review.' : 'Final video will be rendered and ready for manual export.'}
             </div>
           )}
-
-          <div className="sticky bottom-0 z-10 -mx-5 flex flex-wrap items-center justify-between gap-2 border-t border-borderSoft bg-surface px-5 py-3 sm:-mx-6 sm:px-6">
-            <button type="button" onClick={onClose} className="studio-btn-ghost text-xs">
-              Cancel
-            </button>
-            <button type="submit" disabled={busy || (mode === 'auto' ? !voiceReady : !topic.trim())} className="studio-btn-primary flex items-center gap-2 text-xs !py-2.5 shadow-glow disabled:opacity-50">
-              {mode === 'auto' ? <Sparkles className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {busy
-                ? 'Starting…'
-                : mode === 'auto' && !voiceReady
-                  ? 'Loading voice…'
-                  : mode === 'auto'
-                    ? 'Run Auto-Pilot'
-                    : 'Run Script Only'}
-            </button>
-          </div>
         </form>
+
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-borderSoft bg-surface px-5 py-3.5 sm:px-6">
+          <button type="button" onClick={onClose} className="studio-btn-ghost text-xs">
+            Cancel
+          </button>
+          <button
+            form="run-script-modal-form"
+            type="submit"
+            disabled={busy || (mode === 'auto' ? !voiceReady : !topic.trim())}
+            className="studio-btn-primary flex items-center gap-2 text-xs !py-2.5 shadow-glow disabled:opacity-50"
+          >
+            {mode === 'auto' ? <Sparkles className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {busy
+              ? 'Starting…'
+              : mode === 'auto' && !voiceReady
+                ? 'Loading voice…'
+                : mode === 'auto'
+                  ? 'Run Auto-Pilot'
+                  : 'Run Script Only'}
+          </button>
+        </div>
       </div>
     </div>
   );

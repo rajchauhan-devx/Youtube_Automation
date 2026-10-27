@@ -271,7 +271,7 @@ export default function App() {
       const saved = readJson<AutoPilotState>(localStorage.getItem(`tubeflow:autopilot:${scopeKey}`));
       if (!saved || saved.scopeKey !== scopeKey || !saved.scriptId || !Array.isArray(saved.logs) || !Number.isInteger(saved.stageIndex)
         || saved.stageIndex < 0 || saved.stageIndex >= AUTO_PILOT_STAGES.length || saved.stage === 'completed') return;
-      setAutoPilotState({ ...saved, isActive: true, isPaused: false, isMinimized: false, stage: 'error',
+      setAutoPilotState({ ...saved, isActive: false, isPaused: false, isMinimized: false, stage: 'error',
         statusMessage: saved.stage === 'error' ? saved.statusMessage : 'Production interrupted. Resume to continue from the saved stage.' });
     } catch { /* Storage may be disabled in this browser. */ }
   }, [scopeKey]);
@@ -926,10 +926,12 @@ export default function App() {
         setAutoPilotState(prev => ({ ...prev, topic }));
         addAutoPilotLog('research_script', `Selected: "${topic}". Checked ${selectedTopic.historyCount} previously exported topics. ${selectedTopic.reason || ''}`, 'success');
 
-        const youtubeStatus = await fetch('/api/youtube/status', { signal: controller.signal });
-        const connection = await youtubeStatus.json();
-        if (!youtubeStatus.ok || !connection.authenticated) throw new Error('Connect this profile’s YouTube account before running Auto-Pilot.');
-        await checkPauseOrAbort();
+        if (runSettings.youtube.enabled) {
+          const youtubeStatus = await fetch('/api/youtube/status', { signal: controller.signal });
+          const connection = await youtubeStatus.json();
+          if (!youtubeStatus.ok || !connection.authenticated) throw new Error('Connect this profile’s YouTube account before running Auto-Pilot with YouTube export.');
+          await checkPauseOrAbort();
+        }
         setAutoPilotState(prev => ({ ...prev, statusMessage: 'Comparing three opening hooks and planning the title/thumbnail promise...' }));
         retention = await apiPost<{ plan: NonNullable<Script['retentionPlan']>; brief: string }>(
           '/api/retention/plan', { scriptId, topic, instructions }, getApiKey(), fetch, controller.signal);
@@ -2188,7 +2190,7 @@ export default function App() {
                       onExtractTimelineAssets={() => handleExtractAssets(true)}
                       onImportResponse={handleImportResponse}
                       onAutoPilot={() => selectedScript && setRunModalScript(selectedScript)}
-                      isAutoPilotRunning={autoPilotState.isActive}
+                      isAutoPilotRunning={autoPilotState.isActive && autoPilotState.stage !== 'completed' && autoPilotState.stage !== 'error' && autoPilotState.stage !== 'idle'}
                     />
                   )}
                   {tab === 'assets' && <AssetsTab key={selectedScriptId} script={selectedScript} onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)} onProceedToGeneration={() => setTab('generation')} />}
