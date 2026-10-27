@@ -186,7 +186,7 @@ class MuseTalkService:
             shutil.rmtree(temporary, ignore_errors=True)
 
     def generate_lipsync(self, audio_path, avatar_id, batch_size=1, reuse_prepared=True,
-                         progress_cb=None, silence_gate=True, silence_threshold_db=-40):
+                         progress_cb=None, silence_gate=False, silence_threshold_db=-40):
         import cv2
         import numpy as np
         import torch
@@ -197,6 +197,27 @@ class MuseTalkService:
         metadata = json.loads((directory / "metadata.json").read_text())
         if metadata.get("adapter_version") != 1:
             raise ValueError("Re-prepare this avatar with the bundled MuseTalk adapter")
+
+        # Detect mouthless avatars: base frames have no mouth, so silence gating would erase the mouth completely.
+        is_mouthless = metadata.get("source_mode") == "mouthless" or bool(metadata.get("mouthless", False))
+        if not is_mouthless and coords:
+            try:
+                sample_frame = cv2.imread(str(directory / "full_imgs" / "00000000.png"))
+                if sample_frame is not None:
+                    l, t, r, b = coords[0]
+                    mh_w, mh_h = r - l, b - t
+                    mouth_y1, mouth_y2 = int(mh_h * 0.60), int(mh_h * 0.85)
+                    mouth_x1, mouth_x2 = int(mh_w * 0.25), int(mh_w * 0.75)
+                    mouth_crop = sample_frame[t:b, l:r][mouth_y1:mouth_y2, mouth_x1:mouth_x2]
+                    gray = cv2.cvtColor(mouth_crop, cv2.COLOR_BGR2GRAY)
+                    if cv2.Laplacian(gray, cv2.CV_64F).var() < 60.0:
+                        is_mouthless = True
+            except Exception:
+                pass
+
+        if is_mouthless:
+            silence_gate = False
+
         progress("Loading MuseTalk 1.5 models", 0.05)
         self.load_models()
         latents = torch.load(directory / "latents.pt", map_location="cpu", weights_only=True)
@@ -248,7 +269,7 @@ class MuseTalkService:
                             raise ValueError("Avatar frame is missing; prepare it again")
                         sample = waveform[int((start + offset) * 640):int((start + offset + 1) * 640)]
                         db = 20 * np.log10(max(float(np.sqrt(np.mean(sample ** 2))) if sample.size else 0, 1e-8))
-                        if not silence_gate or db > silence_threshold_db:
+                        if not silence_gate or is_mouthless or db > silence_threshold_db:
                             left, top, right, bottom = coords[idx]
                             w, h = right - left, bottom - top
                             face = cv2.resize(face, (w, h), interpolation=cv2.INTER_LANCZOS4)

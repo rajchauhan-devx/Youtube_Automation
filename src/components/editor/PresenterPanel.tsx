@@ -10,6 +10,7 @@ export interface PresenterAvatar {
   duration: number;
   previewUrl: string;
   hasTransparency?: boolean;
+  isMouthless?: boolean;
   transparentPreviewUrl?: string;
   tightCrop?: { x: number; y: number; width: number; height: number };
 }
@@ -202,7 +203,14 @@ export function PresenterPanel({ value, onChange, onSave, onAvatars, disabled }:
           const val = Number(e.target.value);
           if (Number.isFinite(val)) updateCropKey(key, val);
         }} /></label>)}</div>
-        <label className="mt-3 flex items-center gap-2"><input type="checkbox" checked={value.silenceGate} onChange={e => change({ silenceGate: e.target.checked })} /> Preserve original mouth during silence</label>
+        {selected?.isMouthless ? (
+          <div className="mt-3 text-xs text-gray-400 flex items-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+            Mouth is maintained continuously at all times (mouthless avatar base).
+          </div>
+        ) : (
+          <label className="mt-3 flex items-center gap-2"><input type="checkbox" checked={value.silenceGate} onChange={e => change({ silenceGate: e.target.checked })} /> Preserve original mouth during silence</label>
+        )}
         <label className="mt-2 block">Silence threshold (dB)<input aria-label="Silence threshold" type="number" min={-55} max={-25} value={value.silenceThresholdDb} className="ml-2 w-20 rounded bg-surface2 p-2" onChange={e => change({ silenceThresholdDb: Math.max(-55, Math.min(-25, Number(e.target.value))) })} /></label>
       </details>
       <p className="text-gray-400">The timeline shows source movement. Lip-sync is generated with your narration when you render. Subtitles stay centered above the character, with no sideways shift when you resize it.</p>

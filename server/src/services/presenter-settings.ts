@@ -15,7 +15,7 @@ export const defaultPresenter = (): PresenterSettings => ({
   enabled: false, avatarId: 'avatar_013', style: 'transparent', widthPercent: 35,
   bottomPercent: 2, marginPercent: 0, horizontalPercent: 100,
   crop: { x: 32, y: 2, width: 40, height: 67 },
-  silenceGate: true, silenceThresholdDb: -40,
+  silenceGate: false, silenceThresholdDb: -40,
 });
 
 export function validatePresenter(value: unknown): PresenterSettings {

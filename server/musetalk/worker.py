@@ -72,7 +72,7 @@ def main():
             "progress_cb": progress,
         }
         if "silence_gate" in sig.parameters:
-            kwargs["silence_gate"] = request.get("silenceGate", True)
+            kwargs["silence_gate"] = request.get("silenceGate", False)
         if "silence_threshold_db" in sig.parameters:
             kwargs["silence_threshold_db"] = request.get("silenceThresholdDb", -40)
 

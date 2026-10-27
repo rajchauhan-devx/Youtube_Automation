@@ -193,21 +193,55 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     // 3. Enter project studio if not already inside a project
     input.onStage('Entering project studio', 15);
     input.signal.throwIfAborted();
+
+    // Dismiss marketing banner or promos if present
+    const promoClose = page.locator('button.promotion-banner-close-button, button[aria-label="Dismiss banner"], button:has(mat-icon:has-text("close")).promotion-banner-close-button').first();
+    if (await promoClose.isVisible().catch(() => false)) {
+      await promoClose.click().catch(() => {});
+      await page.waitForTimeout(500);
+    }
+
     if (!page.url().includes('/project/')) {
-      const newProjectBtn = page.locator('button:has-text("New project"), [aria-label*="New project" i], div:has-text("New project")').first();
-      if ((await newProjectBtn.count()) > 0) {
-        await newProjectBtn.click({ timeout: 15000 });
-        await page.waitForURL('**/project/**', { timeout: 30000 }).catch(() => null);
-        await page.waitForTimeout(2000);
-      } else {
-        // Fallback: click first project card if available
-        const projectCard = page.locator('.projects-grid > div, mat-card, .project-card').first();
-        if ((await projectCard.count()) > 0) {
-          await projectCard.click({ timeout: 10000 });
-          await page.waitForURL('**/project/**', { timeout: 30000 }).catch(() => null);
-          await page.waitForTimeout(2000);
+      const newProjectBtn = page.locator('button.new-project-button, button:has-text("New project"), [aria-label="New project" i]').first();
+      const openProjectLink = page.locator('a[aria-label="Open project"], a[href*="/project/"], .project-card').first();
+
+      let navigated = false;
+      if (await newProjectBtn.isVisible().catch(() => false)) {
+        try {
+          await newProjectBtn.click({ timeout: 10000 });
+          await page.waitForURL('**/project/**', { timeout: 15000 });
+          navigated = true;
+        } catch {}
+      }
+
+      if (!navigated && (await openProjectLink.count()) > 0) {
+        try {
+          await openProjectLink.click({ timeout: 10000 });
+          await page.waitForURL('**/project/**', { timeout: 15000 });
+          navigated = true;
+        } catch {
+          const href = await openProjectLink.getAttribute('href').catch(() => null);
+          if (href && href.includes('/project/')) {
+            const fullUrl = href.startsWith('http') ? href : `https://flow.google.com${href}`;
+            await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+            navigated = true;
+          }
         }
       }
+
+      if (!page.url().includes('/project/')) {
+        const anyProjectLink = await page.locator('a[href*="/project/"]').first().getAttribute('href').catch(() => null);
+        if (anyProjectLink) {
+          const fullUrl = anyProjectLink.startsWith('http') ? anyProjectLink : `https://flow.google.com${anyProjectLink}`;
+          await page.goto(fullUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+        }
+      }
+
+      if (!page.url().includes('/project/')) {
+        await shot(page, dir, 'enter-project-failed');
+        throw fail('enter-project', new Error('Failed to enter Google Flow project studio from dashboard.'), page.url());
+      }
+      await page.waitForTimeout(2000);
     }
     input.logStep({ step: 'project-opened', at: new Date().toISOString(), shot: await shot(page, dir, 'project-opened') });
 

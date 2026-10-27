@@ -39,26 +39,26 @@
         "imageQuality": "standard",
         "seedMode": "random",
         "seed": 42,
-        "flowEnabled": false,
+        "flowEnabled": true,
         "flowResolution": "720p",
         "flowDuration": 8,
         "allowImageFallback": true
       },
       "voice": {
-        "provider": "default",
-        "language": "hi",
-        "voiceId": "hi-IN-Chirp3-HD-Charon",
+        "provider": "google",
+        "language": "auto",
+        "voiceId": "en-IN-Chirp3-HD-Charon",
         "rate": 0,
         "pitch": 0,
         "speed": 1
       },
-      "captions": "motion",
+      "captions": "off",
       "graphics": {
-        "enabled": false,
+        "enabled": true,
         "mode": "images",
         "density": "subtle",
         "treatment": "auto",
-        "style": "Keep footage clean. Add an occasional evidence image or explanatory diagram only when it helps explain the scene. No decorative statistics, oversized text, photographic stickers or minimum number of graphics.",
+        "style": "Let AI choose only moments where a graphic materially explains the narration. Metadata is a suggestion, never a command to decorate every scene. Leave ordinary footage clean, keep breathing room between beats, and allow zero graphics. No cards, panels, boxed labels, enclosing frames, blur backings or photo badges. Use free-floating type, fine lines and purposeful diagrams in open space around subjects. Never invent facts, coordinates, source labels or telemetry. Preview the actual result before export.",
         "model": ""
       },
       "editing": {
@@ -72,7 +72,7 @@
           "framing": "contain",
           "chapterTitles": false,
           "bookendFades": false,
-          "captionStyle": "boxed",
+          "captionStyle": "minimal",
           "captions": true,
           "colorLook": "none",
           "vignette": false,
@@ -90,12 +90,30 @@
       "audio": {
         "music": "auto",
         "musicVolume": 0.1,
-        "voiceVolume": 1.3
+        "voiceVolume": 1
       },
       "youtube": {
-        "privacyStatus": "public",
+        "enabled": true,
+        "privacyStatus": "private",
         "publishMode": "now",
         "scheduledPublishAt": ""
+      },
+      "presenter": {
+        "enabled": false,
+        "avatarId": "avatar_013",
+        "style": "transparent",
+        "widthPercent": 35,
+        "bottomPercent": 2,
+        "marginPercent": 0,
+        "horizontalPercent": 100,
+        "crop": {
+          "x": 32,
+          "y": 2,
+          "width": 40,
+          "height": 67
+        },
+        "silenceGate": true,
+        "silenceThresholdDb": -40
       }
     },
     "accountId": "default",
@@ -108,7 +126,54 @@
     "imagePrompts": [],
     "generatedImages": [],
     "generatedAudio": [],
-    "pipeline": []
+    "pipeline": [],
+    "retentionPlan": {
+      "structure": "Intriguing question → authentic traditional story → clear explanation → meaningful insight",
+      "viewerPromise": "The viewer will learn the authentic source-based context behind the selected test topic, clearly distinguishing traditional texts from historical evidence.",
+      "hooks": [
+        {
+          "openingLine": "जब एक तीर ने पूरी दिशा बदल दी।",
+          "openingVisual": "A close-up of an ancient golden bow being drawn in a misty Treta Yuga forest, cinematic volumetric lighting.",
+          "curiosity": "What made this single arrow change the course of an entire epic battle?",
+          "payoff": "A clear breakdown of the tactical and spiritual significance of the divine weapon according to Valmiki Ramayana.",
+          "reason": "Starts directly with a high-stakes visual and a concrete question about a specific weapon."
+        },
+        {
+          "openingLine": "वनवास के चौदह वर्ष केवल एक परीक्षा नहीं थे।",
+          "openingVisual": "Rama and Sita walking across the rocky Chitrakuta terrain at dawn, dressed in ascetic bark-cloth.",
+          "curiosity": "What was the deeper philosophical test hidden within the years of exile?",
+          "payoff": "An explanation of dharma and duty under extreme adversity as described in traditional texts.",
+          "reason": "Leads with a thematic paradox that challenges conventional understanding of the exile."
+        },
+        {
+          "openingLine": "लंका के स्वर्ण द्वार के पीछे क्या छिपा था?",
+          "openingVisual": "An imposing black stone fortress atop jagged sea-cliffs under a dramatic twilight sky.",
+          "curiosity": "How did the architectural marvel of Lanka reflect the tragic hubris of its ruler?",
+          "payoff": "A source-faithful depiction of Ravana's citadel and the philosophical lesson of unyielding pride.",
+          "reason": "Hooks the viewer with an evocative architectural mystery rooted in scripture."
+        }
+      ],
+      "selectedHookIndex": 0,
+      "titles": [
+        "The Divine Arrow That Changed History #Shorts",
+        "The True Meaning of the Exile #Shorts",
+        "Inside the Golden Fortress of Lanka #Shorts"
+      ],
+      "thumbnailConcept": "A dramatic close-up of a glowing divine bow against a dark forest backdrop, featuring bold Devanagari text and high contrast cinematic lighting.",
+      "description": "Explore the authentic traditional accounts and philosophical wisdom from ancient Hindu texts. Distinguishing traditional narratives from established historical facts on Ancient Dharma. #Shorts",
+      "tags": [
+        "Ancient Dharma",
+        "Ramayana",
+        "Hindu Philosophy",
+        "Sanatana Dharma",
+        "Shorts"
+      ],
+      "musicMood": "cinematic",
+      "version": 1,
+      "topic": "test",
+      "createdAt": "2026-10-27T06:41:03.658Z",
+      "memoryEvidence": "No sufficiently sampled retention observations for this format and duration yet. Use editorial judgment; do not invent audience evidence or predicted retention scores."
+    }
   },
   {
     "id": "shorts_images_videos",
@@ -1444,7 +1509,6 @@
       "uploadedVideoUrl": "https://www.youtube.com/shorts/fVW9fL9f6aI",
       "uploadedAt": "2026-10-26T11:02:32.821Z"
     }
-
   },
   {
     "id": "test_e2e_video",

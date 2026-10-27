@@ -79,6 +79,7 @@ export function presenterAvatars() {
           if (meta.preparation_status !== 'prepared' || !['source_25fps.mp4', 'coords.pkl', 'latents.pt', 'full_imgs'].every(f => fs.existsSync(path.join(dir, f)))) continue;
           const [width, height] = String(meta.resolution).split('x').map(Number);
           const hasTransparency = Boolean(avatarAlphaSource(dir) || fs.existsSync(path.join(dir, 'cycle-v1.mkv')));
+          const isMouthless = meta.source_mode === 'mouthless' || Boolean(meta.mouthless);
           const tightCrop = meta.tight_crop || (hasTransparency ? { x: 25.6, y: 0, width: 47.0, height: 100 } : undefined);
           seen.add(id);
           results.push({
@@ -88,6 +89,7 @@ export function presenterAvatars() {
             height,
             duration: meta.duration,
             hasTransparency,
+            isMouthless,
             tightCrop,
             transparentPreviewUrl: hasTransparency ? mediaUrl(`presenter/avatar/${id}?transparent=1`) : undefined,
             previewUrl: mediaUrl(`presenter/avatar/${id}`),
@@ -287,9 +289,16 @@ export async function generatePresenter(scriptId: string, audio: string, setting
     await releaseIdleGpu(signal);
     work = containedFile(directory, `presenter-work-${randomUUID()}`);
     fs.mkdirSync(work);
+    const metaFile = path.join(avatarDirectory(p.avatarId), 'metadata.json');
+    let isMouthless = false;
+    try {
+      const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+      isMouthless = meta.source_mode === 'mouthless' || Boolean(meta.mouthless);
+    } catch {}
+    const silenceGate = isMouthless ? false : p.silenceGate;
     const request = containedFile(work, 'request.json');
     fs.writeFileSync(request, JSON.stringify({ root: museTalkRoot(), work, audio, avatarId: p.avatarId,
-      batchSize: 8, silenceGate: p.silenceGate, silenceThresholdDb: p.silenceThresholdDb }));
+      batchSize: 8, silenceGate, silenceThresholdDb: p.silenceThresholdDb }));
     const { output_path: output } = await runWorker(request, signal, progress);
     if (!output) throw new Error('MuseTalk did not return a presenter video.');
     if (path.resolve(output) !== containedFile(work, path.basename(output))) throw new Error('Presenter returned a file outside its job directory.');

@@ -828,11 +828,18 @@ export function AutoPilotSettingsPanel({
                           />
                         ))}
                       </div>
-                      <Toggle
-                        label="Preserve original mouth during silence"
-                        checked={presenterValue.silenceGate}
-                        onChange={silenceGate => patchPresenter({ silenceGate })}
-                      />
+                      {selectedAvatar?.isMouthless ? (
+                        <div className="mt-3 text-xs text-gray-400 flex items-center gap-2">
+                          <span className="inline-block w-2 h-2 rounded-full bg-emerald-400"></span>
+                          Mouth is maintained continuously at all times (mouthless avatar base).
+                        </div>
+                      ) : (
+                        <Toggle
+                          label="Preserve original mouth during silence"
+                          checked={presenterValue.silenceGate}
+                          onChange={silenceGate => patchPresenter({ silenceGate })}
+                        />
+                      )}
                       <NumberInput
                         label="Silence threshold (dB)"
                         min={-55}

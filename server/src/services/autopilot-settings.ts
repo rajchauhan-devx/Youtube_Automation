@@ -20,7 +20,7 @@ export const PresenterSettingsSchema = z.strictObject({
     width: z.number().min(10).max(100).default(40),
     height: z.number().min(10).max(100).default(67),
   }).default({ x: 32, y: 2, width: 40, height: 67 }),
-  silenceGate: z.boolean().default(true),
+  silenceGate: z.boolean().default(false),
   silenceThresholdDb: z.number().min(-55).max(-25).default(-40),
 });
 

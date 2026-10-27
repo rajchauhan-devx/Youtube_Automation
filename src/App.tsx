@@ -1095,9 +1095,14 @@ export default function App() {
 
           addAutoPilotLog('generate_images', `Rendering scene ${i + 1}/${scenesToRender.length}: "${scenePrompt.slice(0, 50)}..."`, 'info');
 
+          const isPlannedVideo = runSettings.media.flowEnabled && (
+            (scenesToRender[i] as any).mediaType === 'video' ||
+            Boolean((scenesToRender[i] as any).videoPrompt) ||
+            (section === 'shorts' && (currentScript.name?.toLowerCase().includes('mixed') || currentScript.topic?.toLowerCase().includes('mixed')) && i % 2 === 0)
+          );
           const savedAsset = currentScript.generatedImages?.find(asset => asset.index === i && asset.status === 'done' && asset.url
             && asset.prompt === (asset.mediaType === 'video' ? (scenesToRender[i] as any).videoPrompt || scenePrompt : scenePrompt));
-          const needsVideo = runSettings.media.flowEnabled && (scenesToRender[i] as any).mediaType === 'video';
+          const needsVideo = flowAvailableThisRun && isPlannedVideo;
           if (savedAsset && (!needsVideo || savedAsset.mediaType === 'video')) {
             addAutoPilotLog('generate_images', `Scene ${i + 1}: reusing the saved visual.`, 'info');
             continue;
@@ -1137,7 +1142,7 @@ export default function App() {
           }
 
           // If this scene is a video scene (mediaType === 'video' or in mixed section):
-          const isVideoScene = flowAvailableThisRun && runSettings.media.flowEnabled && (scenesToRender[i] as any).mediaType === 'video';
+          const isVideoScene = flowAvailableThisRun && isPlannedVideo;
           if (isVideoScene) {
             try {
               setAutoPilotState((prev) => ({
@@ -1206,7 +1211,13 @@ export default function App() {
                       }
                     }
                   } else if (jobResult.state === 'error') {
-                    flowAvailableThisRun = false; addAutoPilotLog('generate_images', `Flow video note for Scene ${i + 1}: ${jobResult.error || 'Flow error'}. Using reference keyframes for subsequent video scenes.`, 'warn');
+                    const isAuth = jobResult.overseerCode === 'AUTH_EXPIRED' || /auth-expired|login required|signed out/i.test(jobResult.error || '');
+                    if (isAuth) {
+                      flowAvailableThisRun = false;
+                      addAutoPilotLog('generate_images', `Google Flow login expired. Using reference keyframes for subsequent video scenes.`, 'warn');
+                    } else {
+                      addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${jobResult.error || 'Flow error'}. Using reference keyframe for this scene. Continuing video generation for remaining scenes...`, 'warn');
+                    }
                   }
                 } else {
                   const errJson = await flowJobRes.json().catch(() => ({}));
@@ -1214,10 +1225,17 @@ export default function App() {
                   addAutoPilotLog('generate_images', `Scene ${i + 1} Flow notice: ${errMsg}`, 'warn');
                 }
               } else {
+                flowAvailableThisRun = false;
                 addAutoPilotLog('generate_images', `Scene ${i + 1}: Flow video worker is not signed in. Using reference keyframe.`, 'info');
               }
             } catch (videoErr) {
-              flowAvailableThisRun = false; addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${videoErr instanceof Error ? videoErr.message : 'Kept reference keyframe'}. Using reference keyframes for subsequent video scenes.`, 'warn');
+              const isAuth = /auth-expired|login required|signed out/i.test(videoErr instanceof Error ? videoErr.message : '');
+              if (isAuth) {
+                flowAvailableThisRun = false;
+                addAutoPilotLog('generate_images', `Google Flow login expired. Using reference keyframes for subsequent video scenes.`, 'warn');
+              } else {
+                addAutoPilotLog('generate_images', `Scene ${i + 1} video notice: ${videoErr instanceof Error ? videoErr.message : 'Kept reference keyframe'}. Continuing video generation for remaining scenes...`, 'warn');
+              }
             }
           }
           if (isVideoScene && !runSettings.media.allowImageFallback) {
@@ -1238,7 +1256,7 @@ export default function App() {
               const asset = latest.generatedImages.find((g: any) => g.index === idx);
               if (asset) {
                 const actual = asset.mediaType || (asset.url && asset.url.endsWith('.mp4') ? 'video' : 'image');
-                if (sc.mediaType !== actual) {
+                if (sc.mediaType !== actual && !sc.videoPrompt) {
                   sc.mediaType = actual;
                   planChanged = true;
                 }
