@@ -1,6 +1,9 @@
 .venv/
 MuseTalk/models/
-avatars/
+avatars/*
+!avatars/prepared/
+avatars/prepared/*
+!avatars/prepared/avatar_013/
 outputs/
 temp/
 *.log
