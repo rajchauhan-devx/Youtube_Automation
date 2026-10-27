@@ -1,0 +1,21 @@
+{
+  "avatar_id": "avatar_rulezero",
+  "source_mode": "mouthless",
+  "name": "Zero Rule (Transparent Presenter)",
+  "source_path": "/Users/laheri/Downloads/rulezero.mp4",
+  "fps": 25,
+  "resolution": "1920x1080",
+  "duration": 10.0,
+  "bbox_shift": 5,
+  "num_frames_cycle": 500,
+  "preparation_status": "prepared",
+  "date_prepared": "2026-10-27 11:35:24",
+  "adapter_version": 1,
+  "face_detector": "OpenCV YuNet",
+  "tight_crop": {
+    "x": 17.8,
+    "y": 0.0,
+    "width": 69.1,
+    "height": 100.0
+  }
+}

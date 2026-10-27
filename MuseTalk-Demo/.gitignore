@@ -4,6 +4,8 @@ avatars/*
 !avatars/prepared/
 avatars/prepared/*
 !avatars/prepared/avatar_013/
+!avatars/prepared/avatar_odds/
+!avatars/prepared/avatar_rulezero/
 outputs/
 temp/
 *.log

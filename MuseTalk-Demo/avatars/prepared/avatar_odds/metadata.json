@@ -1,0 +1,21 @@
+{
+  "avatar_id": "avatar_odds",
+  "source_mode": "mouthless",
+  "name": "Odds (Transparent Presenter)",
+  "source_path": "/Users/laheri/Downloads/odds.mp4",
+  "fps": 25,
+  "resolution": "1920x1080",
+  "duration": 10.0,
+  "bbox_shift": 5,
+  "num_frames_cycle": 500,
+  "preparation_status": "prepared",
+  "date_prepared": "2026-10-27 11:30:25",
+  "adapter_version": 1,
+  "face_detector": "OpenCV YuNet",
+  "tight_crop": {
+    "x": 20.0,
+    "y": 0.0,
+    "width": 55.6,
+    "height": 100.0
+  }
+}
