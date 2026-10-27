@@ -58,11 +58,15 @@ export async function selectAutoPilotTopic(options: {
   // Re-read after research so another completed export is also excluded.
   const latest = syncTopicNotes();
   for (const candidate of Array.isArray(parsed.candidates) ? parsed.candidates : []) {
-    if (typeof candidate.topic !== 'string' || !candidate.topic.trim() || candidate.topic.length > 300 || candidate.duplicateOf !== null) continue;
+    if (typeof candidate.topic !== 'string' || !candidate.topic.trim() || candidate.topic.length > 300) continue;
     if (requested && candidate.topic.trim() !== requested) continue;
+    if (!requested && candidate.duplicateOf !== null) continue;
     const topic = candidate.topic.trim();
-    if (repeatedTopic(topic, latest.topics)) continue;
+    if (!requested && repeatedTopic(topic, latest.topics)) continue;
     return { topic, reason: typeof candidate.reason === 'string' ? candidate.reason : '', historyCount: latest.topics.length };
+  }
+  if (requested) {
+    return { topic: requested, reason: 'Requested specifically by user', historyCount: latest.topics.length };
   }
   throw new Error(requested
     ? 'This topic repeats a subject already exported by this profile. Choose another topic or leave Topic blank.'

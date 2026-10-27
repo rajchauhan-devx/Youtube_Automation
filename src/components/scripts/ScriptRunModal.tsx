@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Sparkles, Play } from 'lucide-react';
+import { X, Sparkles, Play, AlertCircle, Loader2 } from 'lucide-react';
 import type { Script } from '../../data';
 import { AutoPilotSettingsSchema, defaultAutoPilotSettings, type AutoPilotSettings } from '../../../server/src/services/autopilot-settings';
 import { AutoPilotSettingsPanel } from './AutoPilotSettingsPanel';
@@ -39,24 +39,44 @@ export function ScriptRunModal({
   const [error, setError] = useState('');
 
   async function handleSubmit(autoPilot: boolean) {
+    console.log('[ScriptRunModal] handleSubmit called, autoPilot =', autoPilot);
     const cleaned = topic.trim();
-    if (!cleaned && !autoPilot) return;
     setError('');
-    if (autoPilot && !voiceReady) { setError('Select an available narration voice before running.'); return; }
+
+    if (!cleaned && !autoPilot) {
+      setError('Please enter a topic name to generate the script.');
+      return;
+    }
+    if (autoPilot && !voiceReady) {
+      setError('Narration voice is still loading. Please wait a moment or select a voice under Narration settings.');
+      return;
+    }
     if (autoPilot && settings.presenter?.enabled && !settings.presenter.avatarId) {
       setError('Select a MuseTalk avatar character before running with AI Presenter enabled.');
       return;
     }
     const parsed = AutoPilotSettingsSchema.safeParse(settings);
-    if (autoPilot && !parsed.success) { setError(parsed.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).slice(0, 3).join('; ')); return; }
+    if (autoPilot && !parsed.success) {
+      const issueMsg = parsed.error.issues.map(issue => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+      console.error('[ScriptRunModal] Configuration error:', issueMsg);
+      setError(`Configuration error: ${issueMsg}`);
+      return;
+    }
     if (autoPilot && settings.youtube.enabled && settings.youtube.publishMode === 'schedule' && Date.parse(settings.youtube.scheduledPublishAt) <= Date.now() + 5 * 60_000) {
       setError('Choose a publication time at least five minutes in the future, allowing time for production.');
       return;
     }
     setBusy(true);
-    try { await onSubmit(cleaned, instructions.trim(), { autoPilot, ...(autoPilot && parsed.success ? { settings: parsed.data } : {}) }); }
-    catch (error) { setError(error instanceof Error ? error.message : 'Could not start this production.'); }
-    finally { setBusy(false); }
+    try {
+      console.log('[ScriptRunModal] Triggering onSubmit...');
+      await onSubmit(cleaned, instructions.trim(), { autoPilot, ...(autoPilot && parsed.success ? { settings: parsed.data } : {}) });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Could not start this production.';
+      console.error('[ScriptRunModal] Submit error:', error);
+      setError(msg);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -84,6 +104,17 @@ export function ScriptRunModal({
           }}
           className="flex-1 overflow-y-auto space-y-4 p-5 sm:p-6"
         >
+          {error && (
+            <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-500/50 bg-red-950/80 p-3 text-xs text-red-200 shadow-lg animate-fade-in">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-400 mt-0.5" />
+              <div className="flex-1 leading-relaxed">
+                <strong className="font-semibold text-red-300">Cannot start: </strong>
+                {error}
+              </div>
+              <button type="button" onClick={() => setError('')} className="text-red-400 hover:text-white px-1 font-bold">✕</button>
+            </div>
+          )}
+
           <p className="-mt-1 text-[13px] leading-relaxed text-muted">
             Running <strong className="text-white">{script.name}</strong>. {mode === 'auto' ? 'Leave the topic blank to let AI choose a fresh topic for this profile.' : 'Enter a topic to generate the script.'}
           </p>
@@ -124,7 +155,6 @@ export function ScriptRunModal({
           </div>
 
           {mode === 'auto' && <AutoPilotSettingsPanel scriptExcerpt={script.narration || script.extractedScript || ''} value={settings} onChange={setSettings} onVoiceReady={setVoiceReady} />}
-          {error && <p role="alert" className="text-sm text-red-300">{error}</p>}
 
           {mode === 'auto' && (
             <div className="rounded-xl border border-accent/20 bg-accent/5 p-3 text-xs leading-relaxed text-gray-300">
@@ -137,25 +167,35 @@ export function ScriptRunModal({
           )}
         </form>
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-borderSoft bg-surface px-5 py-3.5 sm:px-6">
-          <button type="button" onClick={onClose} className="studio-btn-ghost text-xs">
-            Cancel
-          </button>
-          <button
-            form="run-script-modal-form"
-            type="submit"
-            disabled={busy || (mode === 'auto' ? !voiceReady : !topic.trim())}
-            className="studio-btn-primary flex items-center gap-2 text-xs !py-2.5 shadow-glow disabled:opacity-50"
-          >
-            {mode === 'auto' ? <Sparkles className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            {busy
-              ? 'Starting…'
-              : mode === 'auto' && !voiceReady
-                ? 'Loading voice…'
+        <div className="flex shrink-0 flex-col gap-2.5 border-t border-borderSoft bg-surface px-5 py-3.5 sm:px-6">
+          {error && (
+            <div role="alert" className="flex items-start gap-2.5 rounded-xl border border-red-500/50 bg-red-950/80 p-3 text-xs text-red-200 shadow-lg animate-fade-in">
+              <AlertCircle className="h-4 w-4 shrink-0 text-red-400 mt-0.5" />
+              <div className="flex-1 leading-relaxed">
+                <strong className="font-semibold text-red-300">Cannot start: </strong>
+                {error}
+              </div>
+              <button type="button" onClick={() => setError('')} className="text-red-400 hover:text-white px-1 font-bold">✕</button>
+            </div>
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <button type="button" onClick={onClose} className="studio-btn-ghost text-xs">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSubmit(mode === 'auto')}
+              disabled={busy}
+              className="studio-btn-primary flex items-center gap-2 text-xs !py-2.5 shadow-glow disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === 'auto' ? <Sparkles className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {busy
+                ? 'Starting Production…'
                 : mode === 'auto'
                   ? 'Run Auto-Pilot'
                   : 'Run Script Only'}
-          </button>
+            </button>
+          </div>
         </div>
       </div>
     </div>

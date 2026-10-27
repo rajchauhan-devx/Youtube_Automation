@@ -1689,6 +1689,8 @@ export default function App() {
       addAutoPilotLog(activeStage, `Pipeline halted: ${msg}`, 'error');
       setAutoPilotState((prev) => ({
         ...prev,
+        isActive: true,
+        isMinimized: false,
         stage: 'error',
         stageIndex: AUTO_PILOT_STAGES.findIndex(item => item.id === activeStage),
         error: msg,
@@ -1705,10 +1707,14 @@ export default function App() {
     if (!runModalScript) return;
     let script = runModalScript;
     if (options?.autoPilot) {
-      const settings = AutoPilotSettingsSchema.parse(options.settings || defaultAutoPilotSettings(script));
+      const parsed = AutoPilotSettingsSchema.safeParse(options.settings || defaultAutoPilotSettings(script));
+      if (!parsed.success) {
+        throw new Error('Invalid production settings: ' + parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '));
+      }
+      const settings = parsed.data;
       const patch = { autoPilotSettings: settings, enableSubtitles: settings.captions !== 'off', presenter: settings.presenter, editingProjectId: null };
       const saved = await persistScript(script.id, patch);
-      if (!saved) throw new Error('Could not save production settings. Please retry.');
+      if (!saved) throw new Error('Could not save production settings. Please check server connection.');
       script = { ...script, ...patch };
       setRunModalScript(null);
       void runAutoPilotPipeline(script, topic, instructions);
