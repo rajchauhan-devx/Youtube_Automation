@@ -29,10 +29,16 @@ export function getFlowCreditsInfo(): FlowCreditsState {
   // cannot identify the current account or establish that it has no credits.
   const credits = valid && source !== 'unknown' ? saved.credits! : null;
   const costPerVideo = typeof saved.costPerVideo === 'number' && saved.costPerVideo > 0 ? saved.costPerVideo : 20;
-  return { credits, source, costPerVideo, lastSync: source === 'unknown' ? null : saved.lastSync || null,
-    account: source === 'unknown' ? '' : saved.account || '', tier: source === 'unknown' ? '' : saved.tier || '',
+  return {
+    credits,
+    source,
+    costPerVideo,
+    lastSync: source === 'unknown' ? null : saved.lastSync || null,
+    account: source === 'unknown' ? '' : saved.account || '',
+    tier: source === 'unknown' ? '' : saved.tier || '',
     videosRemaining: credits === null ? null : Math.floor(credits / costPerVideo),
-    status: credits === null ? 'unknown' : credits === 0 ? 'exhausted' : credits < 50 ? 'low' : 'ok' };
+    status: credits === null ? 'unknown' : credits === 0 ? 'exhausted' : credits < 50 ? 'low' : 'ok',
+  };
 }
 
 export function updateFlowCredits(credits?: number, meta?: { account?: string; tier?: string; costPerVideo?: number; source?: FlowCreditsState['source'] }): FlowCreditsState {
@@ -40,14 +46,22 @@ export function updateFlowCredits(credits?: number, meta?: { account?: string; t
   if (meta?.costPerVideo !== undefined && (!Number.isFinite(meta.costPerVideo) || meta.costPerVideo <= 0)) throw new Error('Estimated credit cost must be positive.');
   const current = getFlowCreditsInfo();
   const switched = !!meta?.account && meta.account !== current.account;
-  const updated = { credits: credits ?? (switched ? null : current.credits),
+  const updated = {
+    credits: credits ?? (switched ? null : current.credits),
     lastSync: credits === undefined ? switched ? null : current.lastSync : new Date().toISOString(),
-    tier: meta?.tier ?? (switched ? '' : current.tier), account: meta?.account ?? current.account,
+    tier: meta?.tier ?? (switched ? '' : current.tier),
+    account: meta?.account ?? current.account,
     costPerVideo: meta?.costPerVideo ?? current.costPerVideo,
-    source: meta?.source || (credits !== undefined ? 'manual' : switched ? 'unknown' : current.source) };
+    source: meta?.source || (credits !== undefined ? 'manual' : switched ? 'unknown' : current.source),
+  };
   const file = creditsFilePath(), temp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(updated, null, 2), 'utf8');
-  fs.renameSync(temp, file);
+  try {
+    fs.renameSync(temp, file);
+  } catch {
+    fs.writeFileSync(file, JSON.stringify(updated, null, 2), 'utf8');
+    try { fs.unlinkSync(temp); } catch {}
+  }
   return getFlowCreditsInfo();
 }
 
@@ -55,4 +69,27 @@ export function deductFlowCredits(amount: number): FlowCreditsState {
   const current = getFlowCreditsInfo();
   if (current.credits === null) return current;
   return updateFlowCredits(Math.max(0, current.credits - amount), { source: 'estimate' });
+}
+
+export function resetFlowCredits(clearAccount = true): FlowCreditsState {
+  const current = getFlowCreditsInfo();
+  const updated: FlowCreditsState = {
+    credits: null,
+    lastSync: null,
+    tier: '',
+    account: clearAccount ? '' : current.account,
+    costPerVideo: current.costPerVideo || 20,
+    videosRemaining: null,
+    status: 'unknown',
+    source: 'unknown',
+  };
+  const file = creditsFilePath(), temp = `${file}.${process.pid}.tmp`;
+  fs.writeFileSync(temp, JSON.stringify(updated, null, 2), 'utf8');
+  try {
+    fs.renameSync(temp, file);
+  } catch {
+    fs.writeFileSync(file, JSON.stringify(updated, null, 2), 'utf8');
+    try { fs.unlinkSync(temp); } catch {}
+  }
+  return getFlowCreditsInfo();
 }

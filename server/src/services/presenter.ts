@@ -41,24 +41,59 @@ function pythonPath() {
 }
 function avatarDirectory(id: string) {
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) throw new Error('Invalid avatar ID.');
-  return containedFile(path.join(museTalkRoot(), 'avatars', 'prepared'), id);
+  const searchBases = [
+    path.join(REPO_ROOT, 'MuseTalk-Demo', 'avatars', 'prepared'),
+    path.join(museTalkRoot(), 'avatars', 'prepared'),
+    path.join(os.homedir(), 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
+    path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
+  ];
+  for (const base of searchBases) {
+    const candidate = path.join(base, id);
+    if (fs.existsSync(candidate)) return candidate;
+  }
+  return path.join(museTalkRoot(), 'avatars', 'prepared', id);
 }
+
 export function presenterAvatars() {
-  const base = path.join(museTalkRoot(), 'avatars', 'prepared');
-  if (!fs.existsSync(base)) return [];
-  return fs.readdirSync(base).flatMap(id => {
+  const searchBases = [
+    path.join(REPO_ROOT, 'MuseTalk-Demo', 'avatars', 'prepared'),
+    path.join(museTalkRoot(), 'avatars', 'prepared'),
+    path.join(os.homedir(), 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
+    path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
+  ];
+  const seen = new Set<string>();
+  const results = [];
+  for (const base of searchBases) {
+    if (!fs.existsSync(base)) continue;
     try {
-      const dir = avatarDirectory(id);
-      const meta = JSON.parse(fs.readFileSync(containedFile(dir, 'metadata.json'), 'utf8'));
-      if (meta.preparation_status !== 'prepared' || !['source_25fps.mp4', 'coords.pkl', 'latents.pt', 'full_imgs'].every(f => fs.existsSync(containedFile(dir, f)))) return [];
-      const [width, height] = String(meta.resolution).split('x').map(Number);
-      const hasTransparency = Boolean(avatarAlphaSource(dir) || fs.existsSync(containedFile(dir, 'cycle-v1.mkv')));
-      const tightCrop = meta.tight_crop || (hasTransparency ? { x: 25.6, y: 0, width: 47.0, height: 100 } : undefined);
-      return [{ id, name: String(meta.name || id), width, height, duration: meta.duration, hasTransparency, tightCrop,
-        transparentPreviewUrl: hasTransparency ? mediaUrl(`presenter/avatar/${id}?transparent=1`) : undefined,
-        previewUrl: mediaUrl(`presenter/avatar/${id}`) }];
-    } catch { return []; }
-  });
+      for (const id of fs.readdirSync(base)) {
+        if (seen.has(id)) continue;
+        try {
+          const dir = path.join(base, id);
+          const metaFile = path.join(dir, 'metadata.json');
+          if (!fs.existsSync(metaFile)) continue;
+          const meta = JSON.parse(fs.readFileSync(metaFile, 'utf8'));
+          if (meta.preparation_status !== 'prepared' || !['source_25fps.mp4', 'coords.pkl', 'latents.pt', 'full_imgs'].every(f => fs.existsSync(path.join(dir, f)))) continue;
+          const [width, height] = String(meta.resolution).split('x').map(Number);
+          const hasTransparency = Boolean(avatarAlphaSource(dir) || fs.existsSync(path.join(dir, 'cycle-v1.mkv')));
+          const tightCrop = meta.tight_crop || (hasTransparency ? { x: 25.6, y: 0, width: 47.0, height: 100 } : undefined);
+          seen.add(id);
+          results.push({
+            id,
+            name: String(meta.name || id),
+            width,
+            height,
+            duration: meta.duration,
+            hasTransparency,
+            tightCrop,
+            transparentPreviewUrl: hasTransparency ? mediaUrl(`presenter/avatar/${id}?transparent=1`) : undefined,
+            previewUrl: mediaUrl(`presenter/avatar/${id}`),
+          });
+        } catch {}
+      }
+    } catch {}
+  }
+  return results;
 }
 export function presenterHealth() {
   const weights = ['musetalkV15/unet.pth', 'musetalkV15/musetalk.json', 'sd-vae/diffusion_pytorch_model.bin', 'whisper/pytorch_model.bin'];

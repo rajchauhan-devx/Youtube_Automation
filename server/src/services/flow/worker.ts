@@ -137,7 +137,12 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     const page = context.pages()[0] || (await context.newPage());
     input.signal.throwIfAborted();
 
-    const targetUrl = input.projectUrl || 'https://flow.google.com/';
+    const activeAccount = getFlowCreditsInfo().account;
+    const targetUrl = input.projectUrl || (
+      activeAccount
+        ? `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(activeAccount)}&continue=${encodeURIComponent('https://flow.google.com/')}`
+        : 'https://flow.google.com/'
+    );
     try {
       await page.goto(targetUrl, { timeout: STEP_TIMEOUT_MS, waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(2000);
@@ -157,17 +162,24 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     }
 
     // 2. Handle Google account chooser if prompted
-        if (/accounts\.google|signin|accountchooser/i.test(page.url())) {
+    if (/accounts\.google|signin|accountchooser/i.test(page.url())) {
       const activeAccount = getFlowCreditsInfo().account;
       const targetTile = activeAccount
         ? page.locator(`[data-identifier*="${activeAccount}"], li:has-text("${activeAccount}"), div[role="link"]:has-text("${activeAccount}"), [data-email*="${activeAccount}"]`).first()
         : null;
-      const fallbackTile = page.locator('[data-identifier*="@gmail.com"], li:has-text("@gmail.com")').first();
-      const tileToClick = (targetTile && (await targetTile.count()) > 0) ? targetTile : fallbackTile;
-      if ((await tileToClick.count()) > 0) {
-        await tileToClick.click();
+      if (targetTile && (await targetTile.count()) > 0) {
+        await targetTile.click();
         await page.waitForNavigation({ timeout: 15000 }).catch(() => null);
         await page.waitForTimeout(3000);
+      } else if (!activeAccount) {
+        const fallbackTile = page.locator('[data-identifier*="@gmail.com"], li:has-text("@gmail.com")').first();
+        if ((await fallbackTile.count()) > 0) {
+          await fallbackTile.click();
+          await page.waitForNavigation({ timeout: 15000 }).catch(() => null);
+          await page.waitForTimeout(3000);
+        }
+      } else {
+        throw fail('open', new Error(`Target account ${activeAccount} not found on Google Account Chooser. Please sign in to ${activeAccount}.`), page.url());
       }
     }
 

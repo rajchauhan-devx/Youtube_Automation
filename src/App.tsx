@@ -1206,6 +1206,10 @@ export default function App() {
                   } else if (jobResult.state === 'error') {
                     flowAvailableThisRun = false; addAutoPilotLog('generate_images', `Flow video note for Scene ${i + 1}: ${jobResult.error || 'Flow error'}. Using reference keyframes for subsequent video scenes.`, 'warn');
                   }
+                } else {
+                  const errJson = await flowJobRes.json().catch(() => ({}));
+                  const errMsg = errJson.error || `Flow job failed to start (${flowJobRes.status})`;
+                  addAutoPilotLog('generate_images', `Scene ${i + 1} Flow notice: ${errMsg}`, 'warn');
                 }
               } else {
                 addAutoPilotLog('generate_images', `Scene ${i + 1}: Flow video worker is not signed in. Using reference keyframe.`, 'info');

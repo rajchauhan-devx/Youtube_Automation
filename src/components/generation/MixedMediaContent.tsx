@@ -47,13 +47,20 @@ function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountMo
   async function handleLaunchLogin(fresh = false) {
     setLaunching(true);
     setMsg(fresh ? 'Launching clean browser window…' : 'Launching browser window…');
+    if (fresh) {
+      setEmailInput('');
+      setCreditsInput('');
+    }
     try {
       const res = await globalThis.fetch('/api/flow/launch-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fresh }),
       });
-      const data = await res.json() as { message?: string };
+      const data = await res.json() as { message?: string; error?: string };
+      if (!res.ok || data.error) {
+        throw new Error(data.error || 'Failed to launch login window');
+      }
       setMsg(data.message || (fresh ? 'Clean browser opened! Sign into your new Google account, then close the browser.' : 'Browser opened! Sign into your Google account, then close the browser.'));
       const poll = setInterval(() => {
         onUpdated();

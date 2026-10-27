@@ -1,0 +1,21 @@
+{
+  "avatar_id": "avatar_013",
+  "source_mode": "mouthless",
+  "name": "miai_bg_remover-1790506371000",
+  "source_path": "C:\\Users\\zrajc\\AppData\\Local\\Temp\\gradio\\cafd4686fa5475122c8f0722047e39aa2d8c61c4093b865fd5ebab86618eec61\\miai_bg_remover-1790506371000.mp4",
+  "source_fingerprint": "391a33a9592167bc42e5bd70e5320bfb272026f22fc6199015679650cfcae7d4",
+  "normalized_path": "C:\\Users\\zrajc\\OneDrive\\Documents\\MuseTalk-Demo\\avatars\\prepared\\avatar_013\\source_25fps.mp4",
+  "fps": 25,
+  "resolution": "1920x1080",
+  "duration": 10,
+  "bbox_shift": 5,
+  "num_frames_cycle": 500,
+  "preparation_status": "prepared",
+  "date_prepared": "2026-09-27 17:38:28",
+  "tight_crop": {
+    "x": 25.6,
+    "y": 0,
+    "width": 47,
+    "height": 100
+  }
+}

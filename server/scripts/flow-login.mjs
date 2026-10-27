@@ -23,22 +23,71 @@ function getBrowserChannel() {
   return undefined;
 }
 
+function cleanLockFiles(dir) {
+  const lockFiles = ['SingletonLock', 'SingletonCookie', 'SingletonSocket', 'lockfile'];
+  for (const f of lockFiles) {
+    try {
+      fs.unlinkSync(path.join(dir, f));
+    } catch {}
+  }
+}
+
+function wipeDirectoryContents(dir) {
+  if (!fs.existsSync(dir)) return;
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+    return;
+  } catch {}
+  // Fallback: delete files individually
+  try {
+    const files = fs.readdirSync(dir);
+    for (const file of files) {
+      const full = path.join(dir, file);
+      try {
+        fs.rmSync(full, { recursive: true, force: true });
+      } catch {}
+    }
+  } catch {}
+}
+
 async function main() {
   const configured = process.env.FLOW_PROFILE_DIR?.trim();
   const profileDir = configured
     ? path.isAbsolute(configured) ? configured : path.resolve(SERVER_ROOT, configured)
     : path.join(SERVER_ROOT, 'data', 'flow', 'profile-default');
 
+  const dataDir = path.dirname(profileDir);
+  fs.mkdirSync(dataDir, { recursive: true });
+
+  const pidFile = path.join(dataDir, 'login.pid');
+  try {
+    fs.writeFileSync(pidFile, String(process.pid), 'utf8');
+  } catch {}
+
+  const creditsPath = path.join(dataDir, 'credits.json');
   const isFresh = process.argv.includes('--fresh');
+
   if (isFresh) {
-    console.log(`Clearing previous Google Flow profile for fresh login...`);
+    console.log(`Clearing previous Google Flow profile and credentials for fresh login...`);
+    // Reset credits.json so old account is immediately cleared
     try {
-      fs.rmSync(profileDir, { recursive: true, force: true });
+      const blankCredits = {
+        credits: null,
+        account: '',
+        tier: '',
+        source: 'unknown',
+        costPerVideo: 20,
+        lastSync: null,
+      };
+      fs.writeFileSync(creditsPath, JSON.stringify(blankCredits, null, 2), 'utf8');
     } catch (e) {
-      console.warn('Could not remove profileDir:', e.message);
+      console.warn('Could not reset credits.json:', e.message);
     }
+    wipeDirectoryContents(profileDir);
   }
+
   fs.mkdirSync(profileDir, { recursive: true });
+  cleanLockFiles(profileDir);
 
   const channel = getBrowserChannel();
   console.log(`\n======================================================`);
@@ -46,23 +95,54 @@ async function main() {
   console.log(` Profile Directory: ${profileDir}`);
   console.log(` Browser Channel:   ${channel || 'bundled chromium'}`);
   console.log(` Fresh Session:     ${isFresh ? 'YES' : 'NO'}`);
+  console.log(` PID:               ${process.pid}`);
   console.log(`======================================================\n`);
   console.log(`Opening browser window...`);
   console.log(`1. Sign in to your Google Account (with Google Flow / Pro access).`);
   console.log(`2. Verify that Google Flow studio loads.`);
   console.log(`3. When you are done, simply CLOSE the browser window.\n`);
 
-  const context = await chromium.launchPersistentContext(profileDir, {
-    channel,
-    headless: false,
-    viewport: { width: 1280, height: 800 },
-    args: ['--disable-blink-features=AutomationControlled'],
-  });
+  const launchArgs = [
+    '--start-maximized',
+    '--disable-blink-features=AutomationControlled',
+    '--no-default-browser-check',
+  ];
+
+  let context;
+  try {
+    context = await chromium.launchPersistentContext(profileDir, {
+      channel,
+      headless: false,
+      viewport: null,
+      args: launchArgs,
+      timeout: 15000,
+    });
+  } catch (launchErr) {
+    console.warn(`Launch with channel "${channel}" failed: ${launchErr.message}. Falling back to default Chromium...`);
+    cleanLockFiles(profileDir);
+    context = await chromium.launchPersistentContext(profileDir, {
+      headless: false,
+      viewport: null,
+      args: launchArgs,
+      timeout: 15000,
+    });
+  }
 
   const page = context.pages()[0] || (await context.newPage());
-  await page.goto('https://flow.google.com/', { waitUntil: 'domcontentloaded' });
+  try {
+    await page.bringToFront();
+  } catch {}
 
-  const creditsPath = path.join(path.dirname(profileDir), 'credits.json');
+  const targetUrl = isFresh
+    ? 'https://accounts.google.com/ServiceLogin?service=wise&passive=1209600&continue=https%3A%2F%2Fflow.google.com%2F'
+    : 'https://flow.google.com/';
+
+  console.log(`Navigating to ${targetUrl}...`);
+  try {
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  } catch (navErr) {
+    console.warn(`Initial navigation notice: ${navErr.message}`);
+  }
 
   // Monitor in background for account changes while user is browsing
   let syncing = false;
@@ -71,18 +151,30 @@ async function main() {
     syncing = true;
     try {
       if (page.isClosed()) return;
+      const url = page.url();
+      // Only sync if user has actually reached flow.google.com
+      if (!url.includes('flow.google.com')) return;
       const snapshot = await readFlowAccount(page);
-      if (snapshot) {
-        fs.writeFileSync(creditsPath, JSON.stringify({ ...snapshot, source: 'flow', lastSync: new Date().toISOString(), costPerVideo: 20 }, null, 2), 'utf8');
+      if (snapshot && snapshot.account) {
+        fs.writeFileSync(
+          creditsPath,
+          JSON.stringify({ ...snapshot, source: 'flow', lastSync: new Date().toISOString(), costPerVideo: 20 }, null, 2),
+          'utf8'
+        );
         console.log(`[Flow] Synced ${snapshot.credits} credits for ${snapshot.account}.`);
       }
-    } catch {} finally { syncing = false; }
-  }, 10000);
+    } catch {} finally {
+      syncing = false;
+    }
+  }, 4000);
 
   // Wait until user closes the browser
   await new Promise((resolve) => {
     context.on('close', () => {
       clearInterval(interval);
+      try {
+        fs.unlinkSync(pidFile);
+      } catch {}
       resolve();
     });
   });
