@@ -510,25 +510,25 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
     text.match(/^(?:[-*+]\s+)?Title\s*:[ \t]*([^\n]+)/im)?.[1]?.replace(/\*\*/g, '').trim() ||
     'Generated Episode';
 
-  // 5. Extract Motion Graphics Metadata (<metadata[N]> or <motion_graphic[N]>)
-  for (const tag of ['metadata','motion_graphic']) {
-    const opens=(text.match(new RegExp(`<${tag}(?:\\d+)?\\b[^>]*>`,'gi'))||[]).length;
-    const closes=(text.match(new RegExp(`</${tag}(?:\\d+)?\\s*>`,'gi'))||[]).length;
-    if(opens!==closes)throw new Error(`Unfinished or unmatched <${tag}> block`);
-  }
+  // 5. Extract Motion Graphics Metadata (<metadata[N]> or <motion_graphic[N]>) — optional, never throws
   const motionMetadata: any[] = [];
+  const cleanForMotion = text.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
   const metadataRegex = /<(?:metadata|motion_graphic)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic)(\d+)?\s*>/gi;
   let metaIdx = 1;
-  for (const m of text.matchAll(metadataRegex)) {
+  for (const m of cleanForMotion.matchAll(metadataRegex)) {
     const raw = m[2].trim();
-    if (m[1] !== m[3])throw new Error('Motion metadata opening and closing scene numbers must match');
+    if (m[1] && m[3] && m[1] !== m[3]) continue;
     if (raw.startsWith('{')) {
-      const sceneNum=Number(m[1]);
-      if(!Number.isInteger(sceneNum)||sceneNum<1||!scenes[sceneNum-1])throw new Error('JSON motion metadata requires a numbered tag matching an existing scene');
+      const sceneNum = Number(m[1]);
+      if (!Number.isInteger(sceneNum) || sceneNum < 1 || !scenes[sceneNum - 1]) continue;
       let json: unknown;
-      try { json=JSON.parse(raw); } catch { throw new Error(`Scene ${sceneNum}: invalid motion metadata JSON`); }
-      const hint=parseMotionScriptHint(json,scenes[sceneNum-1].narration);
-      motionMetadata.push({...hint,index:sceneNum,sceneNum,sceneId:scenes[sceneNum-1].id,raw});
+      try { json = JSON.parse(raw); } catch { continue; }
+      try {
+        const hint = parseMotionScriptHint(json, scenes[sceneNum - 1].narration);
+        motionMetadata.push({ ...hint, index: sceneNum, sceneNum, sceneId: scenes[sceneNum - 1].id, raw });
+      } catch {
+        continue;
+      }
       continue;
     }
     const typeMatch = raw.match(/Type:\s*([^\n]+)/i);

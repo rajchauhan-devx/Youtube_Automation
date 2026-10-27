@@ -160,7 +160,7 @@ export function buildFreePrompt(template: string, topic: string, instructions: s
   const tail = [
     `Topic: ${(topic || '').trim()}`,
     `Target duration: ~${target} seconds. MANDATORY: this selected runtime overrides any default, example or maximum runtime in the template. Scale the episode to ~${target} seconds with at least ${minScenes} story scenes. ${tagRules} Write every prompt block in full; never use placeholders such as [...Repeat...] or "following the same standard".`,
-    ...(head.includes(MOTION_SCRIPT_PLAN_MARKER) ? [] : [MOTION_SCRIPT_HINTS]),
+    ...(head.includes(MOTION_SCRIPT_PLAN_MARKER) ? [MOTION_SCRIPT_HINTS] : []),
   ];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
   if (cleanResearch) {

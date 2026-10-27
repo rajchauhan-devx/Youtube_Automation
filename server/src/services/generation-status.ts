@@ -23,7 +23,7 @@ export function incompleteResponse(prompt: string, response: string, freeChat = 
     const missing = requested.filter(id => !received.has(id));
     if (missing.length) return `Missing requested sections: ${missing.join(', ')}`;
   }
-  for (const tag of ['long_video', 'shorts', 'audio_prompt', 'scene', 'narration', 'image_prompt', 'video_prompt', 'thumbnail_prompt', 'script', 'motion_graphic', 'metadata']) {
+  for (const tag of ['long_video', 'shorts', 'audio_prompt', 'scene', 'narration', 'image_prompt', 'video_prompt', 'thumbnail_prompt', 'script']) {
     const opens = (clean.match(new RegExp(`<${tag}(?:\\d+)?(?:\\s+[^>]*)?>`, 'gi')) || []).length;
     const closes = (clean.match(new RegExp(`</${tag}(?:\\d+)?\\s*>`, 'gi')) || []).length;
     if (opens > closes) return `Unfinished <${tag}> block`;
