@@ -272,11 +272,55 @@ class MuseTalkService:
                         if not silence_gate or is_mouthless or db > silence_threshold_db:
                             left, top, right, bottom = coords[idx]
                             w, h = right - left, bottom - top
-                            face = cv2.resize(face, (w, h), interpolation=cv2.INTER_LANCZOS4)
-                            mask = np.zeros((h, w), np.float32)
-                            cv2.ellipse(mask, (w // 2, int(h * 0.72)), (int(w * 0.43), int(h * 0.25)), 0, 0, 360, 1, -1)
-                            mask = cv2.GaussianBlur(mask, (0, 0), max(1, w * 0.025))[..., None]
-                            frame[top:bottom, left:right] = (face * mask + frame[top:bottom, left:right] * (1 - mask)).astype(np.uint8)
+                            if w > 0 and h > 0:
+                                face = cv2.resize(face, (w, h), interpolation=cv2.INTER_LANCZOS4)
+                                orig_crop = frame[top:bottom, left:right]
+
+                                # Exact face skin matching in LAB color space
+                                face_lab = cv2.cvtColor(face, cv2.COLOR_BGR2LAB).astype(np.float32)
+                                orig_lab = cv2.cvtColor(orig_crop, cv2.COLOR_BGR2LAB).astype(np.float32)
+
+                                # Sample lower half of face crop for skin statistics
+                                sample_y1, sample_y2 = int(h * 0.50), int(h * 0.90)
+                                sample_x1, sample_x2 = int(w * 0.10), int(w * 0.90)
+
+                                for c in range(3):
+                                    o_mean = orig_lab[sample_y1:sample_y2, sample_x1:sample_x2, c].mean()
+                                    o_std = orig_lab[sample_y1:sample_y2, sample_x1:sample_x2, c].std() + 1e-6
+                                    f_mean = face_lab[sample_y1:sample_y2, sample_x1:sample_x2, c].mean()
+                                    f_std = face_lab[sample_y1:sample_y2, sample_x1:sample_x2, c].std() + 1e-6
+                                    face_lab[..., c] = (face_lab[..., c] - f_mean) * (o_std / f_std) + o_mean
+
+                                face_matched = cv2.cvtColor(np.clip(face_lab, 0, 255).astype(np.uint8), cv2.COLOR_LAB2BGR)
+
+                                # Unsharp mask for crisp lip borders
+                                blur = cv2.GaussianBlur(face_matched, (0, 0), sigmaX=1.0)
+                                face_sharp = cv2.addWeighted(face_matched, 1.35, blur, -0.35, 0)
+
+                                # High-frequency skin microtexture transfer from original frame
+                                orig_hf = cv2.subtract(orig_crop, cv2.GaussianBlur(orig_crop, (0, 0), sigmaX=1.5))
+                                face_textured = cv2.addWeighted(face_sharp, 1.0, orig_hf, 0.40, 0)
+
+                                # Tight mouth mask protecting philtrum, chin, cheeks and jawline
+                                tight_mask = np.zeros((h, w), np.float32)
+                                mouth_cx = w // 2
+                                mouth_cy = int(h * 0.725)
+                                mouth_rx = int(w * 0.22)
+                                mouth_ry = int(h * 0.11)
+                                cv2.ellipse(tight_mask, (mouth_cx, mouth_cy), (mouth_rx, mouth_ry), 0, 0, 360, 1, -1)
+
+                                # Hard bounds to preserve philtrum above 0.61*h and chin below 0.85*h
+                                tight_mask[:int(h * 0.61), :] = 0
+                                tight_mask[int(h * 0.85):, :] = 0
+
+                                # Natural feathering around the tight lips
+                                feather = max(3, int(w * 0.035))
+                                if feather % 2 == 0:
+                                    feather += 1
+                                tight_mask = cv2.GaussianBlur(tight_mask, (feather, feather), 0)[..., None]
+
+                                blended = face_textured * tight_mask + orig_crop * (1.0 - tight_mask)
+                                frame[top:bottom, left:right] = np.clip(blended, 0, 255).astype(np.uint8)
                         encoder.stdin.write(frame.tobytes())
                 encoder.stdin.close()
                 if encoder.wait(timeout=120) != 0:
