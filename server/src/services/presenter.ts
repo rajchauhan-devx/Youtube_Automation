@@ -17,13 +17,25 @@ const SERVER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..
 const REPO_ROOT = path.resolve(SERVER, '..');
 export function museTalkRoot() {
   if (process.env.MUSETALK_ROOT) return path.resolve(REPO_ROOT, process.env.MUSETALK_ROOT);
+  const macCloudStorage = path.join(os.homedir(), 'Library', 'CloudStorage');
+  let macOneDriveDirs: string[] = [];
+  try {
+    if (fs.existsSync(macCloudStorage)) {
+      macOneDriveDirs = fs.readdirSync(macCloudStorage)
+        .filter(d => /onedrive/i.test(d))
+        .map(d => path.join(macCloudStorage, d, 'Documents', 'MuseTalk-Demo'));
+    }
+  } catch {}
+
   const candidates = [
     path.join(REPO_ROOT, 'MuseTalk-Demo'),
     path.join(os.homedir(), 'MuseTalk-Demo'),
     path.join(os.homedir(), 'Documents', 'MuseTalk-Demo'),
     path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo'),
+    ...macOneDriveDirs,
   ].filter(Boolean) as string[];
-  return path.resolve(candidates.find(p => fs.existsSync(p)) || path.join(REPO_ROOT, 'MuseTalk-Demo'));
+  const withModels = candidates.find(p => fs.existsSync(path.join(p, 'MuseTalk', 'models')));
+  return path.resolve(withModels || candidates.find(p => fs.existsSync(p)) || path.join(REPO_ROOT, 'MuseTalk-Demo'));
 }
 export function presenterPythonPath() {
   if (process.env.MUSETALK_PYTHON) {
@@ -37,19 +49,23 @@ export function presenterPythonPath() {
     'C:/ProgramData/miniconda3/envs/musetalk-demo/python.exe',
     path.join(os.homedir(), 'miniconda3', 'envs', 'musetalk-demo', 'bin', 'python'),
     path.join(os.homedir(), 'anaconda3', 'envs', 'musetalk-demo', 'bin', 'python'),
+    path.join(os.homedir(), 'miniforge3', 'envs', 'musetalk-demo', 'bin', 'python'),
     '/opt/homebrew/Caskroom/miniconda/base/envs/musetalk-demo/bin/python',
+    '/opt/homebrew/anaconda3/envs/musetalk-demo/bin/python',
     '/opt/miniconda3/envs/musetalk-demo/bin/python',
   ].filter(Boolean) as string[];
   return candidates.find(p => fs.existsSync(p));
 }
 function avatarDirectory(id: string) {
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) throw new Error('Invalid avatar ID.');
-  const searchBases = [
-    path.join(REPO_ROOT, 'MuseTalk-Demo', 'avatars', 'prepared'),
-    path.join(museTalkRoot(), 'avatars', 'prepared'),
-    path.join(os.homedir(), 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
-    path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
-  ];
+  const searchBases = process.env.MUSETALK_ROOT
+    ? [path.join(museTalkRoot(), 'avatars', 'prepared')]
+    : [
+        path.join(REPO_ROOT, 'MuseTalk-Demo', 'avatars', 'prepared'),
+        path.join(museTalkRoot(), 'avatars', 'prepared'),
+        path.join(os.homedir(), 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
+        path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
+      ];
   for (const base of searchBases) {
     const candidate = path.join(base, id);
     if (fs.existsSync(candidate)) return candidate;
@@ -58,12 +74,14 @@ function avatarDirectory(id: string) {
 }
 
 export function presenterAvatars() {
-  const searchBases = [
-    path.join(REPO_ROOT, 'MuseTalk-Demo', 'avatars', 'prepared'),
-    path.join(museTalkRoot(), 'avatars', 'prepared'),
-    path.join(os.homedir(), 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
-    path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
-  ];
+  const searchBases = process.env.MUSETALK_ROOT
+    ? [path.join(museTalkRoot(), 'avatars', 'prepared')]
+    : [
+        path.join(REPO_ROOT, 'MuseTalk-Demo', 'avatars', 'prepared'),
+        path.join(museTalkRoot(), 'avatars', 'prepared'),
+        path.join(os.homedir(), 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
+        path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
+      ];
   const seen = new Set<string>();
   const results = [];
   for (const base of searchBases) {
