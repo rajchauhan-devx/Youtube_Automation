@@ -1153,76 +1153,97 @@ export default function App() {
               const flowStatusData = flowStatusRes.ok ? await flowStatusRes.json() : null;
 
               if (flowStatusData?.profileReady) {
-                addAutoPilotLog('generate_images', `[FLOW] Generating video for Scene ${i + 1} via Veo 3.1...`, 'gemini');
-                setAutoPilotState((prev) => ({
-                  ...prev,
-                  statusMessage: `Google Flow: Rendering Scene ${i + 1} video with Veo 3.1...`,
-                }));
                 const videoPrompt = (scenesToRender[i] as any).videoPrompt || scenePrompt;
                 const aspect = section === 'shorts' ? 'portrait' : 'landscape';
-                const flowJobRes = await fetch('/api/flow/jobs', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    scriptId,
-                    sceneIndex: i,
-                    prompt: videoPrompt,
-                    model: 'veo-3.1-fast',
-                    aspect,
-                    duration: runSettings.media.flowDuration,
-                    resolution: runSettings.media.flowResolution,
-                    dryRun: false,
-                  }),
-                  signal: controller.signal,
-                });
+                let videoImported = false;
+                const MAX_VIDEO_ATTEMPTS = 2;
 
-                if (flowJobRes.ok) {
-                  const flowJobData = await flowJobRes.json();
-                  let jobResult = flowJobData;
-                  while (jobResult.state === 'queued' || jobResult.state === 'running') {
-                    await new Promise((r) => setTimeout(r, 3000));
+                for (let videoAttempt = 1; videoAttempt <= MAX_VIDEO_ATTEMPTS && !videoImported; videoAttempt++) {
+                  if (videoAttempt > 1) {
+                    addAutoPilotLog('generate_images', `[FLOW] Retrying video generation for Scene ${i + 1} (attempt ${videoAttempt}/${MAX_VIDEO_ATTEMPTS})...`, 'info');
+                    await new Promise((r) => setTimeout(r, 2000));
                     await checkPauseOrAbort();
-                    const pollRes = await fetch(`/api/flow/jobs/${jobResult.id}`);
-                    if (pollRes.ok) {
-                      jobResult = await pollRes.json();
-                      setAutoPilotState((prev) => ({
-                        ...prev,
-                        statusMessage: `Google Flow: Generating Scene ${i + 1} video (${jobResult.stage || 'generating'} ${jobResult.progress || 0}%)...`,
-                      }));
-                    }
+                  } else {
+                    addAutoPilotLog('generate_images', `[FLOW] Generating video for Scene ${i + 1} via Veo 3.1...`, 'gemini');
                   }
+                  setAutoPilotState((prev) => ({
+                    ...prev,
+                    statusMessage: `Google Flow: Rendering Scene ${i + 1} video with Veo 3.1${videoAttempt > 1 ? ` (retry ${videoAttempt}/${MAX_VIDEO_ATTEMPTS})` : ''}...`,
+                  }));
 
-                  if (jobResult.state === 'done' && jobResult.result?.downloadId) {
-                    const dl = await fetch(`/api/flow/downloads/${jobResult.result.downloadId}`);
-                    if (dl.ok) {
-                      const videoBlob = await dl.blob();
-                      const importRes = await fetch(`/api/media-import/${encodeURIComponent(scriptId)}/${i}?extension=mp4`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/octet-stream' },
-                        body: videoBlob,
-                      });
-                      if (importRes.ok) {
-                        const importJson = await importRes.json();
-                        if (importJson.generatedImages) {
-                          patchScriptState(scriptId, { generatedImages: importJson.generatedImages });
-                          await persistScript(scriptId, { generatedImages: importJson.generatedImages });
-                        }
-                        addAutoPilotLog('generate_images', `Scene ${i + 1} full video motion rendered & imported!`, 'success');
+                  const flowJobRes = await fetch('/api/flow/jobs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      scriptId,
+                      sceneIndex: i,
+                      prompt: videoPrompt,
+                      model: 'veo-3.1-fast',
+                      aspect,
+                      duration: runSettings.media.flowDuration,
+                      resolution: runSettings.media.flowResolution,
+                      dryRun: false,
+                    }),
+                    signal: controller.signal,
+                  });
+
+                  if (flowJobRes.ok) {
+                    const flowJobData = await flowJobRes.json();
+                    let jobResult = flowJobData;
+                    while (jobResult.state === 'queued' || jobResult.state === 'running') {
+                      await new Promise((r) => setTimeout(r, 3000));
+                      await checkPauseOrAbort();
+                      const pollRes = await fetch(`/api/flow/jobs/${jobResult.id}`);
+                      if (pollRes.ok) {
+                        jobResult = await pollRes.json();
+                        setAutoPilotState((prev) => ({
+                          ...prev,
+                          statusMessage: `Google Flow: Generating Scene ${i + 1} video (${jobResult.stage || 'generating'} ${jobResult.progress || 0}%)...`,
+                        }));
                       }
                     }
-                  } else if (jobResult.state === 'error') {
-                    const isAuth = jobResult.overseerCode === 'AUTH_EXPIRED' || /auth-expired|login required|signed out/i.test(jobResult.error || '');
-                    if (isAuth) {
-                      flowAvailableThisRun = false;
-                      addAutoPilotLog('generate_images', `Google Flow login expired. Using reference keyframes for subsequent video scenes.`, 'warn');
+
+                    if (jobResult.state === 'done' && jobResult.result?.downloadId) {
+                      const dl = await fetch(`/api/flow/downloads/${jobResult.result.downloadId}`);
+                      if (dl.ok) {
+                        const videoBlob = await dl.blob();
+                        const importRes = await fetch(`/api/media-import/${encodeURIComponent(scriptId)}/${i}?extension=mp4`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/octet-stream' },
+                          body: videoBlob,
+                        });
+                        if (importRes.ok) {
+                          const importJson = await importRes.json();
+                          if (importJson.generatedImages) {
+                            patchScriptState(scriptId, { generatedImages: importJson.generatedImages });
+                            await persistScript(scriptId, { generatedImages: importJson.generatedImages });
+                          }
+                          addAutoPilotLog('generate_images', `Scene ${i + 1} full video motion rendered & imported!`, 'success');
+                          videoImported = true;
+                          break;
+                        }
+                      }
+                    } else if (jobResult.state === 'error') {
+                      const isAuth = jobResult.overseerCode === 'AUTH_EXPIRED' || /auth-expired|login required|signed out/i.test(jobResult.error || '');
+                      if (isAuth) {
+                        flowAvailableThisRun = false;
+                        addAutoPilotLog('generate_images', `Google Flow login expired. Using reference keyframes for subsequent video scenes.`, 'warn');
+                        break;
+                      } else if (videoAttempt < MAX_VIDEO_ATTEMPTS) {
+                        addAutoPilotLog('generate_images', `Scene ${i + 1} video attempt ${videoAttempt} error: ${jobResult.error || 'Flow error'}. Retrying video generation...`, 'info');
+                      } else {
+                        addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${jobResult.error || 'Flow error'}. Using reference keyframe for this scene. Continuing video generation for remaining scenes...`, 'warn');
+                      }
+                    }
+                  } else {
+                    const errJson = await flowJobRes.json().catch(() => ({}));
+                    const errMsg = errJson.error || `Flow job failed to start (${flowJobRes.status})`;
+                    if (videoAttempt < MAX_VIDEO_ATTEMPTS) {
+                      addAutoPilotLog('generate_images', `Scene ${i + 1} Flow notice: ${errMsg}. Retrying...`, 'info');
                     } else {
-                      addAutoPilotLog('generate_images', `Scene ${i + 1} video note: ${jobResult.error || 'Flow error'}. Using reference keyframe for this scene. Continuing video generation for remaining scenes...`, 'warn');
+                      addAutoPilotLog('generate_images', `Scene ${i + 1} Flow notice: ${errMsg}`, 'warn');
                     }
                   }
-                } else {
-                  const errJson = await flowJobRes.json().catch(() => ({}));
-                  const errMsg = errJson.error || `Flow job failed to start (${flowJobRes.status})`;
-                  addAutoPilotLog('generate_images', `Scene ${i + 1} Flow notice: ${errMsg}`, 'warn');
                 }
               } else {
                 flowAvailableThisRun = false;

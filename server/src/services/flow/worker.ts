@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { flowDownloadsDir, type StepLog } from './jobs.js';
+import { cleanFlowPrompt, flowDownloadsDir, type StepLog } from './jobs.js';
 import { flowProfileDir } from './profile.js';
 import { deductFlowCredits, getFlowCreditsInfo } from './credits.js';
 import { syncFlowAccountPage } from './credit-sync.js';
@@ -27,6 +27,7 @@ export type OverseerCode =
   | 'TIMEOUT'
   | 'UI_CHANGED'
   | 'CANCELLED'
+  | 'GENERATION_FAILED'
   | 'UNKNOWN';
 
 const STEP_TIMEOUT_MS = 90_000;
@@ -72,6 +73,7 @@ export function classifyFailure(message: string, url: string): OverseerCode {
   if (/recaptcha|unusual traffic|try again later|automated queries/i.test(text)) return 'RECAPTCHA_BLOCKED';
   if (/credit|billing|payment|quota|out of credits/i.test(text)) return 'CREDIT_DIALOG';
   if (/clarif|could you|which.*prefer|what.*mean/i.test(text)) return 'CLARIFICATION';
+  if (/audio generation failed|video generation failed|generation failed/i.test(text)) return 'GENERATION_FAILED';
   if (/timeout|timed out|waiting for/i.test(text)) return 'TIMEOUT';
   if (/selector|locator|element.*not found|detached|ui_changed/i.test(text)) return 'UI_CHANGED';
   return 'UNKNOWN';
@@ -85,6 +87,7 @@ export function recoveryHint(code: OverseerCode): string {
     case 'CREDIT_DIALOG': return 'A credit confirmation appeared. Approve manually in the profile browser once, or lower the model to Lite/Fast.';
     case 'BUDGET_BLOCKED': return 'Episode credit budget would be exceeded. Raise FLOW_CREDIT_BUDGET_PER_EPISODE or use Lite.';
     case 'RECAPTCHA_BLOCKED': return 'Google challenged the automation. Retry headed (FLOW_HEADLESS=false) once.';
+    case 'GENERATION_FAILED': return 'Google Flow video/audio generation encountered a transient cloud error. Auto-retry triggered.';
     case 'TIMEOUT': return 'Render exceeded 10 minutes.';
     case 'UI_CHANGED': return 'Flow changed its markup. Check the saved screenshot and retry.';
     case 'CANCELLED': return 'Cancelled by user.';
@@ -490,7 +493,7 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
         await page.keyboard.press('Escape').catch(() => {});
         await composer.click();
       });
-      const promptToUse = (input.prompt || input.promptWrapped || '').trim();
+      const promptToUse = cleanFlowPrompt(input.prompt || input.promptWrapped || '');
       await composer.fill(promptToUse);
       await page.waitForTimeout(800);
     } catch (error) {
@@ -558,12 +561,14 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     input.onStage('Rendering in Google Flow (tracking progress)', 50);
     const deadline = Date.now() + GENERATION_TIMEOUT_MS;
     let downloadPath = '';
+    let flowRetriesLeft = 3;
+    let lastRetryAt = 0;
 
     while (Date.now() < deadline) {
       input.signal.throwIfAborted();
 
       // Ensure we are inside the scene viewer; if closed, click tile
-      const dlBtn = page.locator('button[aria-label="Download media"]').first();
+      const dlBtn = page.locator('button[aria-label*="Download" i], button:has(mat-icon:has-text("download")), button:has(mat-icon:has-text("file_download"))').first();
       if ((await dlBtn.count()) === 0) {
         const tile = page.locator('flow-video-tile').first();
         if ((await tile.count()) > 0) {
@@ -572,8 +577,46 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
         }
       }
 
+      // Check if Flow shows a failure card / message (e.g. "Audio generation failed", "Failed", etc.)
+      const failureCard = page.locator('div, section, mat-card, .error-message').filter({
+        hasText: /Audio generation failed|Generation failed|Video generation failed|Please try a different prompt/i
+      }).first();
+      const isFailed = (await failureCard.count()) > 0 && (await failureCard.isVisible().catch(() => false));
+
+      if (isFailed && Date.now() - lastRetryAt > 8000) {
+        const errorText = (await failureCard.innerText().catch(() => 'Audio generation failed')).trim();
+        console.warn(`[Flow Worker] Generation failure detected in Flow: ${errorText.replace(/\n+/g, ' ')}`);
+
+        // Check for Retry/Regenerate button inside the card or near it
+        const retryBtn = page.locator([
+          'button:has(mat-icon:has-text("refresh"))',
+          'button:has(mat-icon:has-text("replay"))',
+          'button:has(mat-icon:has-text("autorenew"))',
+          'button:has(mat-icon:has-text("sync"))',
+          'button[aria-label*="retry" i]',
+          'button[aria-label*="regenerate" i]',
+          'button[aria-label*="try again" i]',
+          'button[aria-label*="again" i]',
+        ].join(', ')).first();
+
+        if (flowRetriesLeft > 0 && (await retryBtn.count()) > 0 && (await retryBtn.isVisible().catch(() => false))) {
+          const attempt = 4 - flowRetriesLeft;
+          flowRetriesLeft--;
+          lastRetryAt = Date.now();
+          input.onStage(`Flow transient failure detected ("${errorText.slice(0, 36).replace(/\n+/g, ' ')}") — auto-clicking Retry (${attempt}/3)...`, 55);
+          await shot(page, dir, `auto-retry-${attempt}`);
+          await retryBtn.click().catch(() => {});
+          await page.waitForTimeout(4000);
+          continue;
+        } else if (flowRetriesLeft === 0 || (await retryBtn.count()) === 0) {
+          // Retries exhausted or no retry button available: fail fast! Do not wait 10 minutes!
+          await shot(page, dir, 'generation-failed');
+          throw fail('generate', new Error(`Flow generation failed: ${errorText.split('\n')[0]}`), page.url());
+        }
+      }
+
       // Check if download button is enabled (enabled only when generation is 100% complete)
-      const dlEnabled = page.locator('button[aria-label="Download media"]:not([disabled])').first();
+      const dlEnabled = page.locator('button[aria-label*="Download" i]:not([disabled]), button:has(mat-icon:has-text("download")):not([disabled]), button:has(mat-icon:has-text("file_download")):not([disabled])').first();
       const isEnabled = (await dlEnabled.count()) > 0 && (await dlEnabled.isEnabled().catch(() => false));
 
       // Extract visible percentage from player (e.g. "21%", "65%")

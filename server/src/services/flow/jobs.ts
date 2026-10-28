@@ -109,10 +109,20 @@ function validCombo(model: FlowModel, duration: number): string | null {
 const FLOW_TWO_D_PATTERN =
   /\b(2d\s+animated|2d\s+animation|2d\s+cartoon|animated[- ]series\s+frame|cel[- ]shad(?:ed|ing)|charcoal\s+(?:outlines|linework)|matte\s+flat\s+colou?r|flat\s+colou?r\s+fills|graphic\s+novel|hand[- ]drawn\s+2d)\b/i;
 
+export function cleanFlowPrompt(rawPrompt: string): string {
+  let cleaned = (rawPrompt || '').trim();
+  // Strip Negative Prompt section (Google Flow has no negative prompt box; text like "lip-sync or dialogue" causes audio synthesis failures)
+  cleaned = cleaned.replace(/\n*\s*(?:Negative Prompt|Negative):\s*[\s\S]*$/i, '');
+  // Strip Evidence / Disclosure metadata
+  cleaned = cleaned.replace(/\n*\s*Evidence\s*\/\s*Disclosure:\s*[\s\S]*?(?=\n\n[A-Z][a-zA-Z\s]+:|$)/i, '');
+  cleaned = cleaned.replace(/Disclosure label:[^\n]*/gi, '');
+  return cleaned.trim();
+}
+
 function wrapPrompt(prompt: string, model: FlowModel, aspect: string, duration: number): string {
   // Flow is agent-first: imperative wrapping generates directly instead of
   // asking clarifying questions (which stalls automation with 0 output).
-  const trimmed = prompt.trim();
+  const trimmed = cleanFlowPrompt(prompt);
   const styleAnchor = FLOW_TWO_D_PATTERN.test(trimmed)
     ? ' 2D flat cel-shaded cartoon animated video (bold black charcoal ink outlines, flat matte color fills, two-step cel shading, 2D graphic novel animated series style, no 3D CGI, no photorealism)'
     : ' video';
@@ -191,6 +201,7 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
   const now = new Date().toISOString();
   const job: FlowJob = {
     ...spec,
+    prompt: cleanFlowPrompt(spec.prompt),
     referenceImagePath: resolvedRef,
     id: `flow_${crypto.randomUUID()}`,
     state: 'queued',
