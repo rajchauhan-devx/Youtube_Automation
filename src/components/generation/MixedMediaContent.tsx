@@ -1079,9 +1079,11 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
         const audio = script?.generatedAudio?.find(item => item.sync?.timingMode === 'narration');
         const timing = audio?.sync?.scenes.find(item => item.sceneId === scene.id);
         const spokenSeconds = timing && audio?.sync ? (timing.endSample - timing.startSample) / audio.sync.sampleRate : undefined;
-        const asset = script?.generatedImages?.find(item => item.index === index && item.prompt === scene.imagePrompt && (item.mediaType || 'image') === type && item.status === 'done');
+        const asset = script?.generatedImages?.find(item => item.index === index && item.prompt === scene.imagePrompt && (item.mediaType || 'image') === type && item.status === 'done')
+          || script?.generatedImages?.find(item => item.index === index && (item.mediaType || 'image') === type && item.status === 'done');
         const refFrame = script?.referenceFrames?.[index];
-        const stillImage = script?.generatedImages?.find(item => item.index === index && item.prompt === scene.imagePrompt && (item.mediaType || 'image') === 'image' && item.status === 'done');
+        const stillImage = script?.generatedImages?.find(item => item.index === index && item.prompt === scene.imagePrompt && (item.mediaType || 'image') === 'image' && item.status === 'done')
+          || script?.generatedImages?.find(item => item.index === index && (item.mediaType || 'image') === 'image' && item.status === 'done');
         const referenceImageToDisplay = type === 'video' && !asset?.url ? (stillImage?.url || refFrame?.url) : null;
         const sceneRunning = activeIndex === index || activeRefIndex === index || activeVideoIndex === index;
         const styleDnaPrompt = formatPromptWithChannelStyleDna(scene.imagePrompt, account);
@@ -1127,6 +1129,8 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
                   <span className="text-[10px] text-purple-300">Ready for Flow Video</span>
                 </div>
               </div>
+            ) : refFrame?.url && type === 'image' ? (
+              <img src={refFrame.url} alt={`Scene ${index + 1}`} className="h-full w-full object-contain" />
             ) : (
               <div className="flex flex-col items-center gap-2 text-gray-500">
                 {type === 'video' ? <Film className="h-8 w-8 text-purple-300/50" /> : <ImageIcon className="h-8 w-8 text-gray-600" />}

@@ -431,7 +431,14 @@ export function YouTubeExportTab({
     setUploadStage('Preparing video payload and authenticating...');
 
     const images = (script.generatedImages || []).filter((img) => img.status === 'done' && img.url && img.mediaType !== 'video' && !img.url.toLowerCase().endsWith('.mp4'));
-    const selectedImg = images[selectedThumbnailIndex] || images[0];
+    const fallbackRefImages = Object.values(script.referenceFrames || {}).filter((ref: any) => ref?.url && !ref.url.toLowerCase().endsWith('.mp4')).map((ref: any, idx) => ({
+      index: ref.index ?? idx,
+      url: ref.url,
+      status: 'done' as const,
+      prompt: ref.prompt || '',
+    }));
+    const candidateImages = images.length > 0 ? images : fallbackRefImages;
+    const selectedImg = candidateImages[selectedThumbnailIndex] || candidateImages[0];
     const rawFilename = selectedImg?.url ? selectedImg.url.split('/').pop() : undefined;
     const thumbnailFilename = rawFilename && /\.(png|jpe?g)$/i.test(rawFilename) ? rawFilename : undefined;
 
@@ -514,8 +521,15 @@ export function YouTubeExportTab({
     }
   }
 
-  // Ready images for thumbnail selection
-  const readyImages = (script?.generatedImages || []).filter((img) => img.status === 'done' && img.url && img.mediaType !== 'video' && !img.url.toLowerCase().endsWith('.mp4'));
+  // Ready images for thumbnail selection (falls back to reference frames if all scenes are video)
+  const stillImages = (script?.generatedImages || []).filter((img) => img.status === 'done' && img.url && img.mediaType !== 'video' && !img.url.toLowerCase().endsWith('.mp4'));
+  const fallbackRefImages = Object.values(script?.referenceFrames || {}).filter((ref: any) => ref?.url && !ref.url.toLowerCase().endsWith('.mp4')).map((ref: any, idx) => ({
+    index: ref.index ?? idx,
+    url: ref.url,
+    status: 'done' as const,
+    prompt: ref.prompt || '',
+  }));
+  const readyImages = stillImages.length > 0 ? stillImages : fallbackRefImages;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto p-4 md:p-6">

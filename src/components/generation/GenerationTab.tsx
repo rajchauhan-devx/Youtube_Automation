@@ -640,12 +640,28 @@ function ImageGenerationContent({
 
               <div className="mb-2 flex aspect-square items-center justify-center overflow-hidden rounded-md bg-surface2">
                 {img.status === 'done' && img.url ? (
-                  <img
-                    src={img.url}
-                    alt={`Generated ${img.index + 1}`}
-                    className="h-full w-full cursor-pointer object-cover"
-                    onClick={() => setLightbox(img.url!)}
-                  />
+                  img.url.endsWith('.mp4') || (img as any).mediaType === 'video' ? (
+                    <div className="relative h-full w-full">
+                      <video
+                        src={img.url}
+                        className="h-full w-full cursor-pointer object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                        onClick={() => setLightbox(img.url!)}
+                      />
+                      <span className="pointer-events-none absolute right-1.5 bottom-1.5 rounded bg-purple-600/90 px-1 py-0.5 text-[8px] font-bold text-white uppercase tracking-wider shadow">
+                        VIDEO
+                      </span>
+                    </div>
+                  ) : (
+                    <img
+                      src={img.url}
+                      alt={`Generated ${img.index + 1}`}
+                      className="h-full w-full cursor-pointer object-cover"
+                      onClick={() => setLightbox(img.url!)}
+                    />
+                  )
                 ) : img.status === 'generating' ? (
                   <div className="flex flex-col items-center gap-2 text-gray-500">
                     <span className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />
@@ -682,7 +698,11 @@ function ImageGenerationContent({
 
       {lightbox && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8" onClick={() => setLightbox(null)}>
-          <img src={lightbox} className="max-h-full max-w-full rounded-lg" />
+          {lightbox.toLowerCase().endsWith('.mp4') ? (
+            <video src={lightbox} controls autoPlay className="max-h-full max-w-full rounded-lg" />
+          ) : (
+            <img src={lightbox} className="max-h-full max-w-full rounded-lg" />
+          )}
         </div>
       )}
     </div>

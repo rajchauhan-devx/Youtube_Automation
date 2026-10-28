@@ -1095,10 +1095,11 @@ export default function App() {
 
           addAutoPilotLog('generate_images', `Rendering scene ${i + 1}/${scenesToRender.length}: "${scenePrompt.slice(0, 50)}..."`, 'info');
 
+          const explicitMediaType = (scenesToRender[i] as any).mediaType;
           const isPlannedVideo = runSettings.media.flowEnabled && (
-            (scenesToRender[i] as any).mediaType === 'video' ||
-            Boolean((scenesToRender[i] as any).videoPrompt) ||
-            (section === 'shorts' && (currentScript.name?.toLowerCase().includes('mixed') || currentScript.topic?.toLowerCase().includes('mixed')) && i % 2 === 0)
+            explicitMediaType === 'video' ||
+            (explicitMediaType !== 'image' && Boolean((scenesToRender[i] as any).videoPrompt)) ||
+            (explicitMediaType === undefined && section === 'shorts' && (currentScript.name?.toLowerCase().includes('mixed') || currentScript.topic?.toLowerCase().includes('mixed')) && i % 2 === 0)
           );
           const savedAsset = currentScript.generatedImages?.find(asset => asset.index === i && asset.status === 'done' && asset.url
             && asset.prompt === (asset.mediaType === 'video' ? (scenesToRender[i] as any).videoPrompt || scenePrompt : scenePrompt));

@@ -330,6 +330,9 @@ export function AutoPilotModal({
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 overflow-y-auto max-h-[380px] p-1">
                     {scenes.map((scene, i) => {
                       const img = generatedImages.find((item) => item.index === i && item.url);
+                      const refUrl = (script?.referenceFrames as any)?.[i]?.url;
+                      const isVideo = img?.mediaType === 'video' || Boolean(img?.url?.toLowerCase().endsWith('.mp4'));
+                      const displayUrl = img?.url || refUrl;
                       const isGeneratingThis = state.stage === 'generate_images' && state.sceneCurrent === i + 1;
 
                       return (
@@ -338,18 +341,34 @@ export function AutoPilotModal({
                           className={`group relative flex flex-col overflow-hidden rounded-xl border transition-all ${
                             isGeneratingThis
                               ? 'border-accent shadow-glow bg-accent/5 ring-1 ring-accent'
-                              : img
+                              : displayUrl
                                 ? 'border-emerald-500/30 bg-surface'
                                 : 'border-borderSoft bg-surface2/40'
                           }`}
                         >
                           <div className="relative aspect-video w-full overflow-hidden bg-black/60 flex items-center justify-center">
-                            {img?.url ? (
-                              <img
-                                src={img.url}
-                                alt={`Scene ${i + 1}`}
-                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                              />
+                            {displayUrl ? (
+                              isVideo ? (
+                                <div className="relative h-full w-full">
+                                  <video
+                                    src={displayUrl}
+                                    poster={refUrl}
+                                    className="h-full w-full object-cover"
+                                    muted
+                                    playsInline
+                                    preload="metadata"
+                                  />
+                                  <span className="pointer-events-none absolute right-1.5 bottom-1.5 rounded bg-purple-600/90 px-1 py-0.5 text-[8px] font-bold text-white uppercase tracking-wider shadow">
+                                    VIDEO
+                                  </span>
+                                </div>
+                              ) : (
+                                <img
+                                  src={displayUrl}
+                                  alt={`Scene ${i + 1}`}
+                                  className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                />
+                              )
                             ) : isGeneratingThis ? (
                               <div className="flex flex-col items-center gap-1.5 text-accent p-2 text-center">
                                 <Loader2 className="h-5 w-5 animate-spin" />
