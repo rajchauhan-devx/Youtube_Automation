@@ -15,57 +15,167 @@ import { avatarAlphaSource, avatarAlphaCycle } from './presenter-alpha.js';
 
 const SERVER = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const REPO_ROOT = path.resolve(SERVER, '..');
-export function museTalkRoot() {
-  if (process.env.MUSETALK_ROOT) return path.resolve(REPO_ROOT, process.env.MUSETALK_ROOT);
-  const macCloudStorage = path.join(os.homedir(), 'Library', 'CloudStorage');
-  let macOneDriveDirs: string[] = [];
+
+export function museTalkCandidateRoots(): string[] {
+  const list: string[] = [];
+
+  // 1. Repo-local
+  list.push(path.join(REPO_ROOT, 'MuseTalk-Demo'));
+
+  // 2. User home directories
+  const home = os.homedir();
+  list.push(path.join(home, 'MuseTalk-Demo'));
+  list.push(path.join(home, 'Documents', 'MuseTalk-Demo'));
+
+  // 3. Windows OneDrive environment variables
+  for (const envKey of ['OneDrive', 'OneDriveCommercial', 'OneDriveConsumer'] as const) {
+    const val = process.env[envKey];
+    if (val && typeof val === 'string') {
+      list.push(path.join(val, 'Documents', 'MuseTalk-Demo'));
+      list.push(path.join(val, 'MuseTalk-Demo'));
+    }
+  }
+
+  // 4. Windows user profile / home OneDrive directories (e.g. "OneDrive - Org", "OneDrive")
   try {
-    if (fs.existsSync(macCloudStorage)) {
-      macOneDriveDirs = fs.readdirSync(macCloudStorage)
-        .filter(d => /onedrive/i.test(d))
-        .map(d => path.join(macCloudStorage, d, 'Documents', 'MuseTalk-Demo'));
+    if (fs.existsSync(home)) {
+      for (const entry of fs.readdirSync(home, { withFileTypes: true })) {
+        if (entry.isDirectory() && /onedrive/i.test(entry.name)) {
+          list.push(path.join(home, entry.name, 'Documents', 'MuseTalk-Demo'));
+          list.push(path.join(home, entry.name, 'MuseTalk-Demo'));
+        }
+      }
     }
   } catch {}
 
-  const candidates = [
+  // 5. macOS CloudStorage OneDrive locations
+  const macCloudStorage = path.join(home, 'Library', 'CloudStorage');
+  try {
+    if (fs.existsSync(macCloudStorage)) {
+      for (const entry of fs.readdirSync(macCloudStorage, { withFileTypes: true })) {
+        if (entry.isDirectory() && /onedrive/i.test(entry.name)) {
+          list.push(path.join(macCloudStorage, entry.name, 'Documents', 'MuseTalk-Demo'));
+          list.push(path.join(macCloudStorage, entry.name, 'MuseTalk-Demo'));
+        }
+      }
+    }
+  } catch {}
+
+  // 6. Common Windows root directories
+  if (process.platform === 'win32') {
+    list.push('C:/MuseTalk-Demo');
+    list.push('D:/MuseTalk-Demo');
+  }
+
+  // Deduplicate and filter existing directories
+  const seen = new Set<string>();
+  const valid: string[] = [];
+  for (const p of list) {
+    if (!p) continue;
+    const resolved = path.resolve(p);
+    if (!seen.has(resolved) && fs.existsSync(resolved)) {
+      seen.add(resolved);
+      valid.push(resolved);
+    }
+  }
+  return valid;
+}
+
+export function museTalkRoot(): string {
+  if (process.env.MUSETALK_ROOT) {
+    const configured = path.resolve(REPO_ROOT, process.env.MUSETALK_ROOT);
+    if (fs.existsSync(configured)) return configured;
+  }
+  const candidates = museTalkCandidateRoots();
+  const withModels = candidates.find(p =>
+    fs.existsSync(path.join(p, 'MuseTalk', 'models', 'musetalkV15')) ||
+    fs.existsSync(path.join(p, 'MuseTalk', 'models', 'face_detection_yunet_2023mar.onnx')) ||
+    fs.existsSync(path.join(p, 'MuseTalk', 'models'))
+  );
+  return path.resolve(withModels || candidates[0] || path.join(REPO_ROOT, 'MuseTalk-Demo'));
+}
+
+export function presenterPythonPath(): string | undefined {
+  if (process.env.MUSETALK_PYTHON) {
+    const configured = path.resolve(REPO_ROOT, process.env.MUSETALK_PYTHON);
+    if (fs.existsSync(configured)) return configured;
+  }
+
+  // Check virtual environments inside all candidate roots
+  const roots = [museTalkRoot(), ...museTalkCandidateRoots(), path.join(REPO_ROOT, 'MuseTalk-Demo')];
+  const venvPythonPaths: string[] = [];
+  for (const r of roots) {
+    venvPythonPaths.push(path.join(r, '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'));
+    venvPythonPaths.push(path.join(r, 'venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'));
+    venvPythonPaths.push(path.join(r, 'env', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'));
+  }
+
+  const home = os.homedir();
+  const envNames = ['musetalk-demo', 'musetalk'];
+  const condaPythonPaths: string[] = [];
+
+  for (const envName of envNames) {
+    // Windows Conda paths
+    condaPythonPaths.push(
+      path.join(home, 'miniconda3', 'envs', envName, 'python.exe'),
+      path.join(home, 'anaconda3', 'envs', envName, 'python.exe'),
+      path.join(home, 'miniforge3', 'envs', envName, 'python.exe'),
+      path.join(home, 'mambaforge', 'envs', envName, 'python.exe'),
+      path.join(home, 'AppData', 'Local', 'miniconda3', 'envs', envName, 'python.exe'),
+      path.join(home, 'AppData', 'Local', 'anaconda3', 'envs', envName, 'python.exe'),
+      path.join(home, 'AppData', 'Local', 'miniforge3', 'envs', envName, 'python.exe'),
+      `C:/ProgramData/miniconda3/envs/${envName}/python.exe`,
+      `C:/ProgramData/anaconda3/envs/${envName}/python.exe`,
+      `C:/ProgramData/miniforge3/envs/${envName}/python.exe`
+    );
+
+    // Unix / macOS Conda paths
+    condaPythonPaths.push(
+      path.join(home, 'miniconda3', 'envs', envName, 'bin', 'python'),
+      path.join(home, 'anaconda3', 'envs', envName, 'bin', 'python'),
+      path.join(home, 'miniforge3', 'envs', envName, 'bin', 'python'),
+      path.join(home, 'mambaforge', 'envs', envName, 'bin', 'python'),
+      `/opt/homebrew/Caskroom/miniconda/base/envs/${envName}/bin/python`,
+      `/opt/homebrew/anaconda3/envs/${envName}/bin/python`,
+      `/opt/homebrew/miniforge3/envs/${envName}/bin/python`,
+      `/opt/miniconda3/envs/${envName}/bin/python`,
+      `/opt/anaconda3/envs/${envName}/bin/python`
+    );
+  }
+
+  const candidates = [...venvPythonPaths, ...condaPythonPaths];
+  return candidates.find(p => p && fs.existsSync(p));
+}
+
+function avatarSearchBases(): string[] {
+  if (process.env.MUSETALK_ROOT) {
+    const root = museTalkRoot();
+    const explicit = path.join(root, 'avatars', 'prepared');
+    if (fs.existsSync(explicit)) return [explicit];
+  }
+  const roots = [
+    museTalkRoot(),
+    ...museTalkCandidateRoots(),
     path.join(REPO_ROOT, 'MuseTalk-Demo'),
     path.join(os.homedir(), 'MuseTalk-Demo'),
     path.join(os.homedir(), 'Documents', 'MuseTalk-Demo'),
-    path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo'),
-    ...macOneDriveDirs,
-  ].filter(Boolean) as string[];
-  const withModels = candidates.find(p => fs.existsSync(path.join(p, 'MuseTalk', 'models')));
-  return path.resolve(withModels || candidates.find(p => fs.existsSync(p)) || path.join(REPO_ROOT, 'MuseTalk-Demo'));
-}
-export function presenterPythonPath() {
-  if (process.env.MUSETALK_PYTHON) {
-    const configured = path.resolve(REPO_ROOT, process.env.MUSETALK_PYTHON);
-    return fs.existsSync(configured) ? configured : undefined;
+  ];
+  const seen = new Set<string>();
+  const bases: string[] = [];
+  for (const r of roots) {
+    if (!r) continue;
+    const base = path.join(r, 'avatars', 'prepared');
+    if (!seen.has(base)) {
+      seen.add(base);
+      if (fs.existsSync(base)) bases.push(base);
+    }
   }
-  const candidates = [
-    path.join(museTalkRoot(), '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python'),
-    path.join(os.homedir(), 'miniconda3', 'envs', 'musetalk-demo', 'python.exe'),
-    path.join(os.homedir(), 'anaconda3', 'envs', 'musetalk-demo', 'python.exe'),
-    'C:/ProgramData/miniconda3/envs/musetalk-demo/python.exe',
-    path.join(os.homedir(), 'miniconda3', 'envs', 'musetalk-demo', 'bin', 'python'),
-    path.join(os.homedir(), 'anaconda3', 'envs', 'musetalk-demo', 'bin', 'python'),
-    path.join(os.homedir(), 'miniforge3', 'envs', 'musetalk-demo', 'bin', 'python'),
-    '/opt/homebrew/Caskroom/miniconda/base/envs/musetalk-demo/bin/python',
-    '/opt/homebrew/anaconda3/envs/musetalk-demo/bin/python',
-    '/opt/miniconda3/envs/musetalk-demo/bin/python',
-  ].filter(Boolean) as string[];
-  return candidates.find(p => fs.existsSync(p));
+  return bases;
 }
+
 function avatarDirectory(id: string) {
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(id)) throw new Error('Invalid avatar ID.');
-  const searchBases = process.env.MUSETALK_ROOT
-    ? [path.join(museTalkRoot(), 'avatars', 'prepared')]
-    : [
-        path.join(REPO_ROOT, 'MuseTalk-Demo', 'avatars', 'prepared'),
-        path.join(museTalkRoot(), 'avatars', 'prepared'),
-        path.join(os.homedir(), 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
-        path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
-      ];
+  const searchBases = avatarSearchBases();
   for (const base of searchBases) {
     const candidate = path.join(base, id);
     if (fs.existsSync(candidate)) return candidate;
@@ -74,18 +184,10 @@ function avatarDirectory(id: string) {
 }
 
 export function presenterAvatars() {
-  const searchBases = process.env.MUSETALK_ROOT
-    ? [path.join(museTalkRoot(), 'avatars', 'prepared')]
-    : [
-        path.join(REPO_ROOT, 'MuseTalk-Demo', 'avatars', 'prepared'),
-        path.join(museTalkRoot(), 'avatars', 'prepared'),
-        path.join(os.homedir(), 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
-        path.join(os.homedir(), 'OneDrive', 'Documents', 'MuseTalk-Demo', 'avatars', 'prepared'),
-      ];
+  const searchBases = avatarSearchBases();
   const seen = new Set<string>();
   const results = [];
   for (const base of searchBases) {
-    if (!fs.existsSync(base)) continue;
     try {
       for (const id of fs.readdirSync(base)) {
         if (seen.has(id)) continue;
@@ -314,8 +416,9 @@ export async function generatePresenter(scriptId: string, audio: string, setting
       isMouthless = meta.source_mode === 'mouthless' || Boolean(meta.mouthless);
     } catch {}
     const silenceGate = isMouthless ? false : p.silenceGate;
+    const avatarDir = avatarDirectory(p.avatarId);
     const request = containedFile(work, 'request.json');
-    fs.writeFileSync(request, JSON.stringify({ root: museTalkRoot(), work, audio, avatarId: p.avatarId,
+    fs.writeFileSync(request, JSON.stringify({ root: museTalkRoot(), work, audio, avatarId: p.avatarId, avatarDir,
       batchSize: 8, silenceGate, silenceThresholdDb: p.silenceThresholdDb }));
     const { output_path: output } = await runWorker(request, signal, progress);
     if (!output) throw new Error('MuseTalk did not return a presenter video.');

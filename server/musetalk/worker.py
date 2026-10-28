@@ -35,6 +35,10 @@ def main():
     config.OUTPUTS_DIR = work
     config.TEMP_DIR = work / "temp"
     config.TEMP_DIR.mkdir(exist_ok=True)
+    if "avatarDir" in request:
+        avatar_dir = Path(request["avatarDir"]).resolve()
+        if avatar_dir.exists():
+            config.AVATARS_DIR = avatar_dir.parent
     from app.musetalk_service import MuseTalkService
     import torch
     import cv2
