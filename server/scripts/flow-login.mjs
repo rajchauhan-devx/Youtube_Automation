@@ -133,9 +133,19 @@ async function main() {
     await page.bringToFront();
   } catch {}
 
+  let activeAccount = '';
+  try {
+    if (fs.existsSync(creditsPath)) {
+      const parsed = JSON.parse(fs.readFileSync(creditsPath, 'utf8'));
+      activeAccount = parsed.account || '';
+    }
+  } catch {}
+
   const targetUrl = isFresh
     ? 'https://accounts.google.com/ServiceLogin?service=wise&passive=1209600&continue=https%3A%2F%2Fflow.google.com%2F'
-    : 'https://flow.google.com/';
+    : (activeAccount
+        ? `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(activeAccount)}&continue=${encodeURIComponent('https://flow.google.com/')}`
+        : 'https://flow.google.com/');
 
   console.log(`Navigating to ${targetUrl}...`);
   try {

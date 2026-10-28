@@ -4,7 +4,7 @@ import { cleanFlowPrompt, flowDownloadsDir, type StepLog } from './jobs.js';
 import { flowProfileDir } from './profile.js';
 import { deductFlowCredits, getFlowCreditsInfo } from './credits.js';
 import { syncFlowAccountPage } from './credit-sync.js';
-import { isInsufficientCreditWarning } from '../../../scripts/flow-account.mjs';
+import { isInsufficientCreditWarning, readFlowAccount } from '../../../scripts/flow-account.mjs';
 
 // Live Google Flow worker (Playwright browser automation).
 //
@@ -141,11 +141,13 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     input.signal.throwIfAborted();
 
     const activeAccount = getFlowCreditsInfo().account;
-    const targetUrl = input.projectUrl || (
-      activeAccount
-        ? `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(activeAccount)}&continue=${encodeURIComponent('https://flow.google.com/')}`
-        : 'https://flow.google.com/'
-    );
+    const dest = (input.projectUrl && input.projectUrl !== 'https://flow.google.com' && input.projectUrl !== 'https://flow.google.com/')
+      ? input.projectUrl
+      : 'https://flow.google.com/';
+
+    const targetUrl = activeAccount
+      ? `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(activeAccount)}&continue=${encodeURIComponent(dest)}`
+      : dest;
     try {
       await page.goto(targetUrl, { timeout: STEP_TIMEOUT_MS, waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(2000);
@@ -187,6 +189,26 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     }
 
     input.logStep({ step: 'open', at: new Date().toISOString(), shot: await shot(page, dir, 'open') });
+
+    // Verify active Google account matches
+    if (activeAccount) {
+      try {
+        const pageAccount = await readFlowAccount(page);
+        if (pageAccount?.account && pageAccount.account.toLowerCase() !== activeAccount.toLowerCase()) {
+          console.warn(`[Flow Worker] Account mismatch on page: loaded ${pageAccount.account}, switching to ${activeAccount}...`);
+          const switchUrl = `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(activeAccount)}&continue=${encodeURIComponent('https://flow.google.com/')}`;
+          await page.goto(switchUrl, { waitUntil: 'domcontentloaded', timeout: STEP_TIMEOUT_MS });
+          await page.waitForTimeout(3000);
+          const recheck = await readFlowAccount(page);
+          if (recheck?.account && recheck.account.toLowerCase() !== activeAccount.toLowerCase()) {
+            throw fail('open', new Error(`Google Flow loaded account ${recheck.account} instead of active account ${activeAccount}. Please switch to ${activeAccount} via TubeFlow Login.`), page.url());
+          }
+          console.log(`[Flow Worker] Verified active account: ${activeAccount}`);
+        }
+      } catch (err: any) {
+        if (err?.message?.includes('Google Flow loaded account')) throw err;
+      }
+    }
 
     if (/signin\/rejected/i.test(page.url())) {
       await shot(page, dir, 'auth-expired');
@@ -502,7 +524,10 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
     }
     input.logStep({ step: 'paste', at: new Date().toISOString(), shot: await shot(page, dir, 'paste') });
 
-    await syncFlowAccountPage(page).catch(() => null);
+    const creditState = await syncFlowAccountPage(page).catch(() => null);
+    if (creditState?.syncError && activeAccount) {
+      console.warn(`[Flow Worker] Account sync notice: ${creditState.syncError}`);
+    }
     // A generic prompt warning can mean an unsupported setting or a policy
     // notice. Only an explicit insufficient-credit message is a credit failure.
     const insufficientCreditsBtn = page.locator('.prompt-warning-button, [aria-label*="Insufficient credits" i]').first();
