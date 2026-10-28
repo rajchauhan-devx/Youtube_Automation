@@ -144,7 +144,7 @@ async function main() {
   const targetUrl = isFresh
     ? 'https://accounts.google.com/ServiceLogin?service=wise&passive=1209600&continue=https%3A%2F%2Fflow.google.com%2F'
     : (activeAccount
-        ? `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(activeAccount)}&continue=${encodeURIComponent('https://flow.google.com/')}`
+        ? `https://flow.google.com/?authuser=${encodeURIComponent(activeAccount)}`
         : 'https://flow.google.com/');
 
   console.log(`Navigating to ${targetUrl}...`);

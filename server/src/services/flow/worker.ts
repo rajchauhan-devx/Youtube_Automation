@@ -145,9 +145,16 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
       ? input.projectUrl
       : 'https://flow.google.com/';
 
-    const targetUrl = activeAccount
-      ? `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(activeAccount)}&continue=${encodeURIComponent(dest)}`
-      : dest;
+    let targetUrl = dest;
+    if (activeAccount) {
+      try {
+        const u = new URL(dest);
+        u.searchParams.set('authuser', activeAccount);
+        targetUrl = u.toString();
+      } catch {
+        targetUrl = `https://flow.google.com/?authuser=${encodeURIComponent(activeAccount)}`;
+      }
+    }
     try {
       await page.goto(targetUrl, { timeout: STEP_TIMEOUT_MS, waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(2000);
@@ -196,7 +203,7 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
         const pageAccount = await readFlowAccount(page);
         if (pageAccount?.account && pageAccount.account.toLowerCase() !== activeAccount.toLowerCase()) {
           console.warn(`[Flow Worker] Account mismatch on page: loaded ${pageAccount.account}, switching to ${activeAccount}...`);
-          const switchUrl = `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(activeAccount)}&continue=${encodeURIComponent('https://flow.google.com/')}`;
+          const switchUrl = `https://flow.google.com/?authuser=${encodeURIComponent(activeAccount)}`;
           await page.goto(switchUrl, { waitUntil: 'domcontentloaded', timeout: STEP_TIMEOUT_MS });
           await page.waitForTimeout(3000);
           const recheck = await readFlowAccount(page);

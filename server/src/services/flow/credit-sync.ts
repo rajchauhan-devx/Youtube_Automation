@@ -44,7 +44,7 @@ async function refresh(): Promise<FlowCreditsState> {
     });
     const page = context.pages()[0] || await context.newPage();
     const targetUrl = current.account
-      ? `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(current.account)}&continue=${encodeURIComponent('https://flow.google.com/')}`
+      ? `https://flow.google.com/?authuser=${encodeURIComponent(current.account)}`
       : 'https://flow.google.com/';
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 20000 });
     await page.getByRole('button', { name: 'Account details', exact: true }).waitFor({ state: 'visible', timeout: 10000 });
