@@ -18,18 +18,19 @@
     "enableSubtitles": true,
     "presenter": {
       "enabled": false,
-      "avatarId": "avatar_005",
-      "style": "card",
-      "widthPercent": 24,
-      "bottomPercent": 18,
-      "marginPercent": 2.5,
+      "avatarId": "avatar_013",
+      "style": "transparent",
+      "widthPercent": 35,
+      "bottomPercent": 2,
+      "marginPercent": 0,
+      "horizontalPercent": 100,
       "crop": {
         "x": 32,
         "y": 2,
         "width": 40,
         "height": 67
       },
-      "silenceGate": true,
+      "silenceGate": false,
       "silenceThresholdDb": -40
     },
     "autoPilotSettings": {
@@ -93,9 +94,27 @@
         "voiceVolume": 1
       },
       "youtube": {
+        "enabled": true,
         "privacyStatus": "public",
-        "publishMode": "now",
-        "scheduledPublishAt": ""
+        "publishMode": "schedule",
+        "scheduledPublishAt": "2026-10-29T13:30:00.000Z"
+      },
+      "presenter": {
+        "enabled": false,
+        "avatarId": "avatar_013",
+        "style": "transparent",
+        "widthPercent": 35,
+        "bottomPercent": 2,
+        "marginPercent": 0,
+        "horizontalPercent": 100,
+        "crop": {
+          "x": 32,
+          "y": 2,
+          "width": 40,
+          "height": 67
+        },
+        "silenceGate": false,
+        "silenceThresholdDb": -40
       }
     },
     "accountId": "acct_620a1d5e-bb1a-4b7e-8662-37acafaecbab",

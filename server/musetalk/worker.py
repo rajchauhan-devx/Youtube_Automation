@@ -39,7 +39,14 @@ def main():
         avatar_dir = Path(request["avatarDir"]).resolve()
         if avatar_dir.exists():
             config.AVATARS_DIR = avatar_dir.parent
+            if hasattr(config, "AVATARS_PREPARED_DIR"):
+                config.AVATARS_PREPARED_DIR = avatar_dir.parent
     from app.musetalk_service import MuseTalkService
+    import app.musetalk_service as musetalk_service_mod
+    if "avatarDir" in request:
+        avatar_dir = Path(request["avatarDir"]).resolve()
+        if avatar_dir.exists() and hasattr(musetalk_service_mod, "AVATARS_PREPARED_DIR"):
+            musetalk_service_mod.AVATARS_PREPARED_DIR = avatar_dir.parent
     import torch
     import cv2
     num_threads = min(8, os.cpu_count() or 4)

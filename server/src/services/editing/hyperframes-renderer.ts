@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { EditingProject } from '@tubeflow/editing-contracts';
@@ -56,10 +57,11 @@ export async function renderHyperFramesOverlay(opts: HyperFramesRenderOptions): 
   const cliBin = resolveHyperFramesCli();
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  const pending = path.join(path.dirname(outputPath), `.overlay-${randomUUID()}.partial.webm`);
-  // Create temporary project staging folder
-  const workDir = fs.mkdtempSync(path.join(path.dirname(outputPath), 'hf-render-'));
+  // Create temporary project staging folder in os.tmpdir() to avoid Windows MAX_PATH (260 char)
+  // limits with deep project/account directories and sibling transaction files created by HyperFrames CLI.
+  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hf-render-'));
   const compDir = path.join(workDir, 'comp');
+  const pending = path.join(workDir, 'overlay.webm');
 
   try {
     // 1. Build the HTML + GSAP composition
@@ -153,11 +155,11 @@ export async function renderHyperFramesOverlay(opts: HyperFramesRenderOptions): 
     });
 
     signal?.throwIfAborted();
-    fs.renameSync(pending, outputPath);
+    fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+    fs.copyFileSync(pending, outputPath);
     return outputPath;
   } finally {
-    fs.rmSync(pending, { force: true });
-    // Cleanup staging folder
+    // Cleanup staging folder (including pending overlay and any CLI scratch files)
     try {
       fs.rmSync(workDir, { recursive: true, force: true });
     } catch (_) {}
