@@ -1,5 +1,5 @@
-import { motionHintProviderSchema, MOTION_SCRIPT_PLAN_MARKER } from './script-motion.js';
-import { withScenePlanFormat, MOTION_SCRIPT_HINTS } from './scene-plan-format.js';
+import { motionHintProviderSchema, motionInstructionsForTemplate } from './script-motion.js';
+import { withScenePlanFormat } from './scene-plan-format.js';
 import { isImageOnlyTemplate, parseScenePlan, spokenText } from './scene-plan.js';
 import { incompleteResponse } from './generation-status.js';
 
@@ -122,7 +122,7 @@ Topic: ${topic.trim()}
 Target Duration: ~${duration} seconds.
 The selected runtime overrides default or example runtime ranges in the template. Write ${budget.minimum}–${budget.maximum} spoken words across the complete scene narration, aiming for ${Math.round(duration * NARRATION_WORDS_PER_MINUTE / 60)} words. This budget uses the local narrator's approximate 210 words/minute; punctuation and the selected voice affect the measured result. Develop the story to this length without repeated filler. Do not return a short synopsis of a long episode.
 Planning durations must sum to ${duration} seconds (within 10%). Use enough narration-linked scenes to cover the entire story; never include the thumbnail in playback. Every videoPrompt must contain at least 80 words of specific action, framing, lighting and continuity direction; preserve a longer minimum if the template requests one. For multiple characters, give each a distinct identity and position in the frame; do not merge their clothes, faces or props.
-${duration < 180 ? `Short-episode allocation: prefer ${sceneCount} ordered playback scenes with approximately ${Math.round(duration * NARRATION_WORDS_PER_MINUTE / 60 / sceneCount)} spoken words each, unless an explicit authored asset count requires a different allocation. The video quota below applies only to video scenes, not to all playback scenes.` : ''}
+${duration < 180 ? `Short-episode allocation: prefer ${sceneCount} ordered playback scenes with approximately ${Math.round(duration * NARRATION_WORDS_PER_MINUTE / 60 / sceneCount)} spoken words each, unless an explicit authored asset count requires a different allocation. Scene 1 must always be a moving video shot (<video_prompt1>) to hook the user immediately. The video quota below applies only to video scenes, not to all playback scenes.` : ''}
 ${duration >= 180 ? `Long-episode allocation: create ${sceneCount} ordered playback scenes. Write approximately ${Math.round(duration * NARRATION_WORDS_PER_MINUTE / 60 / sceneCount)} spoken words in EACH scene, so the full episode reaches the selected budget. Develop chapters progressively across these scenes; do not spend the entire episode repeating the hook. Each scene's planning duration is approximately ${(duration / sceneCount).toFixed(2)} seconds.` : ''}
 ${videos !== undefined ? `The template requires exactly ${videos} video scenes. ${videos === 0 ? 'Every playback scene must use mediaType image.' : 'Choose the strongest beats for those videos; remaining scenes use images.'}` : ''}
 ${requiresThumbnailMotion(template) ? `The template also requests thumbnail animation. Put its complete ${minimum.video}+ word motion prompt in thumbnailMotionPrompt, separately from the ${videos} playback video scenes. Never insert the thumbnail into the narration or playback timeline.` : ''}
@@ -160,7 +160,7 @@ export function buildFreePrompt(template: string, topic: string, instructions: s
   const tail = [
     `Topic: ${(topic || '').trim()}`,
     `Target duration: ~${target} seconds. MANDATORY: this selected runtime overrides any default, example or maximum runtime in the template. Scale the episode to ~${target} seconds with at least ${minScenes} story scenes. ${tagRules} Write every prompt block in full; never use placeholders such as [...Repeat...] or "following the same standard".`,
-    ...(head.includes(MOTION_SCRIPT_PLAN_MARKER) ? [MOTION_SCRIPT_HINTS] : []),
+    ...[motionInstructionsForTemplate(head)].filter(Boolean),
   ];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
   if (cleanResearch) {
@@ -182,6 +182,8 @@ export function generationIssue(prompt: string, response: string, duration: numb
     if (words < budget.minimum || words > budget.maximum) return `Narration has ${words} words; the ${duration}s target needs ${budget.minimum}–${budget.maximum}.`;
     const seconds = plan.scenes.reduce((sum, scene) => sum + (scene.duration || 0), 0);
     if (Math.abs(seconds - duration) > duration * 0.1) return `Scene planning covers ${seconds}s instead of the ${duration}s target.`;
+    const longNarration = plan.scenes.find(scene => (scene.narration || '').length > 700);
+    if (longNarration) return `Scene ${longNarration.id}: narration has ${longNarration.narration.length} characters; the schema allows at most 700. Split this chapter across multiple visual scenes while keeping the required video quota.`;
     if (checkPromptDetails) {
     const minimum = promptMinimumWords(prompt);
     const shortVideo = plan.scenes.find(scene => scene.mediaType === 'video' && (scene.videoPrompt || '').split(/\s+/u).filter(Boolean).length < minimum.video);

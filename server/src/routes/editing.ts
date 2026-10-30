@@ -3,6 +3,10 @@ import { inspectGraphLayout } from '../services/editing/sceneGraphLayout.js';
 import { SceneGraph } from '@tubeflow/editing-contracts';
 import { prepareMotionAudio } from '../services/editing/motionAudio.js';
 import {
+  decideDynamicMotionGraphics,
+  compileDynamicMotionGraphic,
+} from '../services/dynamic-motion-engine.js';
+import {
   Router,
   type Request,
   type Response,
@@ -180,6 +184,37 @@ editingRouter.get(
       limits: { maxProviderCalls: c.maxCalls, maxGeneratedAssets: 4 } });
   }),
 );
+
+editingRouter.post(
+  '/dynamic-motion/decide',
+  route(async (req, res) => {
+    const { scenes, channelName, channelProfile, scriptText, customInstructions, model } = req.body || {};
+    const graphics = await decideDynamicMotionGraphics({
+      scenes: Array.isArray(scenes) ? scenes : [],
+      channelName: typeof channelName === 'string' ? channelName : undefined,
+      channelProfile: typeof channelProfile === 'string' ? channelProfile : undefined,
+      scriptText: typeof scriptText === 'string' ? scriptText : undefined,
+      customInstructions: typeof customInstructions === 'string' ? customInstructions : undefined,
+      model: typeof model === 'string' ? model : undefined,
+      apiKey: credential(req),
+    });
+    res.json({ graphics });
+  })
+);
+
+editingRouter.post(
+  '/dynamic-motion/compile',
+  route((req, res) => {
+    const { plan, width, height, fps } = req.body || {};
+    if (!plan || typeof plan !== 'object') {
+      res.status(400).json({ error: 'Motion plan object is required' });
+      return;
+    }
+    const graphic = compileDynamicMotionGraphic(plan, { width, height, fps });
+    res.json({ graphic });
+  })
+);
+
 editingRouter.get('/styles', route((_req, res) => res.json({ styles: listMotionStyles() })));
 editingRouter.post('/styles', route((req, res) => {
   const body = z.strictObject({ name: z.string().trim().min(1).max(60), settings: MotionStyleSettings }).parse(req.body);

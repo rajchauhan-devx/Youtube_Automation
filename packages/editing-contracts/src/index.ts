@@ -1,6 +1,8 @@
 import { z } from "zod";
 export * from "./primitives.js";
 export * from "./scene-graph.js";
+export * from "./dynamic-motion.js";
+import { DynamicMotionGraphic } from "./dynamic-motion.js";
 
 import {
   Id,
@@ -172,6 +174,7 @@ export const Artifact = z.strictObject({
   assetRequestIds: z.array(Id).max(20),
   revisionInstruction: z.string().max(2000).optional(),
   graphic: MotionGraphic.optional(),
+  dynamicMotion: DynamicMotionGraphic.optional(),
   sceneGraph: SceneGraph.optional(),
   visualReview: z.strictObject({
     status: z.enum(['pending', 'passed', 'unavailable', 'rejected']),
@@ -885,3 +888,4 @@ export function validateProject(value: unknown): EditingProject {
   return p;
 }
 export * from './motion-template.js';
+export * from './motion-policy.js';

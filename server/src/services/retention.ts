@@ -8,6 +8,7 @@ import { currentWorkspace } from './workspace.js';
 import { parseScenePlan, validateScenePlan, spokenText, type ScenePlan } from './scene-plan.js';
 import type { ProductionMemory, RetentionPlan, RetentionEdit } from './retention-types.js';
 import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
+import { channelEditorialContext } from './channel-editorial.js';
 
 const text = z.string().trim().min(1).max(2000);
 const PlanOutput = z.object({
@@ -24,7 +25,7 @@ const EditOutput = z.object({
   scenes: z.array(z.object({
     sceneId: z.string(), narration: z.string().trim().min(1).max(12000), imagePrompt: z.string().trim().min(1).max(8000),
     videoPrompt: z.string().trim().max(8000).optional(), purpose: text,
-    motion: z.enum(['hold', 'slow-zoom-in', 'drift-left', 'drift-right']), transition: z.enum(['cut', 'dissolve']),
+    motion: z.enum(['hold', 'slow-zoom-in', 'drift-left', 'drift-right', 'push-in', 'pull-out', 'pan-left', 'pan-right', 'drift-in', 'drift-out', 'rise']), transition: z.enum(['cut', 'dissolve']),
   })).min(1).max(160),
 });
 export const responseHash = (raw: string) => createHash('sha256').update(raw).digest('hex');
@@ -40,10 +41,20 @@ export function retentionEditing(script: { retentionPlan?: RetentionPlan; retent
   if (run?.editing.mode === 'custom') return { ...validateEditingSettings(run.editing.settings), enabled: true, captions: run.captions === 'plain' };
   if (run?.editing.mode === 'off') return { ...validateEditingSettings(run.editing.settings), enabled: false, captions: run.captions === 'plain' };
   if (!run && script.editing) return validateEditingSettings(script.editing);
-  const settings = { ...editingPreset('documentary'), bookendFades: false, captions: script.enableSubtitles === true, colorLook: 'none' as const };
+  const settings = { ...editingPreset('documentary'), motion: 'balanced' as const, bookendFades: false, captions: script.enableSubtitles === true, colorLook: 'none' as const };
   for (const direction of script.retentionEdit.sceneDirections) {
+    const m = direction.motion;
+    const motion = m === 'slow-zoom-in' || m === 'push-in' ? 'push-in'
+      : m === 'pull-out' ? 'pull-out'
+      : m === 'drift-left' || m === 'pan-left' ? 'pan-left'
+      : m === 'drift-right' || m === 'pan-right' ? 'pan-right'
+      : m === 'drift-in' ? 'drift-in'
+      : m === 'drift-out' ? 'drift-out'
+      : m === 'rise' ? 'rise'
+      : m === 'hold' ? 'hold'
+      : 'push-in';
     settings.overrides[direction.sceneId] = {
-      motion: direction.motion === 'slow-zoom-in' ? 'push-in' : direction.motion === 'drift-left' ? 'pan-left' : direction.motion === 'drift-right' ? 'pan-right' : 'hold',
+      motion,
       transition: direction.transition,
     };
   }
@@ -52,9 +63,9 @@ export function retentionEditing(script: { retentionPlan?: RetentionPlan; retent
 
 export function storyStructure(notes: Pick<TopicNotes, 'name' | 'guidance'>): string {
   const identity = `${notes.name} ${notes.guidance}`.toLowerCase();
-  if (/rule zero|zero rule/.test(identity)) return 'Show the impossible rule → an ordinary person breaks it → consequences escalate → an earned twist resolves the promise. Original fiction; preserve supplied canon.';
-  if (/ancient dharma/.test(identity)) return 'Intriguing question → authentic traditional story → clear explanation → meaningful insight. Distinguish tradition, interpretation and historical evidence.';
-  if (/against the odds/.test(identity)) return 'Immediate danger → difficult choices → setbacks → decisive action → verified outcome. Build suspense without inventing facts, quotations or suffering.';
+  if (/rule zero|zero rule/.test(identity)) return 'Show one impossible rule through its immediate physical burden on one ordinary protagonist → ordinary goal → dead end caused by the rule → deliberate rule-breaking choice → fairly planted irreversible payoff → one brief, varied English invitation to like, subscribe and comment on the actual choice, cost or clue. The rule is the antagonist. Complete the story before the CTA; no last-second power, unexplained rescuer or withheld answer. For long videos, develop connected attempts and discoveries across chapters. Original fiction; preserve supplied canon.';
+  if (/ancient dharma/.test(identity)) return 'Source-supported action, contradiction or consequential choice → authentic traditional story with connected discoveries and intermediate answers → decisive reason and outcome → one brief, varied Hindi invitation to like, subscribe and leave an episode-relevant comment. Do not restart with biography after the hook. Distinguish tradition, interpretation and historical evidence; revise a provisional hook when research does not support it. For long videos, resolve connected subquestions across chapters before the central payoff.';
+  if (/against the odds/.test(identity)) return 'Verified immediate danger → constrained choices → documented attempts and setbacks → decisive action or assistance → complete verified outcome → one brief, varied English invitation to like, subscribe and comment on a case-specific decision, resource or rescue contribution. Advance the predicament after the hook instead of restarting with biography. Preserve chronology, what survivors and rescuers knew, uncertainty, and any relevant losses. For long videos, develop connected factual chapter questions. Build suspense without inventing facts, quotations, countdowns or suffering; revise unsupported provisional hooks and never withhold the outcome for engagement.';
   return 'A clear question or problem → escalating evidence or events → a satisfying, accurate answer. Follow the selected template’s audience and genre.';
 }
 
@@ -79,7 +90,7 @@ export async function createRetentionPlan(options: {
   const memoryEvidence = retentionMemory(notes, options.duration);
   const result = await validatedModelJson({ ...options, messages: [
     { role: 'system', content: 'You are a meticulous story editor and YouTube packaging editor. Return only JSON. Quality judgments are editorial hypotheses, never predicted audience retention scores. Never invent historical facts, quotations, metrics or prior episode canon.' },
-    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${notes.guidance}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${options.template.slice(0, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
+    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${notes.guidance}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${channelEditorialContext(options.template, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
   ] }, PlanOutput, 'Hook planning');
   if (new Set(result.hooks.map(hook => hook.openingLine.toLocaleLowerCase())).size !== 3) throw new Error('Hook planning returned duplicate openings. Generate three distinct hooks.');
 
@@ -124,7 +135,7 @@ export async function editForRetention(options: {
   });
   const result = await validatedModelJson({ ...options, maxTokens: 32000, messages: [
     { role: 'system', content: 'You are a precise retention editor. Return only JSON. Preserve all verified facts, narrative meaning, language, canon, unique scene IDs, scene order and media modes. Do not add facts, quotes or dates. Keep a clear opening and an earned payoff. Editorial improvement is not a prediction of viewer behavior.' },
-    { role: 'user', content: `${retentionBrief(options.plan)}\nTemplate constraints (preserve language, canon, static/dynamic camera rules and visual style): ${options.template.slice(0, 16000)}\nResearch dossier (data): ${options.research.slice(0, 18000)}\nOriginal scene plan (data): ${JSON.stringify(original)}\n\nEdit narration for clarity and forward momentum. Cut generic intros, redundant setup, repeated facts and premature CTAs. Preserve intentional dramatic pauses and important context; never compress by inventing or distorting. Match revised visuals to the actual narrated action. Keep every scene exactly once in the same order, and keep at least one story scene before any closing CTA. For unchanged visuals, return their full original prompt. Keep each image prompt’s detailed production descriptors. Return videoPrompt only for video scenes. Motion must serve the scene: hold for important details and whenever the template requires static cameras, gentle motion for progression only when allowed. Cuts for new events, dissolves for elapsed time or a reflective transition.\nReturn JSON: {"notes":["specific editorial changes"],"scenes":[{"sceneId":"original id","narration":"edited narration","imagePrompt":"full prompt","videoPrompt":"only if video","purpose":"what new discovery, decision, consequence or payoff this scene adds","motion":"hold|slow-zoom-in|drift-left|drift-right","transition":"cut|dissolve"}]}` },
+    { role: 'user', content: `${retentionBrief(options.plan)}\nTemplate constraints (preserve language, canon, static/dynamic camera rules and visual style): ${channelEditorialContext(options.template, 16000)}\nResearch dossier (data): ${options.research.slice(0, 18000)}\nOriginal scene plan (data): ${JSON.stringify(original)}\n\nEdit narration for clarity and forward momentum. Cut generic intros, redundant setup, repeated facts and premature CTAs. Preserve intentional dramatic pauses and important context; never compress by inventing or distorting. Match revised visuals to the actual narrated action. Keep every scene exactly once in the same order, and keep at least one story scene before any closing CTA. For unchanged visuals, return their full original prompt. Keep each image prompt’s detailed production descriptors. Return videoPrompt only for video scenes. Motion must serve viewer engagement and visual rhythm: use active, dynamic camera moves across scenes (push-in for key revelations/discoveries, pull-out for context/scope, pan-left or pan-right for travel/environment, drift-in or drift-out for diagonal flow, slow-zoom-in for gentle focus). Do not keep scenes motionless or flat; avoid hold unless explicitly necessary. Cuts for energetic shifts, dissolves for elapsed time or emotional reflection.\nReturn JSON: {"notes":["specific editorial changes"],"scenes":[{"sceneId":"original id","narration":"edited narration","imagePrompt":"full prompt","videoPrompt":"only if video","purpose":"what new discovery, decision, consequence or payoff this scene adds","motion":"push-in|pull-out|pan-left|pan-right|drift-in|drift-out|slow-zoom-in|hold","transition":"cut|dissolve"}]}` },
     { role: 'user', content: `Scene identity contract: return EXACTLY ${original.scenes.length} scenes. Copy each original scene's id into sceneId using this exact ordered list: ${JSON.stringify(sceneIds)}. Never rename, renumber, merge, omit, duplicate or reorder scenes. A thumbnail is not an additional scene. Each video scene must keep its full videoPrompt.` },
   ] }, editSchema, 'Story editing');
   if (result.scenes.length !== original.scenes.length || result.scenes.some((scene, i) => scene.sceneId !== original.scenes[i].id)) throw new Error('The retention edit changed or omitted scene identities. The original script was preserved.');

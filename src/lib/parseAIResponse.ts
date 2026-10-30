@@ -138,15 +138,44 @@ export function findMetadata(text: string): ParsedMetadata[] {
     const sceneMatch = raw.match(/(?:Scene|#scene|#image)[:\s]+\s*([^\n]+)/i);
     const titleMatch = raw.match(/Title:\s*([^\n]+)/i);
     const detailMatch = raw.match(/Detail:\s*([^\n]+)/i);
+    const quoteMatch = raw.match(/Quote:\s*([^\n]+)/i);
     const assetPromptMatch = raw.match(/Asset\s*Prompt:\s*([\s\S]*?)(?=(?:\n[A-Z][a-z]+:|$))/i);
+    const whenMatch = raw.match(/(?:When|Timing|Cue):\s*([^\n]+)/i);
+    const whereMatch = raw.match(/(?:Where|Position|Placement):\s*([^\n]+)/i);
+    const visualMatch = raw.match(/(?:Visual|Concept|Style):\s*([^\n]+)/i);
+    const rawType = typeMatch ? typeMatch[1].trim() : 'dynamic_motion';
+    const typeKey = rawType.toLowerCase().replace(/[\s-]+/g, '_');
+    const titleVal = titleMatch ? titleMatch[1].trim() : '';
+    const detailVal = detailMatch ? detailMatch[1].trim() : (visualMatch ? visualMatch[1].trim() : '');
+    const sceneVal = sceneMatch ? sceneMatch[1].trim() : (m[1] || String(idx));
+    const quoteVal = quoteMatch ? quoteMatch[1].trim() : (whenMatch ? whenMatch[1].trim() : titleVal);
+    const items = titleVal ? [{ text: titleVal, ...(detailVal ? { detail: detailVal } : {}) }] : [];
+
+    const positionRaw = whereMatch ? whereMatch[1].trim().toLowerCase() : 'auto';
+    const validPositions = ['auto', 'top', 'bottom', 'left', 'right', 'center'] as const;
+    const position = validPositions.find((p) => positionRaw.includes(p)) || 'auto';
+
+    const parsedPlan: MotionScriptHintData | undefined = titleVal ? {
+      version: 1,
+      templateId: typeKey,
+      type: typeKey,
+      intent: `${rawType.replace(/_/g, ' ')}: ${titleVal}`,
+      quote: quoteVal,
+      position,
+      durationSec: 4.5,
+      layout: 'auto',
+      content: { items, links: [] }
+    } : undefined;
+
     list.push({
       index: m[1] ? Number(m[1]) : idx++,
-      type: typeMatch ? typeMatch[1].trim() : 'badge',
-      scene: sceneMatch ? sceneMatch[1].trim() : undefined,
-      title: titleMatch ? titleMatch[1].trim() : undefined,
-      detail: detailMatch ? detailMatch[1].trim() : undefined,
+      type: rawType,
+      scene: sceneVal,
+      title: titleVal || undefined,
+      detail: detailVal || undefined,
       assetPrompt: assetPromptMatch ? assetPromptMatch[1].trim() : undefined,
       raw,
+      motionPlan: parsedPlan,
     });
   }
   return list;

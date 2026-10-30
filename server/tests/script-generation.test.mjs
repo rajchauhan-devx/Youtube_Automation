@@ -4,6 +4,10 @@ import { buildGenerationPrompt, buildFreePrompt, freeChatSystem, generationIssue
 import { buildResearchMessages, summarizeTemplateForResearch } from '../dist/services/script-research.js';
 import { serializeScenePlan } from '../dist/services/scene-plan-format.js';
 import { incompleteResponse } from '../dist/services/generation-status.js';
+import { ancientDharmaEditorial, ancientDharmaTemplateContext } from '../dist/services/ancient-dharma-editorial.js';
+import { ruleZeroEditorial } from '../dist/services/rule-zero-editorial.js';
+import { channelEditorialContext } from '../dist/services/channel-editorial.js';
+import { againstTheOddsEditorial } from '../dist/services/against-the-odds-editorial.js';
 
 const plan = (words = 210, duration = 60) => ({version:1,title:'Survival',thumbnailPrompt:'Ship on the sea',scenes:[0,1,2].map(i => ({id:`scene_00${i+1}`,chapter:'Journey',role:'story',mediaType:'image',duration:duration/3,narration:Array.from({length:Math.floor(words/3)},()=> 'Survival').join(' '),imagePrompt:'A ship on a stormy ocean'}))});
 
@@ -125,4 +129,73 @@ test('research messages extract template requirements and buildFreePrompt inject
   // Sanitized so research headings never masquerade as required template SECTIONs
   assert.deepEqual(supportingSections(freePrompt).map(s => s.id), ['4']);
   assert.match(freeChatSystem(template, true), /Pre-Generation Research Dossier/);
+});
+
+test('Ancient Dharma research and retention keep the complete editorial brief beyond their excerpt limits', () => {
+  for (const profile of ['shorts', 'long']) {
+    const editorial = ancientDharmaEditorial(profile);
+    const template = `${'Character and location reference. '.repeat(600)}\n${editorial}\n## SECTION 4 — HINDI TEXT OVERLAYS`;
+    const summary = summarizeTemplateForResearch(template);
+    assert.ok(summary.includes(editorial), 'research must retain the entire late editorial block');
+    assert.equal(summary.split(editorial).length, 2, 'the block is included once');
+    const context = ancientDharmaTemplateContext(template, 16000);
+    assert.ok(context.startsWith(editorial), 'hook planning and editing must see the complete closing instructions');
+    assert.ok(context.length <= 16000);
+    const messages = buildResearchMessages({ topic: 'Bharata and the sandals', template, duration: profile === 'shorts' ? 60 : 900 });
+    assert.ok(messages[1].content.includes(editorial));
+    assert.match(messages[1].content, /source\/version/);
+    assert.match(messages[1].content, /optional background/);
+    assert.deepEqual(supportingSections(buildFreePrompt(template, 'Bharata', '', 60)).map(s => s.id), ['4']);
+  }
+  const unrelated = 'A survival story with its own closing instructions. '.repeat(500);
+  assert.equal(ancientDharmaTemplateContext(unrelated, 16000), unrelated.slice(0, 16000));
+  assert.doesNotMatch(buildResearchMessages({ topic: 'Andes survival', template: unrelated })[1].content, /जय श्री राम|episode-appropriate comment/);
+});
+
+test('Rule Zero research analyzes fiction and retains its full canon and closing brief after a long visual bible', () => {
+  for (const profile of ['shorts', 'long']) {
+    const editorial = ruleZeroEditorial(profile);
+    const template = `${'Visual continuity reference. '.repeat(900)}\n${editorial}\n## SECTION 4 — ENGLISH TEXT OVERLAYS`;
+    const summary = summarizeTemplateForResearch(template);
+    assert.ok(summary.includes(editorial));
+    assert.equal(summary.split(editorial).length, 2);
+    const context = channelEditorialContext(template, 16000);
+    assert.ok(context.startsWith(editorial));
+    assert.ok(context.length <= 16000);
+    const messages = buildResearchMessages({ topic: 'Every extra day costs one memory', template, duration: profile === 'shorts' ? 90 : 300 });
+    assert.match(messages[0].content, /speculative-fiction/);
+    assert.ok(messages[1].content.includes(editorial));
+    assert.match(messages[1].content, /locked canon separately from permitted standalone inventions/);
+    assert.match(messages[1].content, /Physical Burden -> Ordinary Goal -> Dead End -> Rule-Breaking Choice -> Irreversible Payoff/);
+    assert.doesNotMatch(messages[1].content, /Specific real-world facts, names, dates|जय श्री राम|scriptural account/);
+    assert.deepEqual(supportingSections(buildFreePrompt(template, 'Memory price', '', 90)).map(s => s.id), ['4']);
+  }
+  const ancient = ancientDharmaEditorial('shorts');
+  assert.ok(channelEditorialContext(`Ancient visual reference\n${ancient}`, 16000).startsWith(ancient));
+  const unrelated = 'Survival research. '.repeat(1000);
+  assert.equal(channelEditorialContext(unrelated, 16000), unrelated.slice(0, 16000));
+});
+
+test('Against the Odds research keeps documentary evidence rules and the full closing brief beyond excerpt limits', () => {
+  for (const profile of ['shorts', 'long']) {
+    const editorial = againstTheOddsEditorial(profile);
+    const template = `${'Equipment and reconstruction reference. '.repeat(700)}\n${editorial}\n## SECTION 4 — ENGLISH TEXT OVERLAYS`;
+    const summary = summarizeTemplateForResearch(template);
+    assert.ok(summary.includes(editorial));
+    assert.equal(summary.split(editorial).length, 2);
+    const context = channelEditorialContext(template, 16000);
+    assert.ok(context.startsWith(editorial));
+    assert.ok(context.length <= 16000);
+    const messages = buildResearchMessages({ topic: 'A documented mountain rescue', template, duration: profile === 'shorts' ? 60 : 1200 });
+    assert.match(messages[0].content, /documentary researcher and fact-checker/);
+    assert.ok(messages[1].content.includes(editorial));
+    assert.match(messages[1].content, /claim-to-source evidence ledger/);
+    assert.match(messages[1].content, /what survivors and rescuers knew/);
+    assert.match(messages[1].content, /faceless depiction and reconstruction disclosures/);
+    assert.doesNotMatch(messages[1].content, /permitted standalone inventions|जय श्री राम|scriptural account/);
+    assert.deepEqual(supportingSections(buildFreePrompt(template, 'Mountain rescue', '', 60)).map(s => s.id), ['4']);
+  }
+  const unrelated = buildResearchMessages({ topic: 'Ocean science', template: 'An educational science video.' });
+  assert.doesNotMatch(unrelated[0].content, /Against the Odds/);
+  assert.doesNotMatch(unrelated[1].content, /case-specific comment|claim-to-source evidence ledger/);
 });

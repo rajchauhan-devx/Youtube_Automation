@@ -227,8 +227,8 @@ const startRender: import('express').RequestHandler = async (req, res) => {
       if (!Array.isArray(timelineConfig.clips) || timelineConfig.clips.length !== imagePaths.length) throw new Error('Timeline scene count must match images');
       planTimeline(timelineConfig.clips, finalDuration);
     }
-    savedGraphics = savedGraphicsForRender(scriptId, audioPath, imagePaths, resolution || { width: 1080, height: 1920 });
-    hasVisualArtifacts = Boolean(savedGraphics?.artifacts.some(a => a.enabled && (a.graphic || a.sceneGraph)));
+    savedGraphics = savedGraphicsForRender(scriptId, audioPath, imagePaths, resolution || { width: 1080, height: 1920 }, finalDuration);
+    hasVisualArtifacts = Boolean(savedGraphics?.artifacts.some(a => a.enabled && (a.graphic || a.sceneGraph || (a as any).dynamicMotion)));
     if (savedGraphics) {
       savedCameras = graphicsCameras(savedGraphics, { scriptId, imagePaths, audioPath, timelineConfig, sceneAnalysis, zoomFactor, transitionDuration, editing: effectiveEditing }, finalDuration, longPlan, longSync);
       savedMotionCaptions = savedGraphics.artifacts.some(a => a.enabled && a.graphic?.kind === 'caption');

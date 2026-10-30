@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import vm from 'node:vm';
 import {randomUUID} from 'node:crypto';
-import {ANCIENT_DHARMA_LIBRARY,compileMotionTemplate,renderSceneGraphSvg,compileSceneGraph} from '@tubeflow/video-composition';
+import {ANCIENT_DHARMA_LIBRARY,MOTION_LIBRARY,compileMotionTemplate,renderSceneGraphSvg,compileSceneGraph} from '@tubeflow/video-composition';
 const directory=fs.mkdtempSync(path.join(os.tmpdir(),'motion-library-'));
 process.env.TUBEFLOW_DATA_DIR=directory;
 fs.writeFileSync(path.join(directory,'accounts.json'),JSON.stringify([{id:'default',name:'Ancient Dharma'}]));
@@ -71,7 +71,7 @@ test('the director receives the library and script intent, can choose custom or 
   const ctx=()=>({signal:AbortSignal.timeout(30000),job:{usage:[]},maxCalls:8,persist:()=>{},stage:()=>{}});
   try{
     const result=await planGraphBeats(p,ctx(),'gemini-fixture',p.scenes,[]);
-    assert.equal(result[0].templateId,'custom');assert.equal(payload.motionLibrary.length,50);
+    assert.equal(result[0].templateId,'custom');assert.equal(payload.motionLibrary.length,MOTION_LIBRARY.length);
     assert.equal(payload.editorialPolicy.sceneHints[0].hints[0].intent,'Explain change');
     mode='clean';assert.deepEqual(await planGraphBeats(p,ctx(),'gemini-fixture',p.scenes,[]),[]);
     mode='ad_unknown';await assert.rejects(()=>planGraphBeats(p,ctx(),'gemini-fixture',p.scenes,[]),/available library ID/);

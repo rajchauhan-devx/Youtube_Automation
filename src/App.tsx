@@ -24,7 +24,6 @@ import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './se
 import type { Section, Tab, Channel, Script, PipelineStep, GeneratedAudio } from './data';
 import { PlaceholderPage } from './components/PlaceholderPage';
 import { ProfilePage } from './components/profile/ProfilePage';
-import { ProfileMotionTemplatesPage } from './components/profile/ProfileMotionTemplatesPage';
 import { YouTubeStudioDashboard } from './components/dashboard/YouTubeStudioDashboard';
 import { ScriptsTab } from './components/scripts/ScriptsTab';
 import { NewScriptModal } from './components/scripts/NewScriptModal';
@@ -50,6 +49,8 @@ import { editingRequest, type EditingPayload } from './services/editingApi';
 import { AutoPilotSettingsSchema, defaultAutoPilotSettings, narrationOptions, type AutoPilotSettings } from '../server/src/services/autopilot-settings';
 import { executeSupervisedStage, runPreflightSupervision } from './services/supervisor';
 
+const DYNAMIC_SCENE_MOTIONS = ['zoom-in', 'pan-right', 'zoom-out', 'pan-left', 'drift-in', 'pan-up', 'drift-out'] as const;
+
 const TABS: { id: Tab; label: string; icon: typeof ScrollText; step: string }[] = [
   { id: 'scripts', label: 'Scripts', icon: ScrollText, step: '01' },
   { id: 'preview', label: 'Preview', icon: Eye, step: '02' },
@@ -67,7 +68,6 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     title: 'Studio',
     items: [
       { id: 'dashboard', label: 'YT Studio', icon: LayoutDashboard, badge: '3 YT' },
-      { id: 'motion-templates', label: 'Motion Templates', icon: Wand2, badge: 'Library' },
     ],
   },
   {
@@ -147,7 +147,7 @@ function saveUiState(state: PersistedUiState) {
   }
 }
 
-type SidebarId = Section | 'dashboard' | 'queue' | 'library' | 'settings' | 'profile' | 'motion-templates';
+type SidebarId = Section | 'dashboard' | 'queue' | 'library' | 'settings' | 'profile';
 
 function isMainSectionSidebar(id: SidebarId): boolean {
   return id === 'shorts' || id === 'long' || id === 'mixed';
@@ -1024,8 +1024,22 @@ export default function App() {
         narration = extractResult.ttsText || '';
         extractedScript = extractResult.script || '';
         const sceneAnalysis = {
-          transitions: imagePrompts.map((_, i) => editorial.edit.sceneDirections[i]?.transition === 'dissolve' ? 'dissolve' : 'none'),
-          effects: imagePrompts.map((_, i) => editorial.edit.sceneDirections[i]?.motion || 'hold'),
+          transitions: imagePrompts.map((_, i) =>
+            editorial.edit.sceneDirections[i]?.transition === 'dissolve' ? 'dissolve'
+              : (i > 0 && i % 3 === 0 ? 'dissolve' : 'none')
+          ),
+          effects: imagePrompts.map((_, i) => {
+            const raw = editorial.edit.sceneDirections[i]?.motion;
+            if (raw && raw !== 'hold') {
+              if (raw === 'slow-zoom-in' || raw === 'push-in') return 'zoom-in';
+              if (raw === 'pull-out') return 'zoom-out';
+              if (raw === 'drift-left') return 'pan-left';
+              if (raw === 'drift-right') return 'pan-right';
+              if (raw === 'rise') return 'pan-up';
+              return raw;
+            }
+            return DYNAMIC_SCENE_MOTIONS[i % DYNAMIC_SCENE_MOTIONS.length];
+          }),
           timings: [],
           mood: retention.plan.musicMood === 'none' ? 'neutral' : retention.plan.musicMood,
           colorGrade: 'warm-vintage',
@@ -1576,9 +1590,18 @@ export default function App() {
             narration: currentScript.narration || '',
             duration: currentScript.duration || 30,
             resolution: section === 'shorts' ? { width: 1080, height: 1920 } : { width: 1920, height: 1080 },
-            zoomFactor: runSettings.editing.mode === 'off' ? 1 : 1.08,
-            transitionDuration: runSettings.editing.mode === 'off' ? 0 : section === 'shorts' ? 0.2 : 0.4,
-            sceneAnalysis: runSettings.editing.mode === 'off' ? { effects: imagePaths.map(() => 'hold'), transitions: imagePaths.map(() => 'none'), timings: currentScript.sceneAnalysis?.timings } : currentScript.sceneAnalysis,
+            zoomFactor: runSettings.editing.mode === 'off' ? 1 : 1.15,
+            transitionDuration: runSettings.editing.mode === 'off' ? 0 : section === 'shorts' ? 0.35 : 0.45,
+            sceneAnalysis: runSettings.editing.mode === 'off'
+              ? { effects: imagePaths.map(() => 'hold'), transitions: imagePaths.map(() => 'none'), timings: currentScript.sceneAnalysis?.timings }
+              : {
+                  ...currentScript.sceneAnalysis,
+                  effects: imagePaths.map((_, i) => {
+                    const currentEffect = currentScript.sceneAnalysis?.effects?.[i];
+                    return (currentEffect && currentEffect !== 'hold') ? currentEffect : DYNAMIC_SCENE_MOTIONS[i % DYNAMIC_SCENE_MOTIONS.length];
+                  }),
+                  transitions: currentScript.sceneAnalysis?.transitions || imagePaths.map((_, i) => i > 0 && i % 3 === 0 ? 'dissolve' : 'none'),
+                },
             enableSubtitles: runSettings.captions !== 'off',
             ...(runSettings.editing.mode === 'custom' ? { editing: { ...runSettings.editing.settings, enabled: true, captions: runSettings.captions === 'plain' } } : runSettings.editing.mode === 'off' ? { editing: { ...runSettings.editing.settings, enabled: false, captions: runSettings.captions === 'plain' } } : {}),
             bgmTrack: runSettings.audio.music === 'auto' ? retention.plan.musicMood : runSettings.audio.music,
@@ -1880,7 +1903,13 @@ export default function App() {
       return;
     }
 
-    const sceneAnalysis = { transitions: extracted.imagePrompts.map(() => 'none'), effects: extracted.imagePrompts.map(() => 'zoom-in'), timings: [], mood: 'epic', colorGrade: 'warm-vintage' };
+    const sceneAnalysis = {
+      transitions: extracted.imagePrompts.map((_, i) => (i > 0 && i % 3 === 0 ? 'dissolve' : 'none')),
+      effects: extracted.imagePrompts.map((_, i) => DYNAMIC_SCENE_MOTIONS[i % DYNAMIC_SCENE_MOTIONS.length]),
+      timings: [],
+      mood: 'epic',
+      colorGrade: 'warm-vintage',
+    };
 
     const patch: Partial<Script> = {
       extractedScript: extracted.script,
@@ -2145,8 +2174,8 @@ export default function App() {
                 }}
                 onManageAccounts={() => setSidebar('profile')}
               />
-            ) : sidebar === 'profile' ? <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} /> : sidebar === 'motion-templates' ? (
-              <ProfileMotionTemplatesPage account={activeChannel} accounts={accounts} onSelectAccount={switchChannel} />
+            ) : sidebar === 'profile' ? (
+              <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} />
             ) : sidebar === 'settings' ? (
               <SetupTab />
             ) : !isMainSection ? (
@@ -2237,6 +2266,7 @@ export default function App() {
                       onImportResponse={handleImportResponse}
                       onAutoPilot={() => selectedScript && setRunModalScript(selectedScript)}
                       isAutoPilotRunning={autoPilotState.isActive && autoPilotState.stage !== 'completed' && autoPilotState.stage !== 'error' && autoPilotState.stage !== 'idle'}
+                      onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)}
                     />
                   )}
                   {tab === 'assets' && <AssetsTab key={selectedScriptId} script={selectedScript} onUpdate={(patch) => selectedScriptId && persistScript(selectedScriptId, patch)} onProceedToGeneration={() => setTab('generation')} />}

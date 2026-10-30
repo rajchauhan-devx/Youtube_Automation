@@ -33,6 +33,7 @@ export interface ChatRequest {
   messages: ChatMessage[];
   temperature?: number;
   max_tokens?: number;
+  thinkingBudget?: number;
   json?: boolean;
   jsonSchema?: Record<string, unknown>;
   signal?: AbortSignal;
@@ -92,13 +93,21 @@ function buildGeminiPayload(req: ChatRequest) {
     contents.push({ role: 'user', parts: [{ text: 'Hello' }] });
   }
 
+  const effectiveThinkingBudget =
+    req.thinkingBudget !== undefined
+      ? req.thinkingBudget
+      : req.json || req.jsonSchema
+      ? 0
+      : undefined;
+
   const payload: any = {
     contents,
     generationConfig: {
       temperature: req.temperature ?? 0.7,
-      maxOutputTokens: req.max_tokens ?? 8192,
+      maxOutputTokens: req.max_tokens ?? 16384,
       ...(req.json ? { responseMimeType: 'application/json' } : {}),
       ...(req.jsonSchema ? { responseMimeType: 'application/json', responseJsonSchema: req.jsonSchema } : {}),
+      ...(effectiveThinkingBudget !== undefined ? { thinkingConfig: { thinkingBudget: effectiveThinkingBudget } } : {}),
     },
   };
 

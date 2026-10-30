@@ -32,10 +32,12 @@ test('the actual Preview prompt and structured schema expose all gallery templat
   assert.ok(prompt.includes('<motion_graphicN>'));assert.ok(prompt.includes('durationSec'));assert.ok(prompt.includes('position'));
   const once=withScenePlanFormat('Original direction','shorts');
   assert.equal(withScenePlanFormat(once,'shorts'),once);
+  const upgraded=withScenePlanFormat(`${MOTION_SCRIPT_PLAN_MARKER}\nSaved older catalog: ad_lower_third`,'shorts');
+  assert.equal(withScenePlanFormat(upgraded,'shorts'),upgraded);
   assert.ok(withScenePlanFormat('## Shared extraction format V1\nLegacy saved template','shorts').includes(MOTION_SCRIPT_PLAN_MARKER));
 });
 
-test('tag and JSON extraction preserve the complete scene plan without leaking metadata into narration or prompts',()=>{
+test('tag and JSON extraction preserve valid motion plans and omit invalid optional tag metadata',()=>{
   const plan=makePlan(),tagged=serializeScenePlan(plan),parsed=parseScenePlan(tagged,{isImageOnly:true});
   assert.deepEqual(parseMotionScriptHint(parsed.scenes[0].motionGraphics[0]),hint);
   assert.equal(parsed.scenes[0].narration,narration);
@@ -43,13 +45,21 @@ test('tag and JSON extraction preserve the complete scene plan without leaking m
   assert.deepEqual(parseScenePlan(JSON.stringify(plan)).scenes[0].motionGraphics[0],hint);
   const legacy=parseScenePlan('<script>यह प्राचीन ज्ञान है।</script><image_prompt1>A temple</image_prompt1><motion_graphic1>Intent: Emphasize the subject\nTemplate: ad_lower_third</motion_graphic1>');
   assert.equal(legacy.scenes[0].motionGraphics[0].templateId,'ad_lower_third');
-  assert.throws(()=>parseScenePlan(tagged.replace('ad_lower_third','ad_missing')),/Unknown motion/);
-  assert.throws(()=>parseScenePlan(tagged.replace('"quote": "प्राचीन ज्ञान"','"quote": "गलत उद्धरण"')),/exactly/);
-  assert.throws(()=>parseScenePlan(tagged.replace('"position": "bottom"','"position": "offscreen"')),/Invalid/);
-  assert.throws(()=>parseScenePlan(tagged.replace('"durationSec": 2','"durationSec": 999')),/Too big/);
-  assert.throws(()=>parseScenePlan(tagged.replaceAll('motion_graphic1','motion_graphic2')),/existing scene/);
-  assert.throws(()=>parseScenePlan(tagged.replace('</motion_graphic1>','')),/Unfinished/);
-  assert.throws(()=>parseScenePlan(tagged.replace('</motion_graphic1>','</motion_graphic2>')),/numbers must match/);
+  for(const invalid of [
+    tagged.replace('ad_lower_third','ad_missing'),
+    tagged.replace(/("quote":\s*)"प्राचीन ज्ञान"/,'$1"गलत उद्धरण"'),
+    tagged.replace(/("position":\s*)"bottom"/,'$1"offscreen"'),
+    tagged.replace(/("durationSec":\s*)2/,(_,prefix)=>`${prefix}999`),
+    tagged.replaceAll('motion_graphic1','motion_graphic2'),
+    tagged.replace('</motion_graphic1>',''),
+    tagged.replace('</motion_graphic1>','</motion_graphic2>'),
+  ]) {
+    const clean=parseScenePlan(invalid,{isImageOnly:true});
+    assert.equal(clean.scenes[0].motionGraphics?.length||0,0,'bad optional metadata must not block viable narration and visuals');
+    assert.equal(clean.scenes[0].narration,narration);
+  }
+  assert.throws(()=>parseMotionScriptHint({...hint,templateId:'ad_missing'},narration),/Unknown motion/);
+  assert.throws(()=>parseMotionScriptHint({...hint,quote:'गलत उद्धरण'},narration),/exactly/);
   const aliased=parseMotionScriptHint({...hint,templateId:'rz_lower_third'});assert.equal(aliased.templateId,'ad_lower_third');
 });
 
@@ -125,7 +135,7 @@ test('full pipeline consumes extracted metadata even on a directed project and p
     if(system.startsWith('Inspect each supplied image'))return reply({scenes:[{sceneId:p.scenes[0].id,visibleObjects:['stone'],openArea:'center',containsText:false,annotatedDiagram:false}]});
     if(system.includes('Select only moments')){
       const payload=JSON.parse(JSON.parse(init.body).contents[0].parts[0].text.split('\nThe previous response')[0]);
-      assert.equal(payload.motionLibrary.length,50);assert.equal(payload.editorialPolicy.sceneHints[0].hints[0].content.items[0].text,'प्राचीन ज्ञान');
+      assert.equal(payload.motionLibrary.length,MOTION_LIBRARY.length);assert.equal(payload.editorialPolicy.sceneHints[0].hints[0].content.items[0].text,'प्राचीन ज्ञान');
       return reply({beats:[{sceneId:p.scenes[0].id,quote:hint.quote,intent:hint.intent,templateId:hint.templateId}]});
     }
     throw new Error(`Unexpected content regeneration: ${system.slice(0,80)}`);

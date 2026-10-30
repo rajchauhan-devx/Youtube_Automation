@@ -26,7 +26,7 @@ export interface RetentionEdit {
   sourceHash: string;
   plan: ScenePlan;
   notes: string[];
-  sceneDirections: { sceneId: string; purpose: string; motion: 'hold' | 'slow-zoom-in' | 'drift-left' | 'drift-right'; transition: 'cut' | 'dissolve' }[];
+  sceneDirections: { sceneId: string; purpose: string; motion: 'hold' | 'slow-zoom-in' | 'drift-left' | 'drift-right' | 'push-in' | 'pull-out' | 'pan-left' | 'pan-right' | 'rise' | 'drift-in' | 'drift-out'; transition: 'cut' | 'dissolve' }[];
   editedAt: string;
 }
 export interface RetentionReview {

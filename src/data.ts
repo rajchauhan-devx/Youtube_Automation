@@ -169,6 +169,7 @@ export interface Script {
   chapters?: string[];
   content?: string;
   topicName?: string;
+  topic?: string;
   aiInstructions?: string;
   aiResponse?: string;
   researchData?: string;
@@ -209,81 +210,22 @@ export interface ReferenceFrameAsset {
   createdAt: string;
 }
 
-export interface ChannelLoraProfile {
-  channelKey: 'ancient_dharma' | 'rule_zero' | 'against_the_odds';
-  channelLabel: string;
-  loraTitle: string;
-  loraFileName: string;
-  fallbackLoraFileName: string;
-  strengthModel: number;
-  strengthClip: number;
-  triggerToken: string;
-  styleDna: string;
-}
+import {
+  type ChannelLoraConfig,
+  CHANNEL_LORA_CONFIG,
+  detectChannelProfileKey,
+} from './services/profileRegistry';
 
-export const CHANNEL_LORA_PROFILES: Record<ChannelLoraProfile['channelKey'], ChannelLoraProfile> = {
-  ancient_dharma: {
-    channelKey: 'ancient_dharma',
-    channelLabel: 'Ancient Dharma',
-    loraTitle: 'Chiaroscuro Fantasy XL (Sacred Temple & Mythic Glow)',
-    loraFileName: 'ancient_dharma_custom_xl.safetensors',
-    fallbackLoraFileName: 'ancient_dharma_chiaroscuro_xl.safetensors',
-    strengthModel: 0.70,
-    strengthClip: 0.70,
-    triggerToken: 'dharma_sacred_chiaroscuro',
-    styleDna:
-      'Sacred chiaroscuro lighting, warm golden oil-lamp glow, deep carved-stone temple shadows, volumetric incense haze, burnished gold and saffron color palette, painterly mythological photorealism.',
-  },
-  rule_zero: {
-    channelKey: 'rule_zero',
-    channelLabel: 'Rule Zero',
-    loraTitle: "Zavy's Dark Atmospheric Contrast XL (Neo-Noir Thriller)",
-    loraFileName: 'rule_zero_custom_xl.safetensors',
-    fallbackLoraFileName: 'rule_zero_dark_contrast_xl.safetensors',
-    strengthModel: 0.75,
-    strengthClip: 0.75,
-    triggerToken: 'rulezero_noir_contrast',
-    styleDna:
-      'Stylized painterly graphic novel comic art, Alberto Mielgo and Spider-Verse noir aesthetic, bold charcoal ink outlines, expressive textured brushstrokes, dynamic two-step cel shading, high-contrast chiaroscuro shadows, wet pavement reflections, cold cyan and teal ambient shadows sliced by vibrant warm amber and neon rim lighting, cinematic atmospheric mystery, no 3D, no photorealism, no CGI gloss.',
-  },
-  against_the_odds: {
-    channelKey: 'against_the_odds',
-    channelLabel: 'Against the Odds',
-    loraTitle: 'Analog Film XL v1 (Raw 35mm Documentary Photojournalism)',
-    loraFileName: 'against_the_odds_custom_xl.safetensors',
-    fallbackLoraFileName: 'against_the_odds_analog_film_xl.safetensors',
-    strengthModel: 0.80,
-    strengthClip: 0.80,
-    triggerToken: 'odds_docu35mm_film',
-    styleDna:
-      'Analog Film Style, raw 1970s 35mm Kodak documentary photojournalism, gritty analog film grain, subtle halation, weathered skin pores and frost/mud micro-textures, desaturated natural storm palette.',
-  },
-};
+export type ChannelLoraProfile = ChannelLoraConfig;
+
+export const CHANNEL_LORA_PROFILES: Record<ChannelLoraProfile['channelKey'], ChannelLoraProfile> =
+  CHANNEL_LORA_CONFIG;
 
 export function getChannelLoraProfile(
   channelOrAccount?: { id?: string; name?: string; youtubeChannelTitle?: string } | string | null,
 ): ChannelLoraProfile {
-  const raw =
-    typeof channelOrAccount === 'string'
-      ? channelOrAccount.toLowerCase()
-      : `${channelOrAccount?.id || ''} ${channelOrAccount?.name || ''} ${channelOrAccount?.youtubeChannelTitle || ''}`.toLowerCase();
-
-  if (
-    raw.includes('3ea89878') ||
-    raw.includes('rule zero') ||
-    raw.includes('zero rule') ||
-    raw.includes('rule_zero')
-  ) {
-    return CHANNEL_LORA_PROFILES.rule_zero;
-  }
-  if (
-    raw.includes('620a1d5e') ||
-    raw.includes('against the odds') ||
-    raw.includes('against_the_odds')
-  ) {
-    return CHANNEL_LORA_PROFILES.against_the_odds;
-  }
-  return CHANNEL_LORA_PROFILES.ancient_dharma;
+  const profileKey = detectChannelProfileKey(channelOrAccount);
+  return CHANNEL_LORA_PROFILES[profileKey];
 }
 
 const FRONTEND_TWO_D_STYLE_PATTERN =

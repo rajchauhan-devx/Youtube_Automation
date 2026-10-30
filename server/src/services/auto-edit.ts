@@ -56,11 +56,11 @@ export function validateEditingSettings(value: unknown): EditingSettings {
 }
 
 export function autoEditPlan(plan: ScenePlan, settings: EditingSettings) {
-  const motions = ['push-in', 'pan-right', 'pull-out', 'pan-left', 'rise'] as const;
+  const motions = ['push-in', 'pan-right', 'pull-out', 'pan-left', 'drift-in', 'rise', 'drift-out'] as const;
   return plan.scenes.map((scene, index) => {
     const chapterStart = index === 0 || scene.chapter !== plan.scenes[index - 1].chapter;
     const override = settings.overrides[scene.id];
-    const autoMotion = settings.motion === 'off' || scene.role === 'cta' ? 'hold' : motions[index % motions.length];
+    const autoMotion = settings.motion === 'off' ? 'hold' : scene.role === 'cta' ? 'push-in' : motions[index % motions.length];
     const motion = scene.mediaType === 'video' ? 'source' : settings.motion === 'off' ? 'hold' : override?.motion && override.motion !== 'auto' ? override.motion : autoMotion;
     const selected = override?.transition && override.transition !== 'auto' ? override.transition : settings.transitions;
     const transition = index === 0 ? 'cut' : selected !== 'auto' ? selected : chapterStart ? 'dip-black' :
@@ -73,7 +73,7 @@ export function autoEditPlan(plan: ScenePlan, settings: EditingSettings) {
 
 /** A smooth, absolute-frame camera path; no accumulated zoom or duration-dependent speed. */
 export function autoMotionFilter(motion: string, frames: number, width: number, height: number, strength: EditingSettings['motion']) {
-  return smoothMotionFilter(strength === 'off' ? 'hold' : motion, frames, width, height, strength === 'balanced' ? 0.08 : 0.04);
+  return smoothMotionFilter(strength === 'off' ? 'hold' : motion, frames, width, height, strength === 'balanced' ? 0.14 : 0.08);
 }
 
 const assTime = (seconds: number) => {

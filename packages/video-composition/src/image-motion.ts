@@ -5,13 +5,13 @@ type Layer = DocumentarySpec['layers'][number];
 export function imageMotionAt(layer: Layer, progress: number) {
   const t = Math.max(0, Math.min(1, progress));
   const eased = t * t * (3 - 2 * t);
-  const amount = layer.strength ?? 0.055;
+  const amount = layer.strength ?? 0.10;
   const focus = layer.preserveSource ? { x: 0.5, y: 0.5 } : layer.focus || { x: 0.5, y: 0.5 };
   const pull = layer.motion === 'pull-out';
   const zoom = ['push-in', 'pull-out', 'diagonal-in', 'focus-in'].includes(layer.motion);
   const scale = zoom ? 1 + amount * (pull ? 1 - eased : eased) : 1;
-  // Legacy horizontal drifts retain their original travel unless explicitly tuned.
-  const travel = layer.strength ?? 0.025;
+  // Dynamic horizontal drifts retain active motion unless explicitly tuned.
+  const travel = layer.strength ?? 0.05;
   const x = layer.motion === 'drift-left' ? -travel * eased : layer.motion === 'drift-right' ? travel * eased
     : layer.motion === 'diagonal-in' ? -amount * 0.3 * eased : 0;
   const y = layer.motion === 'drift-up' ? -travel * eased : layer.motion === 'drift-down' ? travel * eased

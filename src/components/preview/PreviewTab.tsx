@@ -1,6 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { motionLibraryTemplate } from '@tubeflow/video-composition';
-import { findMetadata } from '../../lib/parseAIResponse';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -18,6 +16,7 @@ import {
 import type { PipelineStep, Script } from '../../data';
 import { copyTextToClipboard } from '../../lib/safe';
 import { RetentionPanel } from './RetentionPanel';
+import { DynamicMotionStudio } from './DynamicMotionStudio';
 
 interface PreviewTabProps {
   pipeline: PipelineStep[];
@@ -29,6 +28,7 @@ interface PreviewTabProps {
   onImportResponse?: (response: string, extract: boolean) => Promise<void>;
   onAutoPilot?: () => void;
   isAutoPilotRunning?: boolean;
+  onUpdate?: (patch: Partial<Script>) => void;
 }
 
 export function PreviewTab({
@@ -40,6 +40,7 @@ export function PreviewTab({
   onImportResponse,
   onAutoPilot,
   isAutoPilotRunning = false,
+  onUpdate,
 }: PreviewTabProps) {
   const responseEndRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
@@ -48,7 +49,6 @@ export function PreviewTab({
   const [pastedResponse, setPastedResponse] = useState('');
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState('');
-  const motionPlans = useMemo(() => findMetadata(script?.aiResponse || '').filter(m => m.motionPlan), [script?.aiResponse]);
 
   async function importResponse(extract: boolean) {
     if (!pastedResponse.trim() || !onImportResponse || importing) return;
@@ -170,20 +170,11 @@ export function PreviewTab({
       </div>
 
       <RetentionPanel script={script} />
-      {motionPlans.length > 0 && <details className="rounded-xl border border-border bg-surface p-4" aria-label="Script motion plans">
-        <summary className="cursor-pointer text-sm font-semibold text-white">{motionPlans.length} planned motion {motionPlans.length === 1 ? 'graphic' : 'graphics'}</summary>
-        <p className="mt-2 text-xs text-muted">Extract Assets saves these plans. Generate motion graphics in Artifacts after media and narration are ready; the AI checks timing and open space before placing them.</p>
-        <div className="mt-3 space-y-3">{motionPlans.map((entry, i) => {
-          const plan=entry.motionPlan!;
-          return <div key={`${entry.index}-${i}`} className="border-t border-border pt-3 text-xs">
-            <p className="font-semibold text-white">Scene {entry.scene || entry.index} · {motionLibraryTemplate(plan.templateId || '')?.name || 'Original composition'}</p>
-            <p className="mt-1 text-muted">{plan.intent}</p>
-            <p className="mt-1 text-muted">Position: {plan.position || 'auto'}{plan.durationSec ? ` · ${plan.durationSec}s` : ''}</p>
-            {plan.quote && <p className="mt-1 text-gray-300">Cue: “{plan.quote}”</p>}
-            {plan.content && <p className="mt-1 text-gray-300">{plan.content.items.map(item=>[item.text,item.detail].filter(Boolean).join(' — ')).join(' · ')}</p>}
-          </div>;
-        })}</div>
-      </details>}
+
+      <div className="px-6 pt-4 pb-0">
+        <DynamicMotionStudio script={script} onUpdateScript={onUpdate} />
+      </div>
+
       {showImport && <div className="space-y-3 border-b border-border bg-bg/60 px-5 py-4">
         <label htmlFor="external-ai-response" className="block text-sm font-medium text-white">Response from another AI</label>
         <p className="text-xs text-gray-400">Paste the complete response from your browser AI, keeping the script, image prompts, scene tags and timeline format from your template.</p>

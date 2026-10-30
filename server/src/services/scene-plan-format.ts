@@ -1,4 +1,4 @@
-import { MOTION_SCRIPT_INSTRUCTIONS, MOTION_SCRIPT_PLAN_MARKER, parseMotionScriptHint } from './script-motion.js';
+import { MOTION_SCRIPT_INSTRUCTIONS, motionInstructionsForTemplate, parseMotionScriptHint } from './script-motion.js';
 import { isImageOnlyTemplate, spokenText, type ScenePlan } from './scene-plan.js';
 
 export const SCENE_PLAN_FORMAT_MARKER = '## Shared extraction format V1';
@@ -74,7 +74,8 @@ Complete standalone continuous-shot video generation prompt for scene 3...
 
 Profile: ${profile}. ${profile === 'shorts' ? 'Use portrait 9:16.' : 'Use landscape 16:9.'} Write actual finished content in every tag without placeholders or "[...Repeat...]" shortcuts.`;
   const base = prompt.includes(SCENE_PLAN_FORMAT_MARKER) ? prompt : `${prompt.trimEnd()}\n\n${contract}`;
-  return base.includes(MOTION_SCRIPT_PLAN_MARKER) ? base : `${base}\n\n${MOTION_SCRIPT_HINTS}`;
+  const motionInstructions = motionInstructionsForTemplate(base);
+  return motionInstructions ? `${base}\n\n${motionInstructions}` : base;
 }
 
 export function serializeScenePlan(plan: ScenePlan): string {

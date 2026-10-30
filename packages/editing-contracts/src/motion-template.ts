@@ -19,7 +19,8 @@ export const MotionPlacement = z.enum(['auto', 'top', 'bottom', 'left', 'right',
 export const MotionScriptHint = z.object({
   version: z.literal(1).optional(),
   intent: z.string().trim().min(1).max(300),
-  templateId: z.string().regex(/^(?:(?:ad|rz|ato)_[a-z_]+|custom)$/).max(80).optional(),
+  templateId: z.string().max(120).optional(),
+  type: z.string().max(120).optional(),
   quote: z.string().trim().min(1).max(1500).optional(),
   position: MotionPlacement.optional(),
   durationSec: z.number().finite().min(1.5).max(15).optional(),
@@ -29,7 +30,7 @@ export const MotionScriptHint = z.object({
 export type MotionScriptHintData = z.infer<typeof MotionScriptHint>;
 
 export const MotionTemplateSelection = z.strictObject({
-  id: z.string().regex(/^ad_[a-z_]+$/).max(80),
+  id: z.string().max(120),
   version: z.literal(1),
   layout: z.enum(['horizontal', 'vertical', 'radial']),
 });

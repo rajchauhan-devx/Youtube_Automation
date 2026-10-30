@@ -4,25 +4,24 @@ import { YouTubeAccountsPanel } from './YouTubeAccountsPanel';
 import { MetaAccountsPanel } from './MetaAccountsPanel';
 import { ProfileTopicNotes } from './ProfileTopicNotes';
 import { RecoveryPanel } from './RecoveryPanel';
-import { ProfileMotionTemplatesPage } from './ProfileMotionTemplatesPage';
 import { useWorkspaceApi } from '../../services/workspaceApi';
-import { Sparkles, Users, FileText, Wrench } from 'lucide-react';
+import { Users, FileText, Wrench } from 'lucide-react';
 
 export function ProfilePage({
   accounts,
   onAccountsChange,
   onSelectAccount,
   onOpenDashboard,
-  initialTab = 'templates'
+  initialTab = 'accounts',
 }: {
   accounts: Channel[];
   onAccountsChange: (accounts: Channel[]) => void;
   onSelectAccount: (account: Channel) => void;
   onOpenDashboard?: () => void;
-  initialTab?: 'templates' | 'accounts' | 'topics' | 'recovery';
+  initialTab?: 'accounts' | 'topics' | 'recovery';
 }) {
   const { account } = useWorkspaceApi();
-  const [activeTab, setActiveTab] = useState<'templates' | 'accounts' | 'topics' | 'recovery'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'accounts' | 'topics' | 'recovery'>(initialTab);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 animate-fade-up">
@@ -33,22 +32,11 @@ export function ProfilePage({
             <span className="h-1.5 w-5 rounded-full bg-accent" />
             Channel Profile · {account.name}
           </p>
-          <h1 className="text-2xl font-bold tracking-tight text-white mt-1">Profile Workspace & Motion Studio</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white mt-1">Channel Profile & Workspace</h1>
         </div>
 
         {/* Tab Switcher */}
         <div className="flex items-center gap-1.5 rounded-xl border border-border bg-surface/90 p-1">
-          <button
-            onClick={() => setActiveTab('templates')}
-            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
-              activeTab === 'templates'
-                ? 'bg-accent text-white shadow-glow'
-                : 'text-muted hover:text-white'
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-            Motion Templates
-          </button>
           <button
             onClick={() => setActiveTab('accounts')}
             className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
@@ -86,14 +74,6 @@ export function ProfilePage({
       </div>
 
       {/* Tab Contents */}
-      {activeTab === 'templates' && (
-        <ProfileMotionTemplatesPage
-          account={account}
-          accounts={accounts}
-          onSelectAccount={onSelectAccount}
-        />
-      )}
-
       {activeTab === 'accounts' && (
         <div className="space-y-6">
           <YouTubeAccountsPanel

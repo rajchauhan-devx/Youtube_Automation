@@ -1,4 +1,5 @@
 import { withScenePlanFormat } from './scene-plan-format.js';
+import { ancientDharmaEditorial } from './ancient-dharma-editorial.js';
 
 export const SHORTS_MEDIA_TEMPLATE = withScenePlanFormat(`# SHORTS — IMAGE, VIDEO & AUDIO PRODUCTION MASTER
 ## Shared scene production package · Version 4 (Production Level)
@@ -32,6 +33,8 @@ For devotional subjects, preserve dignity, recognizable iconography and the rele
 
 ## 3. Silent writing workflow
 
+${ancientDharmaEditorial('shorts')}
+
 First identify the core emotion, the central question and the single concrete payoff. Silently compare three distinct opening lines; choose the clearest, most specific one the story can truthfully pay off. Write and tighten the narration. Then divide that locked narration into visual scenes. Finally write the image and video prompts against those exact spoken segments. Perform all these passes internally and return only the complete tagged deliverable in the existing format, without extra hook alternatives or retention analysis.
 
 Opening (HOOK — first 1-3 seconds, non-negotiable): begin with the strongest source-supported action, contradiction or dilemma and its immediate human stakes. Use a short, complete spoken thought that makes sense without the title or prior knowledge. Name the person or concrete object rather than opening with a vague pronoun. Create one specific question about the cause, choice or consequence; withhold the answer, not the basic situation. Give an early concrete clue or consequence in the next one or two sentences. NEVER open with channel intros, greetings, biography, empty superlatives, a topic announcement, invented quotes or false promises. No "wait until the end," "you won't believe," invented countdowns or unsupported danger. For fiction, demonstrate the established rule and its cost instead of explaining the whole world.
@@ -40,7 +43,7 @@ Development: every sentence must add necessary context, a cause, obstacle, disco
 
 Re-hook (mandatory for 45s+ Shorts): near the midpoint introduce ONE concrete, source-supported turn: a failed option, discovery, changed constraint or consequential choice. Explain how it changes the next action; never merely announce that a surprise is coming or repeat the opening danger. Plant any necessary clue beforehand. Do not invent hidden motives, facts or new fictional powers to force a twist. For shorter stories, let a natural complication carry the momentum without padding to reach a prescribed moment.
 
-Resolution: answer the opening question with the actual outcome and the decisive reason, action or cost. Deliver the strongest earned payoff in the final story beat, with useful smaller payoffs beforehand; do not stretch an already answered question or hide a known outcome behind fake mystery. End on a concise consequence or an earlier detail whose meaning has changed, without recapping the story or adding a generic moral. Include at most one brief, relevant CTA, normally no more than 2-3 seconds, only if it fits the requested brief and after the payoff. A callback may reward replay only after a complete resolution; never withhold the answer to force another view. Silently remove lines that add neither necessary context nor a new development, and verify that the opening promise is fulfilled. These are editorial choices, not guaranteed audience metrics.
+Resolution: answer the opening question with the actual outcome and the decisive reason, action or cost. Deliver the strongest earned payoff in the final story beat, with useful smaller payoffs beforehand; do not stretch an already answered question or hide a known outcome behind fake mystery. End on a concise consequence or an earlier detail whose meaning has changed, without recapping the story or adding a generic moral. For Ancient Dharma, follow the one varied engagement close above, within the selected runtime and after the payoff. For unrelated topics, use one brief relevant CTA only when requested. A callback may reward replay only after a complete resolution; never withhold the answer to force another view. Silently remove lines that add neither necessary context nor a new development, and verify that the opening promise is fulfilled. These are editorial choices, not guaranteed audience metrics.
 
 ## 4. Duration and scene budgeting
 
@@ -50,17 +53,17 @@ Usually use 4–7 scenes for 30 seconds, 7–12 for 60 seconds and 12–20 for 9
 
 Give every scene a planned duration in seconds. The planned durations should add up to the requested target, with a natural speech budget underneath. Video source clips usually span 3–10 seconds; choose a longer suitable source duration or split a long passage at a natural sentence boundary. These numbers are planning estimates. The app measures generated narration and uses it for final scene timing. Do not pad every video scene to a fixed ten seconds, cut spoken words, or rely on looping an action to cover excess speech.
 
-## 5. Media Selection & Split Protocol
+## 5. Media Selection & Split Protocol (Scene 1 MUST Always Be Video)
 
-For Mixed Media packages (images & videos):
-- First scene (Scene 1) MUST ALWAYS be a video to hook the user immediately.
-- Maintain an exact 50/50 split between static image scenes and moving video scenes across the entire duration.
-- Alternating rhythm: Alternate media types across scenes (Scene 1: Video, Scene 2: Image, Scene 3: Video, Scene 4: Image, etc.).
-- For an odd total number of scenes (e.g. 11 or 15 scenes), provide the closest 50/50 split with video first (e.g. 6 videos / 5 images or 8 videos / 7 images).
-- Every video scene MUST have both an <image_prompt> (to generate the reference keyframe) and a <video_prompt> (for image-to-video animation).
-
-For Image-Only packages (still-image alternative production):
-- When the user selects or requests still images only, generate 100% static image scenes with <image_prompt> for every scene. Do not generate video prompts or force video scenes.
+CRITICAL HOOK LAW FOR HIGH RETENTION (8K+ VIEW FORMULA):
+- The opening scene (Scene 1) MUST ALWAYS be a dynamic, moving video clip (<video_prompt1>), NEVER a still image.
+- Cold viewers decide within the first 1–2 seconds whether to stay or swipe; opening with a continuous, cinematic motion shot hooks the viewer and forces them to stay.
+- For Mixed Media packages:
+  - First scene (Scene 1) MUST ALWAYS be a video (<video_prompt1>) to hook the user immediately.
+  - Maintain an alternating rhythm across scenes (Scene 1: Video, Scene 2: Image, Scene 3: Video, Scene 4: Image, etc.).
+  - For an odd total number of scenes (e.g. 5, 7, 11 scenes), provide the closest split with Scene 1 always as video.
+  - Every video scene MUST have both an <image_prompt> (to generate the reference keyframe) and a <video_prompt> (for image-to-video animation).
+- Even in predominantly image-driven productions, Scene 1 is non-negotiably a moving cinematic video hook (<video_prompt1>) while subsequent scenes can be high-detail static images. Never open any Short with a static still image.
 
 ## 6. Character, location and style continuity
 

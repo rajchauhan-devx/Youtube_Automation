@@ -92,7 +92,7 @@ export function renderSceneGraphSvg(graph: SceneGraphData, frame: number, option
     const lines:string[]=[];let line='';let length=0;
     for(const paragraph of text.split('\n')){for(const word of paragraph.split(/\s+/u)){
       // Conservative fallback; designers persist measured line breaks where available.
-      const wordLength=Array.from(word).reduce((n,c)=>n+(/\p{Mark}/u.test(c)?0:/[ilI.,' ]/.test(c)?0.28:/[MW@]/.test(c)?0.9:0.59),0)*size;
+      const wordLength=Array.from(word).reduce((n,c)=>n+(/\p{Mark}/u.test(c)?0:/[ilI.,' ]/.test(c)?0.28:/[MW@]/.test(c)?0.9:/[\u0900-\u097f]/.test(c)?0.82:0.59),0)*size;
       if(line&&length+size*0.3+wordLength>width){lines.push(line);line='';length=0;}
       const gap=line?size*0.3:0;line+=(line?' ':'')+word;length+=wordLength+gap;
     }lines.push(line);line='';length=0;}return lines;

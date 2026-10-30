@@ -14,18 +14,27 @@ export function legacyMotion(effect: string, zoomFactor: number) {
     'zoom-out': 'pull-out', 'slow-zoom-out': 'pull-out', 'drift-left': 'pan-left',
     'drift-right': 'pan-right', 'pan-up': 'rise', 'ken-burns-in': 'drift-in', 'ken-burns-out': 'drift-out',
   };
+  const isSlow = effect.startsWith('slow-');
+  const isCrash = effect.includes('crash');
+  const userTravel = zoomFactor > 1 ? zoomFactor - 1 : 0.14;
+  const travel = isCrash ? 0.20 : isSlow ? 0.08 : Math.min(0.20, Math.max(0.12, userTravel));
   return {
     motion: aliases[effect] || (['hold', 'pan-left', 'pan-right', 'pan-down'].includes(effect) ? effect : 'push-in'),
-    travel: effect.startsWith('slow-') ? 0.04 : Math.min(0.08, Math.max(0, zoomFactor - 1)),
+    travel,
   };
 }
 
-const amountFor = (frames: number, travel: number) => Math.min(0.12, Math.max(0, travel), frames / 30 * 0.012);
+const amountFor = (frames: number, travel: number) => {
+  if (travel <= 0 || frames <= 1) return 0;
+  const seconds = frames / 30;
+  const maxByDuration = Math.max(0.04, seconds * 0.04);
+  return Math.min(0.20, Math.max(0, travel), maxByDuration);
+};
 const zoomMotions = ['push-in', 'pull-out', 'drift-in', 'drift-out'];
 const panMotions = ['pan-left', 'pan-right', 'rise', 'pan-down'];
 
 /** The same path drives FFmpeg footage and the source anchors on its graphics layer. */
-export function smoothMotionFilter(motion: string, frames: number, width: number, height: number, travel = 0.06) {
+export function smoothMotionFilter(motion: string, frames: number, width: number, height: number, travel = 0.14) {
   const ease = `(0.5-0.5*cos(PI*on/${Math.max(1, frames - 1)}))`;
   const amount = amountFor(frames, travel);
   let z = '1', x = 'iw/2-iw/zoom/2', y = 'ih/2-ih/zoom/2';

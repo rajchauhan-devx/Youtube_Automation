@@ -24,6 +24,7 @@ import {
 import { assetRecord, assetFile } from './repository.js';
 import { getChannelUniverseTheme } from './sceneGraphDesigner.js';
 import { currentWorkspace } from '../workspace.js';
+import { compileDynamicMotionGraphic } from '../dynamic-motion-engine.js';
 
 export interface HyperFramesBuildOptions {
   project: EditingProject;
@@ -80,13 +81,29 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
   const jsParts: string[] = [];
 
   const enabledArtifacts = (project.artifacts || [])
-    .filter((a) => a.enabled && (a.graphic || a.sceneGraph))
+    .filter((a) => a.enabled && (a.graphic || a.sceneGraph || (a as any).dynamicMotion))
     .sort((a, b) => a.startFrame - b.startFrame);
 
   for (const artifact of enabledArtifacts) {
     const startSec = artifact.startFrame / fps;
     const endSec = artifact.endFrame / fps;
     const sceneDuration = Math.max(0.5, endSec - startSec);
+
+    // Real-Time Dynamic Generative Motion Graphic path (Hyperframes & GSAP)
+    if ((artifact as any).dynamicMotion) {
+      const dm = (artifact as any).dynamicMotion;
+      const compiled = compileDynamicMotionGraphic(dm, {
+        width,
+        height,
+        fps,
+        startSec,
+      });
+      htmlParts.push(compiled.render.html);
+      cssParts.push(compiled.render.css);
+      jsParts.push(compiled.render.js);
+      continue;
+    }
+
     const isCaption = artifact.graphic?.kind === 'caption';
     const isSpotlight = artifact.graphic?.kind === 'spotlight';
     // Captions and spotlights track the scene action;
@@ -354,9 +371,9 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
     <meta name="viewport" content="width=${width}, height=${height}" />
     <!-- GSAP for Studio-Grade Deterministic Motion Graphics -->
     <script src="./gsap.min.js"></script>
-    ${enabledArtifacts.some(a => a.graphic) ? `<link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@700&family=Montserrat:wght@800;900&display=swap" rel="stylesheet">` : ''}
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800;900&family=Inter:wght@400;600;800;900&family=JetBrains+Mono:wght@700&family=Montserrat:wght@800;900&family=Rozha+One&family=Tiro+Devanagari+Hindi:ital@0;1&family=Yatra+One&display=swap" rel="stylesheet">
     <style>
       * {
         margin: 0;
