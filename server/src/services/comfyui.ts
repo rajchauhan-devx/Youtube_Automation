@@ -284,7 +284,7 @@ export interface PreparedImagePrompt {
 }
 
 export const TWO_D_STYLE_PATTERN =
-  /\b(2d\s+animated|2d\s+animation|2d\s+cartoon|animated[- ]series\s+frame|cel[- ]shad(?:ed|ing)|charcoal\s+(?:outlines|linework)|matte\s+flat\s+colou?r|flat\s+colou?r\s+fills|graphic\s+novel|hand[- ]drawn\s+2d)\b/i;
+  /\b(2d\s+animated|2d\s+animation|2d\s+cartoon|animated[- ]series\s+frame|cel[- ]shad(?:ed|ing)|charcoal\s+(?:outlines|linework)|matte\s+flat\s+colou?r|flat\s+colou?r\s+fills|graphic\s+novel|hand[- ]drawn\s+2d|stickman|stick\s+figure)\b/i;
 
 /**
  * Separates embedded "Negative Prompt:" blocks from positive scene prompts and
@@ -341,6 +341,37 @@ export function preparePromptForImageGeneration(
         negItems.push(cleaned);
       }
     }
+  }
+
+  // Dedicated Atmospheric Stickman handler: preserves epic environment while ensuring stickman character
+  const isStickman = /\b(stickman|stick\s+figure)\b/i.test(input) || /\b(stickman|stick\s+figure)\b/i.test(options?.styleDna || '');
+  if (isStickman) {
+    const stickmanNegative = [
+      'photorealistic human faces, fleshy human skin, photorealistic portraits, 3D CGI gloss, cartoon slapstick, comedic doodles, text, watermarks, distorted anatomy, extra limbs, live-action photo',
+      ...negItems,
+    ].filter(Boolean).join(', ');
+
+    let cleanWorking = working
+      .replace(/Documentary reconstruction style (?:still image|video shot)[,.]?\s*/gi, '')
+      .replace(/Visual Treatment Lock:[^\n]*/gi, '')
+      .replace(/\bVisual Style-DNA \([^)]*\):[^\n]*/gi, '')
+      .replace(/\bVisual Style:[^\n]*/gi, '')
+      .replace(/Negative Prompt:[\s\S]*?(?=Style Tags:|$)/gi, '')
+      .replace(/Style Tags:[\s\S]*?$/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const prefix = cleanWorking.toLowerCase().startsWith('cinematic concept art')
+      ? ''
+      : 'Cinematic concept art illustration of an atmospheric survival drama. ';
+
+    const suffix = ' Stylized graphic novel and cinematic stickman animation art style, serious survival drama tone, minimalist solid black stick figure protagonist, epic atmospheric scale, dramatic lighting, high-detail landscape, no comedy, no slapstick, no photorealistic human face.';
+
+    return {
+      positivePrompt: `${prefix}${cleanWorking}.${suffix}`.trim(),
+      negativePrompt: stickmanNegative,
+      is2dStylized: true,
+    };
   }
 
   if (is2dStylized) {

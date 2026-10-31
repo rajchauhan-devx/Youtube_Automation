@@ -229,7 +229,7 @@ export function getChannelLoraProfile(
 }
 
 const FRONTEND_TWO_D_STYLE_PATTERN =
-  /\b(2d\s+animated|2d\s+animation|2d\s+cartoon|animated[- ]series\s+frame|cel[- ]shad(?:ed|ing)|charcoal\s+(?:outlines|linework)|matte\s+flat\s+colou?r|flat\s+colou?r\s+fills|graphic\s+novel|hand[- ]drawn\s+2d)\b/i;
+  /\b(2d\s+animated|2d\s+animation|2d\s+cartoon|animated[- ]series\s+frame|cel[- ]shad(?:ed|ing)|charcoal\s+(?:outlines|linework)|matte\s+flat\s+colou?r|flat\s+colou?r\s+fills|graphic\s+novel|hand[- ]drawn\s+2d|stickman|stick\s+figure)\b/i;
 
 export function formatPromptWithChannelStyleDna(
   prompt: string,
@@ -237,6 +237,9 @@ export function formatPromptWithChannelStyleDna(
 ): string {
   const clean = (prompt || '').trim();
   if (!clean) return '';
+  if (/\b(stickman|stick\s+figure)\b/i.test(clean)) {
+    return clean;
+  }
   if (FRONTEND_TWO_D_STYLE_PATTERN.test(clean)) {
     return clean;
   }

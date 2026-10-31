@@ -31,6 +31,32 @@ export const DynamicMotionRender = z.strictObject({
 });
 export type DynamicMotionRenderData = z.infer<typeof DynamicMotionRender>;
 
+export const DynamicMotionSfx = z.strictObject({
+  kind: z.enum([
+    'whoosh',
+    'energy_hum',
+    'impact_boom',
+    'telemetry_chirp',
+    'sacred_bell',
+    'glitch_static',
+    'none',
+  ]).default('whoosh'),
+  startSec: z.number().min(0).optional(),
+  volume: z.number().min(0).max(1).default(0.7),
+});
+export type DynamicMotionSfxData = z.infer<typeof DynamicMotionSfx>;
+
+export const DynamicMotionVfx = z.strictObject({
+  tilt3d: z.boolean().default(false),
+  tiltAngleX: z.number().min(-90).max(90).optional(),
+  tiltAngleY: z.number().min(-90).max(90).optional(),
+  particles: z.boolean().default(false),
+  particleCount: z.number().min(0).max(100).optional(),
+  lensflare: z.boolean().default(false),
+  bloomIntensity: z.number().min(0).max(3).optional(),
+});
+export type DynamicMotionVfxData = z.infer<typeof DynamicMotionVfx>;
+
 export const DynamicMotionTheme = z.strictObject({
   palette: z.array(z.string()).max(10).optional(),
   fontFamily: z.string().max(100).optional(),
@@ -52,6 +78,8 @@ export const DynamicMotionGraphic = z.strictObject({
   placement: DynamicMotionPlacement,
   visualConcept: z.string().max(3000).optional(),
   theme: DynamicMotionTheme.optional(),
+  sfx: DynamicMotionSfx.optional(),
+  vfx: DynamicMotionVfx.optional(),
   render: DynamicMotionRender,
 });
 export type DynamicMotionGraphicData = z.infer<typeof DynamicMotionGraphic>;

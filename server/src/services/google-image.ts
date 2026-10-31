@@ -90,11 +90,16 @@ export async function generateGoogleImage(opts: GoogleImageOptions): Promise<{
     .replace(/\b(?:concussion, a broken collarbone, and a torn ligament)\b/gi, 'severe exhaustion and injuries')
     .replace(/\b(?:severed|festering|bloody)\b/gi, 'weathered');
 
+  const isStickman = /\b(stickman|stick\s+figure)\b/i.test(sanitizedPrompt);
+  const effectiveStyleDna = isStickman
+    ? 'Cinematic concept art illustration, stylized graphic novel and atmospheric stickman art style, minimalist black stick figure character, epic atmospheric scale, dramatic lighting, high-detail landscape, no comedy, no slapstick, no photorealism, no real human faces.'
+    : channelLora.styleDna;
+
   const prepared = opts.assetOnly ? { positivePrompt: sanitizedPrompt } : preparePromptForImageGeneration(sanitizedPrompt, {
     forCloudflare: false,
     injectStyleDna: true,
-    styleDna: channelLora.styleDna,
-    force2dStylized: opts.force2dStylized,
+    styleDna: effectiveStyleDna,
+    force2dStylized: opts.force2dStylized || isStickman,
   });
   const effectivePrompt = prepared.positivePrompt;
 
@@ -243,9 +248,11 @@ export async function generateGoogleImage(opts: GoogleImageOptions): Promise<{
   // If candidate models all returned safety blocks or empty outputs, try a safe atmospheric scene prompt
   const locationMatch = effectivePrompt.match(/LOCATION\s*(?:BLOCK)?\s*:\s*([^.;]+(?:;[^.;]+)*)/i);
   const locationText = locationMatch ? locationMatch[1].trim() : 'dramatic cinematic atmosphere';
-  const fallbackPrompt = opts.force2dStylized
-    ? `2D flat cel-shaded cartoon animation frame, bold black outlines, flat matte colors: ${locationText}, atmospheric environment, no people`
-    : `Atmospheric cinematic visual in ${aspectRatio} orientation: ${locationText}, moody lighting, realistic environmental texture, no people`;
+  const fallbackPrompt = isStickman
+    ? `Cinematic concept art illustration of an atmospheric survival drama in ${aspectRatio} orientation: ${locationText}, lone minimalist black stick figure with iconic gear, dramatic atmospheric lighting, epic scale, no photorealistic human face`
+    : opts.force2dStylized
+      ? `2D flat cel-shaded cartoon animation frame, bold black outlines, flat matte colors: ${locationText}, atmospheric environment, no people`
+      : `Atmospheric cinematic visual in ${aspectRatio} orientation: ${locationText}, moody lighting, realistic environmental texture, no people`;
   console.warn('[google-image] Using atmospheric fallback prompt...');
   try {
     const fallbackModel = 'gemini-3.1-flash-lite-image';

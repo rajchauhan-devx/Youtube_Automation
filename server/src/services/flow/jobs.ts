@@ -109,6 +109,9 @@ function validCombo(model: FlowModel, duration: number): string | null {
 const FLOW_TWO_D_PATTERN =
   /\b(2d\s+animated|2d\s+animation|2d\s+cartoon|animated[- ]series\s+frame|cel[- ]shad(?:ed|ing)|charcoal\s+(?:outlines|linework)|matte\s+flat\s+colou?r|flat\s+colou?r\s+fills|graphic\s+novel|hand[- ]drawn\s+2d)\b/i;
 
+const STICKMAN_PATTERN =
+  /\b(stickman|stick\s+figure|stick-figure|minimalist\s+black-line\s+stick)\b/i;
+
 export function cleanFlowPrompt(rawPrompt: string): string {
   let cleaned = (rawPrompt || '').trim();
   // Strip Negative Prompt section (Google Flow has no negative prompt box; text like "lip-sync or dialogue" causes audio synthesis failures)
@@ -116,6 +119,18 @@ export function cleanFlowPrompt(rawPrompt: string): string {
   // Strip Evidence / Disclosure metadata
   cleaned = cleaned.replace(/\n*\s*Evidence\s*\/\s*Disclosure:\s*[\s\S]*?(?=\n\n[A-Z][a-zA-Z\s]+:|$)/i, '');
   cleaned = cleaned.replace(/Disclosure label:[^\n]*/gi, '');
+
+  if (STICKMAN_PATTERN.test(cleaned)) {
+    // Strip documentary reconstruction headers and photorealistic film LoRA keywords that force realism
+    cleaned = cleaned.replace(/Documentary\s+reconstruction\s+style\s+(?:video\s+shot|still\s+image),?\s*(?:vertical\s+9:16\s+aspect\s+ratio\.?)?/gi, 'Stylized cinematic continuous shot concept art animation video, vertical 9:16 aspect ratio.');
+    cleaned = cleaned.replace(/DOCUMENTARY\s+RECONSTRUCTION\s+STYLE/gi, 'STYLIZED CINEMATIC CONCEPT ART STICKMAN ANIMATION');
+    cleaned = cleaned.replace(/raw\s+1970s\s+35mm\s+Kodak\s+documentary\s+photojournalism/gi, 'stylized digital concept art');
+    cleaned = cleaned.replace(/weathered\s+skin\s+pores/gi, '');
+    cleaned = cleaned.replace(/Analog\s+Film\s+Style/gi, 'Stylized Concept Art Style');
+    cleaned = cleaned.replace(/gritty\s+analog\s+film\s+grain/gi, '');
+    cleaned = cleaned.replace(/subtle\s+halation/gi, '');
+  }
+
   return cleaned.trim();
 }
 
@@ -123,7 +138,9 @@ function wrapPrompt(prompt: string, model: FlowModel, aspect: string, duration: 
   // Flow is agent-first: imperative wrapping generates directly instead of
   // asking clarifying questions (which stalls automation with 0 output).
   const trimmed = cleanFlowPrompt(prompt);
-  const styleAnchor = FLOW_TWO_D_PATTERN.test(trimmed)
+  const styleAnchor = STICKMAN_PATTERN.test(trimmed)
+    ? ' stylized cinematic digital concept art animation (graphic novel aesthetic, hand-painted digital art style with expressive atmospheric lighting and rich textures, minimalist clean black stick figure silhouette with solid black circular head and slender black stick limbs, zero facial features, serious survival tone, no 3D CGI render, no 3D blender models, no mannequin, no photorealistic stock photography, no human face, no real human skin)'
+    : FLOW_TWO_D_PATTERN.test(trimmed)
     ? ' 2D flat cel-shaded cartoon animated video (bold black charcoal ink outlines, flat matte color fills, two-step cel shading, 2D graphic novel animated series style, no 3D CGI, no photorealism)'
     : ' video';
   return `Generate one ${duration}-second ${aspect === 'portrait' ? 'vertical 9:16' : 'landscape 16:9'}${styleAnchor} with ${model}, no questions, no clarifications: ${trimmed}`;

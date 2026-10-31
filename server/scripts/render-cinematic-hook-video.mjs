@@ -53,38 +53,38 @@ execFileSync('ffmpeg', [
 ]);
 console.log('✔ Scene 1 (Cinematic Hook Video) processed:', seg1);
 
-// Scene 2: Image with subtle Ken Burns drift
+// Scene 2: Image with Steadicam subpixel smooth push-in (Zero jitter)
 const seg2 = path.join(workDir, 'seg2.mp4');
 execFileSync('ffmpeg', [
   '-y', '-loop', '1', '-framerate', String(fps), '-i', s2Img,
-  '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,zoompan=z='1+0.06*(0.5-0.5*cos(PI*on/${Math.round(d2*fps)}))':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=${Math.round(d2*fps)}:s=${width}x${height}:fps=${fps},trim=duration=${d2}`,
+  '-vf', `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},scale=eval=frame:w='${width}*(1+0.07*t/${d2})':h='${height}*(1+0.07*t/${d2})':flags=bicubic,crop=${width}:${height}:(in_w-${width})/2:(in_h-${height})/2`,
   '-t', String(d2),
   '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
   seg2
 ]);
-console.log('✔ Scene 2 processed:', seg2);
+console.log('✔ Scene 2 processed (Steadicam smooth):', seg2);
 
-// Scene 3: Image with subtle zoom
+// Scene 3: Image with Steadicam subpixel smooth push-in
 const seg3 = path.join(workDir, 'seg3.mp4');
 execFileSync('ffmpeg', [
   '-y', '-loop', '1', '-framerate', String(fps), '-i', s3Img,
-  '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,zoompan=z='1+0.08*(0.5-0.5*cos(PI*on/${Math.round(d3*fps)}))':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=${Math.round(d3*fps)}:s=${width}x${height}:fps=${fps},trim=duration=${d3}`,
+  '-vf', `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},scale=eval=frame:w='${width}*(1+0.08*t/${d3})':h='${height}*(1+0.08*t/${d3})':flags=bicubic,crop=${width}:${height}:(in_w-${width})/2:(in_h-${height})/2`,
   '-t', String(d3),
   '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
   seg3
 ]);
-console.log('✔ Scene 3 processed:', seg3);
+console.log('✔ Scene 3 processed (Steadicam smooth):', seg3);
 
-// Scene 4: Image
+// Scene 4: Image with Steadicam subpixel smooth push-in
 const seg4 = path.join(workDir, 'seg4.mp4');
 execFileSync('ffmpeg', [
   '-y', '-loop', '1', '-framerate', String(fps), '-i', s4Img,
-  '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,zoompan=z='1+0.05*(0.5-0.5*cos(PI*on/${Math.round(d4*fps)}))':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=${Math.round(d4*fps)}:s=${width}x${height}:fps=${fps},trim=duration=${d4}`,
+  '-vf', `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height},scale=eval=frame:w='${width}*(1+0.06*t/${d4})':h='${height}*(1+0.06*t/${d4})':flags=bicubic,crop=${width}:${height}:(in_w-${width})/2:(in_h-${height})/2`,
   '-t', String(d4),
   '-c:v', 'libx264', '-preset', 'fast', '-crf', '18', '-pix_fmt', 'yuv420p',
   seg4
 ]);
-console.log('✔ Scene 4 processed:', seg4);
+console.log('✔ Scene 4 processed (Steadicam smooth):', seg4);
 
 // Concatenate the scenes
 const concatTxt = path.join(workDir, 'concat.txt');

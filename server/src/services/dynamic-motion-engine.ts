@@ -3,6 +3,8 @@ import {
   type DynamicMotionPlacementData,
   type DynamicMotionRenderData,
   type DynamicMotionThemeData,
+  type DynamicMotionSfxData,
+  type DynamicMotionVfxData,
 } from '@tubeflow/editing-contracts';
 import { chat, getGeminiApiKey } from './gemini.js';
 
@@ -93,6 +95,8 @@ export interface DynamicMotionPlan {
   visualConcept: string;
   theme?: DynamicMotionThemeData;
   ornament?: 'chakra' | 'mandala' | 'trishula' | 'lotus' | 'om' | 'sacred_border' | 'sun_burst' | 'none';
+  sfx?: DynamicMotionSfxData;
+  vfx?: DynamicMotionVfxData;
   customHtml?: string;
   customCss?: string;
   customJs?: string;
@@ -531,6 +535,20 @@ export function compileDynamicMotionGraphic(
       glowColor: 'rgba(255, 215, 0, 0.6)',
       stylePreset: 'vedic-gold',
     },
+    sfx: plan.sfx || {
+      kind: 'whoosh',
+      startSec,
+      volume: 0.75,
+    },
+    vfx: plan.vfx || {
+      tilt3d: true,
+      tiltAngleX: -14,
+      tiltAngleY: 10,
+      particles: true,
+      particleCount: 16,
+      lensflare: true,
+      bloomIntensity: 1.5,
+    },
     render: {
       html,
       css,
@@ -700,15 +718,21 @@ Respond ONLY with a JSON array of decided graphics adhering to this JSON schema:
 }
 
 /**
- * Robust visual-first heuristic decision engine for Ancient Dharma & Vedic storytelling.
- * Generates 100% REAL animated visual SVG constructs (multi-ring contra-rotating chakras, telemetry dials, sacred mandalas)
- * with ZERO rectangular card wrappers.
+ * Robust visual-first heuristic decision engine supporting:
+ * 1. Ancient Dharma (3D Vedic Sudarshana Chakra, Solar Telemetry, Sacred Mandalas)
+ * 2. Rule Zero (Tactical Cyber HUD, Hexagonal Lock-on Reticles, ECG Waveforms)
+ * 3. Against the Odds (Archival Nautical Compass, Topographic Grids, Classified Stamps)
+ *
+ * All equipped with 3D Depth Tilts, Anamorphic Lens Flare Streaks, Floating Embers, and SFX Audio Cues!
  */
 function decideHeuristicMotionGraphics(
   scenes: SceneMotionInput[],
-  _channelName?: string
+  channelName?: string
 ): DynamicMotionGraphicData[] {
   const graphics: DynamicMotionGraphicData[] = [];
+  const chLower = (channelName || '').toLowerCase();
+  const isRuleZero = chLower.includes('zero') || chLower.includes('rule');
+  const isAgainstTheOdds = chLower.includes('odds') || chLower.includes('against');
 
   for (let i = 0; i < scenes.length; i++) {
     const s = scenes[i];
@@ -720,282 +744,425 @@ function decideHeuristicMotionGraphics(
 
     let plan: DynamicMotionPlan | null = null;
 
-    // Detection 1: Climax bow break / Pinaka / Weapon / Astra / Sudarshana Chakra
-    if (combined.includes('धनुष') || combined.includes('पिनाक') || combined.includes('अस्त्र') || combined.includes('बाण') || combined.includes('चक्र') || combined.includes('chakra') || combined.includes('bow')) {
-      plan = {
-        sceneIndex: sIdx,
-        shouldInclude: true,
-        type: 'celestial_astra_geometry',
-        title: combined.includes('चक्र') || combined.includes('chakra') ? 'सुदर्शन चक्र' : 'दिव्यास्त्र तेज',
-        detail: '१०८ दंत सौर चक्र — The Inviolable Celestial Wheel',
-        cuePhrase: narration.includes('चक्र') ? 'सुदर्शन चक्र' : narration.slice(0, 30),
-        startSec: 1.2,
-        durationSec: 4.5,
-        placement: { position: 'center', y: 40, width: 85, align: 'center' },
-        visualConcept: 'Multi-layer contra-rotating golden Sudarshana Chakra SVG with serrated blade ring, inner cosmic solar bindu, and expanding shockwave arcs',
-        customHtml: `
-          <div id="${elemId}" class="dynamic-motion-visual celestial_astra_geometry">
-            <svg viewBox="0 0 240 240" width="220" height="220" class="dm-astra-svg">
-              <defs>
-                <filter id="goldGlow-${sIdx}">
-                  <feGaussianBlur stdDeviation="4" result="blur"/>
-                  <feMerge>
-                    <feMergeNode in="blur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                  </feMerge>
-                </filter>
-              </defs>
-              <!-- Outer pulse shockwave ring -->
-              <circle class="dm-pulse-ring" cx="120" cy="120" r="105" fill="none" stroke="#FFD700" stroke-width="1.5" opacity="0.6" stroke-dasharray="8 6"/>
-              <!-- Clockwise serrated blade ring -->
-              <g class="dm-ring-cw" filter="url(#goldGlow-${sIdx})">
-                <circle cx="120" cy="120" r="88" fill="none" stroke="#FFA000" stroke-width="2.5"/>
-                <path d="M120 28 L126 40 L120 44 L114 40 Z M185 55 L183 68 L175 66 L173 53 Z M212 120 L200 126 L196 120 L200 114 Z M185 185 L173 183 L175 175 L183 173 Z M120 212 L114 200 L120 196 L126 200 Z M55 185 L57 173 L65 175 L67 183 Z M28 120 L40 114 L44 120 L40 126 Z M55 55 L67 57 L65 65 L57 67 Z" fill="#FFE082"/>
-                <circle cx="120" cy="120" r="76" fill="none" stroke="#FFD700" stroke-width="1.8" stroke-dasharray="4 4"/>
-              </g>
-              <!-- Counter-clockwise inner 108-blade ring -->
-              <g class="dm-ring-ccw" filter="url(#goldGlow-${sIdx})">
-                <circle cx="120" cy="120" r="54" fill="none" stroke="#FFD700" stroke-width="2"/>
-                <circle cx="120" cy="120" r="38" fill="none" stroke="#FFE082" stroke-width="1.5" stroke-dasharray="6 3"/>
-                <line x1="120" y1="68" x2="120" y2="172" stroke="#FFD700" stroke-width="1.5" opacity="0.7"/>
-                <line x1="68" y1="120" x2="172" y2="120" stroke="#FFD700" stroke-width="1.5" opacity="0.7"/>
-                <line x1="83" y1="83" x2="157" y2="157" stroke="#FFA000" stroke-width="1.2" opacity="0.7"/>
-                <line x1="83" y1="157" x2="157" y2="83" stroke="#FFA000" stroke-width="1.2" opacity="0.7"/>
-              </g>
-              <!-- Central Luminous Solar Bindu -->
-              <circle class="dm-core-glow" cx="120" cy="120" r="14" fill="#FFFFFF" filter="url(#goldGlow-${sIdx})"/>
-              <circle cx="120" cy="120" r="8" fill="#FFD700"/>
-            </svg>
-            <div class="dm-astra-label">
-              <span class="dm-astra-title">${combined.includes('चक्र') || combined.includes('chakra') ? 'सुदर्शन चक्र' : 'दिव्यास्त्र तेज'}</span>
-              <span class="dm-astra-sub">१०८ दंत सौर तेज</span>
+    // --- CHANNEL UNIVERSE 1: RULE ZERO (TACTICAL CYBER SCI-FI) ---
+    if (isRuleZero || combined.includes('cyber') || combined.includes('tactical') || combined.includes('target') || combined.includes('matrix')) {
+      if (i % 2 === 0 || combined.includes('lock') || combined.includes('target')) {
+        plan = {
+          sceneIndex: sIdx,
+          shouldInclude: true,
+          type: 'tactical_cyber_hud',
+          title: 'TARGET ACQUIRED',
+          detail: 'BEARING 042° // LOCK 99.8%',
+          cuePhrase: narration.slice(0, 30),
+          startSec: 1.0,
+          durationSec: 4.5,
+          placement: { position: 'center', y: 38, width: 85, align: 'center' },
+          visualConcept: '3D angled hexagonal lock-on reticle with animated ECG pulse wave, cyan lens flare streak, and tactical telemetry',
+          sfx: { kind: 'telemetry_chirp', volume: 0.85, startSec: 1.0 },
+          vfx: { tilt3d: true, tiltAngleX: -16, tiltAngleY: 12, particles: true, particleCount: 14, lensflare: true, bloomIntensity: 1.8 },
+          theme: { palette: ['#00F5FF', '#0077BE', '#FF6D00', '#FFFFFF'], fontFamily: 'Montserrat, monospace', glowColor: 'rgba(0, 245, 255, 0.85)', stylePreset: 'celestial-cyan' },
+          customHtml: `
+            <div id="${elemId}" class="dynamic-motion-visual tactical_cyber_hud dm-3d-scene">
+              <div class="dm-3d-card">
+                <div class="dm-lens-flare"></div>
+                <div class="dm-particles-field">
+                  <span class="dm-ember e1"></span><span class="dm-ember e2"></span><span class="dm-ember e3"></span><span class="dm-ember e4"></span>
+                </div>
+                <svg viewBox="0 0 240 240" width="220" height="220" class="dm-tactical-svg">
+                  <defs>
+                    <filter id="cyberGlow-${sIdx}">
+                      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+                      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                  </defs>
+                  <!-- Outer rotating bracket ring -->
+                  <g class="dm-hud-brackets" filter="url(#cyberGlow-${sIdx})">
+                    <polygon points="120,24 196,68 196,156 120,200 44,156 44,68" fill="none" stroke="#00F5FF" stroke-width="1.8" stroke-dasharray="24 16"/>
+                    <circle cx="120" cy="120" r="82" fill="none" stroke="rgba(0, 245, 255, 0.3)" stroke-width="1.2"/>
+                  </g>
+                  <!-- Active ECG telemetry wave -->
+                  <path class="dm-ecg-path" d="M 35 120 L 75 120 L 90 90 L 105 145 L 120 100 L 135 120 L 175 120" fill="none" stroke="#FF6D00" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#cyberGlow-${sIdx})"/>
+                  <!-- Core lock-on crosshair -->
+                  <g class="dm-hud-crosshair" filter="url(#cyberGlow-${sIdx})">
+                    <circle cx="120" cy="120" r="14" fill="none" stroke="#00F5FF" stroke-width="2"/>
+                    <circle cx="120" cy="120" r="4" fill="#FFFFFF"/>
+                    <line x1="120" y1="95" x2="120" y2="105" stroke="#00F5FF" stroke-width="2"/>
+                    <line x1="120" y1="135" x2="120" y2="145" stroke="#00F5FF" stroke-width="2"/>
+                    <line x1="95" y1="120" x2="105" y2="120" stroke="#00F5FF" stroke-width="2"/>
+                    <line x1="135" y1="120" x2="145" y2="120" stroke="#00F5FF" stroke-width="2"/>
+                  </g>
+                </svg>
+                <div class="dm-hud-label">
+                  <span class="dm-hud-title">TARGET ACQUIRED</span>
+                  <span class="dm-hud-sub">BEARING 042° // LOCK 99.8%</span>
+                </div>
+              </div>
             </div>
-          </div>
-        `,
-        customCss: `
-          #${elemId} {
-            position: absolute;
-            top: 36%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            pointer-events: none;
-            z-index: 40;
-            background: transparent !important;
-          }
-          #${elemId} .dm-astra-svg {
-            filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.85));
-          }
-          #${elemId} .dm-astra-label {
-            margin-top: 14px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-          }
-          #${elemId} .dm-astra-title {
-            font-size: 26px;
-            font-weight: 800;
-            color: #FFE082;
-            letter-spacing: 0.08em;
-            text-shadow: 0 0 16px rgba(255, 215, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.9);
-          }
-          #${elemId} .dm-astra-sub {
-            font-size: 13px;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.8);
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-          }
-        `,
-        customJs: `
-          tl.fromTo(el, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.9, ease: "back.out(1.7)" });
-          tl.to(el.querySelectorAll(".dm-ring-cw"), { rotation: 360, duration: 8, ease: "none", repeat: 5, transformOrigin: "center center" }, "<");
-          tl.to(el.querySelectorAll(".dm-ring-ccw"), { rotation: -360, duration: 6, ease: "none", repeat: 6, transformOrigin: "center center" }, "<");
-          tl.to(el.querySelectorAll(".dm-pulse-ring"), { scale: 1.35, opacity: 0, duration: 1.8, repeat: 4, ease: "power1.out", transformOrigin: "center center" }, "<");
-          tl.to(el.querySelectorAll(".dm-core-glow"), { scale: 1.3, repeat: 8, yoyo: true, duration: 0.8, ease: "sine.inOut", transformOrigin: "center center" }, "<");
-        `,
-      };
+          `,
+          customCss: `
+            #${elemId} { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+            #${elemId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-16deg) rotateY(12deg); }
+            #${elemId} .dm-lens-flare { position: absolute; top: 110px; left: 50%; transform: translate(-50%, -50%) scaleX(0); width: 260px; height: 3px; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.95) 50%, transparent 100%); box-shadow: 0 0 16px #00F5FF, 0 0 32px #0077BE; border-radius: 50%; z-index: 45; }
+            #${elemId} .dm-particles-field { position: absolute; inset: -30px; pointer-events: none; }
+            #${elemId} .dm-ember { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #00F5FF; box-shadow: 0 0 8px #00F5FF; opacity: 0; }
+            #${elemId} .dm-ember.e1 { top: 70%; left: 25%; } #${elemId} .dm-ember.e2 { top: 60%; left: 75%; } #${elemId} .dm-ember.e3 { top: 80%; left: 50%; } #${elemId} .dm-ember.e4 { top: 40%; left: 85%; }
+            #${elemId} .dm-tactical-svg { filter: drop-shadow(0 0 22px rgba(0, 245, 255, 0.8)); }
+            #${elemId} .dm-hud-label { margin-top: 12px; display: flex; flex-direction: column; align-items: center; }
+            #${elemId} .dm-hud-title { font-size: 22px; font-weight: 900; color: #00F5FF; letter-spacing: 0.12em; text-shadow: 0 0 14px rgba(0, 245, 255, 0.9), 0 2px 6px rgba(0, 0, 0, 0.95); font-family: monospace; }
+            #${elemId} .dm-hud-sub { font-size: 12px; font-weight: 700; color: #FF9100; letter-spacing: 0.14em; text-shadow: 0 0 10px rgba(255, 145, 0, 0.8); font-family: monospace; }
+          `,
+          customJs: `
+            tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.7 });
+            const card = el.querySelector(".dm-3d-card");
+            if (card) {
+              tl.fromTo(card, { scale: 0.85, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.9, ease: "power2.out" }, "<");
+            }
+            const flare = el.querySelector(".dm-lens-flare");
+            if (flare) {
+              tl.fromTo(flare, { scaleX: 0, opacity: 0 }, { scaleX: 1.6, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.2);
+              tl.to(flare, { scaleX: 0.7, opacity: 0.35, duration: 0.6, ease: "power2.inOut" }, 0.6);
+            }
+            tl.to(el.querySelectorAll(".dm-hud-brackets"), { rotation: 360, duration: 12, ease: "none", repeat: 3, transformOrigin: "120px 120px" }, 0);
+            tl.fromTo(el.querySelectorAll(".dm-ecg-path"), { strokeDasharray: 200, strokeDashoffset: 200 }, { strokeDashoffset: 0, duration: 1.6, repeat: 2, ease: "power2.inOut" }, 0.2);
+          `,
+        };
+      } else {
+        plan = {
+          sceneIndex: sIdx,
+          shouldInclude: true,
+          type: 'combat_overload_matrix',
+          title: 'THREAT MATRIX',
+          detail: 'CRITICAL OVERLOAD // PURGE 01',
+          cuePhrase: narration.slice(0, 30),
+          startSec: 1.0,
+          durationSec: 4.5,
+          placement: { position: 'center', y: 40, width: 85, align: 'center' },
+          visualConcept: 'Circular tactical threat radar with scanning radar beam and danger warning flash',
+          sfx: { kind: 'impact_boom', volume: 0.9, startSec: 1.0 },
+          vfx: { tilt3d: true, tiltAngleX: -15, tiltAngleY: -12, particles: true, particleCount: 12, lensflare: true, bloomIntensity: 1.7 },
+          theme: { palette: ['#FF1744', '#FF5252', '#FFA000', '#FFFFFF'], fontFamily: 'Montserrat, monospace', glowColor: 'rgba(255, 23, 68, 0.85)', stylePreset: 'rudra-fire' },
+          customHtml: `
+            <div id="${elemId}" class="dynamic-motion-visual combat_overload_matrix dm-3d-scene">
+              <div class="dm-3d-card">
+                <div class="dm-lens-flare"></div>
+                <svg viewBox="0 0 220 220" width="200" height="200" class="dm-radar-svg">
+                  <circle cx="110" cy="110" r="90" fill="none" stroke="#FF1744" stroke-width="2" stroke-dasharray="8 6"/>
+                  <circle cx="110" cy="110" r="60" fill="none" stroke="rgba(255, 23, 68, 0.4)" stroke-width="1.5"/>
+                  <line x1="110" y1="20" x2="110" y2="200" stroke="rgba(255, 23, 68, 0.5)" stroke-width="1.5"/>
+                  <line x1="20" y1="110" x2="200" y2="110" stroke="rgba(255, 23, 68, 0.5)" stroke-width="1.5"/>
+                  <polygon class="dm-radar-beam" points="110,110 110,20 180,50" fill="rgba(255, 23, 68, 0.35)"/>
+                  <circle cx="110" cy="110" r="6" fill="#FF1744"/>
+                </svg>
+                <div class="dm-radar-label">
+                  <span class="dm-radar-title">THREAT MATRIX</span>
+                  <span class="dm-radar-sub">CRITICAL OVERLOAD</span>
+                </div>
+              </div>
+            </div>
+          `,
+          customCss: `
+            #${elemId} { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+            #${elemId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-15deg) rotateY(-10deg); }
+            #${elemId} .dm-lens-flare { position: absolute; top: 100px; left: 50%; transform: translate(-50%, -50%) scaleX(0); width: 240px; height: 3px; background: linear-gradient(90deg, transparent, #FFFFFF 50%, transparent); box-shadow: 0 0 16px #FF1744; z-index: 45; }
+            #${elemId} .dm-radar-svg { filter: drop-shadow(0 0 20px rgba(255, 23, 68, 0.8)); }
+            #${elemId} .dm-radar-label { margin-top: 10px; display: flex; flex-direction: column; align-items: center; }
+            #${elemId} .dm-radar-title { font-size: 22px; font-weight: 900; color: #FF5252; letter-spacing: 0.12em; font-family: monospace; text-shadow: 0 0 12px #FF1744; }
+            #${elemId} .dm-radar-sub { font-size: 12px; font-weight: 700; color: #FFE082; letter-spacing: 0.14em; font-family: monospace; }
+          `,
+          customJs: `
+            tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.7 });
+            tl.to(el.querySelectorAll(".dm-radar-beam"), { rotation: 360, duration: 3.5, repeat: 4, ease: "none", transformOrigin: "110px 110px" }, 0);
+          `,
+        };
+      }
     }
-    // Detection 2: Cosmic duration / Years / Metric telemetry / Timeline
-    else if (combined.includes('वर्ष') || combined.includes('काल') || combined.includes('तपस्या') || combined.includes('year') || combined.includes('speed') || combined.includes('strike') || i === 1) {
+    // --- CHANNEL UNIVERSE 2: AGAINST THE ODDS (EXPEDITION & ARCHIVAL COMPASS) ---
+    else if (isAgainstTheOdds || combined.includes('odds') || combined.includes('mission') || combined.includes('survival') || combined.includes('latitude') || combined.includes('compass')) {
       plan = {
         sceneIndex: sIdx,
         shouldInclude: true,
-        type: 'cosmic_telemetry_gauge',
-        title: 'काल गणना',
-        detail: 'सौर ऊर्जा मापक — Cosmic Solar Telemetry',
+        type: 'archival_compass_telemetry',
+        title: 'EXPEDITION ARCHIVE',
+        detail: 'BEARING 312° NW // COORD STAMP',
         cuePhrase: narration.slice(0, 30),
         startSec: 1.0,
         durationSec: 4.5,
-        placement: { position: 'center', y: 42, width: 85, align: 'center' },
-        visualConcept: 'Circular telemetry gauge with sweeping golden progress arc, luminous tick marks, rotating speed needle, and digital metric readout',
+        placement: { position: 'center', y: 38, width: 85, align: 'center' },
+        visualConcept: '3D brass nautical navigation compass with degree ticks, rotating fleur-de-lis needle, and topographic elevation contour grid',
+        sfx: { kind: 'whoosh', volume: 0.8, startSec: 1.0 },
+        vfx: { tilt3d: true, tiltAngleX: -16, tiltAngleY: 10, particles: true, particleCount: 10, lensflare: true, bloomIntensity: 1.4 },
+        theme: { palette: ['#E0A96D', '#D4AF37', '#F5EBE0', '#FFFFFF'], fontFamily: 'Cinzel, Georgia, serif', glowColor: 'rgba(224, 169, 109, 0.8)', stylePreset: 'vedic-gold' },
         customHtml: `
-          <div id="${elemId}" class="dynamic-motion-visual cosmic_telemetry_gauge">
-            <svg viewBox="0 0 220 220" width="200" height="200" class="dm-gauge-svg">
-              <defs>
-                <filter id="gaugeGlow-${sIdx}">
-                  <feGaussianBlur stdDeviation="3" result="blur"/>
-                  <feMerge>
-                    <feMergeNode in="blur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                  </feMerge>
-                </filter>
-              </defs>
-              <!-- Outer tick ring -->
-              <circle cx="110" cy="110" r="95" fill="none" stroke="#FFE082" stroke-width="1.2" stroke-dasharray="3 6" opacity="0.6"/>
-              <!-- Background track arc -->
-              <path d="M 40 160 A 85 85 0 1 1 180 160" fill="none" stroke="rgba(255, 215, 0, 0.2)" stroke-width="6" stroke-linecap="round"/>
-              <!-- Animated sweep arc -->
-              <path class="dm-gauge-arc" d="M 40 160 A 85 85 0 1 1 180 160" fill="none" stroke="#FFD700" stroke-width="6" stroke-linecap="round" stroke-dasharray="380" stroke-dashoffset="380" filter="url(#gaugeGlow-${sIdx})"/>
-              <!-- Needle indicator -->
-              <g class="dm-needle-group" filter="url(#gaugeGlow-${sIdx})">
-                <line class="dm-needle" x1="110" y1="110" x2="110" y2="40" stroke="#FFE082" stroke-width="2.5" stroke-linecap="round"/>
-                <circle cx="110" cy="110" r="8" fill="#FFA000"/>
-                <circle cx="110" cy="110" r="4" fill="#FFFFFF"/>
-              </g>
-            </svg>
-            <div class="dm-gauge-label">
-              <span class="dm-gauge-val">१००% सौर तेज</span>
-              <span class="dm-gauge-sub">१६वां भाग संकलित</span>
+          <div id="${elemId}" class="dynamic-motion-visual archival_compass_telemetry dm-3d-scene">
+            <div class="dm-3d-card">
+              <div class="dm-lens-flare"></div>
+              <svg viewBox="0 0 220 220" width="200" height="200" class="dm-compass-svg">
+                <circle cx="110" cy="110" r="95" fill="none" stroke="#D4AF37" stroke-width="2" stroke-dasharray="4 6"/>
+                <circle cx="110" cy="110" r="75" fill="none" stroke="#E0A96D" stroke-width="1.2"/>
+                <g class="dm-compass-ticks">
+                  <line x1="110" y1="20" x2="110" y2="32" stroke="#FFFFFF" stroke-width="2"/>
+                  <line x1="110" y1="188" x2="110" y2="200" stroke="#FFFFFF" stroke-width="2"/>
+                  <line x1="20" y1="110" x2="32" y2="110" stroke="#FFFFFF" stroke-width="2"/>
+                  <line x1="188" y1="110" x2="200" y2="110" stroke="#FFFFFF" stroke-width="2"/>
+                </g>
+                <!-- Rotating Compass Needle -->
+                <g class="dm-needle-pivot" transform-origin="110 110">
+                  <polygon points="110,40 104,110 116,110" fill="#FF5252"/>
+                  <polygon points="110,180 104,110 116,110" fill="#E0A96D"/>
+                  <circle cx="110" cy="110" r="8" fill="#D4AF37"/>
+                  <circle cx="110" cy="110" r="4" fill="#FFFFFF"/>
+                </g>
+              </svg>
+              <div class="dm-compass-label">
+                <span class="dm-compass-title">EXPEDITION ARCHIVE</span>
+                <span class="dm-compass-sub">BEARING 312° NW // COORD STAMP</span>
+              </div>
             </div>
           </div>
         `,
         customCss: `
-          #${elemId} {
-            position: absolute;
-            top: 38%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            pointer-events: none;
-            z-index: 40;
-            background: transparent !important;
-          }
-          #${elemId} .dm-gauge-svg {
-            filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.75));
-          }
-          #${elemId} .dm-gauge-label {
-            margin-top: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-          }
-          #${elemId} .dm-gauge-val {
-            font-size: 24px;
-            font-weight: 800;
-            color: #FFD700;
-            letter-spacing: 0.06em;
-            text-shadow: 0 0 14px rgba(255, 215, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.9);
-          }
-          #${elemId} .dm-gauge-sub {
-            font-size: 12px;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.85);
-            letter-spacing: 0.1em;
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-          }
+          #${elemId} { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+          #${elemId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-16deg) rotateY(10deg); }
+          #${elemId} .dm-lens-flare { position: absolute; top: 100px; left: 50%; transform: translate(-50%, -50%) scaleX(0); width: 240px; height: 3px; background: linear-gradient(90deg, transparent, #FFFFFF 50%, transparent); box-shadow: 0 0 16px #D4AF37; z-index: 45; }
+          #${elemId} .dm-compass-svg { filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.75)); }
+          #${elemId} .dm-compass-label { margin-top: 12px; display: flex; flex-direction: column; align-items: center; }
+          #${elemId} .dm-compass-title { font-size: 22px; font-weight: 800; color: #E0A96D; letter-spacing: 0.1em; font-family: 'Cinzel', serif; text-shadow: 0 0 12px rgba(212, 175, 55, 0.8); }
+          #${elemId} .dm-compass-sub { font-size: 12px; font-weight: 600; color: #F5EBE0; letter-spacing: 0.12em; font-family: monospace; }
         `,
         customJs: `
-          tl.fromTo(el, { opacity: 0, scale: 0.75 }, { opacity: 1, scale: 1, duration: 0.8, ease: "power2.out" });
-          tl.fromTo(el.querySelectorAll(".dm-gauge-arc"), { strokeDashoffset: 380 }, { strokeDashoffset: 80, duration: 2.2, ease: "power2.inOut" }, "<");
-          tl.fromTo(el.querySelectorAll(".dm-needle-group"), { rotation: -60, transformOrigin: "110px 110px" }, { rotation: 120, duration: 2.4, ease: "power2.out", transformOrigin: "110px 110px" }, "<");
+          tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.8 });
+          tl.fromTo(el.querySelectorAll(".dm-needle-pivot"), { rotation: -70 }, { rotation: 52, duration: 2.2, ease: "elastic.out(1, 0.5)", transformOrigin: "110px 110px" }, 0.2);
         `,
       };
     }
-    // Detection 3: Sacred Dharma / Truth / Transcendence
-    else if (combined.includes('धर्म') || combined.includes('सत्य') || combined.includes('संहार') || i === 2 || i === scenes.length - 1) {
-      plan = {
-        sceneIndex: sIdx,
-        shouldInclude: true,
-        type: 'sacred_mandala_geometry',
-        title: 'धर्मरक्षणाय',
-        detail: 'यतो धर्मस्ततो जयः — Righteous Cosmic Order',
-        cuePhrase: narration.slice(0, 30),
-        startSec: 1.0,
-        durationSec: 4.5,
-        placement: { position: 'center', y: 40, width: 85, align: 'center' },
-        visualConcept: 'Sacred geometric lotus mandala SVG with concentric contra-rotating gold petal rings and blossoming light aura',
-        customHtml: `
-          <div id="${elemId}" class="dynamic-motion-visual sacred_mandala_geometry">
-            <svg viewBox="0 0 220 220" width="200" height="200" class="dm-mandala-svg">
-              <defs>
-                <filter id="mandalaGlow-${sIdx}">
-                  <feGaussianBlur stdDeviation="3.5" result="blur"/>
-                  <feMerge>
-                    <feMergeNode in="blur"/>
-                    <feMergeNode in="SourceGraphic"/>
-                  </feMerge>
-                </filter>
-              </defs>
-              <!-- Outer mandala ring -->
-              <g class="dm-mandala-outer" filter="url(#mandalaGlow-${sIdx})">
-                <circle cx="110" cy="110" r="92" fill="none" stroke="#FFA000" stroke-width="1.8" stroke-dasharray="6 4"/>
-                <polygon points="110,22 172,48 198,110 172,172 110,198 48,172 22,110 48,48" fill="none" stroke="#FFE082" stroke-width="1.2" opacity="0.7"/>
-              </g>
-              <!-- Inner rotating petals ring -->
-              <g class="dm-mandala-inner" filter="url(#mandalaGlow-${sIdx})">
-                <circle cx="110" cy="110" r="60" fill="none" stroke="#FFD700" stroke-width="2"/>
-                <circle cx="110" cy="110" r="42" fill="none" stroke="#FFE082" stroke-width="1.5" stroke-dasharray="4 4"/>
-                <path d="M110 70 C100 85 100 95 110 110 C120 95 120 85 110 70 Z M110 150 C100 135 100 125 110 110 C120 125 120 135 110 150 Z M70 110 C85 100 95 100 110 110 C95 120 85 120 70 110 Z M150 110 C135 100 125 100 110 110 C125 120 135 120 150 110 Z" fill="#FFE082" opacity="0.8"/>
-              </g>
-              <!-- Central sacred Bindu -->
-              <circle cx="110" cy="110" r="7" fill="#FFFFFF" filter="url(#mandalaGlow-${sIdx})"/>
-            </svg>
-            <div class="dm-mandala-label">
-              <span class="dm-mandala-title">धर्मरक्षणाय</span>
-              <span class="dm-mandala-sub">यतो धर्मस्ततो जयः</span>
+    // --- CHANNEL UNIVERSE 3: ANCIENT DHARMA (VEDIC UNIVERSE WITH 3D DEPTH & LENS FLARE) ---
+    else {
+      // Detection 1: Climax bow break / Pinaka / Weapon / Astra / Sudarshana Chakra
+      if (combined.includes('धनुष') || combined.includes('पिनाक') || combined.includes('अस्त्र') || combined.includes('बाण') || combined.includes('चक्र') || combined.includes('chakra') || combined.includes('bow')) {
+        plan = {
+          sceneIndex: sIdx,
+          shouldInclude: true,
+          type: 'celestial_astra_geometry',
+          title: combined.includes('चक्र') || combined.includes('chakra') ? 'सुदर्शन चक्र' : 'दिव्यास्त्र तेज',
+          detail: '१०८ दंत सौर चक्र — The Inviolable Celestial Wheel',
+          cuePhrase: narration.includes('चक्र') ? 'सुदर्शन चक्र' : narration.slice(0, 30),
+          startSec: 1.2,
+          durationSec: 4.5,
+          placement: { position: 'center', y: 38, width: 85, align: 'center' },
+          visualConcept: '3D multi-layer contra-rotating golden Sudarshana Chakra SVG with anamorphic lens flare, floating solar embers, and radiant solar bindu',
+          sfx: { kind: 'energy_hum', volume: 0.85, startSec: 1.2 },
+          vfx: { tilt3d: true, tiltAngleX: -14, tiltAngleY: 10, particles: true, particleCount: 16, lensflare: true, bloomIntensity: 1.6 },
+          theme: { palette: ['#FFD700', '#FFE082', '#FFA000', '#FFFFFF'], fontFamily: 'Cinzel, Rozha One, serif', glowColor: 'rgba(255, 215, 0, 0.9)', stylePreset: 'vedic-gold' },
+          customHtml: `
+            <div id="${elemId}" class="dynamic-motion-visual celestial_astra_geometry dm-3d-scene">
+              <div class="dm-3d-card">
+                <div class="dm-lens-flare"></div>
+                <div class="dm-particles-field">
+                  <span class="dm-ember e1"></span><span class="dm-ember e2"></span><span class="dm-ember e3"></span><span class="dm-ember e4"></span><span class="dm-ember e5"></span><span class="dm-ember e6"></span>
+                </div>
+                <svg viewBox="0 0 240 240" width="220" height="220" class="dm-astra-svg">
+                  <defs>
+                    <filter id="goldGlow-${sIdx}">
+                      <feGaussianBlur stdDeviation="4" result="blur"/>
+                      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                  </defs>
+                  <!-- Outer pulse shockwave ring -->
+                  <circle class="dm-pulse-ring" cx="120" cy="120" r="105" fill="none" stroke="#FFD700" stroke-width="1.5" opacity="0.6" stroke-dasharray="8 6"/>
+                  <!-- Clockwise serrated blade ring -->
+                  <g class="dm-ring-cw" filter="url(#goldGlow-${sIdx})">
+                    <circle cx="120" cy="120" r="88" fill="none" stroke="#FFA000" stroke-width="2.5"/>
+                    <path d="M120 28 L126 40 L120 44 L114 40 Z M185 55 L183 68 L175 66 L173 53 Z M212 120 L200 126 L196 120 L200 114 Z M185 185 L173 183 L175 175 L183 173 Z M120 212 L114 200 L120 196 L126 200 Z M55 185 L57 173 L65 175 L67 183 Z M28 120 L40 114 L44 120 L40 126 Z M55 55 L67 57 L65 65 L57 67 Z" fill="#FFE082"/>
+                    <circle cx="120" cy="120" r="76" fill="none" stroke="#FFD700" stroke-width="1.8" stroke-dasharray="4 4"/>
+                  </g>
+                  <!-- Counter-clockwise inner 108-blade ring -->
+                  <g class="dm-ring-ccw" filter="url(#goldGlow-${sIdx})">
+                    <circle cx="120" cy="120" r="54" fill="none" stroke="#FFD700" stroke-width="2"/>
+                    <circle cx="120" cy="120" r="38" fill="none" stroke="#FFE082" stroke-width="1.5" stroke-dasharray="6 3"/>
+                    <line x1="120" y1="68" x2="120" y2="172" stroke="#FFD700" stroke-width="1.5" opacity="0.7"/>
+                    <line x1="68" y1="120" x2="172" y2="120" stroke="#FFD700" stroke-width="1.5" opacity="0.7"/>
+                    <line x1="83" y1="83" x2="157" y2="157" stroke="#FFA000" stroke-width="1.2" opacity="0.7"/>
+                    <line x1="83" y1="157" x2="157" y2="83" stroke="#FFA000" stroke-width="1.2" opacity="0.7"/>
+                  </g>
+                  <!-- Central Luminous Solar Bindu -->
+                  <circle class="dm-core-glow" cx="120" cy="120" r="14" fill="#FFFFFF" filter="url(#goldGlow-${sIdx})"/>
+                  <circle cx="120" cy="120" r="8" fill="#FFD700"/>
+                </svg>
+                <div class="dm-astra-label">
+                  <span class="dm-astra-title">${combined.includes('चक्र') || combined.includes('chakra') ? 'सुदर्शन चक्र' : 'दिव्यास्त्र तेज'}</span>
+                  <span class="dm-astra-sub">१०८ दंत सौर तेज</span>
+                </div>
+              </div>
             </div>
-          </div>
-        `,
-        customCss: `
-          #${elemId} {
-            position: absolute;
-            top: 38%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            pointer-events: none;
-            z-index: 40;
-            background: transparent !important;
-          }
-          #${elemId} .dm-mandala-svg {
-            filter: drop-shadow(0 0 22px rgba(255, 215, 0, 0.8));
-          }
-          #${elemId} .dm-mandala-label {
-            margin-top: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-          }
-          #${elemId} .dm-mandala-title {
-            font-size: 24px;
-            font-weight: 800;
-            color: #FFD700;
-            letter-spacing: 0.08em;
-            text-shadow: 0 0 16px rgba(255, 215, 0, 0.9), 0 2px 6px rgba(0, 0, 0, 0.9);
-          }
-          #${elemId} .dm-mandala-sub {
-            font-size: 13px;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.85);
-            letter-spacing: 0.1em;
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
-          }
-        `,
-        customJs: `
-          tl.fromTo(el, { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.9, ease: "back.out(1.5)" });
-          tl.to(el.querySelectorAll(".dm-mandala-outer"), { rotation: 180, duration: 8, ease: "none", repeat: 4, transformOrigin: "110px 110px" }, "<");
-          tl.to(el.querySelectorAll(".dm-mandala-inner"), { rotation: -180, duration: 6, ease: "none", repeat: 5, transformOrigin: "110px 110px" }, "<");
-        `,
-      };
+          `,
+          customCss: `
+            #${elemId} { position: absolute; top: 36%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+            #${elemId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-14deg) rotateY(10deg); }
+            #${elemId} .dm-lens-flare { position: absolute; top: 110px; left: 50%; transform: translate(-50%, -50%) scaleX(0); width: 280px; height: 3.5px; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.95) 50%, transparent 100%); box-shadow: 0 0 18px #FFD700, 0 0 35px #FFA000; border-radius: 50%; z-index: 45; }
+            #${elemId} .dm-particles-field { position: absolute; inset: -30px; pointer-events: none; }
+            #${elemId} .dm-ember { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #FFD700; box-shadow: 0 0 8px #FFA000, 0 0 14px #FFE082; opacity: 0; }
+            #${elemId} .dm-ember.e1 { top: 70%; left: 30%; } #${elemId} .dm-ember.e2 { top: 65%; left: 68%; } #${elemId} .dm-ember.e3 { top: 80%; left: 45%; } #${elemId} .dm-ember.e4 { top: 50%; left: 20%; } #${elemId} .dm-ember.e5 { top: 55%; left: 80%; } #${elemId} .dm-ember.e6 { top: 85%; left: 60%; }
+            #${elemId} .dm-astra-svg { filter: drop-shadow(0 0 25px rgba(255, 215, 0, 0.85)); }
+            #${elemId} .dm-astra-label { margin-top: 14px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+            #${elemId} .dm-astra-title { font-size: 26px; font-weight: 800; color: #FFE082; letter-spacing: 0.08em; text-shadow: 0 0 16px rgba(255, 215, 0, 0.9), 0 2px 8px rgba(0, 0, 0, 0.9); }
+            #${elemId} .dm-astra-sub { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.8); letter-spacing: 0.12em; text-transform: uppercase; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
+          `,
+          customJs: `
+            tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.8 });
+            const card = el.querySelector(".dm-3d-card");
+            if (card) {
+              tl.fromTo(card, { scale: 0.88, opacity: 0 }, { scale: 1, opacity: 1, duration: 1.0, ease: "power2.out" }, "<");
+            }
+            const flare = el.querySelector(".dm-lens-flare");
+            if (flare) {
+              tl.fromTo(flare, { scaleX: 0, opacity: 0 }, { scaleX: 1.6, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.2);
+              tl.to(flare, { scaleX: 0.6, opacity: 0.3, duration: 0.6, ease: "power2.inOut" }, 0.6);
+            }
+            const embers = el.querySelectorAll(".dm-ember");
+            if (embers && embers.length > 0) {
+              embers.forEach((em, idx) => {
+                tl.fromTo(em, { opacity: 0, y: 0, scale: 0.5 }, { opacity: 0.9, y: -60 - (idx * 15), scale: 1.2, duration: 2.2 + (idx * 0.3), ease: "power1.out", repeat: 3, stagger: 0.2 }, 0.3);
+              });
+            }
+            tl.to(el.querySelectorAll(".dm-ring-cw"), { rotation: 360, duration: 8, ease: "none", repeat: 5, transformOrigin: "center center" }, 0);
+            tl.to(el.querySelectorAll(".dm-ring-ccw"), { rotation: -360, duration: 6, ease: "none", repeat: 6, transformOrigin: "center center" }, 0);
+            tl.to(el.querySelectorAll(".dm-pulse-ring"), { scale: 1.25, opacity: 0, duration: 2.4, repeat: 2, ease: "power1.out", transformOrigin: "center center" }, 0);
+            tl.to(el.querySelectorAll(".dm-core-glow"), { scale: 1.15, repeat: 2, yoyo: true, duration: 2.2, ease: "sine.inOut", transformOrigin: "center center" }, 0);
+          `,
+        };
+      }
+      // Detection 2: Cosmic duration / Years / Metric telemetry / Timeline
+      else if (combined.includes('वर्ष') || combined.includes('काल') || combined.includes('तपस्या') || combined.includes('year') || combined.includes('speed') || combined.includes('strike') || i === 1) {
+        plan = {
+          sceneIndex: sIdx,
+          shouldInclude: true,
+          type: 'cosmic_telemetry_gauge',
+          title: 'काल गणना',
+          detail: 'सौर ऊर्जा मापक — Cosmic Solar Telemetry',
+          cuePhrase: narration.slice(0, 30),
+          startSec: 1.0,
+          durationSec: 4.5,
+          placement: { position: 'center', y: 40, width: 85, align: 'center' },
+          visualConcept: '3D circular telemetry gauge with sweeping golden progress arc, luminous tick marks, rotating speed needle, and digital metric readout',
+          sfx: { kind: 'telemetry_chirp', volume: 0.8, startSec: 1.0 },
+          vfx: { tilt3d: true, tiltAngleX: -16, tiltAngleY: -8, particles: true, particleCount: 12, lensflare: true, bloomIntensity: 1.4 },
+          theme: { palette: ['#FFD700', '#FFE082', '#FFA000', '#FFFFFF'], fontFamily: 'Cinzel, Rozha One, serif', glowColor: 'rgba(255, 215, 0, 0.85)', stylePreset: 'vedic-gold' },
+          customHtml: `
+            <div id="${elemId}" class="dynamic-motion-visual cosmic_telemetry_gauge dm-3d-scene">
+              <div class="dm-3d-card">
+                <div class="dm-lens-flare"></div>
+                <svg viewBox="0 0 220 220" width="200" height="200" class="dm-gauge-svg">
+                  <defs>
+                    <filter id="gaugeGlow-${sIdx}">
+                      <feGaussianBlur stdDeviation="3" result="blur"/>
+                      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                  </defs>
+                  <!-- Outer tick ring -->
+                  <circle cx="110" cy="110" r="95" fill="none" stroke="#FFE082" stroke-width="1.2" stroke-dasharray="3 6" opacity="0.6"/>
+                  <!-- Background track arc -->
+                  <path d="M 40 160 A 85 85 0 1 1 180 160" fill="none" stroke="rgba(255, 215, 0, 0.2)" stroke-width="6" stroke-linecap="round"/>
+                  <!-- Animated sweep arc -->
+                  <path class="dm-gauge-arc" d="M 40 160 A 85 85 0 1 1 180 160" fill="none" stroke="#FFD700" stroke-width="6" stroke-linecap="round" stroke-dasharray="380" stroke-dashoffset="380" filter="url(#gaugeGlow-${sIdx})"/>
+                  <!-- Needle indicator -->
+                  <g class="dm-needle-group" filter="url(#gaugeGlow-${sIdx})">
+                    <line class="dm-needle" x1="110" y1="110" x2="110" y2="40" stroke="#FFE082" stroke-width="2.5" stroke-linecap="round"/>
+                    <circle cx="110" cy="110" r="8" fill="#FFA000"/>
+                    <circle cx="110" cy="110" r="4" fill="#FFFFFF"/>
+                  </g>
+                </svg>
+                <div class="dm-gauge-label">
+                  <span class="dm-gauge-val">१००% सौर तेज</span>
+                  <span class="dm-gauge-sub">१६वां भाग संकलित</span>
+                </div>
+              </div>
+            </div>
+          `,
+          customCss: `
+            #${elemId} { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+            #${elemId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-15deg) rotateY(-8deg); }
+            #${elemId} .dm-lens-flare { position: absolute; top: 110px; left: 50%; transform: translate(-50%, -50%) scaleX(0); width: 240px; height: 3px; background: linear-gradient(90deg, transparent, #FFFFFF 50%, transparent); box-shadow: 0 0 16px #FFD700; z-index: 45; }
+            #${elemId} .dm-gauge-svg { filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.75)); }
+            #${elemId} .dm-gauge-label { margin-top: 12px; display: flex; flex-direction: column; align-items: center; }
+            #${elemId} .dm-gauge-val { font-size: 24px; font-weight: 800; color: #FFD700; letter-spacing: 0.06em; text-shadow: 0 0 14px rgba(255, 215, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.9); }
+            #${elemId} .dm-gauge-sub { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.85); letter-spacing: 0.1em; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
+          `,
+          customJs: `
+            tl.fromTo(el, { opacity: 0, scale: 0.75 }, { opacity: 1, scale: 1, duration: 0.8, ease: "power2.out" });
+            const flare = el.querySelector(".dm-lens-flare");
+            if (flare) {
+              tl.fromTo(flare, { scaleX: 0, opacity: 0 }, { scaleX: 1.4, opacity: 1, duration: 0.35, ease: "power3.out" }, 0.2);
+              tl.to(flare, { scaleX: 0.6, opacity: 0.3, duration: 0.5 }, 0.55);
+            }
+            tl.fromTo(el.querySelectorAll(".dm-gauge-arc"), { strokeDashoffset: 380 }, { strokeDashoffset: 80, duration: 2.2, ease: "power2.inOut" }, "<");
+            tl.fromTo(el.querySelectorAll(".dm-needle-group"), { rotation: -60, transformOrigin: "110px 110px" }, { rotation: 120, duration: 2.4, ease: "power2.out", transformOrigin: "110px 110px" }, "<");
+          `,
+        };
+      }
+      // Detection 3: Sacred Dharma / Truth / Transcendence
+      else if (combined.includes('धर्म') || combined.includes('सत्य') || combined.includes('संहार') || i === 2 || i === scenes.length - 1) {
+        plan = {
+          sceneIndex: sIdx,
+          shouldInclude: true,
+          type: 'sacred_mandala_geometry',
+          title: 'धर्मरक्षणाय',
+          detail: 'यतो धर्मस्ततो जयः — Righteous Cosmic Order',
+          cuePhrase: narration.slice(0, 30),
+          startSec: 1.0,
+          durationSec: 4.5,
+          placement: { position: 'center', y: 38, width: 85, align: 'center' },
+          visualConcept: '3D sacred geometric lotus mandala SVG with concentric contra-rotating gold petal rings and blossoming light aura',
+          sfx: { kind: 'sacred_bell', volume: 0.85, startSec: 1.0 },
+          vfx: { tilt3d: true, tiltAngleX: -12, tiltAngleY: 0, particles: true, particleCount: 16, lensflare: true, bloomIntensity: 1.5 },
+          theme: { palette: ['#FFD700', '#FFE082', '#FFA000', '#FFFFFF'], fontFamily: 'Cinzel, Rozha One, serif', glowColor: 'rgba(255, 215, 0, 0.85)', stylePreset: 'vedic-gold' },
+          customHtml: `
+            <div id="${elemId}" class="dynamic-motion-visual sacred_mandala_geometry dm-3d-scene">
+              <div class="dm-3d-card">
+                <div class="dm-lens-flare"></div>
+                <svg viewBox="0 0 220 220" width="200" height="200" class="dm-mandala-svg">
+                  <defs>
+                    <filter id="mandalaGlow-${sIdx}">
+                      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+                      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                    </filter>
+                  </defs>
+                  <!-- Outer mandala ring -->
+                  <g class="dm-mandala-outer" filter="url(#mandalaGlow-${sIdx})">
+                    <circle cx="110" cy="110" r="92" fill="none" stroke="#FFA000" stroke-width="1.8" stroke-dasharray="6 4"/>
+                    <polygon points="110,22 172,48 198,110 172,172 110,198 48,172 22,110 48,48" fill="none" stroke="#FFE082" stroke-width="1.2" opacity="0.7"/>
+                  </g>
+                  <!-- Inner rotating petals ring -->
+                  <g class="dm-mandala-inner" filter="url(#mandalaGlow-${sIdx})">
+                    <circle cx="110" cy="110" r="60" fill="none" stroke="#FFD700" stroke-width="2"/>
+                    <circle cx="110" cy="110" r="42" fill="none" stroke="#FFE082" stroke-width="1.5" stroke-dasharray="4 4"/>
+                    <path d="M110 70 C100 85 100 95 110 110 C120 95 120 85 110 70 Z M110 150 C100 135 100 125 110 110 C120 125 120 135 110 150 Z M70 110 C85 100 95 100 110 110 C95 120 85 120 70 110 Z M150 110 C135 100 125 100 110 110 C125 120 135 120 150 110 Z" fill="#FFE082" opacity="0.8"/>
+                  </g>
+                  <!-- Central sacred Bindu -->
+                  <circle cx="110" cy="110" r="7" fill="#FFFFFF" filter="url(#mandalaGlow-${sIdx})"/>
+                </svg>
+                <div class="dm-mandala-label">
+                  <span class="dm-mandala-title">धर्मरक्षणाय</span>
+                  <span class="dm-mandala-sub">यतो धर्मस्ततो जयः</span>
+                </div>
+              </div>
+            </div>
+          `,
+          customCss: `
+            #${elemId} { position: absolute; top: 38%; left: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+            #${elemId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-12deg) rotateY(0deg); }
+            #${elemId} .dm-lens-flare { position: absolute; top: 110px; left: 50%; transform: translate(-50%, -50%) scaleX(0); width: 240px; height: 3px; background: linear-gradient(90deg, transparent, #FFFFFF 50%, transparent); box-shadow: 0 0 16px #FFD700; z-index: 45; }
+            #${elemId} .dm-mandala-svg { filter: drop-shadow(0 0 22px rgba(255, 215, 0, 0.8)); }
+            #${elemId} .dm-mandala-label { margin-top: 12px; display: flex; flex-direction: column; align-items: center; }
+            #${elemId} .dm-mandala-title { font-size: 24px; font-weight: 800; color: #FFD700; letter-spacing: 0.08em; text-shadow: 0 0 16px rgba(255, 215, 0, 0.9), 0 2px 6px rgba(0, 0, 0, 0.9); }
+            #${elemId} .dm-mandala-sub { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.85); letter-spacing: 0.1em; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8); }
+          `,
+          customJs: `
+            tl.fromTo(el, { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.9, ease: "back.out(1.5)" });
+            tl.to(el.querySelectorAll(".dm-mandala-outer"), { rotation: 180, duration: 8, ease: "none", repeat: 4, transformOrigin: "110px 110px" }, "<");
+            tl.to(el.querySelectorAll(".dm-mandala-inner"), { rotation: -180, duration: 6, ease: "none", repeat: 5, transformOrigin: "110px 110px" }, "<");
+          `,
+        };
+      }
     }
 
     if (plan && plan.shouldInclude) {

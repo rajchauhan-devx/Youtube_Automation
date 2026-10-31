@@ -43,12 +43,15 @@ function keyframeScene(script: any, index: number) {
 }
 
 function isScript2dStylized(scriptObj: any, rawPrompt?: string): boolean {
-  if (rawPrompt && TWO_D_STYLE_PATTERN.test(rawPrompt)) return true;
+  if (rawPrompt && (TWO_D_STYLE_PATTERN.test(rawPrompt) || /\b(stickman|stick\s+figure)\b/i.test(rawPrompt))) return true;
+  if (/stickman/i.test(scriptObj?.name || '')) return true;
   const planScenes = Array.isArray(scriptObj?.scenePlan?.scenes) ? scriptObj.scenePlan.scenes : [];
   return planScenes.some(
     (s: any) =>
       TWO_D_STYLE_PATTERN.test(String(s?.imagePrompt || '')) ||
-      TWO_D_STYLE_PATTERN.test(String(s?.videoPrompt || ''))
+      TWO_D_STYLE_PATTERN.test(String(s?.videoPrompt || '')) ||
+      /\b(stickman|stick\s+figure)\b/i.test(String(s?.imagePrompt || '')) ||
+      /\b(stickman|stick\s+figure)\b/i.test(String(s?.videoPrompt || ''))
   );
 }
 

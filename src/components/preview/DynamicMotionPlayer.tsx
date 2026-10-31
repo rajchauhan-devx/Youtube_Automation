@@ -1,7 +1,87 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Play, Pause, RotateCcw, Sparkles } from 'lucide-react';
+import { Play, Pause, RotateCcw, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { gsap } from 'gsap';
 import type { DynamicMotionGraphicData } from '@tubeflow/editing-contracts';
+
+/**
+ * Procedural Web Audio API sound effect synthesizer.
+ * Generates instant, zero-latency cinematic SFX directly in the browser!
+ */
+export function playSynthesizedSfx(kind?: string, volume: number = 0.5) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    const sfxKind = kind || 'whoosh';
+
+    if (sfxKind === 'energy_hum') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(65, now);
+      osc.frequency.exponentialRampToValueAtTime(130, now + 0.4);
+      gain.gain.setValueAtTime(volume * 0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.2);
+    } else if (sfxKind === 'telemetry_chirp') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, now);
+      osc.frequency.setValueAtTime(1320, now + 0.08);
+      osc.frequency.setValueAtTime(1760, now + 0.16);
+      gain.gain.setValueAtTime(volume * 0.3, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.35);
+    } else if (sfxKind === 'impact_boom') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(30, now + 0.6);
+      gain.gain.setValueAtTime(volume * 0.5, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.8);
+    } else if (sfxKind === 'sacred_bell') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(528, now);
+      gain.gain.setValueAtTime(volume * 0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 1.8);
+    } else {
+      // Default whoosh
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(440, now + 0.2);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
+      gain.gain.setValueAtTime(volume * 0.35, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.6);
+    }
+  } catch (err) {
+    console.warn('Web Audio SFX playback error:', err);
+  }
+}
 
 export interface DynamicMotionPlayerProps {
   graphic: DynamicMotionGraphicData;
@@ -19,10 +99,12 @@ export function DynamicMotionPlayer({
   const containerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const hasTriggeredSfxRef = useRef<boolean>(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [speed, setSpeed] = useState<number>(1);
+  const [sfxEnabled, setSfxEnabled] = useState<boolean>(true);
 
   const duration = Math.max(2.0, graphic.durationSec || 4.5);
   const isVertical = aspectRatio === '9:16';
@@ -105,7 +187,15 @@ export function DynamicMotionPlayer({
 
       const tick = () => {
         if (timelineRef.current) {
-          setCurrentTime(timelineRef.current.time());
+          const t = timelineRef.current.time();
+          setCurrentTime(t);
+          if (sfxEnabled && !hasTriggeredSfxRef.current && t >= 0.15 && t <= 1.5) {
+            playSynthesizedSfx(graphic.sfx?.kind || 'whoosh', graphic.sfx?.volume || 0.7);
+            hasTriggeredSfxRef.current = true;
+          }
+          if (t < 0.1) {
+            hasTriggeredSfxRef.current = false;
+          }
         }
         if (isPlaying) {
           animationFrameRef.current = requestAnimationFrame(tick);
@@ -124,11 +214,14 @@ export function DynamicMotionPlayer({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isPlaying, duration]);
+  }, [isPlaying, duration, sfxEnabled, graphic]);
 
   function handleScrub(e: React.ChangeEvent<HTMLInputElement>) {
     const time = parseFloat(e.target.value);
     setCurrentTime(time);
+    if (time < 0.1) {
+      hasTriggeredSfxRef.current = false;
+    }
     if (timelineRef.current) {
       timelineRef.current.seek(time);
     }
@@ -136,6 +229,7 @@ export function DynamicMotionPlayer({
 
   function handleRestart() {
     if (timelineRef.current) {
+      hasTriggeredSfxRef.current = false;
       timelineRef.current.seek(0);
       setCurrentTime(0);
       setIsPlaying(true);
@@ -156,6 +250,16 @@ export function DynamicMotionPlayer({
           <span className="rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-gray-400">
             Scene {graphic.sceneIndex}
           </span>
+          {graphic.vfx?.tilt3d && (
+            <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-mono text-amber-300">
+              3D DEPTH
+            </span>
+          )}
+          {graphic.vfx?.lensflare && (
+            <span className="rounded border border-cyan-500/40 bg-cyan-500/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-300">
+              LENS FLARE
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 text-gray-400">
           <span className="text-[11px] font-mono">
@@ -193,10 +297,11 @@ export function DynamicMotionPlayer({
         {/* Subtle Dark Vignette for Cinematic Depth */}
         <div className="pointer-events-none absolute inset-0 bg-radial from-transparent via-black/20 to-black/70" />
 
-        {/* Dynamic Motion Graphic DOM Container (GSAP Mount Target) */}
+        {/* Dynamic Motion Graphic DOM Container (GSAP Mount Target with 3D perspective) */}
         <div
           ref={containerRef}
           className="pointer-events-none absolute inset-0 overflow-hidden"
+          style={{ perspective: '1200px', transformStyle: 'preserve-3d' }}
         />
       </div>
 
@@ -218,6 +323,26 @@ export function DynamicMotionPlayer({
           title="Restart"
         >
           <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+
+        {/* Web Audio SFX Toggle & Test Trigger */}
+        <button
+          type="button"
+          onClick={() => {
+            const next = !sfxEnabled;
+            setSfxEnabled(next);
+            if (next) {
+              playSynthesizedSfx(graphic.sfx?.kind || 'whoosh', graphic.sfx?.volume || 0.7);
+            }
+          }}
+          className={`flex h-7 w-7 items-center justify-center rounded-lg border transition ${
+            sfxEnabled
+              ? 'border-amber-500/40 bg-amber-500/20 text-amber-300 shadow-glow'
+              : 'border-border bg-surface2 text-gray-500'
+          }`}
+          title={sfxEnabled ? `SFX Active: ${graphic.sfx?.kind || 'whoosh'} (Click to mute)` : 'SFX Muted (Click to enable)'}
+        >
+          {sfxEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
         </button>
 
         {/* Scrub Slider */}

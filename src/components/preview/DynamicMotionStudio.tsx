@@ -13,10 +13,12 @@ import {
   Gauge,
   Layers,
   Wand2,
+  Type,
+  Volume2,
 } from 'lucide-react';
 import type { Script } from '../../data';
 import type { DynamicMotionGraphicData } from '@tubeflow/editing-contracts';
-import { DynamicMotionPlayer } from './DynamicMotionPlayer';
+import { DynamicMotionPlayer, playSynthesizedSfx } from './DynamicMotionPlayer';
 
 interface DynamicMotionStudioProps {
   script: Script;
@@ -24,7 +26,9 @@ interface DynamicMotionStudioProps {
 }
 
 const STYLE_PRESETS = [
-  { id: 'vedic-gold', label: 'Vedic Gold', desc: '24k Gold & Solar Aura', icon: '🌟' },
+  { id: 'vedic-gold', label: 'Vedic Gold', desc: 'Ancient Dharma & Solar Aura', icon: '🌟', channel: 'Ancient Dharma' },
+  { id: 'tactical-cyber', label: 'Rule Zero HUD', desc: 'Tactical Cyan & Biometrics', icon: '🎯', channel: 'Rule Zero' },
+  { id: 'archival-compass', label: 'Against the Odds', desc: 'Brass Compass & Topography', icon: '🧭', channel: 'Against the Odds' },
   { id: 'celestial-cyan', label: 'Celestial Cyan', desc: 'Cosmic Blue & Starlight', icon: '🌌' },
   { id: 'rudra-fire', label: 'Rudra Fire', desc: 'Shiva Tandava & Blazing Embers', icon: '🔥' },
   { id: 'mystic-amethyst', label: 'Mystic Amethyst', desc: 'Deep Violet & Ethereal Resonance', icon: '🔮' },
@@ -77,7 +81,8 @@ export function DynamicMotionStudio({
     setError(null);
     try {
       const scenes = overrideScenes || extractSceneInputs();
-      const channelName = (script as any).channelName || 'Ancient Dharma';
+      const activePreset = STYLE_PRESETS.find((p) => p.id === selectedTheme);
+      const channelName = activePreset?.channel || (script as any).channelName || 'Ancient Dharma';
 
       const themeInstruction = `Visual Theme Preset: ${selectedTheme.toUpperCase()}. Ensure colors, glowing drop-shadows, and energy particle styling match this aesthetic.`;
       const combinedInstructions = [themeInstruction, customPrompt.trim()].filter(Boolean).join('\n');
@@ -177,6 +182,72 @@ export function DynamicMotionStudio({
       render: {
         ...activeGraphic.render,
         css: activeGraphic.render.css.replace(/top:\s*[^;]+;/g, `top: ${topVal};`),
+      },
+    };
+    const newGraphics = [...graphics];
+    newGraphics[selectedGraphicIndex] = updated;
+    onUpdateScript({ ...(script as any), dynamicMotionGraphics: newGraphics });
+  }
+
+  function handleUpdateCopy(newTitle: string, newDetail?: string) {
+    if (!activeGraphic || !onUpdateScript) return;
+    let updatedHtml = activeGraphic.render.html;
+    if (activeGraphic.title && newTitle) {
+      updatedHtml = updatedHtml.split(activeGraphic.title).join(newTitle);
+    }
+    if (activeGraphic.detail && newDetail !== undefined) {
+      updatedHtml = updatedHtml.split(activeGraphic.detail).join(newDetail);
+    }
+    const updated = {
+      ...activeGraphic,
+      title: newTitle,
+      detail: newDetail,
+      render: {
+        ...activeGraphic.render,
+        html: updatedHtml,
+      },
+    };
+    const newGraphics = [...graphics];
+    newGraphics[selectedGraphicIndex] = updated;
+    onUpdateScript({ ...(script as any), dynamicMotionGraphics: newGraphics });
+  }
+
+  function handleToggle3D(enabled: boolean) {
+    if (!activeGraphic || !onUpdateScript) return;
+    const currentVfx = activeGraphic.vfx || { tilt3d: false, particles: true, lensflare: true };
+    const updatedVfx = { ...currentVfx, tilt3d: enabled };
+    let updatedCss = activeGraphic.render.css;
+    if (!enabled) {
+      updatedCss = updatedCss.replace(/rotateX\([^)]+\)/g, 'rotateX(0deg)').replace(/rotateY\([^)]+\)/g, 'rotateY(0deg)');
+    } else {
+      updatedCss = updatedCss.replace(/rotateX\([^)]+\)/g, 'rotateX(-14deg)').replace(/rotateY\([^)]+\)/g, 'rotateY(10deg)');
+    }
+    const updated = {
+      ...activeGraphic,
+      vfx: updatedVfx,
+      render: {
+        ...activeGraphic.render,
+        css: updatedCss,
+      },
+    };
+    const newGraphics = [...graphics];
+    newGraphics[selectedGraphicIndex] = updated;
+    onUpdateScript({ ...(script as any), dynamicMotionGraphics: newGraphics });
+  }
+
+  function handleToggleLensFlare(enabled: boolean) {
+    if (!activeGraphic || !onUpdateScript) return;
+    const currentVfx = activeGraphic.vfx || { tilt3d: true, particles: true, lensflare: true };
+    const updatedVfx = { ...currentVfx, lensflare: enabled };
+    const updated = {
+      ...activeGraphic,
+      vfx: updatedVfx,
+      render: {
+        ...activeGraphic.render,
+        css: activeGraphic.render.css.replace(
+          /\.dm-lens-flare\s*\{[^}]*\}/g,
+          `.dm-lens-flare { display: ${enabled ? 'block' : 'none'} !important; }`
+        ),
       },
     };
     const newGraphics = [...graphics];
@@ -485,6 +556,99 @@ export function DynamicMotionStudio({
                           </div>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Quick Live Text & Copy Editor */}
+                    <div className="mt-3 rounded-xl border border-amber-500/20 bg-black/60 p-3">
+                      <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-amber-200">
+                        <span className="flex items-center gap-1">
+                          <Type className="h-3 w-3 text-amber-400" />
+                          Content &amp; Text Copy (Live)
+                        </span>
+                        <span className="text-[10px] text-amber-400/80">Instant Live Update</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Title</label>
+                          <input
+                            type="text"
+                            value={activeGraphic.title || ''}
+                            onChange={(e) => handleUpdateCopy(e.target.value, activeGraphic.detail)}
+                            className="w-full rounded border border-amber-500/30 bg-surface px-2.5 py-1 text-xs text-white outline-none focus:border-amber-400 font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-1">Subtitle / Metric</label>
+                          <input
+                            type="text"
+                            value={activeGraphic.detail || ''}
+                            onChange={(e) => handleUpdateCopy(activeGraphic.title, e.target.value)}
+                            className="w-full rounded border border-amber-500/30 bg-surface px-2.5 py-1 text-xs text-amber-200/90 outline-none focus:border-amber-400"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Cinematic VFX & 3D Depth Toggles */}
+                    <div className="mt-3 rounded-xl border border-amber-500/20 bg-black/60 p-3">
+                      <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-amber-200">
+                        <span className="flex items-center gap-1">
+                          <Layers className="h-3 w-3 text-amber-400" />
+                          Cinematic VFX &amp; 3D Depth
+                        </span>
+                        <span className="text-[10px] font-mono text-cyan-300">GPU Accelerated</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => handleToggle3D(!activeGraphic.vfx?.tilt3d)}
+                          className={`flex items-center justify-between rounded-lg border px-2.5 py-1.5 transition ${
+                            activeGraphic.vfx?.tilt3d
+                              ? 'border-amber-400 bg-amber-500/20 text-amber-200 font-bold'
+                              : 'border-amber-500/20 bg-surface/40 text-gray-400'
+                          }`}
+                        >
+                          <span className="text-[11px]">3D Tilt</span>
+                          <span className="text-[10px] font-mono">{activeGraphic.vfx?.tilt3d ? 'ON' : 'OFF'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLensFlare(!activeGraphic.vfx?.lensflare)}
+                          className={`flex items-center justify-between rounded-lg border px-2.5 py-1.5 transition ${
+                            activeGraphic.vfx?.lensflare
+                              ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200 font-bold'
+                              : 'border-amber-500/20 bg-surface/40 text-gray-400'
+                          }`}
+                        >
+                          <span className="text-[11px]">Lens Flare</span>
+                          <span className="text-[10px] font-mono">{activeGraphic.vfx?.lensflare ? 'ON' : 'OFF'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Audio Sound Effect Cue Card */}
+                    <div className="mt-3 flex items-center justify-between rounded-xl border border-amber-500/20 bg-black/60 px-3 py-2 text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400">
+                          <Volume2 className="h-3.5 w-3.5" />
+                        </span>
+                        <div>
+                          <span className="font-bold text-amber-200 text-[11px] block">
+                            SFX: {(activeGraphic.sfx?.kind || 'whoosh').replace(/_/g, ' ').toUpperCase()}
+                          </span>
+                          <span className="text-[10px] text-gray-400">
+                            Cue at {(activeGraphic.sfx?.startSec ?? activeGraphic.startSec ?? 1.0).toFixed(1)}s
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => playSynthesizedSfx(activeGraphic.sfx?.kind || 'whoosh', activeGraphic.sfx?.volume || 0.7)}
+                        className="rounded bg-amber-500/20 px-2 py-1 text-[10px] font-semibold text-amber-300 hover:bg-amber-500/30 transition shadow-sm"
+                      >
+                        Play SFX
+                      </button>
                     </div>
 
                     <div className="mt-3 rounded-lg border border-amber-500/15 bg-black/50 p-2.5 text-xs text-amber-200/70">
