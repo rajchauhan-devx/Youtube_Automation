@@ -6,6 +6,7 @@ import {
   decideDynamicMotionGraphics,
   compileDynamicMotionGraphic,
 } from '../services/dynamic-motion-engine.js';
+import { runTwoStepVerification } from '../services/two-step-verifier.js';
 import {
   Router,
   type Request,
@@ -183,6 +184,27 @@ editingRouter.get(
       documentaryTreatments: ['archival', 'cinematic', 'map'], renderer: 'hyperframes', graphics: Object.keys(graphicNames),
       limits: { maxProviderCalls: c.maxCalls, maxGeneratedAssets: 4 } });
   }),
+);
+
+editingRouter.post(
+  '/two-step-verify',
+  route(async (req, res) => {
+    const { scriptId, channelName, channelProfile, customInstructions, model, theme } = req.body || {};
+    if (!scriptId) {
+      res.status(400).json({ error: 'scriptId is required' });
+      return;
+    }
+    const result = await runTwoStepVerification({
+      scriptId,
+      channelName: typeof channelName === 'string' ? channelName : undefined,
+      channelProfile: typeof channelProfile === 'string' ? channelProfile : undefined,
+      customInstructions: typeof customInstructions === 'string' ? customInstructions : undefined,
+      model: typeof model === 'string' ? model : undefined,
+      theme: typeof theme === 'string' ? theme : undefined,
+      apiKey: credential(req),
+    });
+    res.json(result);
+  })
 );
 
 editingRouter.post(

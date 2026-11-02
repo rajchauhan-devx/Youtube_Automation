@@ -37,17 +37,17 @@ export const EDGE_VOICE_MAP: Record<string, EdgeVoiceConfig> = {
   fable: { voice: 'en-US-BrianMultilingualNeural', defaultRate: '+0%', defaultPitch: '-2Hz' },
   alloy: { voice: 'en-US-AndrewMultilingualNeural', defaultRate: '+2%' },
 
-  // Hindi Voices
-  hi_swara: { voice: 'hi-IN-SwaraNeural', defaultRate: '+4%' },
-  hi_madhur: { voice: 'hi-IN-MadhurNeural', defaultRate: '+4%' },
-  hi_neerja: { voice: 'en-IN-NeerjaExpressiveNeural', defaultRate: '+6%' },
-  hi_prabhat: { voice: 'en-IN-PrabhatNeural', defaultRate: '+2%' },
+  // Hindi Voices - natural storytelling pace with breathing room
+  hi_swara: { voice: 'hi-IN-SwaraNeural', defaultRate: '+0%' },
+  hi_madhur: { voice: 'hi-IN-MadhurNeural', defaultRate: '+0%' },
+  hi_neerja: { voice: 'en-IN-NeerjaExpressiveNeural', defaultRate: '+0%' },
+  hi_prabhat: { voice: 'en-IN-PrabhatNeural', defaultRate: '-2%' },
 
   // Backward compatibility / preset aliases for Hindi
-  hi_female: { voice: 'hi-IN-SwaraNeural', defaultRate: '+4%' },
-  hi_male: { voice: 'hi-IN-MadhurNeural', defaultRate: '+4%' },
-  hi_female_casual: { voice: 'en-IN-NeerjaExpressiveNeural', defaultRate: '+8%', defaultPitch: '+4Hz' },
-  hi_male_deep: { voice: 'en-IN-PrabhatNeural', defaultRate: '-2%', defaultPitch: '-6Hz' },
+  hi_female: { voice: 'hi-IN-SwaraNeural', defaultRate: '+0%' },
+  hi_male: { voice: 'hi-IN-MadhurNeural', defaultRate: '+0%' },
+  hi_female_casual: { voice: 'en-IN-NeerjaExpressiveNeural', defaultRate: '+0%', defaultPitch: '+2Hz' },
+  hi_male_deep: { voice: 'en-IN-PrabhatNeural', defaultRate: '-2%', defaultPitch: '-4Hz' },
 };
 
 export const EDGE_ENGLISH_VOICES: VoiceInfo[] = [

@@ -432,7 +432,7 @@ export function compileDynamicMotionGraphic(
         // Normalize start time so subTl always starts at 0 internally
         const children = subTl.getChildren();
         if (children && children.length > 0) {
-          const minStart = Math.min(...children.map((c: any) => c.startTime()));
+          const minStart = Math.min(...children.map((c) => c.startTime()));
           if (minStart > 0 && Number.isFinite(minStart)) {
             subTl.shiftChildren(-minStart, true);
           }
@@ -596,6 +596,11 @@ export async function decideDynamicMotionGraphics(
         };
       });
 
+      const numScenes = scenes.length;
+      const targetCount = numScenes <= 6
+        ? '2 to 3 scenes'
+        : `approximately ${Math.min(10, Math.max(4, Math.floor(numScenes / 3)))} scenes distributed across early, middle, and climax chapters (roughly one graphic every 3 to 4 scenes)`;
+
       const prompt = `
 You are the Lead Visual & Motion Graphics Creative Coder for a high-end cinematic documentary channel ("${channelName || 'Ancient Dharma'}").
 Your task is to analyze the script scenes below and dynamically code 100% REAL, PRODUCTION-GRADE VISUAL MOTION GRAPHICS.
@@ -625,7 +630,7 @@ STRICT CODE REQUIREMENTS:
 
 FOR EACH GRAPHIC, DECIDE:
 - sceneIndex: number (0-indexed matching the input)
-- shouldInclude: boolean (only add where it makes a powerful visual impact, typically 2 to 3 scenes, not every scene)
+- shouldInclude: boolean (For this ${numScenes}-scene video, add motion graphics in ${targetCount}. Distribute them across the full timeline so graphics appear consistently throughout the video, not just at the start!)
 - type: string (descriptive type from categories above)
 - title: string (short title)
 - detail: string (short detail)
@@ -838,7 +843,7 @@ function decideHeuristicMotionGraphics(
           durationSec: 4.5,
           placement: { position: 'center', y: 40, width: 85, align: 'center' },
           visualConcept: 'Circular tactical threat radar with scanning radar beam and danger warning flash',
-          sfx: { kind: 'impact_boom', volume: 0.9, startSec: 1.0 },
+          sfx: { kind: 'impact', volume: 0.9, startSec: 1.0 },
           vfx: { tilt3d: true, tiltAngleX: -15, tiltAngleY: -12, particles: true, particleCount: 12, lensflare: true, bloomIntensity: 1.7 },
           theme: { palette: ['#FF1744', '#FF5252', '#FFA000', '#FFFFFF'], fontFamily: 'Montserrat, monospace', glowColor: 'rgba(255, 23, 68, 0.85)', stylePreset: 'rudra-fire' },
           customHtml: `

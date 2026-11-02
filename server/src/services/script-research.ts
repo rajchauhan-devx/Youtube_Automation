@@ -71,13 +71,13 @@ export async function gatherTopicWebContext(topic: string, signal?: AbortSignal)
 
   const timeoutSignal = AbortSignal.any([
     ...(signal ? [signal] : []),
-    AbortSignal.timeout(4000),
+    AbortSignal.timeout(12000),
   ]);
 
   try {
     const searchUrl =
       `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(cleanQuery)}` +
-      `&srlimit=3&utf8=1&format=json&origin=*`;
+      `&srlimit=6&utf8=1&format=json&origin=*`;
     const searchRes = await fetch(searchUrl, {
       headers: { 'User-Agent': 'TubeFlowStudio/1.0 (Research Assistant)' },
       signal: timeoutSignal,
@@ -107,7 +107,7 @@ export async function gatherTopicWebContext(topic: string, signal?: AbortSignal)
       const cleanSnippet = (rawExtract || (hit.snippet || '').replace(/<[^>]+>/g, ''))
         .replace(/\s+/g, ' ')
         .trim()
-        .slice(0, 700);
+        .slice(0, 1200);
       const safeTitle = String(hit.title || '').trim();
       return {
         title: safeTitle,
@@ -155,7 +155,7 @@ export function buildResearchMessages(params: {
       : ruleZero
       ? 'List supplied locked canon separately from permitted standalone inventions. Define one impossible rule, its trigger, observable effect, limits and cost; one ordinary protagonist; and one concrete goal. Flag contradictions or unavailable sequel canon. Do not report this fictional premise as a real event or use web snippets as evidence that its rule exists.'
       : ancientDharma
-      ? `Identify the actual source/version for "${params.topic.trim()}", supported events and cause-and-effect relationships. Separate scriptural account, regional retelling, interpretation and historical evidence. Tie important claims to available sources; flag uncertainty and unsupported hook promises. Never fabricate a verse number or source attribution.`
+      ? `For "${params.topic.trim()}", conduct deep, comprehensive research across sacred scripture, regional lore, and modern discoveries: 1) Sacred Core & Cultural Beliefs: Identify what Valmiki Ramayana, Puranas, and traditional devotion establish, honoring the emotional and spiritual connection Indian audiences cherish (e.g. Nal-Neel, writing Sri Ram on stones). 2) Factual Discoveries in Plain Language: Gather satellite, geographical, carbon-dating, and archaeological data. Translate all technical concepts into simple, everyday, relatable terms. Flag any complex English or engineering jargon (such as 'infrastructure', 'bathymetry', 'calcified conglomerate') that MUST BE BANNED. 3) High-Retention Documentary Progression: Plan an engaging 4-to-6 chapter story arc with clear curiosity loops and intermediate answers. Separate scriptural account, regional retelling, interpretation and historical evidence. Never fabricate a verse number or source attribution.`
       : `Specific real-world facts, names, dates, locations, statistics, cause-and-effect relationships, and essential context related to "${params.topic.trim()}".`}`,
     `2. **Chronological Story Arc & Scene Beats (~${targetDuration}s)**: ${againstTheOdds
       ? 'Plan verified predicament -> constrained choices -> documented attempts/setbacks -> decisive action or assistance -> verified outcome. Choose a clear immediate opening and a next sentence that adds an actual constraint or consequence, not a biography reset. Map what survivors and rescuers knew at each point. Give useful intermediate answers and only documented reversals. For long videos, develop connected chapter questions without distorting chronology or repeating the introduction. Reserve the requested closing time within the runtime.'
@@ -170,7 +170,7 @@ export function buildResearchMessages(params: {
       : ruleZero
       ? 'State the visual hook, immediate next development, useful intermediate answers, planted clue and complete payoff. Separate essential spoken context from optional lore. Revise a provisional hook if it contradicts the rule. Recommend one concrete choice/cost/clue comment invitation for the final English like/subscribe/comment close, varying it with the actual episode; align the pinned question. Keep final script and production tags for the writing pass.'
       : ancientDharma
-      ? 'Separate essential spoken context from optional background that may be omitted. State the opening promise and supported payoff, any provisional hook to revise, and one episode-appropriate comment response or concrete story question for the final like/subscribe/comment invitation. Vary the invitation by topic; do not add an extra spoken blessing or engagement sequence. Keep all final script and production tags for the writing pass.'
+      ? 'Separate essential spoken context from optional background that may be omitted. Direct the scriptwriter to write strictly in simple, natural spoken Hindi (Devanagari) with NO complex English words or construction jargon. Emphasize short, breath-friendly sentences (8-14 words) with generous punctuation for natural voice pauses. State the opening promise and supported payoff, any provisional hook to revise, and one episode-appropriate comment response or concrete story question for the final like/subscribe/comment invitation. Keep all final script and production tags for the writing pass.'
       : 'Key factual anchors, terminology, and dramatic details that must be woven into the spoken <script> voiceover.'}`,
   ]
     .filter(Boolean)

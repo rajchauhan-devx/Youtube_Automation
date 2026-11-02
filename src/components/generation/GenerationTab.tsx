@@ -25,6 +25,7 @@ import {
 import { type Script, type GeneratedImage, type GeneratedAudio, getChannelLoraProfile } from '../../data';
 import { ErrorBoundary } from '../ErrorBoundary';
 import { MixedMediaContent } from './MixedMediaContent';
+import { ExtraPopupsContent } from './ExtraPopupsContent';
 import { GenerationDisclosure } from './GenerationDisclosure';
 import { CloudflareImagePanel, type ImageProviderMode } from './CloudflareImagePanel';
 import { rememberVoice, preferredVoice } from '../../services/voiceLibrary';
@@ -49,7 +50,7 @@ export function GenerationTab({
   onUpdate: (patch: Partial<Script>) => void;
   onVisualEdit?: () => void;
 }) {
-  const [generationSubTab, setGenerationSubTab] = useState<'images' | 'audio'>('images');
+  const [generationSubTab, setGenerationSubTab] = useState<'images' | 'audio' | 'popups'>('images');
   const { profile, account } = useWorkspaceApi();
   const mixedScenes = profile === 'mixed' || profile === 'shorts' || script?.scenePlan?.scenes.some(scene => scene.mediaType === 'video');
 
@@ -72,14 +73,20 @@ export function GenerationTab({
               className={`studio-tab-btn ${generationSubTab === 'audio' ? 'bg-surface text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}>
               <Music className="h-4 w-4" />Audio
             </button>
+            <button type="button" role="tab" tabIndex={generationSubTab === 'popups' ? 0 : -1} id="generation-extra-popups-tab" aria-selected={generationSubTab === 'popups'} aria-controls="generation-panel" onClick={() => setGenerationSubTab('popups')}
+              className={`studio-tab-btn ${generationSubTab === 'popups' ? 'bg-surface text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}>
+              <Sparkles className="h-4 w-4" />Extra Popups
+            </button>
           </div>
           {onVisualEdit && <button className="flex items-center gap-2 text-xs font-medium text-gray-400 transition-colors hover:text-white" onClick={onVisualEdit}>Create visual edit <Play className="h-3 w-3" /></button>}
         </div>
         <div id="generation-panel" role="tabpanel" aria-labelledby={`generation-${generationSubTab}-tab`} className="flex min-h-0 flex-1 flex-col">
         {generationSubTab === 'images' ? (
           mixedScenes ? <MixedMediaContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} /> : <ImageGenerationContent key={`${account.id}:${profile}:${script?.id}`} script={script} onUpdate={onUpdate} />
-        ) : (
+        ) : generationSubTab === 'audio' ? (
           <AudioGenerationContent script={script} onUpdate={onUpdate} />
+        ) : (
+          <ExtraPopupsContent script={script} onUpdate={onUpdate} />
         )}
         </div>
       </div>

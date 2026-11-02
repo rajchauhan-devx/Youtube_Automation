@@ -1545,6 +1545,41 @@ export default function App() {
           addAutoPilotLog('plan_motion', 'Motion graphics and motion captions are off for this run.', 'info');
         }
 
+        // Extra Popups Auto-Generation for Shorts retention callouts
+        if (section === 'shorts') {
+          try {
+            addAutoPilotLog('plan_motion', 'Scanning scenes for retention detail callouts (Extra Popups)...', 'gemini');
+            const popupsRes = await fetch(`/api/extra-popups/detect/${encodeURIComponent(scriptId)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: '{}',
+              signal: controller.signal,
+            });
+            if (popupsRes.ok) {
+              const detected = await popupsRes.json();
+              if (detected.popups && detected.popups.length > 0) {
+                addAutoPilotLog('plan_motion', `Detected ${detected.popups.length} retention detail callouts. Generating 1:1 macro still visuals...`, 'info');
+                const genRes = await fetch(`/api/extra-popups/generate-all/${encodeURIComponent(scriptId)}`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ provider: 'pollinations' }),
+                  signal: controller.signal,
+                });
+                if (genRes.ok) {
+                  const genData = await genRes.json();
+                  const readyCount = genData.popups?.filter((p: any) => p.status === 'ready').length || detected.popups.length;
+                  addAutoPilotLog('plan_motion', `${readyCount} Extra Popups ready with synchronized sound effects for final video.`, 'success');
+                  currentScript = await reloadCurrentScript(scriptId, controller.signal);
+                  patchScriptState(scriptId, currentScript);
+                }
+              }
+            }
+          } catch (popupErr) {
+            if (isAbortError(popupErr)) throw popupErr;
+            addAutoPilotLog('plan_motion', `Extra Popups notice: ${safeErrorMessage(popupErr, 'Could not auto-generate popups')}. Continuing with full scene footage.`, 'warn');
+          }
+        }
+
         setAutoPilotState((prev) => ({
           ...prev,
           stage: 'render_video',

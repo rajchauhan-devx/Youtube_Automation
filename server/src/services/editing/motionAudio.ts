@@ -3,7 +3,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { EditingProject } from '@tubeflow/editing-contracts';
 import { assetFile, assetRecord, objectHash, projectDir } from './repository.js';
-import { ensureDefaultSfx, resolveSfxForGraphicKind } from '../sfx.js';
+import { ensureDefaultSfx, resolveSfxForGraphicKind, resolveExtraPopupSfx } from '../sfx.js';
 import { runMedia } from '../media-process.js';
 
 export const MOTION_AUDIO_VERSION = 'motion-audio-2';
@@ -28,6 +28,19 @@ export async function motionSoundEvents(project: EditingProject, enabled?: boole
     } else if (art.graphic && art.graphic.kind !== 'caption') {
       const file=resolveSfxForGraphicKind(art.graphic.kind,art.graphic.title,art.graphic.detail);
       if (file) events.push({path:file,startSample:Math.round(art.startFrame*48000/project.inputs.fps),trimSamples:0,gainDb:attenuation,duration:1.2});
+    } else if ((art as any).dynamicMotion) {
+      const dm = (art as any).dynamicMotion;
+      const sfxName = (typeof dm.sfx === 'string' ? dm.sfx : dm.sfx?.kind) || 'whoosh';
+      const file = resolveExtraPopupSfx(sfxName);
+      if (file) {
+        events.push({
+          path: file,
+          startSample: Math.round(art.startFrame * 48000 / project.inputs.fps),
+          trimSamples: 0,
+          gainDb: -6,
+          duration: 1.8,
+        });
+      }
     }
   }
   return events;
@@ -59,3 +72,4 @@ export async function prepareMotionAudio(project: EditingProject, signal: AbortS
     signal.throwIfAborted();fs.renameSync(pending,output);return output;
   } finally { fs.rmSync(pending,{force:true}); }
 }
+

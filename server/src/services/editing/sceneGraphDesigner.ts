@@ -5,68 +5,12 @@ import type {
   EditingProject,
   ScenePlan,
 } from '@tubeflow/editing-contracts';
+import { styleKitThemeFor } from '@tubeflow/editing-contracts';
 import type { EditorialBeatPlan } from './sceneGraphPlanner.js';
 
+/** Channel palettes live in the shared StyleKit registry; never redefine them here. */
 export function getChannelUniverseTheme(accountId?: string, channelName?: string): SceneGraphThemeData {
-  const norm = `${accountId || ''} ${channelName || ''}`.toLowerCase();
-
-  // Ancient Dharma / Devotional
-  if (/dharma|vedic|usr_1787934167716|default/i.test(norm)) {
-    return {
-      name: 'ancient_dharma',
-      primary: '#C59B52',     // Muted burnished gold
-      accent: '#A05238',      // Earth pigment
-      background: '#00000000', // 100% transparent cardless backdrop
-      text: '#FFF3D7',
-      fontFamily: "'Noto Sans Devanagari', serif",
-      secondaryFont: "'Noto Sans Devanagari', serif",
-      lineWeight: 2,
-      radius: 6,
-    };
-  }
-
-  // Rule Zero / Cyber / Tactical
-  if (/rule.?zero|acct_3ea89878|tactical|cyber/i.test(norm)) {
-    return {
-      name: 'rule_zero',
-      primary: '#00F0FF',     // Cyber Cyan
-      accent: '#00FF66',      // Phosphor Green
-      background: '#00000000', // 100% transparent cardless backdrop
-      text: '#F0FBFF',
-      fontFamily: "'JetBrains Mono', monospace",
-      secondaryFont: "'JetBrains Mono', monospace",
-      lineWeight: 2,
-      radius: 0,
-    };
-  }
-
-  // Against the Odds / Survival / Disaster
-  if (/odds|acct_620a1d5e|survival|disaster/i.test(norm)) {
-    return {
-      name: 'against_the_odds',
-      primary: '#FACC15',     // Industrial Hazard Yellow
-      accent: '#EF4444',      // Emergency Red
-      background: '#00000000', // 100% transparent cardless backdrop
-      text: '#FFFFFF',
-      fontFamily: "'Montserrat', 'Impact', sans-serif",
-      secondaryFont: "'JetBrains Mono', monospace",
-      lineWeight: 3,
-      radius: 4,
-    };
-  }
-
-  // Fallback
-  return {
-    name: 'documentary_standard',
-    primary: '#F07835',
-    accent: '#FFE600',
-    background: '#00000000',
-    text: '#FFFFFF',
-    fontFamily: "'Montserrat', 'Inter', sans-serif",
-    secondaryFont: "'JetBrains Mono', monospace",
-    lineWeight: 2,
-    radius: 6,
-  };
+  return styleKitThemeFor({ id: accountId, name: channelName }) as SceneGraphThemeData;
 }
 
 /**

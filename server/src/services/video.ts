@@ -173,7 +173,10 @@ export function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]
   resolvedImages.forEach((_, i) => {
     const clip = plan[i];
     const motion = buildZoompanExpression(sa?.effects?.[i] || 'zoom-in', clip.frames, width, height, zoomFactor);
-    filterParts.push(`[${i}:v]scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,${motion},trim=end_frame=${clip.frames},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
+    const framing = (opts as any).framing === 'contain'
+      ? `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`
+      : `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
+    filterParts.push(`[${i}:v]${framing},setsar=1,${motion},trim=end_frame=${clip.frames},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
     if (i === 0) return;
     const previous = plan[i - 1];
     const label = `blend${i}`;

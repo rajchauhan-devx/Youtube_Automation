@@ -35,6 +35,7 @@ import { workspaceMutationGuard } from './services/workspace-activity.js';
 import { supervisorRouter } from './routes/supervisor.js';
 import { retentionRouter } from './routes/retention.js';
 import { mediaImportRouter } from './routes/media-import.js';
+import { extraPopupsRouter } from './routes/extra-popups.js';
 
 const app = express();
 try { initializeTopicNotes(); } catch (error) { if (error instanceof StoreCorruptionError) console.error(error.message); else throw error; }
@@ -76,6 +77,7 @@ app.use('/api/editing', editingRouter);
 app.use('/api/supervisor', supervisorRouter);
 app.use('/api/retention', retentionRouter);
 app.use('/api/media-import', mediaImportRouter);
+app.use('/api/extra-popups', extraPopupsRouter);
 app.use('/api/youtube', youtubeRouter);
 app.use('/api/facebook', facebookRouter);
 app.use('/api/instagram', instagramRouter);

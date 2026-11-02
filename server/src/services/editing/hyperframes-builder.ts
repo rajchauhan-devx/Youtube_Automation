@@ -92,6 +92,12 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
     // Real-Time Dynamic Generative Motion Graphic path (Hyperframes & GSAP)
     if ((artifact as any).dynamicMotion) {
       const dm = (artifact as any).dynamicMotion;
+      if (dm.render && dm.render.html && dm.render.css && dm.render.js) {
+        htmlParts.push(dm.render.html);
+        cssParts.push(dm.render.css);
+        jsParts.push(dm.render.js);
+        continue;
+      }
       const compiled = compileDynamicMotionGraphic(dm, {
         width,
         height,
@@ -415,6 +421,7 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
       // Master GSAP Timeline synchronized to HyperFrames frame clock
       window.__timelines = window.__timelines || {};
       const tl = gsap.timeline({ paused: true });
+      const container = document.getElementById('root') || document.body;
       ${jsParts.join('\n')}
       window.__timelines["main"] = tl;
       tl.seek(0);
@@ -425,3 +432,4 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
   fs.writeFileSync(path.join(outputDir, 'index.html'), indexHtml, 'utf-8');
   return path.join(outputDir, 'index.html');
 }
+

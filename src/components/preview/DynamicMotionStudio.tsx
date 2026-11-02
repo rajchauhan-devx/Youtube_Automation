@@ -9,15 +9,18 @@ import {
   ChevronUp,
   Flame,
   Palette,
-  Maximize2,
-  Gauge,
   Layers,
   Wand2,
   Type,
   Volume2,
+  ShieldCheck,
+  Zap,
+  Check,
+  Eye,
+  AlertCircle,
 } from 'lucide-react';
 import type { Script } from '../../data';
-import type { DynamicMotionGraphicData } from '@tubeflow/editing-contracts';
+import type { DynamicMotionGraphicData, ExtraPopupAsset } from '@tubeflow/editing-contracts';
 import { DynamicMotionPlayer, playSynthesizedSfx } from './DynamicMotionPlayer';
 
 interface DynamicMotionStudioProps {
@@ -40,24 +43,28 @@ export function DynamicMotionStudio({
 }: DynamicMotionStudioProps) {
   const [isOpen, setIsOpen] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verifyStep, setVerifyStep] = useState<'idle' | 'orchestrating' | 'verifying' | 'done'>('idle');
   const [generatingSceneIdx, setGeneratingSceneIdx] = useState<number | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
   const [selectedTheme, setSelectedTheme] = useState<string>('vedic-gold');
+  const [activeTab, setActiveTab] = useState<'graphics' | 'popups'>('graphics');
   const [selectedGraphicIndex, setSelectedGraphicIndex] = useState<number>(0);
+  const [selectedPopupIndex, setSelectedPopupIndex] = useState<number>(0);
+  const [showVerificationReport, setShowVerificationReport] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Dynamic motion graphics stored on script or state
+  // Dynamic motion graphics and extra popups stored on script
   const graphics: DynamicMotionGraphicData[] = (script as any).dynamicMotionGraphics || [];
+  const popups: ExtraPopupAsset[] = (script as any).extraPopups || [];
+  const verification = (script as any).twoStepVerification;
 
   // Extract scenes from script response or prompt
   function extractSceneInputs() {
     const scenes: Array<{ sceneIndex: number; narration: string; visualPrompt: string; durationSec: number }> = [];
-
-    // Parse image prompts
     const imagePrompts: string[] = script.imagePrompts || [];
     const narrationText = script.narration || script.extractedScript || script.aiResponse || '';
 
-    // Split narration into sentences / scenes or match with image prompts
     const sentences = narrationText
       .split(/(?<=[।.\n])\s+/)
       .map((s) => s.trim())
@@ -72,8 +79,63 @@ export function DynamicMotionStudio({
         durationSec: 6.4,
       });
     }
-
     return scenes;
+  }
+
+  /**
+   * Complete 2-Step AI Orchestration & Full-Script Verification Engine:
+   * Step 1: Decides & places motion graphics AND extra popups where & how to use.
+   * Step 2: Runs a full verification pass: checks mistakes, audits retention, refines cues & timing.
+   */
+  async function handleTwoStepVerification() {
+    setIsVerifying(true);
+    setVerifyStep('orchestrating');
+    setError(null);
+
+    try {
+      const activePreset = STYLE_PRESETS.find((p) => p.id === selectedTheme);
+      const channelName = activePreset?.channel || (script as any).channelName || 'Ancient Dharma';
+
+      // Step indicator simulation for snappy feedback
+      setTimeout(() => {
+        setVerifyStep('verifying');
+      }, 1400);
+
+      const res = await fetch('/api/editing/two-step-verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId: script.id,
+          channelName,
+          theme: selectedTheme,
+          customInstructions: customPrompt.trim() || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Two-step verification failed (HTTP ${res.status})`);
+      }
+
+      const data = await res.json();
+      if (onUpdateScript && data.script) {
+        onUpdateScript({
+          ...data.script,
+          dynamicMotionGraphics: data.dynamicMotionGraphics || data.script.dynamicMotionGraphics,
+          extraPopups: data.extraPopups || data.script.extraPopups,
+          twoStepVerification: data.report || data.script.twoStepVerification,
+        });
+      }
+
+      setVerifyStep('done');
+      setSelectedGraphicIndex(0);
+      setSelectedPopupIndex(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not complete two-step verification');
+      setVerifyStep('idle');
+    } finally {
+      setIsVerifying(false);
+    }
   }
 
   async function handleAIDecideMotion(overrideScenes?: any[]) {
@@ -105,7 +167,6 @@ export function DynamicMotionStudio({
       const newGraphics: DynamicMotionGraphicData[] = data.graphics || [];
 
       if (overrideScenes && overrideScenes.length === 1) {
-        // Single scene re-code: merge into existing graphics array
         const updatedTarget = newGraphics[0];
         if (updatedTarget) {
           const merged = [...graphics];
@@ -153,8 +214,7 @@ export function DynamicMotionStudio({
     if (!activeGraphic || !onUpdateScript) return;
     const currentScale = activeGraphic.placement.scale || 1.0;
     const newScale = Math.min(1.6, Math.max(0.6, Math.round((currentScale * multiplier) * 10) / 10));
-    
-    // Patch CSS transform of the graphic
+
     const updated = {
       ...activeGraphic,
       placement: { ...activeGraphic.placement, scale: newScale },
@@ -255,11 +315,18 @@ export function DynamicMotionStudio({
     onUpdateScript({ ...(script as any), dynamicMotionGraphics: newGraphics });
   }
 
-  // Get background image for current selected graphic's scene
+  // Active items for playback
   const activeGraphic = graphics[selectedGraphicIndex] || graphics[0];
-  const sceneIdx = activeGraphic ? (typeof activeGraphic.sceneIndex === 'number' ? activeGraphic.sceneIndex : 0) : 0;
+  const activePopup = popups[selectedPopupIndex] || popups.find(p => p.sceneIndex === activeGraphic?.sceneIndex);
+
+  const activeSceneIdx = activeTab === 'popups' && activePopup
+    ? activePopup.sceneIndex
+    : activeGraphic
+      ? (typeof activeGraphic.sceneIndex === 'number' ? activeGraphic.sceneIndex : 0)
+      : 0;
+
   const activeBackgroundImage =
-    (script.generatedImages && script.generatedImages[sceneIdx]?.url) || undefined;
+    (script.generatedImages && script.generatedImages[activeSceneIdx]?.url) || undefined;
 
   return (
     <div className="mb-6 overflow-hidden rounded-2xl border border-amber-500/30 bg-gradient-to-b from-[#141009]/95 to-[#0b0805]/95 shadow-xl backdrop-blur-md">
@@ -272,34 +339,38 @@ export function DynamicMotionStudio({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-sm font-bold text-amber-100">
-                Real-Time Dynamic Motion Graphics
+                AI Preview Motion &amp; Retention Studio
               </h3>
               <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-                100% Real Visual Vectors &amp; GSAP
+                2-Step Verification Enabled
               </span>
             </div>
             <p className="text-xs text-amber-200/60">
-              Zero static templates · Dynamic animated SVGs, contra-rotating rings, telemetry dials &amp; shockwaves.
+              AI decides where &amp; how to use motion graphics + popups, then re-runs to audit mistakes, retention &amp; timing.
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Main 2-Step Verification & Orchestration Trigger */}
           <button
             type="button"
-            onClick={() => handleAIDecideMotion()}
-            disabled={isGenerating}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 px-4 py-2 text-xs font-bold text-black shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-95 disabled:opacity-50 transition"
+            onClick={handleTwoStepVerification}
+            disabled={isVerifying || isGenerating}
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 px-4 py-2 text-xs font-black text-black shadow-lg shadow-amber-500/25 hover:brightness-110 active:scale-95 disabled:opacity-50 transition"
+            title="AI decides motion graphics & popups, then verifies the whole script in a 2-step audit"
           >
-            {isGenerating ? (
+            {isVerifying ? (
               <>
                 <RotateCw className="h-3.5 w-3.5 animate-spin" />
-                AI Deciding &amp; Generating…
+                {verifyStep === 'orchestrating'
+                  ? 'Step 1/2: Orchestrating Overlays…'
+                  : 'Step 2/2: Verifying Script & Cues…'}
               </>
             ) : (
               <>
-                <Sparkles className="h-3.5 w-3.5 fill-current" />
-                {graphics.length > 0 ? 'Re-generate All Motion Graphics' : 'AI Decide & Generate Motion Graphics'}
+                <ShieldCheck className="h-4 w-4" />
+                <span>AI 2-Step Verify &amp; Orchestrate</span>
               </>
             )}
           </button>
@@ -318,8 +389,88 @@ export function DynamicMotionStudio({
       {isOpen && (
         <div className="p-6">
           {error && (
-            <div className="mb-4 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-300">
-              {error}
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-300">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          {/* TWO-STEP VERIFICATION & RETENTION REPORT CARD */}
+          {verification && (
+            <div className="mb-5 overflow-hidden rounded-xl border border-emerald-500/30 bg-emerald-950/20 backdrop-blur-sm">
+              <div className="flex flex-wrap items-center justify-between border-b border-emerald-500/20 bg-emerald-500/10 px-4 py-2.5">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-200">
+                    Two-Step Verification &amp; Retention Audit Passed
+                  </span>
+                  <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                    Retention Score: {verification.retentionScore}/100
+                  </span>
+                  <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 capitalize">
+                    Hook: {verification.hookStrength}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowVerificationReport(!showVerificationReport)}
+                  className="text-[11px] text-emerald-400/80 hover:text-emerald-300 font-semibold"
+                >
+                  {showVerificationReport ? 'Hide Audit Details' : 'View Audit Details'}
+                </button>
+              </div>
+
+              {showVerificationReport && (
+                <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  {/* Mistakes Corrected */}
+                  <div className="rounded-lg border border-emerald-500/15 bg-black/40 p-3">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-300 text-[11px] mb-2">
+                      <Check className="h-3.5 w-3.5" />
+                      Script Proofreading &amp; Pacing
+                    </div>
+                    <ul className="space-y-1.5 text-[11px] text-gray-300 leading-relaxed">
+                      {verification.mistakesCorrected?.map((m: string, i: number) => (
+                        <li key={i} className="flex items-start gap-1.5">
+                          <span className="text-emerald-400 mt-0.5">✦</span>
+                          <span>{m}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Retention Findings */}
+                  <div className="rounded-lg border border-amber-500/15 bg-black/40 p-3">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-300 text-[11px] mb-2">
+                      <Zap className="h-3.5 w-3.5" />
+                      Retention &amp; Curiosity Dynamics
+                    </div>
+                    <ul className="space-y-1.5 text-[11px] text-gray-300 leading-relaxed">
+                      {verification.retentionFindings?.map((f: string, i: number) => (
+                        <li key={i} className="flex items-start gap-1.5">
+                          <span className="text-amber-400 mt-0.5">✦</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Overlay Synchronizations */}
+                  <div className="rounded-lg border border-cyan-500/15 bg-black/40 p-3">
+                    <div className="flex items-center gap-1.5 font-bold text-cyan-300 text-[11px] mb-2">
+                      <Layers className="h-3.5 w-3.5" />
+                      Synchronized Overlays
+                    </div>
+                    <ul className="space-y-1.5 text-[11px] text-gray-300 leading-relaxed">
+                      {verification.overlayAdjustments?.map((a: string, i: number) => (
+                        <li key={i} className="flex items-start gap-1.5">
+                          <span className="text-cyan-400 mt-0.5">✦</span>
+                          <span>{a}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -331,10 +482,10 @@ export function DynamicMotionStudio({
                 Visual Theme Preset
               </span>
               <span className="text-[11px] text-gray-400">
-                Applied during real-time visual code synthesis
+                Applied to animated SVGs and Popups during AI orchestration
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
               {STYLE_PRESETS.map((preset) => {
                 const isActive = selectedTheme === preset.id;
                 return (
@@ -342,7 +493,7 @@ export function DynamicMotionStudio({
                     key={preset.id}
                     type="button"
                     onClick={() => setSelectedTheme(preset.id)}
-                    className={`flex flex-col items-start rounded-lg border p-2.5 text-left transition ${
+                    className={`flex flex-col items-start rounded-lg border p-2 text-left transition ${
                       isActive
                         ? 'border-amber-400 bg-amber-500/20 text-white shadow-md shadow-amber-500/10'
                         : 'border-white/10 bg-surface/50 text-gray-300 hover:border-amber-500/30 hover:bg-surface/80'
@@ -350,9 +501,9 @@ export function DynamicMotionStudio({
                   >
                     <div className="flex items-center gap-1.5 font-semibold text-xs text-amber-200">
                       <span>{preset.icon}</span>
-                      <span>{preset.label}</span>
+                      <span className="truncate">{preset.label}</span>
                     </div>
-                    <span className="mt-0.5 text-[10px] text-gray-400 leading-tight">
+                    <span className="mt-0.5 text-[10px] text-gray-400 leading-tight truncate w-full">
                       {preset.desc}
                     </span>
                   </button>
@@ -361,121 +512,189 @@ export function DynamicMotionStudio({
             </div>
           </div>
 
-          {graphics.length === 0 ? (
+          {graphics.length === 0 && popups.length === 0 ? (
             /* Empty State */
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-amber-500/20 bg-amber-500/5 p-8 text-center">
               <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
                 <Sparkles className="h-6 w-6" />
               </div>
               <h4 className="text-sm font-bold text-amber-100">
-                No Motion Graphics Generated Yet
+                AI Ready to Decide &amp; Verify All Overlays
               </h4>
-              <p className="mt-1 max-w-md text-xs leading-relaxed text-amber-200/70">
-                Click <strong>"AI Decide &amp; Generate Motion Graphics"</strong> above. The AI will inspect the script scenes, decide the key dramatic beats, pick when and where to trigger, and dynamically synthesize the Hyperframes motion overlay.
+              <p className="mt-1 max-w-lg text-xs leading-relaxed text-amber-200/70">
+                Click <strong>"AI 2-Step Verify &amp; Orchestrate"</strong> above. The AI will inspect your entire script right here in the Preview page, determine where and how to trigger <strong>motion graphics &amp; popups</strong>, and then run a second verification pass to catch script mistakes and optimize viewer retention.
               </p>
-              <div className="mt-4 flex flex-wrap gap-2 text-[11px] text-amber-300/80">
+              <div className="mt-4 flex flex-wrap justify-center gap-2 text-[11px] text-amber-300/80">
                 <span className="rounded-md border border-amber-500/30 bg-black/40 px-2 py-1">
-                  ✦ Concentric Contra-Rotating Chakras
+                  ✦ Step 1: Real Animated SVGs &amp; Retention Callouts
                 </span>
                 <span className="rounded-md border border-amber-500/30 bg-black/40 px-2 py-1">
-                  ✦ Cosmic Telemetry &amp; Speed Gauges
+                  ✦ Step 2: Proofreading, Pacing &amp; Retention Audit
                 </span>
                 <span className="rounded-md border border-amber-500/30 bg-black/40 px-2 py-1">
-                  ✦ Dynamic Leader-Line Schematics
-                </span>
-                <span className="rounded-md border border-amber-500/30 bg-black/40 px-2 py-1">
-                  ✦ Sonic Energy Shockwave Bursts
+                  ✦ Zero Outside Configuration Needed
                 </span>
               </div>
             </div>
           ) : (
-            /* Active Decided Graphics View */
+            /* Active Decided Graphics & Popups View */
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
-              {/* Left Column: List of Decided Graphics */}
+              {/* Left Column: Overlay Selector Tabs & Beat List */}
               <div className="space-y-3 lg:col-span-5">
-                <div className="flex items-center justify-between text-xs font-semibold text-amber-200/80 mb-1">
-                  <span>AI Decided Graphics ({graphics.length})</span>
-                  <span className="text-[11px] text-amber-400">Real-Time GSAP Timelines</span>
+                <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('graphics')}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                        activeTab === 'graphics'
+                          ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <Layers className="h-3 w-3" />
+                      Motion Graphics ({graphics.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('popups')}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold transition ${
+                        activeTab === 'popups'
+                          ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      <Zap className="h-3 w-3" />
+                      Retention Popups ({popups.length})
+                    </button>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-400">Verified</span>
                 </div>
 
-                <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1">
-                  {graphics.map((g, idx) => {
-                    const isSelected = idx === selectedGraphicIndex;
-                    const isSceneRegenerating = generatingSceneIdx === g.sceneIndex;
-                    return (
-                      <div
-                        key={g.id || idx}
-                        onClick={() => setSelectedGraphicIndex(idx)}
-                        className={`group relative cursor-pointer rounded-xl border p-3.5 transition ${
-                          isSelected
-                            ? 'border-amber-400 bg-amber-500/15 shadow-lg shadow-amber-500/10'
-                            : 'border-amber-500/20 bg-surface/40 hover:border-amber-500/40 hover:bg-surface/70'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase tracking-wider">
-                            {g.type.replace(/_/g, ' ')}
-                          </span>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] font-mono text-gray-400">
-                              Scene {g.sceneIndex} · {g.durationSec}s
+                {activeTab === 'graphics' ? (
+                  /* Motion Graphics List */
+                  <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1">
+                    {graphics.map((g, idx) => {
+                      const isSelected = idx === selectedGraphicIndex;
+                      const isSceneRegenerating = generatingSceneIdx === g.sceneIndex;
+                      return (
+                        <div
+                          key={g.id || idx}
+                          onClick={() => setSelectedGraphicIndex(idx)}
+                          className={`group relative cursor-pointer rounded-xl border p-3.5 transition ${
+                            isSelected
+                              ? 'border-amber-400 bg-amber-500/15 shadow-lg shadow-amber-500/10'
+                              : 'border-amber-500/20 bg-surface/40 hover:border-amber-500/40 hover:bg-surface/70'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase tracking-wider">
+                              {g.type.replace(/_/g, ' ')}
                             </span>
-                            <button
-                              type="button"
-                              onClick={(e) => handleRegenerateSingleBeat(g.sceneIndex, e)}
-                              disabled={isGenerating}
-                              title="Re-code this visual beat with AI"
-                              className="rounded border border-amber-500/30 bg-black/40 p-1 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 transition disabled:opacity-50"
-                            >
-                              <Wand2 className={`h-3 w-3 ${isSceneRegenerating ? 'animate-spin' : ''}`} />
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] font-mono text-gray-400">
+                                Scene {g.sceneIndex + 1} · {g.durationSec}s
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => handleRegenerateSingleBeat(g.sceneIndex, e)}
+                                disabled={isGenerating}
+                                title="Re-code this visual beat with AI"
+                                className="rounded border border-amber-500/30 bg-black/40 p-1 text-amber-400 hover:bg-amber-500/20 hover:text-amber-300 transition disabled:opacity-50"
+                              >
+                                <Wand2 className={`h-3 w-3 ${isSceneRegenerating ? 'animate-spin' : ''}`} />
+                              </button>
+                            </div>
+                          </div>
+
+                          <h5 className="mt-2 text-sm font-bold text-white line-clamp-1">
+                            {g.title}
+                          </h5>
+
+                          {g.detail && (
+                            <p className="mt-0.5 text-xs text-amber-200/70 line-clamp-1">
+                              {g.detail}
+                            </p>
+                          )}
+
+                          <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-amber-500/10 pt-2 text-[10px] text-gray-400">
+                            <span>
+                              <strong>Cue:</strong> "{g.cuePhrase ? g.cuePhrase.slice(0, 24) : 'Beat start'}…"
+                            </span>
+                            <span>·</span>
+                            <span>Starts: {(g.startSec || 1.0).toFixed(1)}s</span>
                           </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Retention Popups List */
+                  <div className="space-y-2.5 max-h-[480px] overflow-y-auto pr-1">
+                    {popups.map((p, idx) => {
+                      const isSelected = idx === selectedPopupIndex;
+                      return (
+                        <div
+                          key={p.id || idx}
+                          onClick={() => setSelectedPopupIndex(idx)}
+                          className={`group relative cursor-pointer rounded-xl border p-3.5 transition ${
+                            isSelected
+                              ? 'border-yellow-400 bg-yellow-500/15 shadow-lg shadow-yellow-500/10'
+                              : 'border-yellow-500/20 bg-surface/40 hover:border-yellow-500/40 hover:bg-surface/70'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="rounded bg-yellow-500/20 px-1.5 py-0.5 text-[10px] font-bold text-yellow-300 uppercase tracking-wider">
+                              {(p.archetype || p.shape).replace(/_/g, ' ')}
+                            </span>
+                            <span className="text-[11px] font-mono text-gray-400">
+                              Scene {p.sceneIndex + 1} · {(p.cueOffsetSec || 1.0).toFixed(1)}s
+                            </span>
+                          </div>
 
-                        <h5 className="mt-2 text-sm font-bold text-white line-clamp-1">
-                          {g.title}
-                        </h5>
+                          <h5 className="mt-2 text-sm font-bold text-white line-clamp-1">
+                            {p.title || p.badgeTag || 'Retention Callout'}
+                          </h5>
 
-                        {g.detail && (
-                          <p className="mt-0.5 text-xs text-amber-200/70 line-clamp-1">
-                            {g.detail}
-                          </p>
-                        )}
+                          {p.statValue && (
+                            <p className="mt-0.5 text-xs font-semibold text-yellow-300">
+                              {p.statValue} {p.statUnit || ''}
+                            </p>
+                          )}
 
-                        <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-amber-500/10 pt-2 text-[10px] text-gray-400">
-                          <span>
-                            <strong>When:</strong> "{g.cuePhrase ? g.cuePhrase.slice(0, 24) : 'Beat start'}…"
-                          </span>
-                          <span>·</span>
-                          <span>
-                            <strong>Where:</strong> {g.placement.position.toUpperCase()}
-                          </span>
+                          <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-yellow-500/10 pt-2 text-[10px] text-gray-400">
+                            <span>
+                              <strong>Trigger Cue:</strong> "{p.cueWord || 'Spoken beat'}"
+                            </span>
+                            <span>·</span>
+                            <span>Placement: {p.placement}</span>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
 
-                {/* Optional Custom Instructions / Tweak Prompt */}
-                <div className="mt-4 rounded-xl border border-amber-500/20 bg-black/40 p-3">
-                  <label className="block text-[11px] font-semibold text-amber-200/80 mb-1.5">
-                    Tweak / Custom Motion Guidance (Optional)
+                {/* Custom Guidance Prompt Bar */}
+                <div className="rounded-xl border border-amber-500/20 bg-black/40 p-3">
+                  <label className="text-[11px] font-semibold text-amber-200 block mb-1">
+                    Custom AI Refinement Guidance (Optional)
                   </label>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={customPrompt}
                       onChange={(e) => setCustomPrompt(e.target.value)}
-                      placeholder="e.g. Accelerate rotation to 1440deg, add sonic shockwaves..."
+                      placeholder="e.g. Focus on ancient astronomical dials, high energy pacing..."
                       className="flex-1 rounded-lg border border-amber-500/30 bg-surface px-3 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-amber-400"
                     />
                     <button
                       type="button"
-                      onClick={() => handleAIDecideMotion()}
-                      disabled={isGenerating}
+                      onClick={handleTwoStepVerification}
+                      disabled={isVerifying}
                       className="rounded-lg bg-amber-500/20 px-3 py-1.5 text-xs font-semibold text-amber-300 hover:bg-amber-500/30 transition disabled:opacity-50"
                     >
-                      Apply
+                      Re-Verify
                     </button>
                   </div>
                 </div>
@@ -488,10 +707,10 @@ export function DynamicMotionStudio({
                     <div className="mb-2 flex items-center justify-between text-xs text-amber-200/80">
                       <span className="flex items-center gap-1.5">
                         <Play className="h-3 w-3 fill-current text-amber-400" />
-                        Live 60fps Dynamic Preview
+                        Live Synchronized Preview
                       </span>
                       <span className="text-[11px] text-gray-400">
-                        {activeGraphic.visualConcept?.slice(0, 32)}…
+                        Scene {activeSceneIdx + 1}
                       </span>
                     </div>
 
@@ -499,6 +718,9 @@ export function DynamicMotionStudio({
                       graphic={activeGraphic}
                       backgroundImageUrl={activeBackgroundImage}
                       aspectRatio="9:16"
+                      extraPopup={
+                        popups.find((p) => p.sceneIndex === activeSceneIdx) || activePopup
+                      }
                     />
 
                     {/* Live Fine-Tuning Controls Panel */}
@@ -523,7 +745,7 @@ export function DynamicMotionStudio({
                               onClick={() => handleAdjustScale(0.9)}
                               className="rounded bg-black/40 px-2 py-0.5 text-[11px] font-bold text-amber-300 hover:bg-amber-500/20"
                             >
-                              −
+                              -
                             </button>
                             <button
                               type="button"
@@ -535,9 +757,9 @@ export function DynamicMotionStudio({
                           </div>
                         </div>
 
-                        {/* Position Selector */}
+                        {/* Position Controls */}
                         <div className="flex items-center justify-between rounded-lg border border-amber-500/15 bg-surface/50 px-2 py-1.5">
-                          <span className="text-[10px] text-gray-400">Pos:</span>
+                          <span className="text-[10px] text-gray-400">Position:</span>
                           <div className="flex items-center gap-1 text-[10px]">
                             {(['top', 'center', 'bottom'] as const).map((p) => (
                               <button
@@ -662,7 +884,7 @@ export function DynamicMotionStudio({
                   </div>
                 ) : (
                   <div className="flex h-64 items-center justify-center text-xs text-gray-500">
-                    Select a graphic to preview
+                    Select a graphic or popup to preview
                   </div>
                 )}
               </div>

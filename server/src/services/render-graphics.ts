@@ -1,3 +1,4 @@
+import { compileExtraPopupToMotionGraphic } from './extra-popups-engine.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -22,9 +23,11 @@ export function graphicsForRun(project: EditingProject, settings?: { graphics: {
   return selected;
 }
 
-export function graphicsRenderRevision(script: { editingProjectId?: string; dynamicMotionGraphics?: any[]; autoPilotSettings?: { graphics: { enabled: boolean }; captions: string } }) {
-  if (script.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) {
-    return { version: 1, rendererVersion: RENDERER_VERSION, projectId: script.editingProjectId || 'dynamic', hash: objectHash(script.dynamicMotionGraphics) };
+export function graphicsRenderRevision(script: { editingProjectId?: string; dynamicMotionGraphics?: any[]; extraPopups?: any[]; autoPilotSettings?: { graphics: { enabled: boolean }; captions: string } }) {
+  const hasDynamic = (script.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) ||
+    (script.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status === 'ready'));
+  if (hasDynamic) {
+    return { version: 1, rendererVersion: RENDERER_VERSION, projectId: script.editingProjectId || 'dynamic', hash: objectHash({ dmg: script.dynamicMotionGraphics, ep: script.extraPopups }) };
   }
   if (!script.editingProjectId) return undefined;
   if (script.autoPilotSettings?.graphics.enabled === false && script.autoPilotSettings.captions !== 'motion') return undefined;
@@ -42,9 +45,6 @@ export function graphicsRenderRevision(script: { editingProjectId?: string; dyna
 function dynamicMotionProjectForRender(
   script: any, audioPath: string, imagePaths: string[], resolution: { width: number; height: number }, duration?: number
 ): EditingProject | undefined {
-  if (!script?.dynamicMotionGraphics || !Array.isArray(script.dynamicMotionGraphics) || script.dynamicMotionGraphics.length === 0) {
-    return undefined;
-  }
   const fps = 30;
   const scriptId = script.id;
   const resolvedAudio = resolveInputPath(audioPath, scriptId);
@@ -55,22 +55,84 @@ function dynamicMotionProjectForRender(
   const totalDuration = duration && duration > 0 ? duration : (script.duration || 25);
   const sceneDur = totalDuration / numScenes;
 
+  // Read exact scene timing boundaries from narration sync when available
+  const sceneStarts: number[] = [];
+  const sceneEnds: number[] = [];
+  const syncFile = `${resolvedAudio}.sync.json`;
+  if (fs.existsSync(syncFile)) {
+    try {
+      const syncData = JSON.parse(fs.readFileSync(syncFile, 'utf8'));
+      if (Array.isArray(syncData.scenes)) {
+        for (const sc of syncData.scenes) {
+          sceneStarts.push((sc.startSample || 0) / (syncData.sampleRate || 48000));
+          sceneEnds.push((sc.endSample || 0) / (syncData.sampleRate || 48000));
+        }
+      }
+    } catch (err) {
+      console.warn('[render-graphics] Could not load sync file for exact scene boundaries:', err);
+    }
+  }
+
+  const dynamicGraphics: any[] = Array.isArray(script?.dynamicMotionGraphics) ? [...script.dynamicMotionGraphics] : [];
+  if (Array.isArray(script?.extraPopups)) {
+    const readyPopups = script.extraPopups.filter((p: any) => {
+      if (p.status !== 'ready') return false;
+      const isGraphicCard = ['metric_counter', 'mystery_hook', 'heritage_intel', 'blueprint_diagram'].includes(p.shape) ||
+        ['metric_counter', 'mystery_hook', 'heritage_intel', 'blueprint_diagram'].includes(p.archetype);
+      return Boolean(p.imageUrl || isGraphicCard);
+    });
+
+    for (const p of readyPopups) {
+      const sIdx = typeof p.sceneIndex === 'number' ? p.sceneIndex : 0;
+      const sceneStartSec = sceneStarts[sIdx] ?? (sIdx * sceneDur);
+      const sceneEndSec = sceneEnds[sIdx] ?? Math.min(totalDuration, (sIdx + 1) * sceneDur);
+      const sceneLength = Math.max(2.0, sceneEndSec - sceneStartSec);
+
+      const cueOffset = typeof p.cueOffsetSec === 'number'
+        ? Math.min(p.cueOffsetSec, Math.max(0.4, sceneLength - 2.8))
+        : 1.0;
+      const graphicStartSec = sceneStartSec + cueOffset;
+      const maxAllowedDur = Math.max(1.8, (sceneEndSec - graphicStartSec) - 0.35);
+      const popupDur = Math.min(p.durationSec || 3.2, maxAllowedDur);
+
+      const compiled = compileExtraPopupToMotionGraphic(p, {
+        width: resolution.width,
+        height: resolution.height,
+        startSec: graphicStartSec,
+        durationSec: popupDur,
+        fps,
+      });
+      if (!dynamicGraphics.some((g: any) => g.id === compiled.id)) {
+        dynamicGraphics.push(compiled);
+      }
+    }
+  }
+
+  if (dynamicGraphics.length === 0) {
+    return undefined;
+  }
+
   const projectId = script.editingProjectId || randomUUID();
   const revisionId = randomUUID();
   const assetIds = imagePaths.map(() => randomUUID());
 
-  const artifacts = script.dynamicMotionGraphics.map((dmg: any, idx: number) => {
+  const artifacts = dynamicGraphics.map((dmg: any, idx: number) => {
     const sIdx = typeof dmg.sceneIndex === 'number' ? dmg.sceneIndex : idx;
-    const sceneStartSec = sIdx * sceneDur;
-    let graphicStartSec = sceneStartSec + 1.2;
+    const sceneStartSec = sceneStarts[sIdx] ?? (sIdx * sceneDur);
+    const sceneEndSec = sceneEnds[sIdx] ?? Math.min(totalDuration, (sIdx + 1) * sceneDur);
+
+    let graphicStartSec = sceneStartSec + 1.0;
     if (typeof dmg.startSec === 'number') {
-      if (dmg.startSec >= sceneStartSec && dmg.startSec < (sIdx + 1) * sceneDur) {
+      if (dmg.startSec >= sceneStartSec && dmg.startSec < sceneEndSec) {
         graphicStartSec = dmg.startSec;
-      } else if (dmg.startSec >= 0 && dmg.startSec < sceneDur) {
+      } else if (dmg.startSec >= 0 && dmg.startSec < (sceneEndSec - sceneStartSec)) {
         graphicStartSec = sceneStartSec + dmg.startSec;
+      } else {
+        graphicStartSec = dmg.startSec;
       }
     }
-    const graphicDur = Math.min(dmg.durationSec || 4.2, sceneDur - 0.3);
+    const maxDur = Math.max(1.8, (sceneEndSec - graphicStartSec) - 0.35);
+    const graphicDur = Math.min(dmg.durationSec || 3.2, maxDur);
     const startFrame = Math.round(graphicStartSec * fps);
     const endFrame = Math.round((graphicStartSec + graphicDur) * fps);
 
@@ -188,7 +250,9 @@ export function savedGraphicsForRender(
   scriptId: string, audioPath: string, imagePaths: string[], resolution: { width: number; height: number }, duration?: number,
 ): EditingProject | undefined {
   const script = store.getById<any>('scripts', scriptId);
-  if (script?.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) {
+  const hasDynamic = (script?.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) ||
+    (script?.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status === 'ready'));
+  if (hasDynamic) {
     const dynProj = dynamicMotionProjectForRender(script, audioPath, imagePaths, resolution, duration);
     if (dynProj) return dynProj;
   }

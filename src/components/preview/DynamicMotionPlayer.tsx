@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, RotateCcw, Sparkles, Volume2, VolumeX } from 'lucide-react';
 import { gsap } from 'gsap';
-import type { DynamicMotionGraphicData } from '@tubeflow/editing-contracts';
+import type { DynamicMotionGraphicData, ExtraPopupAsset } from '@tubeflow/editing-contracts';
+import { ExtraPopupOverlay } from './ExtraPopupOverlay';
 
 /**
  * Procedural Web Audio API sound effect synthesizer.
@@ -12,71 +13,225 @@ export function playSynthesizedSfx(kind?: string, volume: number = 0.5) {
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
     const now = ctx.currentTime;
-    const sfxKind = kind || 'whoosh';
+    const sfxKind = kind || 'sacred_bell';
 
-    if (sfxKind === 'energy_hum') {
+    // Master bus with gentle warmth
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(Math.min(1, Math.max(0, volume)), now);
+    master.connect(ctx.destination);
+
+    if (sfxKind === 'bubble_pop') {
+      // 1. Organic Satisfying Bubble Pop (Fast pitch-drop + warm acoustic resonance)
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(65, now);
-      osc.frequency.exponentialRampToValueAtTime(130, now + 0.4);
-      gain.gain.setValueAtTime(volume * 0.35, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 1.2);
-    } else if (sfxKind === 'telemetry_chirp') {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, now);
-      osc.frequency.setValueAtTime(1320, now + 0.08);
-      osc.frequency.setValueAtTime(1760, now + 0.16);
-      gain.gain.setValueAtTime(volume * 0.3, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(820, now);
+      osc.frequency.exponentialRampToValueAtTime(210, now + 0.08);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(1800, now);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.55, now + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(master);
       osc.start(now);
-      osc.stop(now + 0.35);
-    } else if (sfxKind === 'impact_boom') {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(120, now);
-      osc.frequency.exponentialRampToValueAtTime(30, now + 0.6);
-      gain.gain.setValueAtTime(volume * 0.5, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.8);
+      osc.stop(now + 0.13);
+
+    } else if (sfxKind === 'crystal_ting') {
+      // 2. Crystal Glass Ting (Sweet dual harmonic chime: D6 + G6 + D7 sparkle)
+      const partials = [
+        { freq: 1174.66, gain: 0.45, decay: 1.4 }, // D6
+        { freq: 1567.98, gain: 0.55, decay: 1.6 }, // G6
+        { freq: 2349.32, gain: 0.25, decay: 0.9 }, // D7
+        { freq: 3135.96, gain: 0.12, decay: 0.5 }, // G7
+      ];
+
+      partials.forEach(p => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(p.freq, now);
+
+        g.gain.setValueAtTime(0.001, now);
+        g.gain.linearRampToValueAtTime(p.gain * 0.4, now + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + p.decay);
+
+        osc.connect(g);
+        g.connect(master);
+        osc.start(now);
+        osc.stop(now + p.decay + 0.05);
+      });
+
+    } else if (sfxKind === 'camera_click') {
+      // 3. Tactile Macro Lens Click (Satisfying mechanical focus snap)
+      const click = (delay: number, freq: number, gainVal: number) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        const filt = ctx.createBiquadFilter();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + delay);
+        osc.frequency.exponentialRampToValueAtTime(80, now + delay + 0.03);
+
+        filt.type = 'bandpass';
+        filt.frequency.setValueAtTime(freq * 1.5, now + delay);
+        filt.Q.setValueAtTime(2.5, now + delay);
+
+        g.gain.setValueAtTime(0.001, now + delay);
+        g.gain.linearRampToValueAtTime(gainVal, now + delay + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + delay + 0.045);
+
+        osc.connect(filt);
+        filt.connect(g);
+        g.connect(master);
+        osc.start(now + delay);
+        osc.stop(now + delay + 0.05);
+      };
+
+      click(0, 720, 0.45);
+      click(0.028, 480, 0.38);
+
     } else if (sfxKind === 'sacred_bell') {
+      // 4. Sacred Tibetan/Vedic Golden Bell (Warm Solfeggio 528 Hz with rich choral partials)
+      const harmonics = [
+        { freq: 528, gain: 0.65, decay: 2.4 },      // Fundamental 528 Hz
+        { freq: 531.5, gain: 0.35, decay: 2.2 },    // Chorus detune warmth (+3.5Hz)
+        { freq: 792, gain: 0.38, decay: 1.8 },      // Perfect fifth
+        { freq: 1056, gain: 0.28, decay: 1.4 },     // Octave shimmer
+        { freq: 1584, gain: 0.16, decay: 0.9 },     // 3rd harmonic
+        { freq: 2112, gain: 0.08, decay: 0.5 },     // Upper sheen
+      ];
+
+      harmonics.forEach(h => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(h.freq, now);
+
+        g.gain.setValueAtTime(0.001, now);
+        g.gain.linearRampToValueAtTime(h.gain * 0.38, now + 0.012);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + h.decay);
+
+        osc.connect(g);
+        g.connect(master);
+        osc.start(now);
+        osc.stop(now + h.decay + 0.05);
+      });
+
+    } else if (sfxKind === 'telemetry_chirp') {
+      // 5. Ethereal Arpeggio Chime (D5 -> F#5 -> A5 major triad harp glide)
+      const notes = [
+        { freq: 587.33, time: 0, decay: 0.7 },     // D5
+        { freq: 739.99, time: 0.045, decay: 0.8 }, // F#5
+        { freq: 880.00, time: 0.09, decay: 1.1 },  // A5
+        { freq: 1174.66, time: 0.135, decay: 1.2 },// D6
+      ];
+
+      notes.forEach(n => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(n.freq, now + n.time);
+
+        g.gain.setValueAtTime(0.001, now + n.time);
+        g.gain.linearRampToValueAtTime(0.32, now + n.time + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + n.time + n.decay);
+
+        osc.connect(g);
+        g.connect(master);
+        osc.start(now + n.time);
+        osc.stop(now + n.time + n.decay + 0.05);
+      });
+
+    } else if (sfxKind === 'energy_hum') {
+      // 6. Deep Warm Ambient Resonance (Smooth Cello / Singing Bowl Hum)
+      const freqs = [110, 165, 220]; // A2 + E3 + A3 warm fifths
+      freqs.forEach((f, i) => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, now);
+
+        g.gain.setValueAtTime(0.001, now);
+        g.gain.linearRampToValueAtTime((0.35 / (i + 1)), now + 0.15);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
+
+        osc.connect(g);
+        g.connect(master);
+        osc.start(now);
+        osc.stop(now + 1.45);
+      });
+
+    } else if (sfxKind === 'impact_boom') {
+      // 7. Soft Cinematic Sub Thud (Zero harsh clipping, velvety low-end pulse)
       const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+      const g = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(528, now);
-      gain.gain.setValueAtTime(volume * 0.35, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(105, now);
+      osc.frequency.exponentialRampToValueAtTime(38, now + 0.4);
+
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(160, now);
+
+      g.gain.setValueAtTime(0.001, now);
+      g.gain.linearRampToValueAtTime(0.55, now + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.65);
+
+      osc.connect(filter);
+      filter.connect(g);
+      g.connect(master);
       osc.start(now);
-      osc.stop(now + 1.8);
+      osc.stop(now + 0.7);
+
     } else {
-      // Default whoosh
-      const osc = ctx.createOscillator();
+      // 8. Default: Velvet Air Whoosh (Smooth organic noise sweep passed through sweeping bandpass)
+      const sampleRate = ctx.sampleRate;
+      const dur = 0.42;
+      const bufferSize = Math.floor(sampleRate * dur);
+      const buffer = ctx.createBuffer(1, bufferSize, sampleRate);
+      const data = buffer.getChannelData(0);
+
+      // Pink noise algorithm
+      let b0 = 0, b1 = 0, b2 = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99765 * b0 + white * 0.0990460;
+        b1 = 0.96300 * b1 + white * 0.2965164;
+        b2 = 0.57000 * b2 + white * 1.0526913;
+        data[i] = (b0 + b1 + b2 + white * 0.1848) * 0.08;
+      }
+
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.Q.setValueAtTime(2.0, now);
+      filter.frequency.setValueAtTime(240, now);
+      filter.frequency.exponentialRampToValueAtTime(1250, now + 0.18);
+      filter.frequency.exponentialRampToValueAtTime(200, now + dur);
+
       const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(180, now);
-      osc.frequency.exponentialRampToValueAtTime(440, now + 0.2);
-      osc.frequency.exponentialRampToValueAtTime(80, now + 0.5);
-      gain.gain.setValueAtTime(volume * 0.35, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.6);
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.5, now + 0.16);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(master);
+      noise.start(now);
     }
   } catch (err) {
     console.warn('Web Audio SFX playback error:', err);
@@ -88,6 +243,7 @@ export interface DynamicMotionPlayerProps {
   backgroundImageUrl?: string;
   aspectRatio?: '9:16' | '16:9';
   autoPlay?: boolean;
+  extraPopup?: ExtraPopupAsset;
 }
 
 export function DynamicMotionPlayer({
@@ -95,6 +251,7 @@ export function DynamicMotionPlayer({
   backgroundImageUrl,
   aspectRatio = '9:16',
   autoPlay = true,
+  extraPopup,
 }: DynamicMotionPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<gsap.core.Timeline | null>(null);
@@ -303,6 +460,15 @@ export function DynamicMotionPlayer({
           className="pointer-events-none absolute inset-0 overflow-hidden"
           style={{ perspective: '1200px', transformStyle: 'preserve-3d' }}
         />
+
+        {/* Extra Popup Spotlight Asset Overlay Layer */}
+        {extraPopup && (
+          <ExtraPopupOverlay
+            popup={extraPopup}
+            playState={isPlaying ? 'playing' : 'paused'}
+            enableSfx={sfxEnabled}
+          />
+        )}
       </div>
 
       {/* Playback Controls & Timeline Scrubber */}

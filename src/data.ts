@@ -189,7 +189,20 @@ export interface Script {
   facebookExport?: FacebookExportData;
   instagramExport?: InstagramExportData;
   ttsVolume?: number;
+  extraPopups?: import('@tubeflow/editing-contracts').ExtraPopupAsset[];
+  dynamicMotionGraphics?: import('@tubeflow/editing-contracts').DynamicMotionGraphicData[];
+  twoStepVerification?: {
+    status: 'verified';
+    verifiedAt: string;
+    retentionScore: number;
+    hookStrength: 'weak' | 'moderate' | 'exceptional';
+    mistakesCorrected: string[];
+    retentionFindings: string[];
+    overlayAdjustments: string[];
+  };
 }
+
+export type { ExtraPopupAsset, ExtraPopupShapeType, ExtraPopupPlacementType } from '@tubeflow/editing-contracts';
 
 export interface PipelineStep {
   id: string;

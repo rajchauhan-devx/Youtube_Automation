@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
+import { canonicalSfx } from '@tubeflow/editing-contracts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const SFX_DIR = path.join(__dirname, '..', '..', 'assets', 'sfx');
@@ -100,7 +101,79 @@ const SFX_REGISTRY: Record<string, SfxDefinition> = {
       '-y',
     ],
   },
-  teletype_chatter: {
+    sacred_bell: {
+    filename: 'sacred_bell.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=(sin(2*PI*528*t)*0.5+sin(2*PI*531*t)*0.25+sin(2*PI*792*t)*0.2+sin(2*PI*1056*t)*0.1)*exp(-2.2*t):s=44100',
+      '-t', '2.0',
+      '-af', 'volume=2.6,afade=t=out:st=1.2:d=0.8',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+  crystal_ting: {
+    filename: 'crystal_ting.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=(sin(2*PI*1200*t)*0.6+sin(2*PI*2400*t)*0.25)*exp(-4.5*t):s=44100',
+      '-t', '1.0',
+      '-af', 'volume=2.4,afade=t=out:st=0.6:d=0.4',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+  camera_click: {
+    filename: 'camera_click.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=(exp(-90*t)*sin(2*PI*720*exp(-20*t)*t)+if(gt(t\\,0.035)\\,exp(-80*(t-0.035))*sin(2*PI*480*t)\\,0))*0.8:s=44100',
+      '-t', '0.35',
+      '-af', 'volume=2.5,afade=t=out:st=0.2:d=0.15',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+  bubble_pop: {
+    filename: 'bubble_pop.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=sin(2*PI*(350+400*t)*t)*exp(-35*t)*0.8:s=44100',
+      '-t', '0.25',
+      '-af', 'volume=2.5,afade=t=out:st=0.15:d=0.1',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+  telemetry_chirp: {
+    filename: 'telemetry_chirp.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=(sin(2*PI*880*t)*exp(-30*mod(t\\,0.07))+sin(2*PI*1320*t)*exp(-30*mod(t\\,0.07))*0.5)*if(lt(t\\,0.35)\\,1\\,0):s=44100',
+      '-t', '0.45',
+      '-af', 'volume=2.4,afade=t=out:st=0.3:d=0.15',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+  energy_hum: {
+    filename: 'energy_hum.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=(sin(2*PI*432*t)*0.5+sin(2*PI*864*t)*0.25)*exp(-1.5*t):s=44100',
+      '-t', '1.8',
+      '-af', 'volume=2.5,afade=t=out:st=1.0:d=0.8',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+teletype_chatter: {
     filename: 'teletype_chatter.mp3',
     args: [
       '-f', 'lavfi',
@@ -179,4 +252,13 @@ export function resolveSfxForGraphicKind(kind?: string, title?: string, detail?:
   }
 
   return null;
+}
+
+export function resolveExtraPopupSfx(sfxName?: string): string | null {
+  const kind = canonicalSfx(sfxName);
+  if (kind === 'none') return null;
+  const p = path.join(SFX_DIR, `${kind}.mp3`);
+  if (fs.existsSync(p)) return p;
+  const fallback = path.join(SFX_DIR, 'whoosh.mp3');
+  return fs.existsSync(fallback) ? fallback : null;
 }

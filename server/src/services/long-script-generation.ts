@@ -1,6 +1,6 @@
 import { chat, type ChatRequest } from './gemini.js';
 import { parseScenePlan, type ScenePlan } from './scene-plan.js';
-import { generationResponseSchema, generationIssue, narrationWordBudget, requiresBothMedia, requiredVideoCount, promptMinimumWords, supportingSections } from './script-generation.js';
+import { generationResponseSchema, generationIssue, narrationWordBudget, requiresBothMedia, requiredVideoCount, promptMinimumWords, supportingSections, NARRATION_WORDS_PER_MINUTE } from './script-generation.js';
 import { SCENE_PLAN_FORMAT_MARKER } from './scene-plan-format.js';
 import { repairVisualPrompts } from './visual-prompt-repair.js';
 import { repairNarrationBudget } from './narration-budget-repair.js';

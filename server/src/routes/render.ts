@@ -20,6 +20,7 @@ import path from 'path';
 import { generatePresenter, presenterHealth } from '../services/presenter.js';
 import { validatePresenter, reservePresenterCaptionSpace, type PresenterSettings } from '../services/presenter-settings.js';
 import { compositeSavedGraphics, savedGraphicsForRender, graphicsCameras } from '../services/render-graphics.js';
+import { runTwoStepVerification } from '../services/two-step-verifier.js';
 import { retentionEditing } from '../services/retention.js';
 import { saveRenderJob, readRenderJob, removeRenderJob } from '../services/render-jobs.js';
 
@@ -191,7 +192,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
   let hasVisualArtifacts = false;
   let effectiveEditing = editing;
   try {
-    resolvedBgm = bgmTrack === 'ai' ? resolveGeneratedMusic(scriptId) : bgmTrack ? resolveMusicTrack(bgmTrack) : null;
+    resolvedBgm = bgmTrack === 'none' ? null : (bgmTrack === 'ai' ? resolveGeneratedMusic(scriptId) : (bgmTrack ? resolveMusicTrack(bgmTrack) : resolveMusicTrack('auto')));
     const resolvedAudio = resolveInputPath(audioPath, scriptId);
     if (currentWorkspace().profile !== 'shorts' || store.getById<any>('scripts', scriptId)?.scenePlan) {
       if (narrationStatus(scriptId).status === 'running') throw new Error('Wait for synchronized narration to finish.');
@@ -226,6 +227,23 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     if (timelineConfig) {
       if (!Array.isArray(timelineConfig.clips) || timelineConfig.clips.length !== imagePaths.length) throw new Error('Timeline scene count must match images');
       planTimeline(timelineConfig.clips, finalDuration);
+    }
+    // Auto-orchestrate motion graphics and popups if none exist yet on the script
+    const currentScript = store.getById<any>('scripts', scriptId);
+    const hasDynamic = (currentScript?.dynamicMotionGraphics?.length > 0) ||
+      (currentScript?.extraPopups?.some((p: any) => p.status === 'ready'));
+
+    if (!hasDynamic && effectiveEditing?.enabled !== false) {
+      try {
+        console.log(`[render] Auto-orchestrating motion graphics and popups for script ${scriptId}...`);
+        await runTwoStepVerification({
+          scriptId,
+          channelName: currentScript?.name || (currentWorkspace().accountId === 'default' ? 'Ancient Dharma' : undefined),
+          channelProfile: currentWorkspace().profile,
+        });
+      } catch (verifyErr) {
+        console.warn('[render] Auto-orchestration on render skipped or failed:', verifyErr);
+      }
     }
     savedGraphics = savedGraphicsForRender(scriptId, audioPath, imagePaths, resolution || { width: 1080, height: 1920 }, finalDuration);
     hasVisualArtifacts = Boolean(savedGraphics?.artifacts.some(a => a.enabled && (a.graphic || a.sceneGraph || (a as any).dynamicMotion)));
@@ -285,7 +303,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     enableSubtitles: Boolean(enableSubtitles && !hasVisualArtifacts && (longSync || subtitlePath)),
     subtitlePath,
     bgmPath: resolvedBgm || undefined,
-    bgmVolume: typeof bgmVolume === 'number' ? bgmVolume : 0.15,
+    bgmVolume: typeof bgmVolume === 'number' ? bgmVolume : 0.12,
     ttsVolume: typeof ttsVolume === 'number' ? ttsVolume : 1.0,
     colorGrade: typeof colorGrade === 'string' ? colorGrade : undefined,
     enableVignette: enableVignette !== false,

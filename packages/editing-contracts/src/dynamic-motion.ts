@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SFX_NAMES, POPUP_SHAPES, POPUP_PLACEMENTS, canonicalSfx } from './style-kit.js';
 
 export const DynamicMotionPlacement = z.strictObject({
   position: z.enum([
@@ -32,15 +33,7 @@ export const DynamicMotionRender = z.strictObject({
 export type DynamicMotionRenderData = z.infer<typeof DynamicMotionRender>;
 
 export const DynamicMotionSfx = z.strictObject({
-  kind: z.enum([
-    'whoosh',
-    'energy_hum',
-    'impact_boom',
-    'telemetry_chirp',
-    'sacred_bell',
-    'glitch_static',
-    'none',
-  ]).default('whoosh'),
+  kind: z.preprocess((v) => canonicalSfx(typeof v === 'string' ? v : undefined), z.enum(SFX_NAMES)).default('whoosh'),
   startSec: z.number().min(0).optional(),
   volume: z.number().min(0).max(1).default(0.7),
 });
@@ -83,3 +76,35 @@ export const DynamicMotionGraphic = z.strictObject({
   render: DynamicMotionRender,
 });
 export type DynamicMotionGraphicData = z.infer<typeof DynamicMotionGraphic>;
+
+export const ExtraPopupShape = z.enum(POPUP_SHAPES);
+export type ExtraPopupShapeType = z.infer<typeof ExtraPopupShape>;
+
+export const ExtraPopupPlacement = z.enum(POPUP_PLACEMENTS);
+export type ExtraPopupPlacementType = z.infer<typeof ExtraPopupPlacement>;
+
+export const ExtraPopupAssetSchema = z.strictObject({
+  id: z.string().min(1),
+  sceneIndex: z.number().int().min(0),
+  cueWord: z.string().min(1),
+  cueOffsetSec: z.number().min(0).default(1.0),
+  durationSec: z.number().min(1.0).max(10.0).default(3.5),
+  title: z.string().min(1).max(100),
+  subtitle: z.string().max(200).optional(),
+  prompt: z.string().min(5),
+  negativePrompt: z.string().optional(),
+  shape: ExtraPopupShape.default('circle_medallion'),
+  placement: ExtraPopupPlacement.default('top-right'),
+  scalePercent: z.number().min(15).max(60).default(30),
+  imageUrl: z.string().optional(),
+  maskUrl: z.string().optional(),
+  sfx: z.preprocess((v) => canonicalSfx(typeof v === 'string' ? v : undefined), z.enum(SFX_NAMES)).default('whoosh'),
+  statValue: z.string().optional(),
+  statUnit: z.string().optional(),
+  badgeTag: z.string().optional(),
+  archetype: z.string().optional(),
+  status: z.enum(['pending', 'generating', 'ready', 'error']).default('pending'),
+  error: z.string().optional(),
+});
+export type ExtraPopupAsset = z.infer<typeof ExtraPopupAssetSchema>;
+

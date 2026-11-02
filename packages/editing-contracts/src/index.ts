@@ -889,3 +889,4 @@ export function validateProject(value: unknown): EditingProject {
 }
 export * from './motion-template.js';
 export * from './motion-policy.js';
+export * from './style-kit.js';
