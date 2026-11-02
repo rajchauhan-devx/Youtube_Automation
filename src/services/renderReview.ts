@@ -9,6 +9,10 @@ export function hasCaptionBlocker(review?: RenderReview): boolean {
     finding.severity === 'blocker' && /caption|subtitle/i.test(`${finding.category} ${finding.detail}`));
 }
 
+export function hasReviewBlocker(review?: RenderReview): boolean {
+  return review?.status === 'blocked' || Boolean(review?.findings?.some(finding => finding.severity === 'blocker'));
+}
+
 export function reviewBlockerMessage(review: RenderReview): string {
   const blockers = review.findings.filter(finding => finding.severity === 'blocker');
   return `Final review needs attention: ${blockers.length ? blockers.map(finding => `${finding.category}: ${finding.detail}`).join('\n') : review.summary}`;

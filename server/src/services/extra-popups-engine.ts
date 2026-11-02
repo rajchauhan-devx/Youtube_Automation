@@ -645,35 +645,36 @@ export function compileExtraPopupToMotionGraphic(
     }
   }
 
-  // Safe zones: protect bottom 25% subtitle area
+  // Safe zones: protect top 15% (Shorts header/camera safe zone) and bottom 25% (subtitle area)
   let posStyles = '';
   switch (popup.placement) {
     case 'top-left':
-      posStyles = 'top: 10%; left: 6%; align-items: flex-start;';
+      posStyles = 'top: 15%; left: 8%; align-items: flex-start;';
       break;
     case 'bottom-left':
-      posStyles = 'top: 28%; left: 6%; align-items: flex-start;';
+      posStyles = 'top: 28%; left: 8%; align-items: flex-start;';
       break;
     case 'bottom-right':
-      posStyles = 'top: 28%; right: 6%; align-items: flex-end;';
+      posStyles = 'top: 28%; right: 8%; align-items: flex-end;';
       break;
     case 'center-left':
-      posStyles = 'top: 30%; left: 6%; align-items: flex-start;';
+      posStyles = 'top: 30%; left: 8%; align-items: flex-start;';
       break;
     case 'center-right':
-      posStyles = 'top: 30%; right: 6%; align-items: flex-end;';
+      posStyles = 'top: 30%; right: 8%; align-items: flex-end;';
       break;
     case 'top-right':
     default:
-      posStyles = 'top: 10%; right: 6%; align-items: flex-end;';
+      posStyles = 'top: 15%; right: 8%; align-items: flex-end;';
       break;
   }
 
-  const isMetric = shape === 'metric_counter';
-  const isMystery = shape === 'mystery_hook';
-  const isHeritage = shape === 'heritage_intel';
-  const isBlueprint = shape === 'blueprint_diagram';
-  const isHex = shape === 'tactical_hexagon';
+  const hasImage = Boolean(imgSrc && imgSrc.length > 10);
+  const isMetric = shape === 'metric_counter' || popup.archetype === 'metric_counter';
+  const isMystery = shape === 'mystery_hook' || popup.archetype === 'mystery_hook';
+  const isBlueprint = shape === 'blueprint_diagram' || popup.archetype === 'blueprint_diagram';
+  const isHeritage = shape === 'heritage_intel' || popup.archetype === 'heritage_intel' || (!hasImage && !isMetric && !isMystery && !isBlueprint);
+  const isHex = shape === 'tactical_hexagon' && hasImage;
 
   const themeColor = theme.primary;
   const themeGlow = theme.glow;
@@ -823,9 +824,9 @@ export function compileExtraPopupToMotionGraphic(
 
     // 'none' card style (Ancient Dharma): free-floating type, no card box behind the label.
     cardBodyHtml = `
-      ${frameSvg}
+      ${hasImage ? frameSvg : ''}
       <div class="ep-leader-block ${isLeft ? 'ep-left' : 'ep-right'}">
-        ${leaderSvg}
+        ${hasImage ? leaderSvg : ''}
         <div class="ep-badge ${noCard ? 'ep-badge-float' : ''}">
           <div class="ep-badge-pill">
             <span class="ep-pill-dot"></span>

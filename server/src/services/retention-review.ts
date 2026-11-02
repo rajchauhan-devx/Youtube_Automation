@@ -54,12 +54,37 @@ export async function reviewRenderedVideo(script: any, filename: unknown, apiKey
     const start = cursor; cursor += duration * weights[index] / total;
     return { start, end: cursor };
   });
-  const project = script.editingProjectId ? editingProject(script.editingProjectId) : undefined;
-  const graphics = project?.artifacts.filter(a => a.enabled && a.graphic?.kind !== 'caption')
-    .map(a => ({ start: a.startFrame / project.inputs.fps, end: a.endFrame / project.inputs.fps })) || [];
+  let project: ReturnType<typeof editingProject> | undefined;
+  if (script.editingProjectId) {
+    try {
+      project = editingProject(script.editingProjectId);
+    } catch {
+      // Editing project may be synthetic, transient, or removed; review sampling continues gracefully.
+    }
+  }
+  const graphics: { start: number; end: number }[] = [];
+  if (project?.artifacts?.length) {
+    for (const a of project.artifacts) {
+      if (a.enabled && a.graphic?.kind !== 'caption') {
+        graphics.push({
+          start: a.startFrame / (project.inputs?.fps || 30),
+          end: a.endFrame / (project.inputs?.fps || 30),
+        });
+      }
+    }
+  }
+  if (Array.isArray(script.extraPopups)) {
+    for (const p of script.extraPopups) {
+      if (p.status === 'ready' && typeof p.durationSec === 'number') {
+        const scene = windows[p.sceneIndex] || { start: 0, end: 0 };
+        const start = scene.start + (p.cueOffsetSec || 0);
+        graphics.push({ start, end: start + p.durationSec });
+      }
+    }
+  }
   const sampleTimes = reviewSampleTimes(duration, windows, graphics);
   const batchCount = Math.ceil(sampleTimes.length / 6);
-  const model = process.env.GEMINI_RETENTION_REVIEW_MODEL || project?.settings.aiModel || script.autoPilotSettings?.graphics?.model ||
+  const model = process.env.GEMINI_RETENTION_REVIEW_MODEL || project?.settings?.aiModel || script.autoPilotSettings?.graphics?.model ||
     process.env.GEMINI_EDIT_MODEL || process.env.EDITING_PLANNER_MODEL || 'gemini-3.6-flash';
   if (!/^gemini-[a-z0-9.-]+$/i.test(model)) throw new Error('Choose a Gemini model for final rendered review.');
   const checkpointFile = `${videoPath}.review-progress.json`;

@@ -7,7 +7,7 @@
   "normalized_path": "C:\\Users\\zrajc\\OneDrive\\Documents\\MuseTalk-Demo\\avatars\\prepared\\avatar_013\\source_25fps.mp4",
   "fps": 25,
   "resolution": "1920x1080",
-  "duration": 10,
+  "duration": 10.0,
   "bbox_shift": 5,
   "num_frames_cycle": 500,
   "preparation_status": "prepared",
@@ -17,5 +17,7 @@
     "y": 0,
     "width": 47,
     "height": 100
-  }
+  },
+  "adapter_version": 1,
+  "face_detector": "OpenCV YuNet"
 }

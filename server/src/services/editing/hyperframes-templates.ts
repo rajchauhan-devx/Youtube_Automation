@@ -50,7 +50,7 @@ export function renderKineticCaption(opts: {
     #${id}.kinetic-caption-wrap {
       position: absolute;
       left: 0;
-      bottom: 12%;
+      bottom: 18%;
       width: 100%;
       display: flex;
       justify-content: center;

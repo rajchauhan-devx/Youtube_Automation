@@ -305,7 +305,10 @@ export function preparePromptForImageGeneration(
   const is2dStylized = Boolean(options?.force2dStylized) || TWO_D_STYLE_PATTERN.test(input);
 
   const negativeChunks: string[] = [];
-  let working = input;
+  let working = input
+    .replace(/(?:^|\n)\s*Evidence\s*\/\s*Disclosure\s*:[\s\S]*?(?=\n\s*[A-Z][a-zA-Z\s]+:|$)/gi, '')
+    .replace(/(?:^|\n)\s*Disclosure\s+label\s*:[^\n]*/gi, '')
+    .replace(/(?:^|\n)\s*Continuity\s+Lock\s*:[\s\S]*?(?=\n\s*[A-Z][a-zA-Z\s]+:|$)/gi, '');
 
   // 1. Extract multiline "Negative Prompt:" sections
   working = working.replace(
@@ -358,6 +361,10 @@ export function preparePromptForImageGeneration(
       .replace(/\bVisual Style:[^\n]*/gi, '')
       .replace(/Negative Prompt:[\s\S]*?(?=Style Tags:|$)/gi, '')
       .replace(/Style Tags:[\s\S]*?$/gi, '')
+      .replace(/Evidence\s*\/\s*Disclosure\s*:[\s\S]*?(?=\n\s*[A-Z]|$)/gi, '')
+      .replace(/Disclosure label:[^\n]*/gi, '')
+      .replace(/Continuity Lock:[\s\S]*?(?=\n\s*[A-Z]|$)/gi, '')
+      .replace(/(?:Subject|Location|Object|Light|Audio|Shot Type|Camera Movement)\s+Lock\s*:[^\n]*/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
 

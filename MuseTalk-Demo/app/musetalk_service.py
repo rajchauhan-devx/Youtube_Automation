@@ -198,6 +198,15 @@ class MuseTalkService:
         if metadata.get("adapter_version") != 1:
             raise ValueError("Re-prepare this avatar with the bundled MuseTalk adapter")
 
+        progress("Loading MuseTalk 1.5 models", 0.05)
+        self.load_models()
+        latents = torch.load(directory / "latents.pt", map_location="cpu", weights_only=True)
+        # Coordinates are created locally during preparation; never accept uploaded pickle files.
+        with (directory / "coords.pkl").open("rb") as stream:
+            coords = pickle.load(stream)
+        if not latents or len(latents) != len(coords):
+            raise ValueError("Avatar cache is incomplete; prepare it again")
+
         # Detect mouthless avatars: base frames have no mouth, so silence gating would erase the mouth completely.
         is_mouthless = metadata.get("source_mode") == "mouthless" or bool(metadata.get("mouthless", False))
         if not is_mouthless and coords:
@@ -217,15 +226,6 @@ class MuseTalkService:
 
         if is_mouthless:
             silence_gate = False
-
-        progress("Loading MuseTalk 1.5 models", 0.05)
-        self.load_models()
-        latents = torch.load(directory / "latents.pt", map_location="cpu", weights_only=True)
-        # Coordinates are created locally during preparation; never accept uploaded pickle files.
-        with (directory / "coords.pkl").open("rb") as stream:
-            coords = pickle.load(stream)
-        if not latents or len(latents) != len(coords):
-            raise ValueError("Avatar cache is incomplete; prepare it again")
         progress("Encoding narration", 0.12)
         config.OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
         output = config.OUTPUTS_DIR / ("musetalk-" + uuid.uuid4().hex + ".mp4")

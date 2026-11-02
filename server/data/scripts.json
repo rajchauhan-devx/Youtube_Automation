@@ -55,7 +55,7 @@
       },
       "captions": "motion",
       "graphics": {
-        "enabled": true,
+        "enabled": false,
         "mode": "images",
         "density": "subtle",
         "treatment": "auto",
@@ -94,7 +94,7 @@
         "voiceVolume": 1
       },
       "youtube": {
-        "enabled": false,
+        "enabled": true,
         "privacyStatus": "public",
         "publishMode": "schedule",
         "scheduledPublishAt": "2026-11-02T12:30:00.000Z"
@@ -227,7 +227,7 @@
         "enabled": true,
         "privacyStatus": "private",
         "publishMode": "schedule",
-        "scheduledPublishAt": "2026-10-29T03:30:00.000Z"
+        "scheduledPublishAt": "2026-11-02T07:30:00.000Z"
       },
       "presenter": {
         "enabled": true,

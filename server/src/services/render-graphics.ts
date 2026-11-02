@@ -232,17 +232,6 @@ function dynamicMotionProjectForRender(
     diagnostics: [],
   } as unknown as EditingProject;
 
-  try {
-    const dir = projectDir(projectId);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({ id: projectId, revisionId, scriptId }));
-    if (!script.editingProjectId) {
-      store.add('scripts', { ...script, editingProjectId: project.id });
-    }
-  } catch (err) {
-    console.warn('[render-graphics] Failed to create project dir:', err);
-  }
-
   return project;
 }
 

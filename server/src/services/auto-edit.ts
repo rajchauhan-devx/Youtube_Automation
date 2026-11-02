@@ -82,20 +82,39 @@ const assTime = (seconds: number) => {
 };
 const safeText = (text: string) => text.replace(/[{}\\\r\n]/g, ' ').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
 export function captionPhrases(text: string, wordsPerPhrase: number) {
-  const words = safeText(text).split(/\s+/).filter(Boolean);
+  const clean = safeText(text);
+  if (!clean) return [];
+  const rawSentences = clean.split(/(?<=[.!?।;])\s+/).filter(Boolean);
   const phrases: string[] = [];
-  let phrase: string[] = [];
-  for (const word of words) {
-    phrase.push(word);
-    if (phrase.length >= wordsPerPhrase || (phrase.length >= 4 && /[.!?।]$/.test(word))) { phrases.push(phrase.join(' ')); phrase = []; }
+
+  for (const s of rawSentences) {
+    const words = s.split(/\s+/).filter(Boolean);
+    if (!words.length) continue;
+
+    if (words.length <= wordsPerPhrase) {
+      phrases.push(words.join(' '));
+      continue;
+    }
+
+    const numChunks = Math.ceil(words.length / wordsPerPhrase);
+    const baseSize = Math.floor(words.length / numChunks);
+    const remainder = words.length % numChunks;
+    let start = 0;
+    for (let i = 0; i < numChunks; i++) {
+      const chunkSize = baseSize + (i < remainder ? 1 : 0);
+      phrases.push(words.slice(start, start + chunkSize).join(' '));
+      start += chunkSize;
+    }
   }
-  if (phrase.length) phrases.push(phrase.join(' '));
+
   return phrases;
 }
 
 export function autoEditAss(narration: string, duration: number, _title: string, width: number, height: number, settings: EditingSettings, captions: boolean) {
-  const size = Math.max(14, Math.round(height * 0.037));
-  const margin = Math.round(width * 0.09), bottom = Math.round(height * (settings.letterbox ? 0.13 : 0.075));
+  const isPortrait = height > width;
+  const size = Math.max(14, Math.round(height * (isPortrait ? 0.034 : 0.037)));
+  const margin = Math.round(width * (isPortrait ? 0.08 : 0.09));
+  const bottom = Math.round(height * (isPortrait ? 0.20 : (settings.letterbox ? 0.13 : 0.075)));
   const color = settings.captionStyle === 'gold' ? '&H008CDDF5' : '&H00FFFFFF';
   const header = `[Script Info]\nScriptType: v4.00+\nPlayResX: ${width}\nPlayResY: ${height}\nWrapStyle: 0\n[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\nStyle: Caption,Nirmala UI,${size},${color},${color},&H00141414,&H90141414,0,0,0,0,100,100,0,0,${settings.captionStyle === 'boxed' ? 3 : 1},${Math.max(1, height / 540)},0,2,${margin},${margin},${bottom},1\n[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\n`;
   const lines: string[] = [];

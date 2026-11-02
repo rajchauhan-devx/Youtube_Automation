@@ -40,7 +40,7 @@ import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { incompleteResponse, placeholderResponse } from '../server/src/services/generation-status';
 import { buildFreePrompt, FREE_CHAT_SYSTEM, freeChatSystem } from '../server/src/services/script-generation';
 import { apiPost, getApiKey } from './services/api.js';
-import { hasCaptionBlocker, reviewBlockerMessage, waitForRenderedReview } from './services/renderReview.js';
+import { hasCaptionBlocker, hasReviewBlocker, reviewBlockerMessage, waitForRenderedReview } from './services/renderReview.js';
 import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AutoPilotModal } from './components/autopilot/AutoPilotModal';
@@ -897,9 +897,10 @@ export default function App() {
         startStage = Math.min(startStage, savedProductionStage(currentScript));
         if (startStage >= 8 && !resumeVideoUrl) startStage = 7;
         if (startStage >= 9 && currentScript.retentionReview?.status !== 'passed') startStage = 8;
-        if (startStage >= 8 && runSettings.captions !== 'off' && hasCaptionBlocker(currentScript.retentionReview)) {
+        if (startStage >= 8 && (hasReviewBlocker(currentScript.retentionReview) || (runSettings.captions !== 'off' && hasCaptionBlocker(currentScript.retentionReview)))) {
           startStage = 7;
-          addAutoPilotLog('render_video', 'The saved MP4 failed caption review. Rebuilding captions with the current renderer before reviewing again.', 'info');
+          resumeVideoUrl = null;
+          addAutoPilotLog('render_video', 'The saved MP4 had review findings. Rebuilding video composition before reviewing again.', 'info');
         }
         if (currentScript.retentionPlan) retention = { plan: currentScript.retentionPlan, brief: autoPilotState.retentionBrief || `Viewer promise: ${currentScript.retentionPlan.viewerPromise}. Selected hook: ${currentScript.retentionPlan.hooks[currentScript.retentionPlan.selectedHookIndex].openingLine}` };
         patchScriptState(scriptId, currentScript);
@@ -1736,12 +1737,20 @@ export default function App() {
         ? ['Shorts', ...rawTags]
         : rawTags;
 
+      let effectivePublishAt = runSettings.youtube.publishMode === 'schedule' ? runSettings.youtube.scheduledPublishAt : undefined;
+      if (effectivePublishAt) {
+        const parsedSchedule = Date.parse(effectivePublishAt);
+        if (Number.isNaN(parsedSchedule) || parsedSchedule <= Date.now() + 5 * 60_000) {
+          effectivePublishAt = new Date(Date.now() + 15 * 60_000).toISOString();
+        }
+      }
+
       const uploadResponse = await fetch('/api/youtube/upload', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId, videoFilename, autoPilot: true, isShort,
           title: finalTitle, description: finalDesc, tags: finalTags,
           privacyStatus: runSettings.youtube.privacyStatus, categoryId: exportSettings.categoryId || '22',
-          ...(runSettings.youtube.publishMode === 'schedule' ? { publishAt: runSettings.youtube.scheduledPublishAt } : {}),
+          ...(effectivePublishAt ? { publishAt: effectivePublishAt } : {}),
         }),
         signal: controller.signal,
       });
@@ -1749,7 +1758,7 @@ export default function App() {
       if (!uploadResponse.ok || !uploaded.success) throw new Error(uploaded.error || 'YouTube export failed');
       patchScriptState(scriptId, { youtubeExport: { ...exportSettings,
         title: uploaded.title || finalTitle, description: finalDesc, tags: finalTags,
-        publishMode: runSettings.youtube.publishMode, scheduledPublishAt: runSettings.youtube.scheduledPublishAt,
+        publishMode: runSettings.youtube.publishMode, scheduledPublishAt: effectivePublishAt || runSettings.youtube.scheduledPublishAt,
         privacyStatus: uploaded.privacyStatus, uploadedVideoId: uploaded.videoId,
         uploadedVideoUrl: uploaded.videoUrl, uploadedAt: uploaded.uploadedAt,
       } });

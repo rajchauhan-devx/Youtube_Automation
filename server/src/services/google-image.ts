@@ -73,6 +73,11 @@ export async function generateGoogleImage(opts: GoogleImageOptions): Promise<{
   const channelLora = resolveChannelLoraForAccount(accountId);
 
   const sanitizedPrompt = String(opts.prompt || '')
+    // Strip metadata sections that cause text hallucination in generated images
+    .replace(/(?:^|\n)\s*Evidence\s*\/\s*Disclosure\s*:[\s\S]*?(?=\n\s*[A-Z][a-zA-Z\s]+:|$)/gi, '')
+    .replace(/(?:^|\n)\s*Disclosure\s+label\s*:[^\n]*/gi, '')
+    .replace(/(?:^|\n)\s*Continuity\s+Lock\s*:[\s\S]*?(?=\n\s*[A-Z][a-zA-Z\s]+:|$)/gi, '')
+    .replace(/(?:^|\n)\s*(?:Subject|Location|Object|Light|Audio|Shot Type|Camera Movement)\s+Lock\s*:[^\n]*/gi, '')
     // Minor / child safety triggers
     .replace(/\b(?:abandoned\s+)?child(?:ren)?\b/gi, 'young traveler')
     .replace(/\b(?:abandoned\s+)?kid(?:s)?\b/gi, 'young traveler')

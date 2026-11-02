@@ -21,6 +21,7 @@ export function synchronizedCaptionAss(plan: ScenePlan, sync: NarrationSync, wid
         const fields = line.split(',');
         fields[19] = String(Math.round(width * 0.08));
         fields[20] = String(Math.round(width * 0.16));
+        fields[21] = String(Math.round(height * 0.20));
         return fields.join(',');
       });
     }
