@@ -30,14 +30,14 @@ export async function motionSoundEvents(project: EditingProject, enabled?: boole
       if (file) events.push({path:file,startSample:Math.round(art.startFrame*48000/project.inputs.fps),trimSamples:0,gainDb:attenuation,duration:1.2});
     } else if ((art as any).dynamicMotion) {
       const dm = (art as any).dynamicMotion;
-      const sfxName = (typeof dm.sfx === 'string' ? dm.sfx : dm.sfx?.kind) || 'whoosh';
+      const sfxName = (typeof dm.sfx === 'string' ? dm.sfx : dm.sfx?.kind) || 'bubble_pop';
       const file = resolveExtraPopupSfx(sfxName);
       if (file) {
         events.push({
           path: file,
           startSample: Math.round(art.startFrame * 48000 / project.inputs.fps),
           trimSamples: 0,
-          gainDb: -6,
+          gainDb: -2.5,
           duration: 1.8,
         });
       }
@@ -55,7 +55,7 @@ export function motionAudioFilter(events: MotionSoundEvent[], baseIndex: number,
     filters.push(`[${firstEffectIndex+i}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=start_sample=${e.trimSamples}:duration=${e.duration},asetpts=PTS-STARTPTS,volume=${e.gainDb}dB,afade=t=in:d=0.005,afade=t=out:st=${fadeStart}:d=0.08,adelay=${e.startSample}S:all=1,apad,atrim=duration=${duration}[cue${i}]`);
   });
   filters.push(`${events.map((_,i)=>`[cue${i}]`).join('')}amix=inputs=${events.length}:duration=longest:normalize=0[effects]`);
-  filters.push('[effects][control]sidechaincompress=threshold=0.04:ratio=6:attack=8:release=180[ducked]');
+  filters.push('[effects][control]sidechaincompress=threshold=0.20:ratio=2.0:attack=12:release=220[ducked]');
   filters.push(`[voice][ducked]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95:level=0:latency=1,apad,atrim=duration=${duration},asetpts=PTS-STARTPTS[a]`);
   return filters;
 }

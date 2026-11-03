@@ -340,3 +340,356 @@ export function kitDensityBudget(kit: StyleKit, durationSec: number): { maxMotio
   const maxMotion = Math.max(2, Math.round(perMinute * minutes));
   return { maxMotion, maxPopups: Math.max(1, Math.ceil(maxMotion / 2)) };
 }
+
+export interface FixedMotionTemplate {
+  id: string;
+  name: string;
+  description: string;
+  isHookTemplate: boolean;
+  defaultPlacement: 'center' | 'top' | 'top-right' | 'top-left' | 'center-right';
+  defaultSfx: SfxName;
+}
+
+export const PROFILE_FIXED_TEMPLATES: Record<ChannelMotionPolicyKey, readonly FixedMotionTemplate[]> = {
+  ancient_dharma: [
+    {
+      id: 'thunder_lightning',
+      name: 'Vajra Divine Thunderbolt Strike',
+      description: 'Hook Attention Extractor: crackling celestial golden lightning bolt striking the scene with electric sparks, flash, and divine thunder resonance.',
+      isHookTemplate: true,
+      defaultPlacement: 'center',
+      defaultSfx: 'sub_impact',
+    },
+    {
+      id: 'highlighter',
+      name: 'Sacred Saffron Marker Highlighter',
+      description: 'Hand-drawn saffron/gold translucent marker pen stroke sweeping across key words with ink glow and gliding pen nib.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'paper_slide',
+    },
+    {
+      id: 'arrow_callout',
+      name: 'Golden Divya Baan Pointer Arrow',
+      description: 'Curved celestial golden arrow drawing along an arc with pulsing target locator beacon and floating glass badge.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'whoosh',
+    },
+    {
+      id: 'circle_callout',
+      name: 'Surya Golden Focus Halo',
+      description: 'Hand-drawn double-loop golden sketch circle drawing 360° around the focal subject with living breathing focus.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'crystal_ting',
+    },
+    {
+      id: 'sniper_lock',
+      name: 'Sudarshana Divine Reticle Lock',
+      description: 'Tactical Vedic reticle: 4 sacred gold corner brackets snapping inward, spinning compass ring, and lock-on crosshair.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'hud_ping',
+    },
+    {
+      id: 'magnifying_glass',
+      name: 'Vedic Scripture Inspection Loupe',
+      description: 'Polished gold inspection loupe with realistic optical glass glare, crosshair reticle, and evidence annotation tag.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'crystal_ting',
+    },
+    {
+      id: 'redacted_stamp',
+      name: 'Satyameva Jayate Seal of Truth',
+      description: 'Sacred seal stamping onto scene with 3D perspective slam, radial impact dust ring, and golden seal typography.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'impact',
+    },
+    {
+      id: 'metric_ticker',
+      name: 'Cosmic Karma Counter & Surge Bar',
+      description: 'Live rolling number odometer with ascending progress spark bar and radiant golden karma surge badge.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'telemetry_ticker',
+    },
+    {
+      id: 'kinetic_underline',
+      name: 'Kundalini Energy Underline',
+      description: 'Kinetic glowing golden wave drawing smoothly beneath words or captions with trailing spark flare.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'whoosh',
+    },
+    {
+      id: 'shockwave_pulse',
+      name: 'Brahmastra Cosmic Blast Pulse',
+      description: 'Concentric golden particle shockwave rings rippling outward with central diamond starburst.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'sub_impact',
+    },
+  ],
+
+  rule_zero: [
+    {
+      id: 'thunder_lightning',
+      name: 'Cyber High-Voltage Arc Surge',
+      description: 'Hook Attention Extractor: electric neon-cyan lightning surge snapping across the viewport with high-voltage flash.',
+      isHookTemplate: true,
+      defaultPlacement: 'center',
+      defaultSfx: 'hud_ping',
+    },
+    {
+      id: 'highlighter',
+      name: 'Holographic Laser Cyan Highlighter',
+      description: 'Translucent cyan laser highlighter bar scanning across telemetry text with sliding cursor head.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'telemetry_ticker',
+    },
+    {
+      id: 'arrow_callout',
+      name: 'Vector HUD Directional Arrow',
+      description: 'Sharp cyan tactical pointer arrow drawing an arc with pulsing ping beacon locking onto the focal target.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'telemetry_chirp',
+    },
+    {
+      id: 'circle_callout',
+      name: 'Tactical Reticle Target Lock',
+      description: 'Precision dual-ring circular target crosshair with snapping brackets and lock-on ping.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'hud_ping',
+    },
+    {
+      id: 'sniper_lock',
+      name: 'Cyber Military HUD Lock-On',
+      description: 'High-tech cyan corner brackets slamming inward with spinning degree dial and TARGET ACQUIRED telemetry.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'hud_ping',
+    },
+    {
+      id: 'magnifying_glass',
+      name: 'Forensic Lens Data Zoom',
+      description: 'Cyber optic inspection loupe with glowing cyan rim, optical crosshair grid, and zoom telemetry readout.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'telemetry_chirp',
+    },
+    {
+      id: 'redacted_stamp',
+      name: 'CLASSIFIED // TOP SECRET Stamp',
+      description: 'Angled classified rubber stamp slamming down with 3D impact shockwave and red/cyan alert borders.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'impact',
+    },
+    {
+      id: 'metric_ticker',
+      name: 'Quantum Telemetry Stat Counter',
+      description: 'High-speed live rolling digit ticker with cyan progress bar surge and +99.4% quantum delta badge.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'telemetry_ticker',
+    },
+    {
+      id: 'kinetic_underline',
+      name: 'Laser Scanline Underline',
+      description: 'Glowing high-frequency laser beam underline snapping beneath technical terms with comet flare.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'telemetry_chirp',
+    },
+    {
+      id: 'shockwave_pulse',
+      name: 'EMP Kinetic Shockwave Blast',
+      description: 'Expanding high-voltage EMP shockwave rings bursting from center with digital glitch.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'sub_impact',
+    },
+  ],
+
+  against_the_odds: [
+    {
+      id: 'thunder_lightning',
+      name: 'Storm Impact Lightning Strike',
+      description: 'Hook Attention Extractor: aggressive zigzag crimson/yellow lightning strike with thunder shockwave impact.',
+      isHookTemplate: true,
+      defaultPlacement: 'center',
+      defaultSfx: 'sub_impact',
+    },
+    {
+      id: 'highlighter',
+      name: 'Hazard Yellow Felt Marker',
+      description: 'High-contrast fluorescent hazard yellow marker swipe emphasizing vital survival numbers.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'paper_slide',
+    },
+    {
+      id: 'arrow_callout',
+      name: 'Danger Alert Pointer Arrow',
+      description: 'Angled hazard pointer arrow with pulsing chevron and beacon pointing toward critical points.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'impact',
+    },
+    {
+      id: 'circle_callout',
+      name: 'Critical Hazard Zone Circle',
+      description: 'Vibrant red distress loop ringing a hazard area with pulsing warning beacon and target ping.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'hud_ping',
+    },
+    {
+      id: 'sniper_lock',
+      name: 'Recon Sniper Target Lock-On',
+      description: 'Tactical military brackets snapping onto critical threat with crosshairs and DANGER TARGET tag.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'hud_ping',
+    },
+    {
+      id: 'magnifying_glass',
+      name: 'Satellite Recon Tactical Loupe',
+      description: 'Heavy duty tactical reconnaissance loupe with crosshair reticle and coordinates readout.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'impact',
+    },
+    {
+      id: 'redacted_stamp',
+      name: 'SURVIVED // VERIFIED Stamp',
+      description: 'Heavy combat stamp slamming onto screen with ground dust ring and high-contrast hazard stamp box.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'sub_impact',
+    },
+    {
+      id: 'metric_ticker',
+      name: 'Survival Odds Rapid Counter',
+      description: 'Live counting number ticker surging from 0% to survival threshold with red/yellow surge bar.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'telemetry_ticker',
+    },
+    {
+      id: 'kinetic_underline',
+      name: 'Seismic Stress Fracture Underline',
+      description: 'Sharp jagged warning line snapping under critical survival stats with shock particle.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'sub_impact',
+    },
+    {
+      id: 'shockwave_pulse',
+      name: 'Kinetic Blast Wave Impact',
+      description: 'Violent expanding shockwave rings with center impact flash and camera shake impulse.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'sub_impact',
+    },
+  ],
+
+  documentary_standard: [
+    {
+      id: 'highlighter',
+      name: 'Vox Marker Pen Highlighter',
+      description: 'Hook Attention Extractor: classic Vox-style translucent yellow marker sweeping across key words to highlight evidence.',
+      isHookTemplate: true,
+      defaultPlacement: 'top',
+      defaultSfx: 'paper_slide',
+    },
+    {
+      id: 'thunder_lightning',
+      name: 'Graphic Thunderbolt Accent',
+      description: 'Stylized pop-editorial lightning bolt for shocking facts and dramatic narrative turns with flash strobe.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'sub_impact',
+    },
+    {
+      id: 'arrow_callout',
+      name: 'Editorial Hand-Drawn Curved Arrow',
+      description: 'Organic hand-drawn curved bezier arrow pointing to a document, face, or detail with elastic bounce.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'whoosh',
+    },
+    {
+      id: 'circle_callout',
+      name: 'Investigative Red Pen Circle',
+      description: 'Authentic red grease-pencil double loop circling around an archival clue or figure.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'crystal_ting',
+    },
+    {
+      id: 'sniper_lock',
+      name: 'Investigative Target Reticle',
+      description: 'Clean editorial target brackets framing an archival photo or suspect with subtle focal crosshair.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'crystal_ting',
+    },
+    {
+      id: 'magnifying_glass',
+      name: 'Archival Magnifying Glass Loupe',
+      description: 'Classic brass editorial magnifying glass hovering over evidence with glass reflection glare.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'paper_slide',
+    },
+    {
+      id: 'redacted_stamp',
+      name: 'DECLASSIFIED // ARCHIVE Stamp',
+      description: 'Authentic red/black archival stamp slamming onto historical evidence with ink splatter.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'impact',
+    },
+    {
+      id: 'metric_ticker',
+      name: 'Financial & Growth Metric Ticker',
+      description: 'Live rolling metric odometer calculating dollars, percentage surge, or timeline year with surge bar.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'telemetry_ticker',
+    },
+    {
+      id: 'kinetic_underline',
+      name: 'Kinetic Marker Underline',
+      description: 'Clean ruler-drawn marker underline snapping beneath headlines with leading spark.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'whoosh',
+    },
+    {
+      id: 'shockwave_pulse',
+      name: 'Dramatic Story Beat Pulse',
+      description: 'Sonic shockwave ripple emphasizing a dramatic plot twist or turning point.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'whoosh',
+    },
+  ],
+};
+
+export function getProfileFixedTemplates(key?: string | ChannelMotionPolicyKey | null): readonly FixedMotionTemplate[] {
+  const resolved = (key && key in PROFILE_FIXED_TEMPLATES ? key : 'documentary_standard') as ChannelMotionPolicyKey;
+  return PROFILE_FIXED_TEMPLATES[resolved];
+}
+
+export function getProfileHookTemplate(key?: string | ChannelMotionPolicyKey | null): FixedMotionTemplate {
+  const templates = getProfileFixedTemplates(key);
+  return templates.find((t) => t.isHookTemplate) || templates[0];
+}

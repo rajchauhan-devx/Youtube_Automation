@@ -19,6 +19,7 @@ import {
   LayoutDashboard,
   Check,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './services/workspaceApi';
 import type { Section, Tab, Channel, Script, PipelineStep, GeneratedAudio } from './data';
@@ -68,6 +69,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     title: 'Studio',
     items: [
       { id: 'dashboard', label: 'YT Studio', icon: LayoutDashboard, badge: '3 YT' },
+      { id: 'templates', label: 'Motion Templates', icon: Sparkles, badge: 'Gallery' },
     ],
   },
   {
@@ -2220,6 +2222,8 @@ export default function App() {
               />
             ) : sidebar === 'profile' ? (
               <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} />
+            ) : sidebar === 'templates' ? (
+              <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} initialTab="templates" />
             ) : sidebar === 'settings' ? (
               <SetupTab />
             ) : !isMainSection ? (

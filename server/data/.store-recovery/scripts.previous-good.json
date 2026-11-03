@@ -1,7 +1,7 @@
 [
   {
     "id": "usr_1787934167716",
-    "name": "Ancient Dharma Short",
+    "name": "Ancient Dharma Short (Full Episode)",
     "prompts": [
       {
         "id": "nb1787934138049_2",
@@ -11,7 +11,7 @@
       }
     ],
     "howItWorks": "",
-    "duration": 90,
+    "duration": 34,
     "model": "gemini-3.5-flash-lite",
     "locked": false,
     "enableSubtitles": true,
@@ -123,11 +123,386 @@
     "lastUsed": "Never",
     "aiResponse": "",
     "extractedScript": "",
-    "narration": "",
-    "imagePrompts": [],
-    "generatedImages": [],
-    "generatedAudio": [],
-    "pipeline": []
+    "narration": "जनकपुर के राजदरबार में जब कोई भी योद्धा भगवान शिव के पिनाक धनुष को हिला तक न सका, तब राजा जनक अत्यंत निराश हो उठे। तभी महर्षि विश्वामित्र का संकेत पाकर, मर्यादा पुरुषोत्तम श्री राम मंद मुस्कान के साथ आगे बढ़े। जैसे ही श्री राम ने अपने बाएं हाथ से उस भारी शिव धनुष को उठाया, संपूर्ण सभा विस्मय से स्तब्ध रह गई। प्रत्यंचा चढ़ाते ही वह अमोघ धनुष प्रचंड गर्जना के साथ टूट गया, और १०८ दिशाओं में अलौकिक ध्वनि गूंज उठी। माता सीता ने मुस्कुराते हुए वरमाला पहनाई, और संपूर्ण ब्रह्मांड में सत्य और धर्म की अमर विजय उद्घोषित हुई।",
+    "imagePrompts": [
+      "Lord Rama lifting the celestial divine bow Pinaka with golden aura and cosmic radiance, vertical 9:16 cinematic 8k",
+      "Prince Rama in royal saffron silks, gentle smile, radiant golden divine aura walking forward with calm confidence",
+      "Sri Rama lifting the colossal ancient Pinaka bow with one hand, golden divine energy sparks swirling",
+      "Dramatic climax moment of celestial bow snapping in two with a brilliant burst of divine golden light and shockwaves",
+      "Divine wedding of Rama and Sita in Janakpur, Sita holding sacred garland of lotus blossoms, celestial flower shower"
+    ],
+    "generatedImages": [
+      {
+        "index": 0,
+        "status": "done",
+        "url": "/api/generate/file/usr_1787934167716/image-00-1793695164087.png",
+        "prompt": "Lord Rama lifting the celestial divine bow Pinaka with golden aura and cosmic radiance, vertical 9:16 cinematic 8k"
+      },
+      {
+        "index": 1,
+        "status": "done",
+        "url": "/api/generate/file/usr_1787934167716/image-01-1793695294024.png",
+        "prompt": "Prince Rama in royal saffron silks, gentle smile, radiant golden divine aura walking forward with calm confidence"
+      },
+      {
+        "index": 2,
+        "status": "done",
+        "url": "/api/generate/file/usr_1787934167716/image-02-1793695303487.png",
+        "prompt": "Sri Rama lifting the colossal ancient Pinaka bow with one hand, golden divine energy sparks swirling"
+      },
+      {
+        "index": 3,
+        "status": "done",
+        "url": "/api/generate/file/usr_1787934167716/image-03-1793695314561.png",
+        "prompt": "Dramatic climax moment of celestial bow snapping in two with a brilliant burst of divine golden light and shockwaves"
+      },
+      {
+        "index": 4,
+        "status": "done",
+        "url": "/api/generate/file/usr_1787934167716/image-04-1793695325047.png",
+        "prompt": "Divine wedding of Rama and Sita in Janakpur, Sita holding sacred garland of lotus blossoms, celestial flower shower"
+      }
+    ],
+    "generatedAudio": [
+      {
+        "filename": "narration_hi_1793695284114.wav",
+        "language": "hi",
+        "narrationText": "जनकपुर के राजदरबार में जब कोई भी योद्धा भगवान शिव के पिनाक धनुष को हिला तक न सका, तब राजा जनक अत्यंत निराश हो उठे। तभी महर्षि विश्वामित्र का संकेत पाकर, मर्यादा पुरुषोत्तम श्री राम मंद मुस्कान के साथ आगे बढ़े। जैसे ही श्री राम ने अपने बाएं हाथ से उस भारी शिव धनुष को उठाया, संपूर्ण सभा विस्मय से स्तब्ध रह गई। प्रत्यंचा चढ़ाते ही वह अमोघ धनुष प्रचंड गर्जना के साथ टूट गया, और १०८ दिशाओं में अलौकिक ध्वनि गूंज उठी। माता सीता ने मुस्कुराते हुए वरमाला पहनाई, और संपूर्ण ब्रह्मांड में सत्य और धर्म की अमर विजय उद्घोषित हुई।"
+      }
+    ],
+    "pipeline": [],
+    "scenePlan": {
+      "scenes": [
+        {
+          "sceneIndex": 0,
+          "narration": "जनकपुर के राजदरबार में जब कोई भी योद्धा भगवान शिव के पिनाक धनुष को हिला तक न सका, तब राजा जनक अत्यंत निराश हो उठे।",
+          "visualPrompt": "Lord Rama lifting the celestial divine bow Pinaka with golden aura and cosmic radiance, vertical 9:16 cinematic 8k",
+          "imageFile": "image-00-1793695164087.png",
+          "durationSec": 6.82
+        },
+        {
+          "sceneIndex": 1,
+          "narration": "तभी महर्षि विश्वामित्र का संकेत पाकर, मर्यादा पुरुषोत्तम श्री राम मंद मुस्कान के साथ आगे बढ़े।",
+          "visualPrompt": "Prince Rama in royal saffron silks, gentle smile, radiant golden divine aura walking forward with calm confidence",
+          "imageFile": "image-01-1793695294024.png",
+          "durationSec": 6.82
+        },
+        {
+          "sceneIndex": 2,
+          "narration": "जैसे ही श्री राम ने अपने बाएं हाथ से उस भारी शिव धनुष को उठाया, संपूर्ण सभा विस्मय से स्तब्ध रह गई।",
+          "visualPrompt": "Sri Rama lifting the colossal ancient Pinaka bow with one hand, golden divine energy sparks swirling",
+          "imageFile": "image-02-1793695303487.png",
+          "durationSec": 6.82
+        },
+        {
+          "sceneIndex": 3,
+          "narration": "प्रत्यंचा चढ़ाते ही वह अमोघ धनुष प्रचंड गर्जना के साथ टूट गया, और १०८ दिशाओं में अलौकिक ध्वनि गूंज उठी।",
+          "visualPrompt": "Dramatic climax moment of celestial bow snapping in two with a brilliant burst of divine golden light and shockwaves",
+          "imageFile": "image-03-1793695314561.png",
+          "durationSec": 6.82
+        },
+        {
+          "sceneIndex": 4,
+          "narration": "माता सीता ने मुस्कुराते हुए वरमाला पहनाई, और संपूर्ण ब्रह्मांड में सत्य और धर्म की अमर विजय उद्घोषित हुई।",
+          "visualPrompt": "Divine wedding of Rama and Sita in Janakpur, Sita holding sacred garland of lotus blossoms, celestial flower shower",
+          "imageFile": "image-04-1793695325047.png",
+          "durationSec": 6.84
+        }
+      ]
+    },
+    "dynamicMotionGraphics": [
+      {
+        "id": "dmg-dm-t-0-y7if",
+        "sceneIndex": 0,
+        "type": "dharma_hook_seal",
+        "title": "पिनाक धनुष चुनौती",
+        "detail": "सीता स्वयंवर प्रतिज्ञा — आदि रामायण",
+        "cuePhrase": "पिनाक",
+        "startSec": 1,
+        "durationSec": 4.8,
+        "placement": {
+          "position": "center",
+          "align": "center"
+        },
+        "visualConcept": "dharma_hook_seal template",
+        "theme": {
+          "palette": [
+            "#C59B52",
+            "#A05238",
+            "rgba(197,155,82,0.55)",
+            "#FFF3D7"
+          ],
+          "fontFamily": "'Noto Sans Devanagari', serif",
+          "glowColor": "rgba(197,155,82,0.55)",
+          "stylePreset": "ancient_dharma"
+        },
+        "sfx": {
+          "kind": "sacred_bell",
+          "startSec": 1,
+          "volume": 0.8
+        },
+        "render": {
+          "html": "\n    <div id=\"dm-t-0-y7if\" class=\"profile-motion-template dharma-hook-seal dm-3d-scene\">\n      <div class=\"dm-3d-card\">\n        <div class=\"dm-lens-flare\"></div>\n        <div class=\"dm-embers-field\">\n          <span class=\"dm-ember em1\"></span><span class=\"dm-ember em2\"></span><span class=\"dm-ember em3\"></span><span class=\"dm-ember em4\"></span>\n        </div>\n        <svg viewBox=\"0 0 240 240\" width=\"150\" height=\"150\" class=\"dm-chakra-svg\">\n          <defs>\n            <filter id=\"dm-s0-dm-t-0-y7if-glow\"><feGaussianBlur stdDeviation=\"3.5\" result=\"blur\"/><feMerge><feMergeNode in=\"blur\"/><feMergeNode in=\"SourceGraphic\"/></feMerge></filter>\n            <radialGradient id=\"dm-s0-dm-t-0-y7if-sunGrad\" cx=\"50%\" cy=\"50%\" r=\"50%\">\n              <stop offset=\"0%\" stop-color=\"#FFF9E6\" stop-opacity=\"0.95\"/>\n              <stop offset=\"45%\" stop-color=\"#C59B52\" stop-opacity=\"0.75\"/>\n              <stop offset=\"100%\" stop-color=\"#C59B52\" stop-opacity=\"0\"/>\n            </radialGradient>\n          </defs>\n          <circle cx=\"120\" cy=\"120\" r=\"76\" fill=\"url(#dm-s0-dm-t-0-y7if-sunGrad)\" class=\"dm-core-glow\"/>\n          <g class=\"dm-ring-cw\" filter=\"url(#dm-s0-dm-t-0-y7if-glow)\">\n            <circle cx=\"120\" cy=\"120\" r=\"92\" fill=\"none\" stroke=\"#C59B52\" stroke-width=\"2.5\" stroke-dasharray=\"14 8\"/>\n            <circle cx=\"120\" cy=\"120\" r=\"82\" fill=\"none\" stroke=\"#E0B872\" stroke-width=\"1.2\"/>\n            <path d=\"M120 18 L120 222 M18 120 L222 120 M48 48 L192 192 M48 192 L192 48\" stroke=\"#C59B52\" stroke-width=\"1.2\" opacity=\"0.8\"/>\n          </g>\n          <g class=\"dm-ring-ccw\" filter=\"url(#dm-s0-dm-t-0-y7if-glow)\">\n            <circle cx=\"120\" cy=\"120\" r=\"62\" fill=\"none\" stroke=\"#C59B52\" stroke-width=\"2\" stroke-dasharray=\"8 6\"/>\n            <polygon points=\"120,68 135,110 178,110 144,136 156,178 120,152 84,178 96,136 62,110 105,110\" fill=\"none\" stroke=\"#E0B872\" stroke-width=\"1.5\"/>\n          </g>\n          <circle cx=\"120\" cy=\"120\" r=\"9\" fill=\"#FFFFFF\" filter=\"url(#dm-s0-dm-t-0-y7if-glow)\"/>\n        </svg>\n        <div class=\"dm-seal-content\">\n          <div class=\"dm-seal-badge\">HOOK // RETENTION</div>\n          <div class=\"dm-seal-title\">पिनाक धनुष चुनौती</div>\n          <div class=\"dm-seal-detail\">सीता स्वयंवर प्रतिज्ञा — आदि रामायण</div>\n        </div>\n      </div>\n    </div>\n  ",
+          "css": "\n    #dm-t-0-y7if { position: absolute; top: 19%; left: 50%; transform: translateX(-50%) scale(1.25); width: 88%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }\n    #dm-t-0-y7if .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-8deg); }\n    #dm-t-0-y7if .dm-lens-flare { position: absolute; top: 75px; left: 50%; transform: translate(-50%, -50%) scaleX(0); width: 260px; height: 3px; background: linear-gradient(90deg, transparent, #FFFFFF 50%, transparent); box-shadow: 0 0 16px #C59B52, 0 0 32px #E0B872; z-index: 45; }\n    #dm-t-0-y7if .dm-embers-field { position: absolute; inset: -20px; pointer-events: none; }\n    #dm-t-0-y7if .dm-ember { position: absolute; width: 4px; height: 4px; border-radius: 50%; background: #C59B52; box-shadow: 0 0 8px #E0B872; opacity: 0; }\n    #dm-t-0-y7if .dm-ember.em1 { top: 70%; left: 20%; } #dm-t-0-y7if .dm-ember.em2 { top: 60%; left: 80%; } #dm-t-0-y7if .dm-ember.em3 { top: 80%; left: 50%; } #dm-t-0-y7if .dm-ember.em4 { top: 40%; left: 85%; }\n    #dm-t-0-y7if .dm-chakra-svg { filter: drop-shadow(0 0 20px rgba(197,155,82,0.85)); }\n    #dm-t-0-y7if .dm-seal-content { margin-top: 10px; display: flex; flex-direction: column; align-items: center; text-align: center; background: rgba(14, 11, 8, 0.85); backdrop-filter: blur(16px); border: 1.5px solid rgba(197, 155, 82, 0.45); border-radius: 20px; padding: 14px 28px; box-shadow: 0 16px 42px rgba(0,0,0,0.9), 0 0 25px rgba(197,155,82,0.3); max-width: 520px; }\n    #dm-t-0-y7if .dm-seal-badge { font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: #C59B52; background: rgba(197,155,82,0.22); border: 1.5px solid #C59B52; padding: 3px 12px; border-radius: 999px; margin-bottom: 6px; box-shadow: 0 0 10px rgba(197,155,82,0.4); }\n    #dm-t-0-y7if .dm-seal-title { font-size: 38px; font-weight: 900; color: #FFF3D7; letter-spacing: 0.03em; line-height: 1.2; text-shadow: 0 0 20px rgba(197,155,82,0.9), 0 2px 10px rgba(0,0,0,0.95); font-family: 'Noto Sans Devanagari', serif; }\n    #dm-t-0-y7if .dm-seal-detail { font-size: 16px; font-weight: 600; color: #E0B872; letter-spacing: 0.05em; margin-top: 6px; text-shadow: 0 0 10px rgba(0,0,0,0.85); font-family: 'Noto Sans Devanagari', serif; }\n  ",
+          "js": "\n    // Fixed Profile Motion Template: dharma_hook_seal on dm-t-0-y7if\n    {\n      const el = document.getElementById(\"dm-t-0-y7if\");\n      if (el) {\n        gsap.set(el, { autoAlpha: 0, pointerEvents: \"none\" });\n        tl.set(el, { autoAlpha: 1 }, 1.000);\n        const tmTl = gsap.timeline();\n        \n    tmTl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.8 });\n    const card = el.querySelector(\".dm-3d-card\");\n    if (card) {\n      tmTl.fromTo(card, { scale: 0.85, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.9, ease: \"power2.out\" }, \"<\");\n    }\n    const flare = el.querySelector(\".dm-lens-flare\");\n    if (flare) {\n      tmTl.fromTo(flare, { scaleX: 0, opacity: 0 }, { scaleX: 1.6, opacity: 1, duration: 0.4, ease: \"power3.out\" }, 0.2);\n      tmTl.to(flare, { scaleX: 0.6, opacity: 0.35, duration: 0.6, ease: \"power2.inOut\" }, 0.6);\n    }\n    tmTl.to(el.querySelectorAll(\".dm-ring-cw\"), { rotation: 360, duration: 8, ease: \"none\", repeat: 6, transformOrigin: \"120px 120px\" }, 0);\n    tmTl.to(el.querySelectorAll(\".dm-ring-ccw\"), { rotation: -360, duration: 6, ease: \"none\", repeat: 7, transformOrigin: \"120px 120px\" }, 0);\n    const embers = el.querySelectorAll(\".dm-ember\");\n    if (embers && embers.length > 0) {\n      embers.forEach((em, idx) => {\n        tmTl.fromTo(em, { opacity: 0, y: 0, scale: 0.5 }, { opacity: 0.9, y: -60 - (idx * 15), scale: 1.2, duration: 2.2 + (idx * 0.3), ease: \"power1.out\", repeat: 3, stagger: 0.2 }, 0.3);\n      });\n    }\n  \n        tl.add(tmTl, 1.000);\n        tl.to(el, { autoAlpha: 0, scale: 0.88, duration: 0.5, ease: \"power2.in\" }, 5.300);\n        tl.set(el, { autoAlpha: 0 }, 5.800);\n      }\n    }\n  "
+        }
+      },
+      {
+        "id": "dmg-dm-t-1-y7ih",
+        "sceneIndex": 1,
+        "type": "sacred_mandala_card",
+        "title": "श्री राम आगमन",
+        "detail": "मर्यादा पुरुषोत्तम — इक्ष्वाकु वंश",
+        "cuePhrase": "तभी महर्षि विश्वामित्र क",
+        "startSec": 1,
+        "durationSec": 4.5,
+        "placement": {
+          "position": "top",
+          "align": "center"
+        },
+        "visualConcept": "sacred_mandala_card template",
+        "theme": {
+          "palette": [
+            "#C59B52",
+            "#A05238",
+            "rgba(197,155,82,0.55)",
+            "#FFF3D7"
+          ],
+          "fontFamily": "'Noto Sans Devanagari', serif",
+          "glowColor": "rgba(197,155,82,0.55)",
+          "stylePreset": "ancient_dharma"
+        },
+        "sfx": {
+          "kind": "sacred_bell",
+          "startSec": 1,
+          "volume": 0.8
+        },
+        "render": {
+          "html": "\n    <div id=\"dm-t-1-y7ih\" class=\"profile-motion-template sacred-mandala-card dm-3d-scene\">\n      <div class=\"dm-3d-card\">\n        <svg viewBox=\"0 0 200 200\" width=\"150\" height=\"150\" class=\"dm-mandala-svg\">\n          <circle cx=\"100\" cy=\"100\" r=\"88\" fill=\"none\" stroke=\"#C59B52\" stroke-width=\"1.8\" stroke-dasharray=\"6 4\" class=\"dm-mandala-outer\"/>\n          <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"#E0B872\" stroke-width=\"1.2\" class=\"dm-mandala-inner\"/>\n          <g class=\"dm-mandala-petals\">\n            <path d=\"M100,30 C90,60 110,60 100,30 Z M100,170 C90,140 110,140 100,170 Z M30,100 C60,90 60,110 30,100 Z M170,100 C140,90 140,110 170,100 Z\" fill=\"none\" stroke=\"#C59B52\" stroke-width=\"1.5\"/>\n          </g>\n          <circle cx=\"100\" cy=\"100\" r=\"14\" fill=\"#C59B52\" fill-opacity=\"0.25\" stroke=\"#E0B872\" stroke-width=\"1.5\"/>\n          <circle cx=\"100\" cy=\"100\" r=\"4\" fill=\"#FFFFFF\"/>\n        </svg>\n        <div class=\"dm-mandala-content\">\n          <div class=\"dm-mandala-badge\">चरित्र परिचय</div>\n          <div class=\"dm-mandala-title\">श्री राम आगमन</div>\n          <div class=\"dm-mandala-detail\">मर्यादा पुरुषोत्तम — इक्ष्वाकु वंश</div>\n        </div>\n      </div>\n    </div>\n  ",
+          "css": "\n    #dm-t-1-y7ih { position: absolute; top: 18%; left: 50%; transform: translateX(-50%) scale(1); width: 88%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }\n    #dm-t-1-y7ih .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-8deg); }\n    #dm-t-1-y7ih .dm-mandala-svg { filter: drop-shadow(0 0 20px rgba(197,155,82,0.8)); }\n    #dm-t-1-y7ih .dm-mandala-content { margin-top: 10px; display: flex; flex-direction: column; align-items: center; text-align: center; background: rgba(14, 11, 8, 0.85); backdrop-filter: blur(16px); border: 1.5px solid rgba(197, 155, 82, 0.45); border-radius: 18px; padding: 12px 24px; box-shadow: 0 16px 40px rgba(0,0,0,0.9), 0 0 24px rgba(197,155,82,0.3); max-width: 480px; }\n    #dm-t-1-y7ih .dm-mandala-badge { font-size: 11px; font-weight: 800; color: #C59B52; background: rgba(197,155,82,0.2); border: 1px solid #C59B52; padding: 2px 10px; border-radius: 999px; margin-bottom: 4px; }\n    #dm-t-1-y7ih .dm-mandala-title { font-size: 32px; font-weight: 900; color: #FFF3D7; text-shadow: 0 0 16px rgba(197,155,82,0.85), 0 2px 8px rgba(0,0,0,0.9); font-family: 'Noto Sans Devanagari', serif; line-height: 1.25; }\n    #dm-t-1-y7ih .dm-mandala-detail { font-size: 15px; font-weight: 600; color: #E0B872; margin-top: 4px; font-family: 'Noto Sans Devanagari', serif; }\n  ",
+          "js": "\n    // Fixed Profile Motion Template: sacred_mandala_card on dm-t-1-y7ih\n    {\n      const el = document.getElementById(\"dm-t-1-y7ih\");\n      if (el) {\n        gsap.set(el, { autoAlpha: 0, pointerEvents: \"none\" });\n        tl.set(el, { autoAlpha: 1 }, 1.000);\n        const tmTl = gsap.timeline();\n        \n    tmTl.fromTo(el, { opacity: 0, scale: 0.88 }, { opacity: 1, scale: 1, duration: 0.8, ease: \"power2.out\" });\n    tmTl.to(el.querySelectorAll(\".dm-mandala-outer\"), { rotation: 360, duration: 12, ease: \"none\", repeat: 4, transformOrigin: \"100px 100px\" }, 0);\n    tmTl.to(el.querySelectorAll(\".dm-mandala-inner\"), { rotation: -360, duration: 9, ease: \"none\", repeat: 5, transformOrigin: \"100px 100px\" }, 0);\n  \n        tl.add(tmTl, 1.000);\n        tl.to(el, { autoAlpha: 0, scale: 0.88, duration: 0.5, ease: \"power2.in\" }, 5.000);\n        tl.set(el, { autoAlpha: 0 }, 5.500);\n      }\n    }\n  "
+        }
+      },
+      {
+        "id": "dmg-dm-t-2-y7ih",
+        "sceneIndex": 2,
+        "type": "divine_astra_focus",
+        "title": "अलौकिक पराक्रम",
+        "detail": "एकाएक शिव धनुष उत्थापन",
+        "cuePhrase": "जैसे ही श्री राम ने अपने",
+        "startSec": 1,
+        "durationSec": 4.5,
+        "placement": {
+          "position": "center",
+          "align": "center"
+        },
+        "visualConcept": "divine_astra_focus template",
+        "theme": {
+          "palette": [
+            "#C59B52",
+            "#A05238",
+            "rgba(197,155,82,0.55)",
+            "#FFF3D7"
+          ],
+          "fontFamily": "'Noto Sans Devanagari', serif",
+          "glowColor": "rgba(197,155,82,0.55)",
+          "stylePreset": "ancient_dharma"
+        },
+        "sfx": {
+          "kind": "sacred_bell",
+          "startSec": 1,
+          "volume": 0.8
+        },
+        "render": {
+          "html": "\n    <div id=\"dm-t-2-y7ih\" class=\"profile-motion-template divine-astra-focus dm-3d-scene\">\n      <div class=\"dm-3d-card\">\n        <svg viewBox=\"0 0 220 220\" width=\"150\" height=\"150\" class=\"dm-astra-svg\">\n          <circle cx=\"110\" cy=\"110\" r=\"95\" fill=\"none\" stroke=\"#C59B52\" stroke-width=\"2\" stroke-dasharray=\"16 10\" class=\"dm-astra-ring\"/>\n          <circle cx=\"110\" cy=\"110\" r=\"75\" fill=\"none\" stroke=\"#C59B52\" stroke-width=\"1.2\"/>\n          <line x1=\"110\" y1=\"5\" x2=\"110\" y2=\"215\" stroke=\"#C59B52\" stroke-width=\"1.5\" stroke-dasharray=\"4 4\"/>\n          <line x1=\"5\" y1=\"110\" x2=\"215\" y2=\"110\" stroke=\"#C59B52\" stroke-width=\"1.5\" stroke-dasharray=\"4 4\"/>\n          <circle cx=\"110\" cy=\"110\" r=\"16\" fill=\"none\" stroke=\"#FFFFFF\" stroke-width=\"2\"/>\n          <circle cx=\"110\" cy=\"110\" r=\"4\" fill=\"#FFFFFF\"/>\n        </svg>\n        <div class=\"dm-astra-content\">\n          <div class=\"dm-astra-badge\">अतुल्य शक्ति</div>\n          <div class=\"dm-astra-title\">अलौकिक पराक्रम</div>\n          \n          <div class=\"dm-astra-detail\">एकाएक शिव धनुष उत्थापन</div>\n        </div>\n      </div>\n    </div>\n  ",
+          "css": "\n    #dm-t-2-y7ih { position: absolute; top: 19%; left: 50%; transform: translateX(-50%) scale(1); width: 88%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }\n    #dm-t-2-y7ih .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-10deg); }\n    #dm-t-2-y7ih .dm-astra-svg { filter: drop-shadow(0 0 22px rgba(197,155,82,0.85)); }\n    #dm-t-2-y7ih .dm-astra-content { margin-top: 10px; display: flex; flex-direction: column; align-items: center; text-align: center; background: rgba(14, 11, 8, 0.85); backdrop-filter: blur(16px); border: 1.5px solid rgba(197, 155, 82, 0.45); border-radius: 18px; padding: 12px 24px; box-shadow: 0 16px 40px rgba(0,0,0,0.9), 0 0 24px rgba(197,155,82,0.3); max-width: 480px; }\n    #dm-t-2-y7ih .dm-astra-badge { font-size: 11px; font-weight: 800; color: #C59B52; background: rgba(197,155,82,0.2); border: 1px solid #C59B52; padding: 2px 10px; border-radius: 999px; }\n    #dm-t-2-y7ih .dm-astra-title { font-size: 32px; font-weight: 900; color: #FFF3D7; text-shadow: 0 0 16px rgba(197,155,82,0.85); font-family: 'Noto Sans Devanagari', serif; }\n    #dm-t-2-y7ih .dm-astra-stat { font-size: 20px; font-weight: 900; color: #FFD700; text-shadow: 0 0 12px rgba(255,215,0,0.8); }\n    #dm-t-2-y7ih .dm-astra-detail { font-size: 15px; font-weight: 600; color: #E0B872; margin-top: 4px; font-family: 'Noto Sans Devanagari', serif; }\n  ",
+          "js": "\n    // Fixed Profile Motion Template: divine_astra_focus on dm-t-2-y7ih\n    {\n      const el = document.getElementById(\"dm-t-2-y7ih\");\n      if (el) {\n        gsap.set(el, { autoAlpha: 0, pointerEvents: \"none\" });\n        tl.set(el, { autoAlpha: 1 }, 1.000);\n        const tmTl = gsap.timeline();\n        \n    tmTl.fromTo(el, { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.8, ease: \"power2.out\" });\n    tmTl.to(el.querySelectorAll(\".dm-astra-ring\"), { rotation: 360, duration: 10, ease: \"none\", repeat: 4, transformOrigin: \"110px 110px\" }, 0);\n  \n        tl.add(tmTl, 1.000);\n        tl.to(el, { autoAlpha: 0, scale: 0.88, duration: 0.5, ease: \"power2.in\" }, 5.000);\n        tl.set(el, { autoAlpha: 0 }, 5.500);\n      }\n    }\n  "
+        }
+      },
+      {
+        "id": "dmg-dm-t-3-y7ii",
+        "sceneIndex": 3,
+        "type": "vedic_chronicle_pillar",
+        "title": "अमोघ धनुष भंग",
+        "detail": "१०८ दिशाओं में प्रचंड गर्जना",
+        "cuePhrase": "प्रत्यंचा चढ़ाते ही वह अ",
+        "startSec": 1,
+        "durationSec": 4.5,
+        "placement": {
+          "position": "top",
+          "align": "center"
+        },
+        "visualConcept": "vedic_chronicle_pillar template",
+        "theme": {
+          "palette": [
+            "#C59B52",
+            "#A05238",
+            "rgba(197,155,82,0.55)",
+            "#FFF3D7"
+          ],
+          "fontFamily": "'Noto Sans Devanagari', serif",
+          "glowColor": "rgba(197,155,82,0.55)",
+          "stylePreset": "ancient_dharma"
+        },
+        "sfx": {
+          "kind": "sacred_bell",
+          "startSec": 1,
+          "volume": 0.8
+        },
+        "render": {
+          "html": "\n    <div id=\"dm-t-3-y7ii\" class=\"profile-motion-template editorial-hero-reveal dm-3d-scene\">\n      <div class=\"dm-3d-card\">\n        <div class=\"dm-editorial-badge\">अलौकिक ध्वनि</div>\n        <div class=\"dm-editorial-rule\"></div>\n        <div class=\"dm-editorial-title\">अमोघ धनुष भंग</div>\n        <div class=\"dm-editorial-detail\">१०८ दिशाओं में प्रचंड गर्जना</div>\n      </div>\n    </div>\n  ",
+          "css": "\n    #dm-t-3-y7ii { position: absolute; top: 18%; left: 50%; transform: translateX(-50%) scale(1); width: 88%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }\n    #dm-t-3-y7ii .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }\n    #dm-t-3-y7ii .dm-editorial-badge { font-size: 11px; font-weight: 800; color: #C59B52; letter-spacing: 0.18em; text-transform: uppercase; background: rgba(240,120,53,0.18); border: 1.5px solid #C59B52; padding: 3px 12px; border-radius: 4px; margin-bottom: 8px; }\n    #dm-t-3-y7ii .dm-editorial-rule { width: 0%; height: 2px; background: linear-gradient(90deg, #C59B52, #A05238); margin-bottom: 10px; }\n    #dm-t-3-y7ii .dm-editorial-title { font-size: 28px; font-weight: 900; color: #FFFFFF; letter-spacing: 0.04em; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0,0,0,0.9); font-family: 'Noto Sans Devanagari', serif; }\n    #dm-t-3-y7ii .dm-editorial-detail { font-size: 14px; font-weight: 600; color: #A05238; margin-top: 6px; }\n  ",
+          "js": "\n    // Fixed Profile Motion Template: vedic_chronicle_pillar on dm-t-3-y7ii\n    {\n      const el = document.getElementById(\"dm-t-3-y7ii\");\n      if (el) {\n        gsap.set(el, { autoAlpha: 0, pointerEvents: \"none\" });\n        tl.set(el, { autoAlpha: 1 }, 1.000);\n        const tmTl = gsap.timeline();\n        \n    tmTl.fromTo(el, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.7, ease: \"power2.out\" });\n    tmTl.to(el.querySelectorAll(\".dm-editorial-rule\"), { width: \"100%\", duration: 0.8, ease: \"power3.inOut\" }, 0.2);\n  \n        tl.add(tmTl, 1.000);\n        tl.to(el, { autoAlpha: 0, scale: 0.88, duration: 0.5, ease: \"power2.in\" }, 5.000);\n        tl.set(el, { autoAlpha: 0 }, 5.500);\n      }\n    }\n  "
+        }
+      },
+      {
+        "id": "dmg-dm-t-4-y7ii",
+        "sceneIndex": 4,
+        "type": "sacred_mandala_card",
+        "title": "सत्य और धर्म विजय",
+        "detail": "माता सीता वरमाला — अमर प्रतिज्ञा",
+        "cuePhrase": "माता सीता ने मुस्कुराते ",
+        "startSec": 1,
+        "durationSec": 4.5,
+        "placement": {
+          "position": "center",
+          "align": "center"
+        },
+        "visualConcept": "sacred_mandala_card template",
+        "theme": {
+          "palette": [
+            "#C59B52",
+            "#A05238",
+            "rgba(197,155,82,0.55)",
+            "#FFF3D7"
+          ],
+          "fontFamily": "'Noto Sans Devanagari', serif",
+          "glowColor": "rgba(197,155,82,0.55)",
+          "stylePreset": "ancient_dharma"
+        },
+        "sfx": {
+          "kind": "sacred_bell",
+          "startSec": 1,
+          "volume": 0.8
+        },
+        "render": {
+          "html": "\n    <div id=\"dm-t-4-y7ii\" class=\"profile-motion-template sacred-mandala-card dm-3d-scene\">\n      <div class=\"dm-3d-card\">\n        <svg viewBox=\"0 0 200 200\" width=\"150\" height=\"150\" class=\"dm-mandala-svg\">\n          <circle cx=\"100\" cy=\"100\" r=\"88\" fill=\"none\" stroke=\"#C59B52\" stroke-width=\"1.8\" stroke-dasharray=\"6 4\" class=\"dm-mandala-outer\"/>\n          <circle cx=\"100\" cy=\"100\" r=\"70\" fill=\"none\" stroke=\"#E0B872\" stroke-width=\"1.2\" class=\"dm-mandala-inner\"/>\n          <g class=\"dm-mandala-petals\">\n            <path d=\"M100,30 C90,60 110,60 100,30 Z M100,170 C90,140 110,140 100,170 Z M30,100 C60,90 60,110 30,100 Z M170,100 C140,90 140,110 170,100 Z\" fill=\"none\" stroke=\"#C59B52\" stroke-width=\"1.5\"/>\n          </g>\n          <circle cx=\"100\" cy=\"100\" r=\"14\" fill=\"#C59B52\" fill-opacity=\"0.25\" stroke=\"#E0B872\" stroke-width=\"1.5\"/>\n          <circle cx=\"100\" cy=\"100\" r=\"4\" fill=\"#FFFFFF\"/>\n        </svg>\n        <div class=\"dm-mandala-content\">\n          <div class=\"dm-mandala-badge\">धर्म विजय</div>\n          <div class=\"dm-mandala-title\">सत्य और धर्म विजय</div>\n          <div class=\"dm-mandala-detail\">माता सीता वरमाला — अमर प्रतिज्ञा</div>\n        </div>\n      </div>\n    </div>\n  ",
+          "css": "\n    #dm-t-4-y7ii { position: absolute; top: 19%; left: 50%; transform: translateX(-50%) scale(1); width: 88%; display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }\n    #dm-t-4-y7ii .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; transform-style: preserve-3d; transform: perspective(1200px) rotateX(-8deg); }\n    #dm-t-4-y7ii .dm-mandala-svg { filter: drop-shadow(0 0 20px rgba(197,155,82,0.8)); }\n    #dm-t-4-y7ii .dm-mandala-content { margin-top: 10px; display: flex; flex-direction: column; align-items: center; text-align: center; background: rgba(14, 11, 8, 0.85); backdrop-filter: blur(16px); border: 1.5px solid rgba(197, 155, 82, 0.45); border-radius: 18px; padding: 12px 24px; box-shadow: 0 16px 40px rgba(0,0,0,0.9), 0 0 24px rgba(197,155,82,0.3); max-width: 480px; }\n    #dm-t-4-y7ii .dm-mandala-badge { font-size: 11px; font-weight: 800; color: #C59B52; background: rgba(197,155,82,0.2); border: 1px solid #C59B52; padding: 2px 10px; border-radius: 999px; margin-bottom: 4px; }\n    #dm-t-4-y7ii .dm-mandala-title { font-size: 32px; font-weight: 900; color: #FFF3D7; text-shadow: 0 0 16px rgba(197,155,82,0.85), 0 2px 8px rgba(0,0,0,0.9); font-family: 'Noto Sans Devanagari', serif; line-height: 1.25; }\n    #dm-t-4-y7ii .dm-mandala-detail { font-size: 15px; font-weight: 600; color: #E0B872; margin-top: 4px; font-family: 'Noto Sans Devanagari', serif; }\n  ",
+          "js": "\n    // Fixed Profile Motion Template: sacred_mandala_card on dm-t-4-y7ii\n    {\n      const el = document.getElementById(\"dm-t-4-y7ii\");\n      if (el) {\n        gsap.set(el, { autoAlpha: 0, pointerEvents: \"none\" });\n        tl.set(el, { autoAlpha: 1 }, 1.000);\n        const tmTl = gsap.timeline();\n        \n    tmTl.fromTo(el, { opacity: 0, scale: 0.88 }, { opacity: 1, scale: 1, duration: 0.8, ease: \"power2.out\" });\n    tmTl.to(el.querySelectorAll(\".dm-mandala-outer\"), { rotation: 360, duration: 12, ease: \"none\", repeat: 4, transformOrigin: \"100px 100px\" }, 0);\n    tmTl.to(el.querySelectorAll(\".dm-mandala-inner\"), { rotation: -360, duration: 9, ease: \"none\", repeat: 5, transformOrigin: \"100px 100px\" }, 0);\n  \n        tl.add(tmTl, 1.000);\n        tl.to(el, { autoAlpha: 0, scale: 0.88, duration: 0.5, ease: \"power2.in\" }, 5.000);\n        tl.set(el, { autoAlpha: 0 }, 5.500);\n      }\n    }\n  "
+        }
+      }
+    ],
+    "extraPopups": [
+      {
+        "id": "popup_0_pinaka_relic",
+        "sceneIndex": 0,
+        "cueWord": "पिनाक",
+        "cueOffsetSec": 2.2,
+        "durationSec": 3.4,
+        "title": "पिनाक धनुष",
+        "subtitle": "भगवान शिव का अमोघ धनुष",
+        "badgeTag": "दिव्यास्त्र",
+        "archetype": "heritage_intel",
+        "shape": "cutout_relic",
+        "placement": "top-right",
+        "scalePercent": 32,
+        "sfx": "bubble_pop",
+        "status": "ready"
+      },
+      {
+        "id": "popup_1_shri_rama",
+        "sceneIndex": 1,
+        "cueWord": "राम",
+        "cueOffsetSec": 2.2,
+        "durationSec": 3.4,
+        "title": "श्री राम",
+        "subtitle": "मर्यादा पुरुषोत्तम — इक्ष्वाकु वंश",
+        "badgeTag": "चरित्र परिचय",
+        "archetype": "macro_relic",
+        "shape": "circle_medallion",
+        "placement": "center-right",
+        "scalePercent": 32,
+        "sfx": "crystal_ting",
+        "status": "ready"
+      },
+      {
+        "id": "popup_2_shiva_dhanush_vow",
+        "sceneIndex": 2,
+        "cueWord": "धनुष",
+        "cueOffsetSec": 2.2,
+        "durationSec": 3.4,
+        "title": "शिव धनुष प्रतिज्ञा",
+        "subtitle": "सीता स्वयंवर का कठोर नियम",
+        "badgeTag": "पवित्र प्रतिज्ञा",
+        "archetype": "heritage_intel",
+        "shape": "museum_glass_card",
+        "placement": "top-right",
+        "scalePercent": 32,
+        "sfx": "energy_hum",
+        "status": "ready"
+      },
+      {
+        "id": "popup_3_108_metric",
+        "sceneIndex": 3,
+        "cueWord": "१०८",
+        "cueOffsetSec": 2.2,
+        "durationSec": 3.4,
+        "title": "१०८ संदर्भ",
+        "subtitle": "प्राचीन वाल्मीकि रामायण उल्लेख",
+        "badgeTag": "प्रमाणित संख्या",
+        "archetype": "metric_counter",
+        "shape": "metric_counter",
+        "statValue": "१०८",
+        "statUnit": "दिशाएं",
+        "placement": "center-right",
+        "scalePercent": 32,
+        "sfx": "hud_ping",
+        "status": "ready"
+      },
+      {
+        "id": "popup_4_mata_sita",
+        "sceneIndex": 4,
+        "cueWord": "सीता",
+        "cueOffsetSec": 2.2,
+        "durationSec": 3.4,
+        "title": "माता सीता",
+        "subtitle": "विदेह राजकुमारी — जनकपुत्री",
+        "badgeTag": "चरित्र परिचय",
+        "archetype": "macro_relic",
+        "shape": "circle_medallion",
+        "placement": "top-right",
+        "scalePercent": 32,
+        "sfx": "crystal_ting",
+        "status": "ready"
+      }
+    ],
+    "outputVideos": [
+      {
+        "filename": "final_1793700228883.mp4",
+        "url": "/api/render/file/usr_1787934167716/final_1793700228883.mp4",
+        "createdAt": "2026-11-03T10:05:17.023Z"
+      }
+    ],
+    "twoStepVerification": {
+      "status": "verified",
+      "verifiedAt": "2026-11-03T09:44:09.709Z",
+      "retentionScore": 89,
+      "hookStrength": "moderate",
+      "mistakesCorrected": [
+        "Scene 1: Dense narration (4.2 w/s) flagged for natural voice pacing.",
+        "Scene 3: Dense narration (3.7 w/s) flagged for natural voice pacing."
+      ],
+      "retentionFindings": [
+        "Hook presents core premise; visual popup reinforces opening retention."
+      ],
+      "overlayAdjustments": [
+        "Staggered Scene 1 popup to 2.6s to avoid motion graphic collision.",
+        "Staggered Scene 2 popup to 2.6s to avoid motion graphic collision.",
+        "Staggered Scene 3 popup to 2.6s to avoid motion graphic collision.",
+        "Staggered Scene 4 popup to 2.6s to avoid motion graphic collision.",
+        "Staggered Scene 5 popup to 2.6s to avoid motion graphic collision."
+      ]
+    }
   },
   {
     "id": "shorts_images_videos",
@@ -289,56 +664,5 @@
     "generatedImages": [],
     "generatedAudio": [],
     "pipeline": []
-  },
-  {
-    "id": "test_popups_script_1793620291332",
-    "name": "Ancient Dharma Test Script",
-    "scenePlan": {
-      "scenes": [
-        {
-          "narration": "The ancient sanctum was carved from monolithic black granite stone.",
-          "imagePrompt": "Ancient temple sanctum with black granite walls",
-          "duration": 5
-        },
-        {
-          "narration": "Lord Rama wielded the divine golden arrow of celestial light.",
-          "imagePrompt": "Mythological divine warrior aiming golden glowing bow and arrow",
-          "duration": 6
-        }
-      ]
-    },
-    "extraPopups": [
-      {
-        "id": "popup_1_4ed4edda",
-        "sceneIndex": 1,
-        "cueWord": "divine",
-        "cueOffsetSec": 1,
-        "durationSec": 3.2,
-        "title": "Lord Rama wielded the divine golden arrow",
-        "badgeTag": "DETAIL",
-        "archetype": "macro_relic",
-        "prompt": "Isolated macro studio close-up of Lord Rama wielded the divine golden arrow, sacred craftsmanship, deep obsidian and antique gold sheen, micro-fissures with subtle glowing diya amber embers, razor-sharp tactile texture, centered composition, shallow depth of field, clean dark studio backdrop, 8k photorealistic.",
-        "shape": "museum_glass_card",
-        "placement": "center-right",
-        "scalePercent": 30,
-        "sfx": "sacred_bell",
-        "status": "pending"
-      },
-      {
-        "id": "popup_custom_6f61182e",
-        "sceneIndex": 1,
-        "cueWord": "Sacred Diya Flame",
-        "cueOffsetSec": 1,
-        "durationSec": 3.2,
-        "title": "Sacred Diya Flame",
-        "prompt": "Isolated macro studio close-up of Sacred Diya Flame, sacred craftsmanship, deep obsidian and antique gold sheen, micro-fissures with subtle glowing diya amber embers, razor-sharp tactile texture, centered composition, shallow depth of field, clean dark studio backdrop, 8k photorealistic.",
-        "shape": "circle_medallion",
-        "placement": "top-left",
-        "scalePercent": 30,
-        "sfx": "none",
-        "archetype": "circle_medallion",
-        "status": "pending"
-      }
-    ]
   }
 ]

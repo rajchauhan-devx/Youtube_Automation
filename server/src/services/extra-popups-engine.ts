@@ -6,6 +6,7 @@ import {
   type DynamicMotionGraphicData,
   type ExtraPopupShapeType,
   type ExtraPopupPlacementType,
+  type SfxName,
   styleKitFor,
   clampShapeToKit,
   clampSfxToKit,
@@ -49,11 +50,417 @@ export function enhanceMacroPrompt(subject: string, channelProfile?: string): st
   return `Isolated macro studio close-up of ${cleanSubject}, centered composition, extreme micro-detail, cinematic 8k photograph, razor-sharp focus on texture, dramatic side rim lighting, clean dark studio backdrop with shallow depth of field, high contrast, zero background clutter.`;
 }
 
+export interface ProfessionalPopupIntel {
+  title: string;
+  subtitle: string;
+  badgeTag: string;
+  shape: ExtraPopupShapeType;
+  archetype: string;
+  cueWord: string;
+  sfx: SfxName;
+  statValue?: string;
+  statUnit?: string;
+}
+
+/**
+ * Professional Video Editor Semantic Intel Extractor.
+ * Never outputs raw grammatical fragments (e.g. "भगवान राम ने जैसे ही").
+ * Instead, extracts logical, useful proper nouns, weapon breakdowns, character dossiers,
+ * precise numbers, and sacred geographic stamps, matched to exact spoken keywords.
+ */
+export function extractProfessionalPopupIntel(
+  narration: string,
+  visualPrompt: string,
+  index: number,
+  isHindi: boolean,
+  kit: any,
+  scriptName?: string
+): ProfessionalPopupIntel {
+  const combined = `${narration} ${visualPrompt}`.toLowerCase();
+
+  // 1. Divine Weapons & Sacred Instruments
+  if (combined.includes('पिनाक') || combined.includes('pinaka')) {
+    return {
+      title: isHindi ? 'पिनाक धनुष' : 'Pinaka Bow',
+      subtitle: isHindi ? 'भगवान शिव का अमोघ धनुष' : 'Lord Shiva’s Inviolable Bow',
+      badgeTag: isHindi ? 'दिव्यास्त्र' : 'DIVINE RELIC',
+      shape: 'cutout_relic',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('पिनाक') ? 'पिनाक' : (narration.includes('धनुष') ? 'धनुष' : 'pinaka'),
+      sfx: 'crystal_ting',
+    };
+  }
+
+  if (combined.includes('सुदर्शन') || combined.includes('sudarshan')) {
+    return {
+      title: isHindi ? 'सुदर्शन चक्र' : 'Sudarshana Chakra',
+      subtitle: isHindi ? '१०८ दंत सौर तेज चक्र' : '108-Blade Cosmic Sun Wheel',
+      badgeTag: isHindi ? 'अचूक अस्त्र' : 'CELESTIAL WEAPON',
+      shape: 'circle_medallion',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('सुदर्शन') ? 'सुदर्शन' : (narration.includes('चक्र') ? 'चक्र' : 'chakra'),
+      sfx: 'energy_hum',
+    };
+  }
+
+  if (combined.includes('त्रिशूल') || combined.includes('trishul')) {
+    return {
+      title: isHindi ? 'दिव्य त्रिशूल' : 'Sacred Trishula',
+      subtitle: isHindi ? 'त्रिगुण ऊर्जा का प्रतीक' : 'Symbol of Three Cosmic Powers',
+      badgeTag: isHindi ? 'दिव्यास्त्र' : 'DIVINE WEAPON',
+      shape: 'cutout_relic',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('त्रिशूल') ? 'त्रिशूल' : 'trishul',
+      sfx: 'crystal_ting',
+    };
+  }
+
+  if (combined.includes('ब्रह्मास्त्र') || combined.includes('brahmastra')) {
+    return {
+      title: isHindi ? 'ब्रह्मास्त्र' : 'Brahmastra',
+      subtitle: isHindi ? 'परम संहारक अस्त्र' : 'Ultimate Cosmic Weapon',
+      badgeTag: isHindi ? 'महास्त्र' : 'COSMIC WEAPON',
+      shape: 'cutout_relic',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('ब्रह्मास्त्र') ? 'ब्रह्मास्त्र' : 'brahmastra',
+      sfx: 'energy_hum',
+    };
+  }
+
+  if (combined.includes('गांडीव') || combined.includes('gandiva')) {
+    return {
+      title: isHindi ? 'गांडीव धनुष' : 'Gandiva Bow',
+      subtitle: isHindi ? 'अग्निदेव द्वारा प्रदत्त धनुष' : 'Divine Bow of Agni',
+      badgeTag: isHindi ? 'दिव्यास्त्र' : 'DIVINE RELIC',
+      shape: 'cutout_relic',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('गांडीव') ? 'गांडीव' : 'gandiva',
+      sfx: 'crystal_ting',
+    };
+  }
+
+  if (combined.includes('पाशुपत') || combined.includes('pashupata')) {
+    return {
+      title: isHindi ? 'पाशुपतास्त्र' : 'Pashupatastra',
+      subtitle: isHindi ? 'महादेव का अमोघ संहारक अस्त्र' : 'Lord Shiva’s Ultimate Weapon',
+      badgeTag: isHindi ? 'दिव्यास्त्र' : 'DIVINE WEAPON',
+      shape: 'cutout_relic',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('पाशुपत') ? 'पाशुपत' : 'pashupata',
+      sfx: 'crystal_ting',
+    };
+  }
+
+  if (combined.includes('संजीवनी') || combined.includes('sanjeevani')) {
+    return {
+      title: isHindi ? 'संजीवनी बूटी' : 'Sanjeevani Herb',
+      subtitle: isHindi ? 'द्रोणागिरि पर्वत औषधि' : 'Life-Restoring Celestial Herb',
+      badgeTag: isHindi ? 'दिव्य औषधि' : 'DIVINE REMEDY',
+      shape: 'cutout_relic',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('संजीवनी') ? 'संजीवनी' : 'sanjeevani',
+      sfx: 'crystal_ting',
+    };
+  }
+
+  if (combined.includes('धनुष') || combined.includes('bow')) {
+    return {
+      title: isHindi ? 'शिव धनुष' : 'Shiva Bow',
+      subtitle: isHindi ? 'अतुल्य भार एवं अलौकिक तेज' : 'Unmatched Weight & Divine Tejas',
+      badgeTag: isHindi ? 'दिव्यास्त्र' : 'DIVINE WEAPON',
+      shape: 'cutout_relic',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('धनुष') ? 'धनुष' : 'bow',
+      sfx: 'crystal_ting',
+    };
+  }
+
+  // 2. Metrics / Quantities / Scale / Timelines
+  const numMatch = narration.match(/(\d[\d,\.]*\s*(?:लाख|करोड़|हजार|दंत|वर्ष|साल|युग|माह|दिन|टन|ton|feet|फ़ीट|मीटर|meter|योजन|मील)?)/i);
+  if (numMatch) {
+    const raw = numMatch[1].trim();
+    const valMatch = raw.match(/^([\d,\.]+)/);
+    const statValue = valMatch ? valMatch[1] : raw;
+    const statUnit = raw.slice(statValue.length).trim() || undefined;
+
+    let title = isHindi ? 'प्रमाणित संख्या' : 'Key Metric';
+    let subtitle = isHindi ? 'धार्मिक एवं ऐतिहासिक गणना' : 'Historical & Scriptural Scale';
+    let badgeTag = isHindi ? 'प्रमाणित आँकड़ा' : 'DATA METRIC';
+    let cueWord = statUnit && narration.includes(statUnit) ? statUnit : statValue;
+
+    if (raw.includes('14') && (raw.includes('वर्ष') || raw.includes('साल') || combined.includes('वनवास'))) {
+      title = isHindi ? 'वनवास कालखंड' : 'Exile Timeline';
+      subtitle = isHindi ? 'मर्यादा और त्याग की अवधि' : '14-Year Period of Ascetic Exile';
+      badgeTag = isHindi ? 'समय सीमा' : 'TIMELINE';
+      cueWord = isHindi && narration.includes('वर्ष') ? 'वर्ष' : '14';
+    } else if (raw.includes('108') || combined.includes('१०८')) {
+      title = isHindi ? 'सौर चक्र दंत' : 'Solar Blades';
+      subtitle = isHindi ? 'सौर ऊर्जा मापक — Tejas' : '108 Rays of Solar Energy';
+      badgeTag = isHindi ? 'प्रमाणित संख्या' : 'MEASUREMENT';
+      cueWord = isHindi && narration.includes('चक्र') ? 'चक्र' : '108';
+    } else if (raw.includes('लाख') || raw.includes('करोड़') || raw.includes('हजार')) {
+      title = isHindi ? 'विशाल संख्या बल' : 'Vast Scale';
+      subtitle = isHindi ? 'महाकाव्यीय सेना विस्तार' : 'Epic Scale Documentation';
+      badgeTag = isHindi ? 'आँकड़ा' : 'METRIC';
+    }
+
+    return {
+      title,
+      subtitle,
+      badgeTag,
+      statValue,
+      statUnit,
+      shape: 'metric_counter',
+      archetype: 'metric_counter',
+      cueWord,
+      sfx: 'hud_ping',
+    };
+  }
+
+  // 3. Characters & Personalities Dossiers
+  if (combined.includes('राम') || combined.includes('rama')) {
+    return {
+      title: isHindi ? 'श्री राम' : 'Lord Rama',
+      subtitle: isHindi ? 'मर्यादा पुरुषोत्तम — इक्ष्वाकु वंश' : 'Embodiment of Dharma — Ikshvaku Dynasty',
+      badgeTag: isHindi ? 'चरित्र परिचय' : 'DOSSIER',
+      shape: 'circle_medallion',
+      archetype: 'macro_relic',
+      cueWord: isHindi && narration.includes('राम') ? 'राम' : 'rama',
+      sfx: 'bubble_pop',
+    };
+  }
+
+  if (combined.includes('सीता') || combined.includes('sita')) {
+    return {
+      title: isHindi ? 'माता सीता' : 'Mata Sita',
+      subtitle: isHindi ? 'विदेह राजकुमारी — जनकपुत्री' : 'Princess of Mithila — Janaka’s Daughter',
+      badgeTag: isHindi ? 'चरित्र परिचय' : 'DOSSIER',
+      shape: 'circle_medallion',
+      archetype: 'macro_relic',
+      cueWord: isHindi && narration.includes('सीता') ? 'सीता' : 'sita',
+      sfx: 'bubble_pop',
+    };
+  }
+
+  if (combined.includes('रावण') || combined.includes('ravana')) {
+    return {
+      title: isHindi ? 'दशानन रावण' : 'Ravana',
+      subtitle: isHindi ? 'लंकेश्वर — त्रिलोक विजयी' : 'King of Lanka — The Ten-Headed Emperor',
+      badgeTag: isHindi ? 'प्रतिद्वंद्वी' : 'ADVERSARY',
+      shape: 'circle_medallion',
+      archetype: 'macro_relic',
+      cueWord: isHindi && narration.includes('रावण') ? 'रावण' : 'ravana',
+      sfx: 'sub_impact',
+    };
+  }
+
+  if (combined.includes('हनुमान') || combined.includes('hanuman')) {
+    return {
+      title: isHindi ? 'श्री हनुमान' : 'Lord Hanuman',
+      subtitle: isHindi ? 'पवनपुत्र — रुद्रावतार' : 'Son of Vayu — Rudra Incarnation',
+      badgeTag: isHindi ? 'परम भक्त' : 'HERO DOSSIER',
+      shape: 'circle_medallion',
+      archetype: 'macro_relic',
+      cueWord: isHindi && narration.includes('हनुमान') ? 'हनुमान' : 'hanuman',
+      sfx: 'bubble_pop',
+    };
+  }
+
+  if (combined.includes('जनक') || combined.includes('janak')) {
+    return {
+      title: isHindi ? 'महाराज जनक' : 'King Janaka',
+      subtitle: isHindi ? 'विदेह मिथिला नरेश' : 'Philosopher King of Mithila',
+      badgeTag: isHindi ? 'राजवंश' : 'ROYALTY',
+      shape: 'circle_medallion',
+      archetype: 'macro_relic',
+      cueWord: isHindi && narration.includes('जनक') ? 'जनक' : 'janak',
+      sfx: 'bubble_pop',
+    };
+  }
+
+  if (combined.includes('दशरथ') || combined.includes('dasharath')) {
+    return {
+      title: isHindi ? 'महाराज दशरथ' : 'King Dasharatha',
+      subtitle: isHindi ? 'अयोध्या के चक्रवर्ती नरेश' : 'Emperor of Ayodhya',
+      badgeTag: isHindi ? 'अयोध्या' : 'ROYALTY',
+      shape: 'circle_medallion',
+      archetype: 'macro_relic',
+      cueWord: isHindi && narration.includes('दशरथ') ? 'दशरथ' : 'dasharatha',
+      sfx: 'bubble_pop',
+    };
+  }
+
+  if (combined.includes('शिव') || combined.includes('shiva') || combined.includes('महादेव')) {
+    return {
+      title: isHindi ? 'भगवान शिव' : 'Lord Shiva',
+      subtitle: isHindi ? 'देवाधिदेव महादेव' : 'The Supreme Destroyer & Transformer',
+      badgeTag: isHindi ? 'महादेव' : 'DIVINE DOSSIER',
+      shape: 'circle_medallion',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('शिव') ? 'शिव' : (narration.includes('महादेव') ? 'महादेव' : 'shiva'),
+      sfx: 'crystal_ting',
+    };
+  }
+
+  if (combined.includes('कृष्ण') || combined.includes('krishna')) {
+    return {
+      title: isHindi ? 'भगवान श्रीकृष्ण' : 'Lord Krishna',
+      subtitle: isHindi ? 'योगेश्वर — द्वारकाधीश' : 'Yogeshvara — Supreme Master of Yoga',
+      badgeTag: isHindi ? 'योगेश्वर' : 'DIVINE DOSSIER',
+      shape: 'circle_medallion',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('कृष्ण') ? 'कृष्ण' : 'krishna',
+      sfx: 'crystal_ting',
+    };
+  }
+
+  // 4. Sacred Geography, Kingdoms & Temple Architecture
+  if (combined.includes('जनकपुर') || combined.includes('मिथिला') || combined.includes('mithila') || combined.includes('janakpur')) {
+    return {
+      title: isHindi ? 'जनकपुर धाम' : 'Janakpur Dham',
+      subtitle: isHindi ? 'प्राचीन मिथिला राज्य की राजधानी' : 'Capital of Ancient Mithila Kingdom',
+      badgeTag: isHindi ? 'पवित्र स्थल' : 'LOCATION',
+      shape: 'museum_glass_card',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('जनकपुर') ? 'जनकपुर' : (narration.includes('मिथिला') ? 'मिथिला' : 'mithila'),
+      sfx: 'shutter_click',
+    };
+  }
+
+  if (combined.includes('अयोध्या') || combined.includes('ayodhya')) {
+    return {
+      title: isHindi ? 'अयोध्या पुरी' : 'Ayodhya Puri',
+      subtitle: isHindi ? 'सूर्यवंश की पावन राजधानी' : 'Holy Capital of the Solar Dynasty',
+      badgeTag: isHindi ? 'पवित्र नगरी' : 'LOCATION',
+      shape: 'museum_glass_card',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('अयोध्या') ? 'अयोध्या' : 'ayodhya',
+      sfx: 'shutter_click',
+    };
+  }
+
+  if (combined.includes('लंका') || combined.includes('lanka')) {
+    return {
+      title: isHindi ? 'स्वर्ण लंका' : 'Golden Lanka',
+      subtitle: isHindi ? 'त्रिकूट पर्वत साम्राज्य' : 'Citadel Atop Trikuta Mountain',
+      badgeTag: isHindi ? 'स्थान' : 'LOCATION',
+      shape: 'museum_glass_card',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('लंका') ? 'लंका' : 'lanka',
+      sfx: 'shutter_click',
+    };
+  }
+
+  if (combined.includes('कैलाश') || combined.includes('kailash')) {
+    return {
+      title: isHindi ? 'कैलाश पर्वत' : 'Mount Kailash',
+      subtitle: isHindi ? 'महादेव का पावन निवास स्थल' : 'Sacred Abode of Lord Shiva',
+      badgeTag: isHindi ? 'तीर्थ' : 'SACRED SITE',
+      shape: 'museum_glass_card',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('कैलाश') ? 'कैलाश' : 'kailash',
+      sfx: 'crystal_ting',
+    };
+  }
+
+  if (combined.includes('चित्रकूट') || combined.includes('chitrakoot')) {
+    return {
+      title: isHindi ? 'चित्रकूट धाम' : 'Chitrakoot Dham',
+      subtitle: isHindi ? 'श्री राम का पावन वनवास स्थल' : 'Holy Abode of Rama During Exile',
+      badgeTag: isHindi ? 'तपोभूमि' : 'SACRED SITE',
+      shape: 'museum_glass_card',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('चित्रकूट') ? 'चित्रकूट' : 'chitrakoot',
+      sfx: 'shutter_click',
+    };
+  }
+
+  if (combined.includes('दंडकारण्य') || combined.includes('dandakaranya')) {
+    return {
+      title: isHindi ? 'दंडकारण्य वन' : 'Dandakaranya Forest',
+      subtitle: isHindi ? 'प्राचीन घना तपोवन क्षेत्र' : 'Ancient Dense Sacred Wilderness',
+      badgeTag: isHindi ? 'वन क्षेत्र' : 'LOCATION',
+      shape: 'museum_glass_card',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('दंडकारण्य') ? 'दंडकारण्य' : 'dandakaranya',
+      sfx: 'shutter_click',
+    };
+  }
+
+  if (combined.includes('लक्षद्वीप') || combined.includes('lakshadweep')) {
+    return {
+      title: isHindi ? 'लक्षद्वीप मंदिर' : 'Lakshadweep Temple',
+      subtitle: isHindi ? 'प्राचीन समुद्री पुरातात्विक धरोहर' : 'Ancient Maritime Archeological Heritage',
+      badgeTag: isHindi ? 'पुरातत्व' : 'HERITAGE',
+      shape: 'museum_glass_card',
+      archetype: 'heritage_intel',
+      cueWord: isHindi && narration.includes('लक्षद्वीप') ? 'लक्षद्वीप' : 'lakshadweep',
+      sfx: 'shutter_click',
+    };
+  }
+
+  if (combined.includes('मंदिर') || combined.includes('temple') || combined.includes('वास्तु') || combined.includes('architecture')) {
+    return {
+      title: isHindi ? 'प्राचीन मंदिर स्थापत्य' : 'Temple Architecture',
+      subtitle: isHindi ? 'द्रविड़ एवं नागर वास्तु प्रमाण' : 'Dravida & Nagara Architectural Code',
+      badgeTag: isHindi ? 'वास्तुकला' : 'ARCHITECTURE',
+      shape: 'blueprint_diagram',
+      archetype: 'blueprint_diagram',
+      cueWord: isHindi && narration.includes('मंदिर') ? 'मंदिर' : (narration.includes('वास्तु') ? 'वास्तु' : 'temple'),
+      sfx: 'hud_ping',
+    };
+  }
+
+  // 5. Mysteries, Vows & Key Story Turning Points
+  if (combined.includes('स्वयंवर') || combined.includes('प्रतिज्ञा') || combined.includes('शर्त')) {
+    return {
+      title: isHindi ? 'शिव धनुष प्रतिज्ञा' : 'The Sacred Vow',
+      subtitle: isHindi ? 'सीता स्वयंवर का नियम' : 'Condition of the Sita Swayamvara',
+      badgeTag: isHindi ? 'महत्वपूर्ण प्रसंग' : 'KEY TURNING POINT',
+      shape: 'mystery_hook',
+      archetype: 'mystery_hook',
+      cueWord: isHindi && narration.includes('प्रतिज्ञा') ? 'प्रतिज्ञा' : (narration.includes('शर्त') ? 'शर्त' : (narration.includes('स्वयंवर') ? 'स्वयंवर' : 'vow')),
+      sfx: 'crystal_ting',
+    };
+  }
+
+  if (combined.includes('रहस्य') || combined.includes('unsolved') || combined.includes('mystery')) {
+    return {
+      title: isHindi ? 'अबूझ रहस्य' : 'Unsolved Mystery',
+      subtitle: isHindi ? 'प्राचीन ग्रंथों का अनुत्तरित प्रश्न' : 'Unanswered Question of Scripture',
+      badgeTag: isHindi ? 'अनसुलझा रहस्य' : 'MYSTERY',
+      shape: 'mystery_hook',
+      archetype: 'mystery_hook',
+      cueWord: isHindi && narration.includes('रहस्य') ? 'रहस्य' : 'mystery',
+      sfx: 'crystal_ting',
+    };
+  }
+
+  // 6. Intelligent Semantic Fallback (Noun Phrase / Proper Entity, NEVER Incomplete Clauses!)
+  const stopWords = new Set([
+    'ने', 'को', 'से', 'के', 'की', 'का', 'में', 'पर', 'जैसे', 'ही', 'तब', 'जब', 'इस', 'उस', 'और',
+    'था', 'थी', 'थे', 'है', 'हैं', 'कि', 'तो', 'भी', 'यह', 'वह', 'कर', 'रहा', 'रही', 'रहे', 'गया', 'गई',
+    'a', 'an', 'the', 'is', 'was', 'are', 'were', 'in', 'on', 'at', 'to', 'for', 'of', 'and', 'but', 'so'
+  ]);
+  const words = narration.split(/[\s,।!?.]+/).filter(w => w.length > 2 && !stopWords.has(w.toLowerCase()));
+  const topicWord = words[0] || (isHindi ? 'धरोहर' : 'Intel');
+
+  return {
+    title: isHindi ? `${topicWord} संदर्भ` : `${topicWord} Intel`,
+    subtitle: isHindi ? 'प्राचीन प्रामाणिक ग्रंथ उल्लेख' : 'Documented Historical Reference',
+    badgeTag: isHindi ? 'प्रमाणिक संदर्भ' : 'HISTORICAL INTEL',
+    shape: 'circle_medallion',
+    archetype: 'heritage_intel',
+    cueWord: topicWord,
+    sfx: 'bubble_pop',
+  };
+}
+
 /**
  * Offline fallback. Grounds every field in the actual narration and picks the
  * shape / sound from the channel StyleKit. Never invents sample copy.
  */
-function heuristicExtractPopups(script: any): ExtraPopupAsset[] {
+export function heuristicExtractPopups(script: any): ExtraPopupAsset[] {
   const scenes = Array.isArray(script.scenePlan?.scenes) ? script.scenePlan.scenes : [];
   const popups: ExtraPopupAsset[] = [];
   const scriptText = scenes.map((s: any) => s.narration || '').join(' ');
@@ -64,97 +471,34 @@ function heuristicExtractPopups(script: any): ExtraPopupAsset[] {
 
   scenes.forEach((scene: any, index: number) => {
     const narration = String(scene.narration || '').trim();
-    const text = `${narration} ${scene.imagePrompt || ''} ${scene.videoPrompt || ''}`;
+    const visual = String(scene.imagePrompt || scene.videoPrompt || '').trim();
+    const intel = extractProfessionalPopupIntel(narration, visual, index, isHindi, kit, script.name);
 
-    // Pull the first narrated number so the popup shows a real figure, never a demo one.
-    const numMatch = narration.match(/(\d[\d,\.]*\s*(?:लाख|करोड़|हजार|टन|ton|tons|tonnes|year|years|साल|फ़ीट|feet|ft|मीटर|meters|m|mile|miles)?)/i);
-    const mysteryMatch = /(रहस्य|unsolved|mystery|impossible|secret|असंभव|अनसुलझा|चमत्कार|no one knows|cannot explain)/i.test(narration);
-    const heritageMatch = /(सभ्यता|dynasty|वंश|century|सदी|king|राजा|temple|मंदिर|ancient|प्राचीन|इतिहास|scripture|शास्त्र)/i.test(narration);
-    const geomMatch = /(ज्यामिति|geometry|carved|तराश|architecture|वास्तु|trench|excavation|chamber|कक्ष|pillar|स्तंभ)/i.test(narration);
-
-    let shape: ExtraPopupShapeType;
-    let archetype: string;
-    let title = '';
-    let subtitle = '';
-    let badgeTag = '';
-    let statValue: string | undefined;
-    let statUnit: string | undefined;
-
-    if (numMatch) {
-      shape = 'metric_counter';
-      archetype = 'metric_counter';
-      const raw = numMatch[1].trim();
-      const valueMatch = raw.match(/^([\d,\.]+)/);
-      statValue = valueMatch ? valueMatch[1] : raw;
-      statUnit = raw.slice(statValue.length).trim() || undefined;
-      // Title is the sentence fragment that contains the number, so it is narration-grounded.
-      const figure: string = statValue;
-      const sentence = narration.split(/[।.!?]/).find(s => s.includes(figure)) || narration;
-      title = sentence.trim().split(/\s+/).slice(0, isHindi ? 6 : 8).join(' ');
-      badgeTag = isHindi ? 'प्रमाणित आँकड़ा' : 'STATED FIGURE';
-    } else if (geomMatch) {
-      shape = 'blueprint_diagram';
-      archetype = 'blueprint_diagram';
-      title = firstClause(narration, isHindi ? 5 : 7);
-      badgeTag = isHindi ? 'ज्यामिति' : 'GEOMETRY';
-    } else if (mysteryMatch) {
-      shape = 'mystery_hook';
-      archetype = 'mystery_hook';
-      title = firstClause(narration, isHindi ? 5 : 7);
-      badgeTag = isHindi ? 'रहस्य' : 'OPEN QUESTION';
-    } else if (heritageMatch) {
-      shape = 'heritage_intel';
-      archetype = 'heritage_intel';
-      title = firstClause(narration, isHindi ? 5 : 7);
-      badgeTag = isHindi ? 'प्राचीन धरोहर' : 'HERITAGE';
-    } else {
-      shape = kit.popupShapes[index % kit.popupShapes.length];
-      archetype = 'macro_relic';
-      title = firstClause(narration, isHindi ? 5 : 7);
-      badgeTag = isHindi ? 'निरीक्षण' : 'DETAIL';
-    }
-
-    const subject = title || scene.imagePrompt || scene.videoPrompt || 'archival detail';
-    const sfx = clampSfxToKit(
-      kit,
-      shape === 'metric_counter' ? kit.defaultSfx : shape === 'mystery_hook' ? 'energy_hum' : kit.defaultSfx
-    );
+    const subject = intel.title || visual || 'archival detail';
+    const sfx = clampSfxToKit(kit, intel.sfx);
 
     popups.push({
       id: `popup_${index}_${crypto.randomBytes(4).toString('hex')}`,
       sceneIndex: index,
-      cueWord: cueFromNarration(narration, isHindi),
+      cueWord: intel.cueWord,
       cueOffsetSec: 1.0,
       durationSec: 3.2,
-      title: title || (isHindi ? 'विवरण' : 'Detail'),
-      subtitle: subtitle || undefined,
-      badgeTag,
-      statValue,
-      statUnit,
-      archetype,
+      title: intel.title,
+      subtitle: intel.subtitle,
+      badgeTag: intel.badgeTag,
+      statValue: intel.statValue,
+      statUnit: intel.statUnit,
+      archetype: intel.archetype,
       prompt: enhanceMacroPrompt(subject, script.name),
-      shape: clampShapeToKit(kit, shape),
+      shape: clampShapeToKit(kit, intel.shape),
       placement: placements[index % placements.length],
       scalePercent: 30,
-      sfx,
-      status: 'pending',
+      sfx: sfx || 'bubble_pop',
+      status: 'ready',
     });
   });
 
   return popups;
-}
-
-/** First clause of the narration, capped in length. Used as popup headline. */
-function firstClause(narration: string, maxWords: number): string {
-  const clause = narration.split(/[।.,;:!?]/)[0] || narration;
-  const words = clause.trim().split(/\s+/).filter(Boolean);
-  return words.slice(0, maxWords).join(' ');
-}
-
-/** A spoken word to trigger on: prefer a late-content word, not the first article. */
-function cueFromNarration(narration: string, isHindi: boolean): string {
-  const words = narration.split(/\s+/).filter(w => w.length > (isHindi ? 1 : 3));
-  return (words[Math.min(3, words.length - 1)] || words[0] || (isHindi ? 'यह' : 'this')).replace(/[।.,;:!?]/g, '');
 }
 
 export async function detectPopupsForScript(
@@ -191,8 +535,25 @@ export async function detectPopupsForScript(
       durationSec: s.duration || 5,
     }));
 
-    const systemPrompt = `You are a world-class YouTube Shorts creative director (inspired by Vox, MagnatesMedia, Lemmino) specializing in high-retention visual popups.
+    const systemPrompt = `You are a Lead Visual & Motion Graphics Editor for world-class cinematic documentary YouTube Shorts (inspired by Vox, Lemmino, MagnatesMedia).
 For each scene in the script, analyze the narration and identify the SINGLE HIGHEST-RETENTION on-screen popup to captivate the viewer.
+
+CRITICAL PROFESSIONAL EDITOR RULES:
+1. STRICTLY NO BROKEN SENTENCE FRAGMENTS:
+   - Grammatical clauses like "भगवान राम ने जैसे ही" or "जब यह हुआ" are BANNED.
+   - Popups MUST be meaningful, useful intel callouts:
+     * Entity / Character Dossier (e.g. "श्री राम" | "मर्यादा पुरुषोत्तम — इक्ष्वाकु वंश")
+     * Divine Weapon / Relic Architecture (e.g. "पिनाक धनुष" | "भगवान शिव का अमोघ धनुष")
+     * Metric / Quantity / Scale (e.g. "१४ वर्ष वनवास" | "मर्यादा एवं त्याग कालखंड")
+     * Geographic Location Stamp (e.g. "जनकपुर धाम" | "प्राचीन मिथिला राज्य की राजधानी")
+     * Crucial Story Context / Vow (e.g. "शिव धनुष प्रतिज्ञा" | "सीता स्वयंवर का नियम")
+2. EXACT CUE SYNCHRONIZATION:
+   - "cueWord" MUST be the exact spoken keyword in that scene (e.g. "पिनाक", "धनुष", "चक्र", "जनकपुर", "वर्ष", "राम").
+   - The popup triggers right when this word is spoken.
+3. CONCISE HIGH-RETENTION COPY:
+   - "title": 2 to 4 bold words naming the entity, relic, place, or metric.
+   - "subtitle": 3 to 6 words giving rich context or meaning.
+   - "badgeTag": 1 to 2 words (e.g. "दिव्यास्त्र", "धरोहर", "स्थान", "चरित्र", "समय सीमा", "रहस्य").
 
 CHANNEL STYLE KIT (this is a brand contract — obey it exactly):
 - Palette: primary ${kit.popup.primary}, accent ${kit.popup.accent}, text ${kit.popup.text}
@@ -210,11 +571,6 @@ ARCHETYPES (pick the most powerful one per scene):
 LANGUAGE:
 ${isHindi ? '- Script is HINDI. Output "title", "subtitle", "badgeTag" in HINDI (Devanagari) matching the spoken narration.' : '- Output clean, punchy English titles, subtitles and tags.'}
 
-GROUNDING RULES (critical):
-- "title" and "subtitle" MUST be drawn from the actual narration words shown below. Never invent facts, measurements or claims.
-- "cueWord" MUST be an exact word present in that scene's narration.
-- Every number you place in "statValue" must appear in that scene's narration.
-
 PLACEMENT RULE:
 - Only use: "top-right", "top-left", "center-right", "center-left". Never bottom corners (mobile subtitle safe zone).
 
@@ -224,12 +580,12 @@ OUTPUT JSON SCHEMA:
     "sceneIndex": number,
     "archetype": "${CARD_ARCHETYPES.join('" | "')} | "macro_relic",
     "cueWord": "Exact spoken word triggering the popup",
-    "cueOffsetSec": number (0.8-2.2),
-    "durationSec": number (2.5-3.5),
-    "title": "Bold headline (1-4 words, from narration)",
-    "subtitle": "Secondary line (from narration)",
-    "badgeTag": "Small pill tag",
-    "statValue": "Large number if metric_counter (must appear in narration)",
+    "cueOffsetSec": number (0.8-1.8),
+    "durationSec": number (2.8-3.5),
+    "title": "Bold proper noun / entity name (2-4 words)",
+    "subtitle": "Explanatory context line (3-6 words)",
+    "badgeTag": "Small category pill tag (1-2 words)",
+    "statValue": "Large number if metric_counter",
     "statUnit": "Unit tag if metric_counter",
     "subject": "Physical item or texture prompt for image generation",
     "shape": "${kit.popupShapes.join('" | "')}",
@@ -300,8 +656,8 @@ ${JSON.stringify(sceneDescriptions, null, 2)}`;
         shape,
         placement,
         scalePercent: 30,
-        sfx,
-        status: 'pending',
+        sfx: sfx || 'bubble_pop',
+        status: 'ready',
       };
     });
 
@@ -375,7 +731,9 @@ export async function generatePopupImage(opts: {
   try {
     let result: { publicUrl: string; fileName: string; seed: number; elapsedMs: number };
 
-    if (preferredProvider === 'cloudflare' || (!preferredProvider && isCloudflareConfigured())) {
+    if (preferredProvider === 'pollinations') {
+      result = await generatePollinationsImage(prompt, scriptId, seed);
+    } else if (preferredProvider === 'cloudflare' || (!preferredProvider && isCloudflareConfigured())) {
       result = await generateCloudflareImage({
         prompt,
         scriptId,
@@ -649,93 +1007,41 @@ export function compileExtraPopupToMotionGraphic(
   let posStyles = '';
   switch (popup.placement) {
     case 'top-left':
-      posStyles = 'top: 15%; left: 8%; align-items: flex-start;';
+      posStyles = 'top: 18%; left: 6%; align-items: flex-start;';
       break;
     case 'bottom-left':
-      posStyles = 'top: 28%; left: 8%; align-items: flex-start;';
+      posStyles = 'top: 26%; left: 6%; align-items: flex-start;';
       break;
     case 'bottom-right':
-      posStyles = 'top: 28%; right: 8%; align-items: flex-end;';
+      posStyles = 'top: 26%; right: 6%; align-items: flex-end;';
       break;
     case 'center-left':
-      posStyles = 'top: 30%; left: 8%; align-items: flex-start;';
+      posStyles = 'top: 24%; left: 6%; align-items: flex-start;';
       break;
     case 'center-right':
-      posStyles = 'top: 30%; right: 8%; align-items: flex-end;';
+      posStyles = 'top: 24%; right: 6%; align-items: flex-end;';
       break;
     case 'top-right':
     default:
-      posStyles = 'top: 15%; right: 8%; align-items: flex-end;';
+      posStyles = 'top: 18%; right: 6%; align-items: flex-end;';
       break;
   }
 
   const hasImage = Boolean(imgSrc && imgSrc.length > 10);
+  const themeColor = theme.primary;
+  const themeGlow = theme.glow;
   const isMetric = shape === 'metric_counter' || popup.archetype === 'metric_counter';
   const isMystery = shape === 'mystery_hook' || popup.archetype === 'mystery_hook';
   const isBlueprint = shape === 'blueprint_diagram' || popup.archetype === 'blueprint_diagram';
-  const isHeritage = shape === 'heritage_intel' || popup.archetype === 'heritage_intel' || (!hasImage && !isMetric && !isMystery && !isBlueprint);
-  const isHex = shape === 'tactical_hexagon' && hasImage;
+  const isHeritage = shape === 'heritage_intel' || popup.archetype === 'heritage_intel';
+  const badgeTag = popup.badgeTag || (isMetric ? 'STATED FIGURE' : isMystery ? 'OPEN QUESTION' : isHeritage ? 'HERITAGE' : isBlueprint ? 'GEOMETRY' : 'DETAIL');
 
-  const themeColor = theme.primary;
-  const themeGlow = theme.glow;
-  const badgeTag = popup.badgeTag || (isMetric ? 'STATED FIGURE' : isMystery ? 'OPEN QUESTION' : isHeritage ? 'HERITAGE' : isBlueprint ? 'GEOMETRY' : (isHex ? 'TELEMETRY' : 'DETAIL'));
-
-  let cardBodyHtml = '';
-
-  if (isMetric) {
-    cardBodyHtml = `
-      <div class="ep-hero-card ep-card-metric">
-        <div class="ep-badge-pill">
-          <span class="ep-pill-dot"></span>
-          <span class="ep-pill-tag">${badgeTag}</span>
-        </div>
-        <div class="ep-stat-row">
-          <span class="ep-stat-num">${popup.statValue || popup.title}</span>
-          ${popup.statUnit ? `<span class="ep-stat-unit">${popup.statUnit}</span>` : ''}
-        </div>
-        <div class="ep-title">${popup.title}</div>
-        ${popup.subtitle ? `<div class="ep-sub">${popup.subtitle}</div>` : ''}
-      </div>
-    `;
-  } else if (isMystery) {
-    cardBodyHtml = `
-      <div class="ep-hero-card ep-card-mystery">
-        <div class="ep-badge-pill ep-pill-mystery">
-          <span class="ep-pill-qmark">?</span>
-          <span class="ep-pill-tag">${badgeTag}</span>
-        </div>
-        <div class="ep-title ep-title-lg">${popup.title}</div>
-        ${popup.subtitle ? `<div class="ep-sub">${popup.subtitle}</div>` : ''}
-      </div>
-    `;
-  } else if (isHeritage) {
-    cardBodyHtml = `
-      <div class="ep-hero-card ep-card-heritage">
-        <div class="ep-badge-pill">
-          <span class="ep-pill-dot"></span>
-          <span class="ep-pill-tag">${badgeTag}</span>
-        </div>
-        <div class="ep-title ep-title-heritage">${popup.title}</div>
-        ${popup.subtitle ? `<div class="ep-sub">${popup.subtitle}</div>` : ''}
-      </div>
-    `;
-  } else if (isBlueprint) {
-    cardBodyHtml = `
-      <div class="ep-hero-card ep-card-blueprint">
-        <div class="ep-badge-pill">
-          <span class="ep-pill-dot"></span>
-          <span class="ep-pill-tag">${badgeTag}</span>
-        </div>
-        <div class="ep-title">${popup.title}</div>
-        ${popup.subtitle ? `<div class="ep-sub">${popup.subtitle}</div>` : ''}
-      </div>
-    `;
-  } else {
-    // Photographic frame shapes: medallion, hexagon, glass card, loupe, cutout relic.
-    let frameSvg = '';
+  // Graphic frame SVG (Only rendered when a high-resolution photo/macro asset is present)
+  let frameSvg = '';
+  if (hasImage) {
     if (shape === 'tactical_hexagon') {
       frameSvg = `
-        <div class="ep-frame ep-hex">
+        <div class="ep-frame-thumb ep-hex">
           <svg viewBox="0 0 100 100" class="ep-svg">
             <defs>
               <clipPath id="hexClip-${popup.id}">
@@ -744,15 +1050,14 @@ export function compileExtraPopupToMotionGraphic(
             </defs>
             <polygon points="50,2 96,25 96,75 50,98 4,75 4,25" fill="none" stroke="${themeGlow}" stroke-width="4" />
             <polygon points="50,4 94,26 94,74 50,96 6,74 6,26" fill="none" stroke="${themeColor}" stroke-width="3" />
-            <polygon points="50,8 90,28 90,72 50,92 10,72 10,28" fill="none" stroke="${themeGlow}" stroke-width="1.5" stroke-dasharray="4 2" />
             <image href="${imgSrc}" x="6" y="4" width="88" height="92" clip-path="url(#hexClip-${popup.id})" preserveAspectRatio="xMidYMid slice" />
           </svg>
         </div>
       `;
     } else if (shape === 'museum_glass_card') {
       frameSvg = `
-        <div class="ep-frame ep-glass">
-          <div class="ep-glass-inner">
+        <div class="ep-frame-thumb ep-glass">
+          <div class="ep-glass-inner" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(255,215,0,0.2),rgba(0,0,0,0.75));">
             <img src="${imgSrc}" alt="${popup.title}" class="ep-img" />
             <div class="ep-glass-shine"></div>
           </div>
@@ -760,7 +1065,7 @@ export function compileExtraPopupToMotionGraphic(
       `;
     } else if (shape === 'magnifying_loupe') {
       frameSvg = `
-        <div class="ep-frame ep-loupe">
+        <div class="ep-frame-thumb ep-loupe">
           <svg viewBox="0 0 100 100" class="ep-svg">
             <defs>
               <clipPath id="loupeClip-${popup.id}"><circle cx="45" cy="45" r="38" /></clipPath>
@@ -769,31 +1074,27 @@ export function compileExtraPopupToMotionGraphic(
             <circle cx="45" cy="45" r="39" fill="none" stroke="${themeColor}" stroke-width="2.5" />
             <image href="${imgSrc}" x="7" y="7" width="76" height="76" clip-path="url(#loupeClip-${popup.id})" preserveAspectRatio="xMidYMid slice" />
             <line x1="72" y1="72" x2="96" y2="96" stroke="${themeColor}" stroke-width="6" stroke-linecap="round" />
-            <line x1="72" y1="72" x2="96" y2="96" stroke="${themeGlow}" stroke-width="12" stroke-linecap="round" opacity="0.4" />
           </svg>
         </div>
       `;
     } else if (shape === 'cutout_relic') {
       frameSvg = `
-        <div class="ep-frame ep-cutout">
+        <div class="ep-frame-thumb ep-cutout">
           <svg viewBox="0 0 100 100" class="ep-svg">
             <defs>
               <clipPath id="cutClip-${popup.id}">
                 <path d="M50 3 C70 3 92 18 95 42 C98 66 82 90 52 96 C24 100 4 78 5 50 C6 24 28 3 50 3 Z" />
               </clipPath>
             </defs>
-            <path d="M50 3 C70 3 92 18 95 42 C98 66 82 90 52 96 C24 100 4 78 5 50 C6 24 28 3 50 3 Z"
-              fill="none" stroke="${themeGlow}" stroke-width="4" />
+            <path d="M50 3 C70 3 92 18 95 42 C98 66 82 90 52 96 C24 100 4 78 5 50 C6 24 28 3 50 3 Z" fill="none" stroke="${themeGlow}" stroke-width="4" />
             <image href="${imgSrc}" x="2" y="2" width="96" height="96" clip-path="url(#cutClip-${popup.id})" preserveAspectRatio="xMidYMid slice" />
-            <path d="M50 3 C70 3 92 18 95 42 C98 66 82 90 52 96 C24 100 4 78 5 50 C6 24 28 3 50 3 Z"
-              fill="none" stroke="${themeColor}" stroke-width="2" stroke-dasharray="6 4" />
+            <path d="M50 3 C70 3 92 18 95 42 C98 66 82 90 52 96 C24 100 4 78 5 50 C6 24 28 3 50 3 Z" fill="none" stroke="${themeColor}" stroke-width="2" stroke-dasharray="6 4" />
           </svg>
         </div>
       `;
     } else {
-      // Circle medallion default
       frameSvg = `
-        <div class="ep-frame ep-circle">
+        <div class="ep-frame-thumb ep-circle">
           <svg viewBox="0 0 100 100" class="ep-svg">
             <defs>
               <clipPath id="circleClip-${popup.id}">
@@ -802,56 +1103,62 @@ export function compileExtraPopupToMotionGraphic(
             </defs>
             <circle cx="50" cy="50" r="46" fill="none" stroke="${themeGlow}" stroke-width="3.5" />
             <circle cx="50" cy="50" r="44" fill="none" stroke="${themeColor}" stroke-width="2.5" />
-            <circle cx="50" cy="50" r="42" fill="none" stroke="${theme.accent}" stroke-width="2" stroke-dasharray="5 3" class="ep-spin" />
             <image href="${imgSrc}" x="9" y="9" width="82" height="82" clip-path="url(#circleClip-${popup.id})" preserveAspectRatio="xMidYMid slice" />
-            <circle cx="50" cy="50" r="41" fill="none" stroke="rgba(255,255,255,0.3)" stroke-width="1" />
           </svg>
         </div>
       `;
     }
+  }
 
-    const leaderSvg = `
-      <svg class="ep-leader-line" viewBox="0 0 180 32">
-        ${isLeft ? `
-          <path class="ep-path" d="M0 4 L80 4 L130 28" fill="none" stroke="${themeColor}" stroke-width="3" />
-          <circle class="ep-node" cx="130" cy="28" r="5" fill="${themeColor}" />
-        ` : `
-          <path class="ep-path" d="M180 4 L100 4 L50 28" fill="none" stroke="${themeColor}" stroke-width="3" />
-          <circle class="ep-node" cx="50" cy="28" r="5" fill="${themeColor}" />
-        `}
-      </svg>
-    `;
-
-    // 'none' card style (Ancient Dharma): free-floating type, no card box behind the label.
-    cardBodyHtml = `
-      ${hasImage ? frameSvg : ''}
-      <div class="ep-leader-block ${isLeft ? 'ep-left' : 'ep-right'}">
-        ${hasImage ? leaderSvg : ''}
-        <div class="ep-badge ${noCard ? 'ep-badge-float' : ''}">
-          <div class="ep-badge-pill">
-            <span class="ep-pill-dot"></span>
-            <span class="ep-pill-tag">${badgeTag}</span>
-          </div>
-          <div class="ep-title">${popup.title}</div>
-          ${popup.subtitle ? `<div class="ep-sub">${popup.subtitle}</div>` : ''}
-        </div>
+  let badgeContentHtml = '';
+  if (isMetric && (popup.statValue || popup.statUnit)) {
+    badgeContentHtml = `
+      <div class="ep-badge-pill">
+        <span class="ep-pill-dot"></span>
+        <span class="ep-pill-tag">${badgeTag}</span>
       </div>
+      <div class="ep-stat-row">
+        <span class="ep-stat-num">${popup.statValue || popup.title}</span>
+        ${popup.statUnit ? `<span class="ep-stat-unit">${popup.statUnit}</span>` : ''}
+      </div>
+      <div class="ep-title">${popup.title}</div>
+      ${popup.subtitle ? `<div class="ep-sub">${popup.subtitle}</div>` : ''}
+    `;
+  } else {
+    badgeContentHtml = `
+      <div class="ep-badge-pill">
+        <span class="ep-pill-dot"></span>
+        <span class="ep-pill-tag">${badgeTag}</span>
+      </div>
+      <div class="ep-title">${popup.title}</div>
+      ${popup.subtitle ? `<div class="ep-sub">${popup.subtitle}</div>` : ''}
     `;
   }
 
+  const cardBodyHtml = hasImage
+    ? `
+      <div class="ep-card ep-dossier-card ep-has-thumb">
+        <div class="ep-media-row">
+          ${frameSvg}
+          <div class="ep-content-side">
+            ${badgeContentHtml}
+          </div>
+        </div>
+      </div>
+    `
+    : `
+      <div class="ep-card ep-dossier-card ${isMetric ? 'ep-card-metric' : ''}">
+        ${badgeContentHtml}
+      </div>
+    `;
+
   const html = `
     <div id="${id}" class="ep-wrapper" style="${posStyles}">
-      <div class="ep-card">
-        ${cardBodyHtml}
-      </div>
+      ${cardBodyHtml}
     </div>
   `;
 
   const css = `
-    @keyframes epSpinAnim {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
     #${id}.ep-wrapper {
       position: absolute;
       display: flex;
@@ -866,130 +1173,45 @@ export function compileExtraPopupToMotionGraphic(
     #${id} .ep-card {
       display: flex;
       flex-direction: column;
-      align-items: inherit;
-      filter: drop-shadow(0 20px 48px rgba(0,0,0,0.92));
-    }
-    #${id} .ep-hero-card {
-      display: flex;
-      flex-direction: column;
-      padding: 16px 24px;
-      border-radius: ${Math.max(8, kit.theme.radius * 3)}px;
-      background: ${noCard ? 'transparent' : theme.surface};
+      padding: 16px 22px;
+      border-radius: ${Math.max(12, kit.theme.radius * 2.5)}px;
+      background: ${noCard ? 'transparent' : 'rgba(12, 10, 8, 0.90)'};
       border: 1.5px solid ${theme.surfaceBorder};
-      box-shadow: ${noCard ? 'none' : `0 20px 50px rgba(0,0,0,0.9), 0 0 35px ${theme.glow}`};
-      backdrop-filter: ${noCard ? 'none' : 'blur(24px)'};
-      min-width: 320px;
-      max-width: 440px;
+      box-shadow: 0 16px 42px rgba(0,0,0,0.92), 0 0 28px ${theme.glow};
+      backdrop-filter: blur(20px);
+      min-width: 280px;
+      max-width: 380px;
     }
-    #${id} .ep-card-metric { border-color: ${theme.primary}; box-shadow: 0 20px 50px rgba(0,0,0,0.92), 0 0 35px ${theme.glow}; }
-    #${id} .ep-card-mystery { border-color: ${theme.accent}; box-shadow: 0 20px 50px rgba(0,0,0,0.92), 0 0 40px ${theme.glow}; }
-    #${id} .ep-card-heritage { border-color: ${theme.badge}; box-shadow: 0 20px 50px rgba(0,0,0,0.92), 0 0 35px ${theme.glow}; }
-    #${id} .ep-card-blueprint { border-color: ${theme.primary}; box-shadow: 0 20px 50px rgba(0,0,0,0.92), 0 0 35px ${theme.glow}; }
-    #${id} .ep-stat-row {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      margin: 4px 0 6px 0;
+    #${id} .ep-card-metric {
+      border-color: ${theme.primary};
+      box-shadow: 0 16px 42px rgba(0,0,0,0.92), 0 0 32px ${theme.glow};
     }
-    #${id} .ep-stat-num {
-      font-size: 48px;
-      font-weight: 900;
-      color: ${theme.text};
-      letter-spacing: -0.02em;
-      line-height: 1.0;
-      text-shadow: 0 0 24px ${theme.glow};
-    }
-    #${id} .ep-stat-unit {
-      font-size: 20px;
-      font-weight: 800;
-      color: ${theme.primary};
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    #${id} .ep-badge-pill {
+    #${id} .ep-media-row {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
+      gap: 16px;
     }
-    #${id} .ep-pill-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: ${theme.badge};
-      box-shadow: 0 0 10px ${theme.badge};
-    }
-    #${id} .ep-pill-qmark {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: ${theme.accent};
-      color: #000;
-      font-size: 12px;
-      font-weight: 900;
-    }
-    #${id} .ep-pill-tag {
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.12em;
-      color: ${theme.primary};
-      text-transform: uppercase;
-    }
-    #${id} .ep-title {
-      font-size: 24px;
-      font-weight: 800;
-      color: ${theme.text};
-      letter-spacing: 0.01em;
-      line-height: 1.25;
-      ${noCard ? `text-shadow: 0 2px 12px rgba(0,0,0,0.95), 0 0 26px ${theme.glow};` : ''}
-    }
-    #${id} .ep-title-lg {
-      font-size: 26px;
-      font-weight: 900;
-      color: ${theme.text};
-    }
-    #${id} .ep-title-heritage {
-      font-size: 25px;
-      color: ${theme.text};
-    }
-    #${id} .ep-sub {
-      font-size: 15px;
-      font-weight: 500;
-      color: ${theme.muted};
-      margin-top: 4px;
-      line-height: 1.35;
-      ${noCard ? `text-shadow: 0 2px 10px rgba(0,0,0,0.95);` : ''}
-    }
-    #${id} .ep-frame {
+    #${id} .ep-frame-thumb {
       position: relative;
-      width: 310px;
-      height: 310px;
+      width: 110px;
+      height: 110px;
+      flex-shrink: 0;
     }
-    #${id} .ep-svg {
+    #${id} .ep-frame-thumb .ep-svg {
       width: 100%;
       height: 100%;
-      overflow: visible;
-    }
-    #${id} .ep-spin {
-      transform-origin: 50px 50px;
-      animation: epSpinAnim 12s linear infinite;
     }
     #${id} .ep-glass {
-      padding: 10px;
-      border-radius: 24px;
-      background: ${noCard ? 'transparent' : theme.surface};
-      border: 2px solid ${theme.primary};
-      box-shadow: 0 16px 36px rgba(0,0,0,0.85), 0 0 30px ${theme.glow};
-      backdrop-filter: ${noCard ? 'none' : 'blur(20px)'};
+      padding: 6px;
+      border-radius: 16px;
+      background: rgba(255, 215, 0, 0.08);
+      border: 1.5px solid ${theme.primary};
     }
     #${id} .ep-glass-inner {
       position: relative;
       width: 100%;
       height: 100%;
-      border-radius: 18px;
+      border-radius: 12px;
       overflow: hidden;
     }
     #${id} .ep-img {
@@ -997,28 +1219,72 @@ export function compileExtraPopupToMotionGraphic(
       height: 100%;
       object-fit: cover;
     }
-    #${id} .ep-leader-block {
+    #${id} .ep-content-side {
       display: flex;
       flex-direction: column;
-      margin-top: 6px;
+      flex: 1;
     }
-    #${id} .ep-leader-block.ep-left { align-items: flex-start; }
-    #${id} .ep-leader-block.ep-right { align-items: flex-end; }
-    #${id} .ep-leader-line {
-      width: 180px;
-      height: 32px;
-      overflow: visible;
+    #${id} .ep-badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      align-self: flex-start;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
     }
-    #${id} .ep-badge {
+    #${id} .ep-pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: ${theme.badge};
+      box-shadow: 0 0 8px ${theme.badge};
+    }
+    #${id} .ep-pill-tag {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.14em;
+      color: ${theme.primary};
+      text-transform: uppercase;
+    }
+    #${id} .ep-stat-row {
       display: flex;
-      flex-direction: column;
-      padding: 14px 22px;
-      border-radius: ${Math.max(8, kit.theme.radius * 2)}px;
-      background: ${noCard ? 'transparent' : theme.surface};
-      border: ${noCard ? 'none' : `1.5px solid ${theme.surfaceBorder}`};
-      box-shadow: ${noCard ? 'none' : `0 14px 36px rgba(0,0,0,0.9), 0 0 26px ${theme.glow}`};
-      backdrop-filter: ${noCard ? 'none' : 'blur(20px)'};
-      max-width: 380px;
+      align-items: baseline;
+      gap: 10px;
+      margin: 4px 0 6px 0;
+    }
+    #${id} .ep-stat-num {
+      font-size: 44px;
+      font-weight: 900;
+      color: ${theme.text};
+      letter-spacing: -0.02em;
+      line-height: 1.0;
+      text-shadow: 0 0 20px ${theme.glow};
+    }
+    #${id} .ep-stat-unit {
+      font-size: 18px;
+      font-weight: 800;
+      color: ${theme.primary};
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    #${id} .ep-title {
+      font-size: 26px;
+      font-weight: 900;
+      color: ${theme.text};
+      letter-spacing: 0.01em;
+      line-height: 1.25;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.95);
+    }
+    #${id} .ep-sub {
+      font-size: 15px;
+      font-weight: 500;
+      color: ${theme.muted};
+      margin-top: 4px;
+      line-height: 1.35;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.9);
     }
   `;
 
@@ -1027,51 +1293,33 @@ export function compileExtraPopupToMotionGraphic(
     const rootEl = typeof container !== 'undefined' && container ? container : document;
     const wrapper = rootEl.querySelector('#${id}');
     const card = rootEl.querySelector('#${id} .ep-card');
-    const path = rootEl.querySelector('#${id} .ep-path');
-    const node = rootEl.querySelector('#${id} .ep-node');
 
     if (wrapper && card) {
       gsap.set(wrapper, { autoAlpha: 0 });
       tl.set(wrapper, { autoAlpha: 1 }, ${startSec.toFixed(3)});
       tl.fromTo(card,
-        { scale: 0, autoAlpha: 0, rotationY: 15, transformOrigin: 'center center' },
-        { scale: 1, autoAlpha: 1, rotationY: 0, duration: 0.45, ease: 'back.out(1.8)' },
+        { scale: 0.8, autoAlpha: 0, x: ${isLeft ? -35 : 35}, transformOrigin: '${isLeft ? "left center" : "right center"}' },
+        { scale: 1, autoAlpha: 1, x: 0, duration: 0.42, ease: 'back.out(1.6)' },
         ${startSec.toFixed(3)}
       );
 
-      if (path) {
-        const len = path.getTotalLength ? path.getTotalLength() : 110;
-        tl.fromTo(path,
-          { strokeDasharray: len, strokeDashoffset: len },
-          { strokeDashoffset: 0, duration: 0.35, ease: 'power2.out' },
-          ${(startSec + 0.15).toFixed(3)}
-        );
-      }
-
-      if (node) {
-        tl.fromTo(node,
-          { scale: 0, autoAlpha: 0, transformOrigin: 'center center' },
-          { scale: 1, autoAlpha: 1, duration: 0.25, ease: 'back.out(2)' },
-          ${(startSec + 0.25).toFixed(3)}
-        );
-      }
-
       tl.to(card, {
-        y: '-=6px',
-        duration: 1.8,
+        y: '-=5px',
+        duration: 1.6,
         ease: 'sine.inOut',
         yoyo: true,
-        repeat: ${Math.max(1, Math.floor(durSec / 1.8))}
-      }, ${(startSec + 0.45).toFixed(3)});
+        repeat: ${Math.max(1, Math.floor(durSec / 1.6))}
+      }, ${(startSec + 0.42).toFixed(3)});
 
       tl.to(card, {
-        scale: 0.85,
+        scale: 0.88,
         autoAlpha: 0,
+        x: ${isLeft ? -25 : 25},
         duration: 0.35,
         ease: 'power2.in'
-      }, ${(startSec + durSec).toFixed(3)});
+      }, ${(startSec + durSec - 0.35).toFixed(3)});
 
-      tl.set(wrapper, { autoAlpha: 0 }, ${(startSec + durSec + 0.36).toFixed(3)});
+      tl.set(wrapper, { autoAlpha: 0 }, ${(startSec + durSec).toFixed(3)});
     }
   }
   `;

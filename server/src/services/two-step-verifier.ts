@@ -3,11 +3,12 @@ import { store } from './store.js';
 import { chat, getGeminiApiKey } from './gemini.js';
 import {
   decideDynamicMotionGraphics,
+  decideHeuristicMotionGraphics,
   type DynamicMotionPlan,
   compileDynamicMotionGraphic,
   robustJsonArrayParse,
 } from './dynamic-motion-engine.js';
-import { detectPopupsForScript } from './extra-popups-engine.js';
+import { detectPopupsForScript, heuristicExtractPopups, extractProfessionalPopupIntel } from './extra-popups-engine.js';
 import type {
   ExtraPopupAsset,
   DynamicMotionGraphicData,
@@ -134,6 +135,10 @@ export async function runTwoStepVerification(
     console.warn('[two-step-verifier] Dynamic motion decision warning:', err);
   }
 
+  if (motionGraphics.length === 0) {
+    motionGraphics = decideHeuristicMotionGraphics(scenes, effectiveChannel);
+  }
+
   // 1b. Decide Extra Popups (Retention Detail Callouts)
   let popups: ExtraPopupAsset[] = [];
   try {
@@ -142,16 +147,15 @@ export async function runTwoStepVerification(
     console.warn('[two-step-verifier] Popup detection warning:', err);
   }
 
-  // Make sure card archetypes are marked ready so they can render without waiting for image gen
-  popups = popups.map((p) => {
-    const isGraphicCard =
-      ['metric_counter', 'mystery_hook', 'heritage_intel', 'blueprint_diagram'].includes(p.shape) ||
-      ['metric_counter', 'mystery_hook', 'heritage_intel', 'blueprint_diagram'].includes(p.archetype || '');
-    return {
-      ...p,
-      status: (isGraphicCard || p.imageUrl ? 'ready' : p.status || 'ready') as any,
-    };
-  });
+  if (popups.length === 0) {
+    popups = heuristicExtractPopups(script);
+  }
+
+  // Ensure all popups are marked ready so they can render immediately with fallback vector emblems
+  popups = popups.map((p) => ({
+    ...p,
+    status: 'ready' as any,
+  }));
 
   // =========================================================================
   // STEP 2: TWO-STEP VERIFICATION & RETENTION REFINEMENT PASS
@@ -182,8 +186,17 @@ YOUR THREE MANDATORY VERIFICATION GOALS:
    - Calculate an overall retention potential score from 0 to 100.
    - Formulate concrete retention findings.
 
-3. OVERLAY TIMING & CUE SYNCHRONIZATION:
+3. OVERLAY TIMING, DOSSIER AUDIT & CUE SYNCHRONIZATION:
    - Check every Motion Graphic and Extra Popup:
+     * MANDATORY POPUP TITLE & SUBTITLE AUDIT:
+       Never allow raw sentence fragments, verbal clauses, or incomplete grammar (e.g. "भगवान राम ने जैसे ही", "जब उन्होंने देखा", "एक बार की बात").
+       Every popup MUST be a crisp, professional entity dossier, weapon breakdown, geographic location stamp, or metric counter (inspired by Vox / Lemmino).
+       Examples of proper titles & subtitles:
+         - Title: "पिनाक धनुष" | Subtitle: "भगवान शिव का अमोघ धनुष" | Badge: "दिव्यास्त्र"
+         - Title: "सुदर्शन चक्र" | Subtitle: "१०८ दंत सौर तेज चक्र" | Badge: "अचूक अस्त्र"
+         - Title: "१४ वर्ष वनवास" | Subtitle: "मर्यादा और त्याग कालखंड" | Badge: "समय सीमा"
+         - Title: "जनकपुर धाम" | Subtitle: "मिथिला राज्य की राजधानी" | Badge: "पवित्र स्थल"
+       If any popup contains a sentence fragment, REWRITE its title, subtitle, and badgeTag into a professional intel dossier.
      * "cuePhrase" / "cueWord" MUST match an EXACT word/phrase found in the refined narration.
      * Check timing and placement: Stagger startSec so that multiple overlays do NOT clash or occlude the focal action at the same second.
      * Ensure popups never appear in bottom subtitle zones.
@@ -203,7 +216,8 @@ RESPOND EXCLUSIVELY WITH THIS JSON OBJECT (no markdown outside JSON):
   ],
   "overlayAdjustments": [
     "Synchronized telemetry cue word with spoken narration",
-    "Staggered popup offset to 1.5s to prevent overlap with motion graphic"
+    "Staggered popup offset to 1.5s to prevent overlap with motion graphic",
+    "Refined popup title from broken phrase to proper entity dossier"
   ],
   "refinedScenes": [
     {
@@ -216,7 +230,10 @@ RESPOND EXCLUSIVELY WITH THIS JSON OBJECT (no markdown outside JSON):
     {
       "popupId": "popup_0_...",
       "cueWord": "Exact word from refined narration",
-      "cueOffsetSec": 1.2
+      "cueOffsetSec": 1.2,
+      "title": "Bold proper noun / entity name (2-4 words)",
+      "subtitle": "Explanatory context line (3-6 words)",
+      "badgeTag": "Category tag"
     }
   ],
   "refinedGraphicCues": [
@@ -306,7 +323,7 @@ ${JSON.stringify({
             });
           }
 
-          // 2. Apply refined popup cues & timings
+          // 2. Apply refined popup cues, titles & timings
           if (Array.isArray(parsed.refinedPopupCues)) {
             refinedPopups = refinedPopups.map((p) => {
               const cuePatch = parsed.refinedPopupCues.find(
@@ -317,6 +334,9 @@ ${JSON.stringify({
                   ...p,
                   cueWord: cuePatch.cueWord || p.cueWord,
                   cueOffsetSec: typeof cuePatch.cueOffsetSec === 'number' ? cuePatch.cueOffsetSec : p.cueOffsetSec,
+                  title: cuePatch.title ? String(cuePatch.title).trim() : p.title,
+                  subtitle: cuePatch.subtitle ? String(cuePatch.subtitle).trim() : p.subtitle,
+                  badgeTag: cuePatch.badgeTag ? String(cuePatch.badgeTag).trim() : p.badgeTag,
                 };
               }
               return p;
@@ -366,6 +386,9 @@ ${JSON.stringify({
   if (!report!) {
     report = executeHeuristicVerification(scenes, refinedGraphics, refinedPopups);
   }
+
+  // Audit popup titles to guarantee zero broken grammatical fragments
+  refinedPopups = sanitizePopupDossiers(refinedPopups, refinedScenes, effectiveChannel, script.name);
 
   // Ensure all cues exist verbatim in the final scene narrations
   refinedPopups = ensureVerbatimCues(refinedPopups, refinedScenes);
@@ -529,5 +552,51 @@ function ensureVerbatimGraphicCues(
       };
     }
     return g;
+  });
+}
+
+/**
+ * Professional Video Editor Sanity Pass:
+ * Audits all popup titles and subtitles to guarantee zero broken grammatical clauses
+ * or sentence fragments (e.g. "भगवान राम ने जैसे ही").
+ * Transforms any irregular titles into authentic entity/relic dossiers.
+ */
+function sanitizePopupDossiers(
+  popups: ExtraPopupAsset[],
+  scenes: Array<{ sceneIndex: number; narration: string; visualPrompt?: string }>,
+  channelKey: string,
+  scriptName?: string
+): ExtraPopupAsset[] {
+  const kit = styleKitFor(channelKey);
+  const isHindi = scenes.some((s) => /[\u0900-\u097F]/.test(s.narration));
+
+  return popups.map((p) => {
+    const scene = scenes[p.sceneIndex] || scenes[0];
+    const narration = scene?.narration || '';
+    const visual = scene?.visualPrompt || '';
+    const currentTitle = (p.title || '').trim();
+
+    // Check if title is a grammatical sentence fragment or awkward phrase
+    const isFragment =
+      /\b(जैसे ही|जब उन्होंने|एक बार|इसके बाद|परंतु|लेकिन|क्योंकि|ने जैसे)\b/i.test(currentTitle) ||
+      /(ने जैसे ही|ने जब|को देखा|करते हुए|जैसे)$/.test(currentTitle) ||
+      currentTitle.split(/\s+/).length >= 5 ||
+      currentTitle.toLowerCase().startsWith('scene ') ||
+      !p.title;
+
+    if (isFragment) {
+      const intel = extractProfessionalPopupIntel(narration, visual, p.sceneIndex, isHindi, kit, scriptName);
+      return {
+        ...p,
+        title: intel.title,
+        subtitle: intel.subtitle,
+        badgeTag: intel.badgeTag,
+        cueWord: intel.cueWord || p.cueWord,
+        shape: p.shape || intel.shape,
+        statValue: intel.statValue || p.statValue,
+        statUnit: intel.statUnit || p.statUnit,
+      };
+    }
+    return p;
   });
 }

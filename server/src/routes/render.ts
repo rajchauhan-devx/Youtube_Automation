@@ -230,10 +230,10 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     }
     // Auto-orchestrate motion graphics and popups if none exist yet on the script
     const currentScript = store.getById<any>('scripts', scriptId);
-    const hasDynamic = (currentScript?.dynamicMotionGraphics?.length > 0) ||
-      (currentScript?.extraPopups?.some((p: any) => p.status === 'ready'));
+    const hasDynamicGraphics = Boolean(currentScript?.dynamicMotionGraphics?.length > 0);
+    const hasPopups = Boolean(currentScript?.extraPopups?.some((p: any) => p.status !== 'failed' && (p.title || p.cueWord)));
 
-    if (!hasDynamic && effectiveEditing?.enabled !== false) {
+    if ((!hasDynamicGraphics || !hasPopups) && effectiveEditing?.enabled !== false) {
       try {
         console.log(`[render] Auto-orchestrating motion graphics and popups for script ${scriptId}...`);
         await runTwoStepVerification({

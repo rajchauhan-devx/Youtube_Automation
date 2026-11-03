@@ -76,10 +76,8 @@ function dynamicMotionProjectForRender(
   const dynamicGraphics: any[] = Array.isArray(script?.dynamicMotionGraphics) ? [...script.dynamicMotionGraphics] : [];
   if (Array.isArray(script?.extraPopups)) {
     const readyPopups = script.extraPopups.filter((p: any) => {
-      if (p.status !== 'ready') return false;
-      const isGraphicCard = ['metric_counter', 'mystery_hook', 'heritage_intel', 'blueprint_diagram'].includes(p.shape) ||
-        ['metric_counter', 'mystery_hook', 'heritage_intel', 'blueprint_diagram'].includes(p.archetype);
-      return Boolean(p.imageUrl || isGraphicCard);
+      if (p.status === 'failed') return false;
+      return Boolean(p.title || p.cueWord);
     });
 
     for (const p of readyPopups) {
@@ -195,6 +193,7 @@ function dynamicMotionProjectForRender(
       graphicEngine: 'generative' as const,
       motionLevel: 'expressive' as const,
       density: 'balanced' as const,
+      soundDesign: 'expressive' as const,
       visualReview: false,
       stylePreference: 'Vedic Gold',
       documentary: false,
@@ -240,7 +239,7 @@ export function savedGraphicsForRender(
 ): EditingProject | undefined {
   const script = store.getById<any>('scripts', scriptId);
   const hasDynamic = (script?.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) ||
-    (script?.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status === 'ready'));
+    (script?.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status !== 'failed' && (p.title || p.cueWord)));
   if (hasDynamic) {
     const dynProj = dynamicMotionProjectForRender(script, audioPath, imagePaths, resolution, duration);
     if (dynProj) return dynProj;

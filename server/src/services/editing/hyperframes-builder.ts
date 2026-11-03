@@ -92,12 +92,14 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
     // Real-Time Dynamic Generative Motion Graphic path (Hyperframes & GSAP)
     if ((artifact as any).dynamicMotion) {
       const dm = (artifact as any).dynamicMotion;
-      if (dm.render && dm.render.html && dm.render.css && dm.render.js) {
+      // Extra popups already contain exact frame-accurate startSec from cue-offset compilation
+      if (dm.type === 'extra_popup' && dm.render && dm.render.html && dm.render.css && dm.render.js) {
         htmlParts.push(dm.render.html);
         cssParts.push(dm.render.css);
         jsParts.push(dm.render.js);
         continue;
       }
+      // Recompile motion templates with the exact timeline startSec and duration
       const compiled = compileDynamicMotionGraphic(dm, {
         width,
         height,

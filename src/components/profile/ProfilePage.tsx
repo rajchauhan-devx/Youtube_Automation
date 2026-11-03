@@ -4,8 +4,9 @@ import { YouTubeAccountsPanel } from './YouTubeAccountsPanel';
 import { MetaAccountsPanel } from './MetaAccountsPanel';
 import { ProfileTopicNotes } from './ProfileTopicNotes';
 import { RecoveryPanel } from './RecoveryPanel';
+import { MotionTemplatesGallery } from './MotionTemplatesGallery';
 import { useWorkspaceApi } from '../../services/workspaceApi';
-import { Users, FileText, Wrench } from 'lucide-react';
+import { Users, FileText, Wrench, Sparkles } from 'lucide-react';
 
 export function ProfilePage({
   accounts,
@@ -18,10 +19,10 @@ export function ProfilePage({
   onAccountsChange: (accounts: Channel[]) => void;
   onSelectAccount: (account: Channel) => void;
   onOpenDashboard?: () => void;
-  initialTab?: 'accounts' | 'topics' | 'recovery';
+  initialTab?: 'accounts' | 'topics' | 'templates' | 'recovery';
 }) {
   const { account } = useWorkspaceApi();
-  const [activeTab, setActiveTab] = useState<'accounts' | 'topics' | 'recovery'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'accounts' | 'topics' | 'templates' | 'recovery'>(initialTab);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 animate-fade-up">
@@ -60,6 +61,17 @@ export function ProfilePage({
             Topic Notes
           </button>
           <button
+            onClick={() => setActiveTab('templates')}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+              activeTab === 'templates'
+                ? 'bg-accent text-white shadow-glow'
+                : 'text-muted hover:text-white'
+            }`}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Motion Templates
+          </button>
+          <button
             onClick={() => setActiveTab('recovery')}
             className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
               activeTab === 'recovery'
@@ -93,6 +105,12 @@ export function ProfilePage({
       {activeTab === 'topics' && (
         <div className="space-y-6">
           <ProfileTopicNotes />
+        </div>
+      )}
+
+      {activeTab === 'templates' && (
+        <div className="space-y-6">
+          <MotionTemplatesGallery />
         </div>
       )}
 
