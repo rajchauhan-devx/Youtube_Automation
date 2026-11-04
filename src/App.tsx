@@ -149,7 +149,7 @@ function saveUiState(state: PersistedUiState) {
   }
 }
 
-type SidebarId = Section | 'dashboard' | 'queue' | 'library' | 'settings' | 'profile';
+type SidebarId = Section | 'dashboard' | 'queue' | 'library' | 'settings' | 'profile' | 'templates';
 
 function isMainSectionSidebar(id: SidebarId): boolean {
   return id === 'shorts' || id === 'long' || id === 'mixed';

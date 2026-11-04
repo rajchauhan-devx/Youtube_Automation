@@ -160,7 +160,7 @@ export async function listAvailableModels(): Promise<string[]> {
 
 
 export interface ResolvedChannelLora {
-  channelKey: 'ancient_dharma' | 'against_the_odds';
+  channelKey: 'ancient_dharma' | 'against_the_odds' | 'talvora';
   channelLabel: string;
   loraTitle: string;
   loraFileName: string;
@@ -202,6 +202,18 @@ const SERVER_CHANNEL_LORAS: Record<
     styleDna:
       'Analog Film Style, raw 1970s 35mm Kodak documentary photojournalism, gritty analog film grain, subtle halation, weathered skin pores and frost/mud micro-textures, desaturated natural storm palette.',
   },
+  talvora: {
+    channelKey: 'talvora',
+    channelLabel: 'Talvora',
+    loraTitle: 'Cinematic Portrait & Mood Drama XL',
+    preferredFile: 'talvora_custom_xl.safetensors',
+    fallbackFile: 'talvora_portrait_mood_xl.safetensors',
+    strengthModel: 0.75,
+    strengthClip: 0.75,
+    triggerToken: 'talvora_mood_drama',
+    styleDna:
+      'Cinematic 35mm shallow depth of field portraiture, atmospheric nighttime moody lighting, soft anamorphic lens bokeh, warm amber streetlight reflections and deep nocturnal shadows, realistic elegant contemporary aesthetic, high emotional expression, photorealistic.',
+  },
 };
 
 export function resolveComfyLorasDir(): string {
@@ -214,6 +226,8 @@ export function resolveChannelLoraForAccount(accountId?: string): ResolvedChanne
   let channelKey: ResolvedChannelLora['channelKey'] = 'ancient_dharma';
   if (rawId.includes('620a1d5e') || rawId.includes('against_the_odds') || rawId.includes('against the odds')) {
     channelKey = 'against_the_odds';
+  } else if (rawId.includes('talvora') || rawId.includes('romance')) {
+    channelKey = 'talvora';
   } else {
     // Also check accounts.json if a custom account ID was used
     try {
@@ -227,6 +241,8 @@ export function resolveChannelLoraForAccount(accountId?: string): ResolvedChanne
           const combined = `${matched.name || ''} ${matched.youtubeChannelTitle || ''}`.toLowerCase();
           if (combined.includes('against the odds')) {
             channelKey = 'against_the_odds';
+          } else if (combined.includes('talvora') || combined.includes('romance')) {
+            channelKey = 'talvora';
           }
         }
       }

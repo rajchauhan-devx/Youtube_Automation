@@ -48,6 +48,15 @@ export const PROFILE_THEMES: Record<ChannelProfileKey, ProfileTheme> = {
     fontDisplay: "'Montserrat', sans-serif",
     labelPrefix: 'SURVIVAL // ',
   },
+  talvora: {
+    primary: '#F43F5E',
+    secondary: '#E11D48',
+    accent: '#FB7185',
+    glow: 'rgba(244, 63, 94, 0.45)',
+    fontMono: "'JetBrains Mono', monospace",
+    fontDisplay: "'Cinzel', serif",
+    labelPrefix: 'DRAMA // ',
+  },
 };
 
 /** Library UI presentation metadata per channel (labels, badges, theme classes). */
@@ -90,6 +99,18 @@ const CHANNEL_UI_DATA: Record<ChannelProfileKey, Omit<ChannelUiMeta, 'key'>> = {
     dotColor: 'bg-orange-400',
     desc: 'Real historical survival crises, documented emergency rescues, extreme expeditions.',
   },
+  talvora: {
+    name: 'Talvora',
+    subname: 'Cinematic Romance & Romantic Suspense',
+    badge: 'ROMANCE',
+    tag: 'Romantic Drama',
+    themeColor: 'text-rose-400',
+    accentBorder: 'border-rose-400/60 ring-rose-400/30',
+    badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+    activeBg: 'from-rose-950/40 via-surface to-surface',
+    dotColor: 'bg-rose-400',
+    desc: 'Cinematic romantic micro-dramas, emotional relationship dilemmas, and nighttime suspense.',
+  },
 };
 
 export const CHANNEL_UI_META: Record<ChannelProfileKey, ChannelUiMeta> = Object.fromEntries(
@@ -121,6 +142,13 @@ export const PROFILE_IDENTITY_FALLBACKS: Record<ChannelProfileKey, ProfileIdenti
     color: '#FACC15',
     avatar: 'AO',
     youtubeChannelTitle: 'Against the Odds',
+  },
+  talvora: {
+    id: 'acct_talvora',
+    name: 'Talvora',
+    color: '#E11D48',
+    avatar: 'TL',
+    youtubeChannelTitle: 'Talvora',
   },
 };
 
@@ -161,5 +189,17 @@ export const CHANNEL_LORA_CONFIG: Record<ChannelProfileKey, ChannelLoraConfig> =
     triggerToken: 'odds_docu35mm_film',
     styleDna:
       'Analog Film Style, raw 1970s 35mm Kodak documentary photojournalism, gritty analog film grain, subtle halation, weathered skin pores and frost/mud micro-textures, desaturated natural storm palette.',
+  },
+  talvora: {
+    channelKey: 'talvora',
+    channelLabel: 'Talvora',
+    loraTitle: 'Cinematic Portrait & Mood Drama XL',
+    loraFileName: 'talvora_custom_xl.safetensors',
+    fallbackLoraFileName: 'talvora_portrait_mood_xl.safetensors',
+    strengthModel: 0.75,
+    strengthClip: 0.75,
+    triggerToken: 'talvora_mood_drama',
+    styleDna:
+      'Cinematic 35mm shallow depth of field portraiture, atmospheric nighttime moody lighting, soft anamorphic lens bokeh, warm amber streetlight reflections and deep nocturnal shadows, realistic elegant contemporary aesthetic, high emotional expression, photorealistic.',
   },
 };

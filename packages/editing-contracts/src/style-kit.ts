@@ -147,6 +147,11 @@ const ATO_TEMPLATES = [
   'ad_title_reveal', 'ad_chapter_marker', 'ad_bullet_recap', 'ad_cycle_loop', 'ad_end_prompt',
 ];
 
+const TLV_TEMPLATES = [
+  'ad_title_reveal', 'ad_lower_third', 'ad_pull_quote', 'ad_keyword_underline',
+  'ad_chapter_marker', 'ad_end_prompt', 'ad_progress_bar', 'ad_bullet_recap',
+];
+
 const DOC_TEMPLATES = [
   'ad_lower_third', 'ad_title_reveal', 'ad_pull_quote', 'ad_keyword_underline',
   'ad_bullet_recap', 'ad_numbered_steps', 'ad_chapter_marker', 'ad_source_credit',
@@ -217,6 +222,38 @@ export const STYLE_KITS: Record<ChannelMotionPolicyKey, StyleKit> = {
     sfxPalette: ['sub_impact', 'impact', 'shutter_click', 'hud_ping', 'telemetry_ticker', 'whoosh', 'none'],
     energy: 'expressive',
     defaultSfx: 'sub_impact',
+  },
+
+  talvora: {
+    key: 'talvora',
+    name: 'Talvora',
+    theme: {
+      name: 'talvora',
+      primary: '#F43F5E',
+      accent: '#FB7185',
+      background: '#00000000',
+      text: '#FFF1F2',
+      fontFamily: "'Playfair Display', 'Cinzel', serif",
+      secondaryFont: "'Montserrat', sans-serif",
+      lineWeight: 2,
+      radius: 6,
+    },
+    popup: {
+      primary: '#F43F5E',
+      accent: '#FB7185',
+      glow: 'rgba(244,63,94,0.45)',
+      surface: 'rgba(18,10,14,0.88)',
+      surfaceBorder: 'rgba(244,63,94,0.7)',
+      text: '#FFF1F2',
+      muted: '#FDA4AF',
+      badge: '#F43F5E',
+      cardStyle: 'glass',
+    },
+    motionTemplates: TLV_TEMPLATES,
+    popupShapes: ['museum_glass_card', 'circle_medallion', 'metric_counter', 'mystery_hook'],
+    sfxPalette: ['whoosh', 'crystal_ting', 'sub_impact', 'paper_slide', 'none'],
+    energy: 'balanced',
+    defaultSfx: 'crystal_ting',
   },
 
   documentary_standard: {
@@ -586,6 +623,57 @@ export const PROFILE_FIXED_TEMPLATES: Record<ChannelMotionPolicyKey, readonly Fi
       id: 'shockwave_pulse',
       name: 'Kinetic Blast Wave Impact',
       description: 'Violent expanding shockwave rings with center impact flash and camera shake impulse.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'sub_impact',
+    },
+  ],
+
+  talvora: [
+    {
+      id: 'vedic_title_reveal',
+      name: 'Cinematic Noir Title Reveal',
+      description: 'Hook Attention Extractor: elegant rose-gold typography emerging with soft anamorphic glow and gentle atmospheric vignette.',
+      isHookTemplate: true,
+      defaultPlacement: 'center',
+      defaultSfx: 'whoosh',
+    },
+    {
+      id: 'highlighter',
+      name: 'Rose Velvet Highlighter',
+      description: 'Velvet crimson-rose brush sweep emphasizing emotional and dramatic dialogue turns.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'paper_slide',
+    },
+    {
+      id: 'arrow_callout',
+      name: 'Subtle Gaze Directional Callout',
+      description: 'Sleek golden hairline arrow indicating character gaze or focal point.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'crystal_ting',
+    },
+    {
+      id: 'circle_callout',
+      name: 'Intimate Focus Vignette Ring',
+      description: 'Soft glowing rose-gold ring softly encircling the focal subject or expression.',
+      isHookTemplate: false,
+      defaultPlacement: 'center',
+      defaultSfx: 'crystal_ting',
+    },
+    {
+      id: 'kinetic_underline',
+      name: 'Golden Ribbon Underline',
+      description: 'Silken golden light trail tracing beneath title words or character names.',
+      isHookTemplate: false,
+      defaultPlacement: 'top',
+      defaultSfx: 'crystal_ting',
+    },
+    {
+      id: 'shockwave_pulse',
+      name: 'Heartbeat Dramatic Pulse',
+      description: 'Warm crimson radial pulse wave accentuating emotional revelations or sudden plot turns.',
       isHookTemplate: false,
       defaultPlacement: 'center',
       defaultSfx: 'sub_impact',

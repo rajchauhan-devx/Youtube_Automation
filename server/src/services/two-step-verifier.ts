@@ -52,6 +52,10 @@ function extractSceneInputs(script: any): Array<{
   narration: string;
   visualPrompt: string;
   durationSec: number;
+  motionGraphics?: any[];
+  title?: string;
+  detail?: string;
+  badge?: string;
 }> {
   if (Array.isArray(script.scenePlan?.scenes) && script.scenePlan.scenes.length > 0) {
     return script.scenePlan.scenes.map((s: any, idx: number) => ({
@@ -59,6 +63,9 @@ function extractSceneInputs(script: any): Array<{
       narration: String(s.narration || '').trim(),
       visualPrompt: String(s.imagePrompt || s.videoPrompt || '').trim(),
       durationSec: Number(s.duration) > 0 ? Number(s.duration) : 6.0,
+      motionGraphics: s.motionGraphics,
+      title: s.motionGraphics?.[0]?.title,
+      detail: s.motionGraphics?.[0]?.detail,
     }));
   }
 

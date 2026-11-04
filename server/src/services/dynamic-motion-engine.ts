@@ -18,6 +18,10 @@ export interface SceneMotionInput {
   narration: string;
   visualPrompt: string;
   durationSec?: number;
+  motionGraphics?: any[];
+  title?: string;
+  detail?: string;
+  badge?: string;
 }
 
 export interface DynamicMotionDecisionRequest {
@@ -2298,22 +2302,33 @@ export function decideTemplateMotionGraphics(
 
     // Scene 0: ALWAYS use the Profile Hook Attention Extractor!
     if (i === 0) {
-      let hookTitle = isHindi ? 'दिव्य रहस्य' : 'DIVINE MYSTERY';
-      let hookDetail = isHindi ? 'सीता स्वयंवर प्रतिज्ञा — आदि रामायण' : 'The Sacred Ancient Chronicle';
+      const plannedMotion = scene.motionGraphics?.[0];
+      let hookTitle = scene.title || plannedMotion?.title || (isHindi ? 'दिव्य रहस्य' : 'DIVINE MYSTERY');
+      let hookDetail = scene.detail || plannedMotion?.detail || (isHindi ? 'सनातन महागाथा — आदि रामायण' : 'The Sacred Ancient Chronicle');
       if (profileKey === 'against_the_odds') {
-        hookTitle = 'SURVIVAL HOOK';
-        hookDetail = 'AGAINST ALL ODDS // ZERO MARGIN';
+        hookTitle = scene.title || plannedMotion?.title || 'SURVIVAL HOOK';
+        hookDetail = scene.detail || plannedMotion?.detail || 'AGAINST ALL ODDS // ZERO MARGIN';
+      } else if (profileKey === 'talvora') {
+        hookTitle = scene.title || plannedMotion?.title || 'MIDNIGHT ENCOUNTER';
+        hookDetail = scene.detail || plannedMotion?.detail || 'A CHANCE MEETING // TURNING POINT';
       } else if (profileKey === 'documentary_standard') {
-        hookTitle = 'THE UNTOLD STORY';
-        hookDetail = 'DECLASSIFIED ARCHIVES';
+        hookTitle = scene.title || plannedMotion?.title || 'THE UNTOLD STORY';
+        hookDetail = scene.detail || plannedMotion?.detail || 'DECLASSIFIED ARCHIVES';
       }
 
-      if (combined.includes('पिनाक') || combined.includes('धनुष')) {
-        hookTitle = isHindi ? 'पिनाक धनुष चुनौती' : 'PINAKA BOW CHALLENGE';
-      } else if (combined.includes('सुदर्शन')) {
-        hookTitle = isHindi ? 'सुदर्शन चक्र तेज' : 'SUDARSHANA CHAKRA';
-      } else if (combined.includes('युद्ध') || combined.includes('रण')) {
-        hookTitle = isHindi ? 'महासंग्राम निर्णय' : 'THE TURNING POINT';
+      if (!scene.title && !plannedMotion?.title) {
+        if (combined.includes('उर्मिला') || combined.includes('लक्ष्मण') || combined.includes('निद्रा') || combined.includes('जागृति') || combined.includes('पहरा')) {
+          hookTitle = isHindi ? 'चौदह वर्ष का पहरा' : 'THE 14-YEAR SACRED VIGIL';
+          hookDetail = isHindi ? 'लक्ष्मण का अटूट संकल्प और निद्रा का त्याग' : "Lakshmana's Vow & Urmila's Sacrifice";
+        } else if (combined.includes('पिनाक') || combined.includes('धनुष')) {
+          hookTitle = isHindi ? 'पिनाक धनुष चुनौती' : 'PINAKA BOW CHALLENGE';
+          hookDetail = isHindi ? 'सीता स्वयंवर प्रतिज्ञा — आदि रामायण' : 'The Sacred Ancient Chronicle';
+        } else if (combined.includes('सुदर्शन')) {
+          hookTitle = isHindi ? 'सुदर्शन चक्र तेज' : 'SUDARSHANA CHAKRA';
+          hookDetail = isHindi ? 'अमोघ चक्र प्रहार' : 'The Inviolable Divine Weapon';
+        } else if (combined.includes('युद्ध') || combined.includes('रण')) {
+          hookTitle = isHindi ? 'महासंग्राम निर्णय' : 'THE TURNING POINT';
+        }
       }
 
       graphics.push(
@@ -2340,113 +2355,159 @@ export function decideTemplateMotionGraphics(
     const remainingTemplates = templates.filter((t) => !t.isHookTemplate);
     const selectedTemplate = remainingTemplates[(i - 1) % Math.max(1, remainingTemplates.length)] || templates[0];
 
-    let title = isHindi ? 'सत्यमेव जयते' : 'CORE EVIDENCE';
-    let detail = isHindi ? 'मर्यादा और धर्म' : 'VERIFIED DOCUMENTATION';
-    let badge = isHindi ? 'दिव्य ज्ञान' : 'KEY INTEL';
+    const plannedMotion = scene.motionGraphics?.[0];
+    let title = scene.title || plannedMotion?.title || (isHindi ? 'सत्यमेव जयते' : 'CORE EVIDENCE');
+    let detail = scene.detail || plannedMotion?.detail || (isHindi ? 'मर्यादा और धर्म' : 'VERIFIED DOCUMENTATION');
+    let badge = scene.badge || (isHindi ? 'दिव्य ज्ञान' : 'KEY INTEL');
 
     if (profileKey === 'against_the_odds') {
-      title = 'TACTICAL FACTOR';
-      detail = 'SURVIVAL PROTOCOL';
-      badge = 'ALERT';
+      title = scene.title || plannedMotion?.title || 'TACTICAL FACTOR';
+      detail = scene.detail || plannedMotion?.detail || 'SURVIVAL PROTOCOL';
+      badge = scene.badge || 'ALERT';
+    } else if (profileKey === 'talvora') {
+      title = scene.title || plannedMotion?.title || 'A TURNING POINT';
+      detail = scene.detail || plannedMotion?.detail || 'AN UNSPOKEN PROMISE';
+      badge = scene.badge || 'ROMANCE';
     } else if (profileKey === 'documentary_standard') {
-      title = 'ARCHIVAL RECORD';
-      detail = 'HISTORICAL SOURCE';
-      badge = 'DOCUMENTARY';
+      title = scene.title || plannedMotion?.title || 'ARCHIVAL RECORD';
+      detail = scene.detail || plannedMotion?.detail || 'HISTORICAL SOURCE';
+      badge = scene.badge || 'DOCUMENTARY';
     }
 
     const hasWord = (pattern: RegExp) => pattern.test(narration);
     let chosenTemplateId = selectedTemplate.id;
 
-    if (hasWord(/(?:टूट|भंग|गर्जना|तोड़|ध्वनि|१०८)/)) {
-      title = isHindi ? 'अमोघ धनुष भंग' : 'THE SACRED BREAKING';
-      detail = isHindi ? '१०८ दिशाओं में प्रचंड गर्जना' : 'Echoing in 108 Directions';
-      badge = isHindi ? 'अलौकिक ध्वनि' : 'CLIMAX';
-      chosenTemplateId = 'thunder_lightning';
-    } else if (hasWord(/(?:सीता|वरमाला|विवाह|जयते|धर्म)/)) {
-      title = isHindi ? 'सत्य और धर्म विजय' : 'VICTORY OF DHARMA';
-      detail = isHindi ? 'माता सीता वरमाला — अमर प्रतिज्ञा' : 'Sacred Union of Dharma';
-      badge = isHindi ? 'धर्म विजय' : 'PAYOFF';
-      chosenTemplateId = 'kinetic_underline';
-    } else if (hasWord(/(?:उठा|बाएं|हाथ|भार|स्तब्ध|विस्मय)/)) {
-      title = isHindi ? 'अलौकिक पराक्रम' : 'UNMATCHED STRENGTH';
-      detail = isHindi ? 'एकाएक शिव धनुष उत्थापन' : 'Lifting Pinaka With One Hand';
-      badge = isHindi ? 'अतुल्य शक्ति' : 'FEAT';
-      chosenTemplateId = 'highlighter';
-    } else if (hasWord(/(?:विश्वामित्र|आगे|मुस्कान|संकेत|पुरुषोत्तम)/) || /\b(?:rama|shri ram)\b/i.test(narration)) {
-      title = isHindi ? 'श्री राम आगमन' : 'LORD RAMA';
-      detail = isHindi ? 'मर्यादा पुरुषोत्तम — इक्ष्वाकु वंश' : 'Embodiment of Dharma';
-      badge = isHindi ? 'चरित्र परिचय' : 'HERO';
-      chosenTemplateId = 'circle_callout';
-    } else if (hasWord(/(?:श्लोक|मन्त्र|गीता|वेद|उपनिषद|shloka|verse|mantra|gita)/i)) {
-      title = isHindi ? 'यदा यदा हि धर्मस्य ग्लानिर्भवति भारत' : 'SACRED SANSKRIT SHLOKA';
-      detail = isHindi ? 'अभ्युत्थानमधर्मस्य तदात्मानं सृजाम्यहम्' : 'Divine Scripture Inscription';
-      badge = isHindi ? 'श्रीमद्भगवद्गीता' : 'SCRIPTURE';
-      chosenTemplateId = 'sanskrit_shloka_reveal';
-    } else if (hasWord(/(?:पाण्डुलिपि|भोजपत्र|पुराण|ताड़पत्र|scroll|manuscript|parchment)/i)) {
-      title = isHindi ? 'प्राचीन ताड़पत्र साक्ष्य' : 'ANCIENT BHURJAPATRA';
-      detail = isHindi ? 'ऋषि वाल्मीकि मूल हस्तलिखित लिपि' : 'Sacred Manuscript Unfurl';
-      badge = isHindi ? 'वेद प्रमाण' : 'MANUSCRIPT';
-      chosenTemplateId = 'ancient_scroll_unfurl';
-    } else if (hasWord(/(?:तीर्थ|यात्रा|मार्ग|भूगोल|अयोध्या|लंका|जनकपुर|map|route|journey|geography)/i)) {
-      title = isHindi ? 'पवित्र तीर्थ यात्रा पथ' : 'SACRED BHARAT MAP';
-      detail = isHindi ? 'अयोध्या से मिथिला एवं लंका तक दिव्य पथ' : 'Ancient Pilgrimage Geography';
-      badge = isHindi ? 'भौगोलिक पथ' : 'SACRED MAP';
-      chosenTemplateId = 'ancient_india_map';
-    } else if (hasWord(/(?:मन्दिर|शिल्प|वास्तु|शिखर|गर्भगृह|temple|architecture|blueprint|sanctum)/i)) {
-      title = isHindi ? 'नागर वास्तु शिल्प विज्ञान' : 'TEMPLE ARCHITECTURE';
-      detail = isHindi ? 'विमान शिखर एवं गर्भगृह ज्यामिति' : 'Sacred Vastu Architectural Blueprint';
-      badge = isHindi ? 'शिल्प शास्त्र' : 'ARCHITECTURE';
-      chosenTemplateId = 'temple_architecture';
-    } else if (hasWord(/(?:कालक्रम|युग|सत्ययुग|त्रेता|द्वापर|कलियुग|timeline|epoch|yuga)/i)) {
-      title = isHindi ? 'सनातन युग कालक्रम' : 'COSMIC EPOCH TIMELINE';
-      detail = isHindi ? 'त्रेता युग · श्री राम अवतरण काल' : 'Cosmic Chronology & Dynasties';
-      badge = isHindi ? 'काल गणना' : 'TIMELINE';
-      chosenTemplateId = 'historical_timeline';
-    } else if (hasWord(/(?:यन्त्र|मण्डल|ज्यामिति|yantra|mandala|sacred geometry)/i)) {
-      title = isHindi ? 'श्री यन्त्र दिव्य ज्यामिति' : 'SRI YANTRA GEOMETRY';
-      detail = isHindi ? '९ अन्तर्ग्रथित त्रिकोण एवं १६ दल कमल' : 'Sacred Geometric Resonance';
-      badge = isHindi ? 'महा मन्त्र' : 'YANTRA';
-      chosenTemplateId = 'sacred_geometry_yantra';
-    } else if (hasWord(/(?:अस्त्र|पिनाक|सुदर्शन|त्रिशूल|धनुष|brahmastra|astra|weapon)/i)) {
-      title = isHindi ? 'अलौकिक दिव्यास्त्र' : 'DIVINE CELESTIAL ASTRA';
-      detail = isHindi ? 'भगवान शिव का अमोघ पिनाक धनुष' : 'Inviolable Divine Energy';
-      badge = isHindi ? 'संहारक तेज' : 'DIVINE ASTRA';
-      chosenTemplateId = 'divine_weapon_showcase';
-    } else if (hasWord(/(?:शिलालेख|अभिलेख|stone|inscription|edict)/i)) {
-      title = isHindi ? 'अशोक शिलालेख प्रमाण' : 'ANCIENT INSCRIPTION';
-      detail = isHindi ? 'ब्राह्मी लिपि से आधुनिक देवनागरी अनुवाद' : 'Deciphered Archaeological Tablet';
-      badge = isHindi ? 'शिलालेख' : 'INSCRIPTION';
-      chosenTemplateId = 'stone_inscription_reveal';
-    } else if (hasWord(/(?:ब्रह्माण्ड|लोक|सृष्टि|cosmology|universe|lokas)/i)) {
-      title = isHindi ? 'वैदिक ब्रह्माण्ड रचना' : 'VEDIC COSMOLOGY';
-      detail = isHindi ? '१४ भुवन एवं मेरु पर्वत ब्रह्माण्डीय अक्ष' : 'Cosmic Spheres of Creation';
-      badge = isHindi ? 'सृष्टि चक्र' : 'COSMOLOGY';
-      chosenTemplateId = 'cosmic_universe_explainer';
-    } else if (hasWord(/(?:धनुष|पिनाक|शिव)/)) {
-      title = isHindi ? 'अलौकिक तेज' : 'CELESTIAL WEAPON';
-      detail = isHindi ? 'दिव्य भार संहारक ऊर्जा' : 'Inviolable Divine Energy';
-      badge = isHindi ? 'दिव्यास्त्र' : 'WEAPON';
-      chosenTemplateId = 'arrow_callout';
-    } else if (hasWord(/(?:\$|\%|\d{2,}|प्रतिशत|करोड़|लाख|हजार|rate|odds|percent|trillion|million)/i)) {
-      title = isHindi ? 'कर्म फल गणना' : 'METRIC SURGE';
-      detail = isHindi ? 'तीव्र वृद्धि और प्रभाव' : 'Live Data Verification';
-      badge = isHindi ? 'संख्या प्रभाव' : 'SURGE';
-      chosenTemplateId = 'metric_ticker';
-    } else if (hasWord(/(?:सील|मुहर|सत्य|गुप्त|secret|classified|forbidden|truth|unsealed)/i)) {
-      title = isHindi ? 'सत्यमेव जयते' : 'TOP SECRET';
-      detail = isHindi ? 'अमिट सत्य की मुहर' : 'Verified Evidence Seal';
-      badge = isHindi ? 'प्रमाण मुहर' : 'VERIFIED';
-      chosenTemplateId = 'redacted_stamp';
-    } else if (hasWord(/(?:दस्तावेज|ग्रंथ|पुस्तिका|साक्ष्य|archive|document|evidence|record|inspect)/i)) {
-      title = isHindi ? 'प्राचीन साक्ष्य' : 'INSPECT RECORD';
-      detail = isHindi ? 'विस्तारपूर्वक अनुसंधान' : 'Deep Archival Investigation';
-      badge = isHindi ? 'सूक्ष्म दृष्टि' : 'INSPECTION';
-      chosenTemplateId = 'magnifying_glass';
-    } else if (hasWord(/(?:निशाना|लक्ष्य|वेध|शत्रु|target|lock|threat|hostile)/i)) {
-      title = isHindi ? 'लक्ष्य निर्धारण' : 'TARGET LOCKED';
-      detail = isHindi ? 'अचूक संधान स्थिति' : 'Telemetry Acquired';
-      badge = isHindi ? 'अचूक लक्ष्य' : 'LOCK-ON';
-      chosenTemplateId = 'sniper_lock';
+    if (scene.title || plannedMotion?.title) {
+      if (plannedMotion?.type && templates.some((t) => t.id === plannedMotion.type)) {
+        chosenTemplateId = plannedMotion.type;
+      }
+    } else {
+      if (hasWord(/(?:जय श्री राम|कमेंट)/)) {
+        title = isHindi ? 'जय श्री राम' : 'JAI SHRI RAM';
+        detail = isHindi ? 'समर्पण और त्याग की अमर गाथा' : 'Eternal Saga of Devotion';
+        badge = isHindi ? 'सनातन धर्म' : 'SANATANA DHARMA';
+        chosenTemplateId = 'sanskrit_shloka_reveal';
+      } else if (hasWord(/(?:इन्द्राजित|इंद्राजित|मायावी)/)) {
+        title = isHindi ? 'अजेय धर्म विजय' : 'TRIUMPH OF DHARMA';
+        detail = isHindi ? 'इंद्राजित वध का अलौकिक आधार' : 'The Key to Indrajit Fall';
+        badge = isHindi ? 'विजय संकल्प' : 'TRIUMPH';
+        chosenTemplateId = 'thunder_lightning';
+      } else if (hasWord(/(?:देवी\s*निद्रा|नींद\s*की\s*देवी|प्रकट)/)) {
+        title = isHindi ? 'देवी निद्रा की शर्त' : 'DIVINE CONDITION';
+        detail = isHindi ? 'चौदह वर्षों की अखण्ड जागृति' : 'The 14-Year Sacred Vigil';
+        badge = isHindi ? 'दिव्य प्रतिज्ञा' : 'VOW';
+        chosenTemplateId = 'kinetic_underline';
+      } else if (hasWord(/(?:सोने\s*से\s*इंकार|प्रकृति\s*का\s*नियम|नियम\s*अटूट)/)) {
+        title = isHindi ? 'कठिन प्रतिज्ञा' : 'THE SACRED VOW';
+        detail = isHindi ? 'भ्रातृ भक्ति और प्रकृति का अटूट नियम' : 'Devotion to Duty and Cosmic Law';
+        badge = isHindi ? 'अटूट नियम' : 'SACRED VOW';
+        chosenTemplateId = 'kinetic_underline';
+      } else if (hasWord(/(?:उर्मिला|बलिदान|भार|त्याग|समर्पण|सोकर)/)) {
+        title = isHindi ? 'उर्मिला का मौन बलिदान' : 'SILENT SACRIFICE';
+        detail = isHindi ? 'पति के व्रत हेतु चौदह वर्ष की निद्रा स्वीकार' : '14 Years of Silent Penance';
+        badge = isHindi ? 'महान त्याग' : 'SACRIFICE';
+        chosenTemplateId = 'highlighter';
+      } else if (hasWord(/(?:लक्ष्मण|जागृति|पहरा|भाई|रक्षा)/)) {
+        title = isHindi ? 'अलौकिक तपस्या' : 'SACRED PENANCE';
+        detail = isHindi ? 'अखण्ड भ्रातृ भक्ति और त्याग' : 'Unshakable Devotion';
+        badge = isHindi ? 'तपस्या' : 'DEVOTION';
+        chosenTemplateId = 'circle_callout';
+      } else if (hasWord(/(?:पिनाक|शिव\s*धनुष)/) && hasWord(/(?:टूट|भंग|तोड़|गर्जना|ध्वनि)/)) {
+        title = isHindi ? 'अमोघ धनुष भंग' : 'THE SACRED BREAKING';
+        detail = isHindi ? '१०८ दिशाओं में प्रचंड गर्जना' : 'Echoing in 108 Directions';
+        badge = isHindi ? 'अलौकिक ध्वनि' : 'CLIMAX';
+        chosenTemplateId = 'thunder_lightning';
+      } else if (hasWord(/(?:सीता|जानकी)/) && hasWord(/(?:वरमाला|विवाह|स्वयंवर)/)) {
+        title = isHindi ? 'सत्य और धर्म विजय' : 'VICTORY OF DHARMA';
+        detail = isHindi ? 'माता सीता वरमाला — अमर प्रतिज्ञा' : 'Sacred Union of Dharma';
+        badge = isHindi ? 'धर्म विजय' : 'PAYOFF';
+        chosenTemplateId = 'kinetic_underline';
+      } else if (hasWord(/(?:पिनाक|शिव\s*धनुष)/) && hasWord(/(?:उठा|बाएं|हाथ|भार|स्तब्ध|विस्मय)/)) {
+        title = isHindi ? 'अलौकिक पराक्रम' : 'UNMATCHED STRENGTH';
+        detail = isHindi ? 'एकाएक शिव धनुष उत्थापन' : 'Lifting Pinaka With One Hand';
+        badge = isHindi ? 'अतुल्य शक्ति' : 'FEAT';
+        chosenTemplateId = 'highlighter';
+      } else if (hasWord(/(?:उठा|भार|स्तब्ध|विस्मय|अद्भुत|पराक्रम)/)) {
+        title = isHindi ? 'अलौकिक सामर्थ्य' : 'UNMATCHED STRENGTH';
+        detail = isHindi ? 'अतुलनीय संकल्प और शक्ति' : 'Supreme Resolve & Power';
+        badge = isHindi ? 'अतुल्य शक्ति' : 'FEAT';
+        chosenTemplateId = 'highlighter';
+      } else if (hasWord(/(?:विश्वामित्र|पुरुषोत्तम|श्री\s*राम|प्रभु\s*राम)/) || /\b(?:rama|shri ram)\b/i.test(narration)) {
+        title = isHindi ? 'श्री राम आगमन' : 'LORD RAMA';
+        detail = isHindi ? 'मर्यादा पुरुषोत्तम — इक्ष्वाकु वंश' : 'Embodiment of Dharma';
+        badge = isHindi ? 'चरित्र परिचय' : 'HERO';
+        chosenTemplateId = 'circle_callout';
+      } else if (hasWord(/(?:श्लोक|मन्त्र|गीता|वेद|उपनिषद|shloka|verse|mantra|gita)/i)) {
+        title = isHindi ? 'यदा यदा हि धर्मस्य ग्लानिर्भवति भारत' : 'SACRED SANSKRIT SHLOKA';
+        detail = isHindi ? 'अभ्युत्थानमधर्मस्य तदात्मानं सृजाम्यहम्' : 'Divine Scripture Inscription';
+        badge = isHindi ? 'श्रीमद्भगवद्गीता' : 'SCRIPTURE';
+        chosenTemplateId = 'sanskrit_shloka_reveal';
+      } else if (hasWord(/(?:पाण्डुलिपि|भोजपत्र|पुराण|ताड़पत्र|scroll|manuscript|parchment)/i)) {
+        title = isHindi ? 'प्राचीन ताड़पत्र साक्ष्य' : 'ANCIENT BHURJAPATRA';
+        detail = isHindi ? 'ऋषि वाल्मीकि मूल हस्तलिखित लिपि' : 'Sacred Manuscript Unfurl';
+        badge = isHindi ? 'वेद प्रमाण' : 'MANUSCRIPT';
+        chosenTemplateId = 'ancient_scroll_unfurl';
+      } else if (hasWord(/(?:तीर्थ\s*यात्रा|मार्ग\s*नक्शा|प्राचीन\s*भूगोल|map|route|journey|geography)/i)) {
+        title = isHindi ? 'पवित्र तीर्थ यात्रा पथ' : 'SACRED BHARAT MAP';
+        detail = isHindi ? 'अयोध्या से मिथिला एवं लंका तक दिव्य पथ' : 'Ancient Pilgrimage Geography';
+        badge = isHindi ? 'भौगोलिक पथ' : 'SACRED MAP';
+        chosenTemplateId = 'ancient_india_map';
+      } else if (hasWord(/(?:मन्दिर|शिल्प|वास्तु|शिखर|गर्भगृह|temple|architecture|blueprint|sanctum)/i)) {
+        title = isHindi ? 'नागर वास्तु शिल्प विज्ञान' : 'TEMPLE ARCHITECTURE';
+        detail = isHindi ? 'विमान शिखर एवं गर्भगृह ज्यामिति' : 'Sacred Vastu Architectural Blueprint';
+        badge = isHindi ? 'शिल्प शास्त्र' : 'ARCHITECTURE';
+        chosenTemplateId = 'temple_architecture';
+      } else if (hasWord(/(?:कालक्रम|युग|सत्ययुग|त्रेता|द्वापर|कलियुग|timeline|epoch|yuga)/i)) {
+        title = isHindi ? 'सनातन युग कालक्रम' : 'COSMIC EPOCH TIMELINE';
+        detail = isHindi ? 'त्रेता युग · श्री राम अवतरण काल' : 'Cosmic Chronology & Dynasties';
+        badge = isHindi ? 'काल गणना' : 'TIMELINE';
+        chosenTemplateId = 'historical_timeline';
+      } else if (hasWord(/(?:यन्त्र|मण्डल|ज्यामिति|yantra|mandala|sacred geometry)/i)) {
+        title = isHindi ? 'श्री यन्त्र दिव्य ज्यामिति' : 'SRI YANTRA GEOMETRY';
+        detail = isHindi ? '९ अन्तर्ग्रथित त्रिकोण एवं १६ दल कमल' : 'Sacred Geometric Resonance';
+        badge = isHindi ? 'महा मन्त्र' : 'YANTRA';
+        chosenTemplateId = 'sacred_geometry_yantra';
+      } else if (hasWord(/(?:अस्त्र|पिनाक|सुदर्शन|त्रिशूल|धनुष|brahmastra|astra|weapon)/i)) {
+        title = isHindi ? 'अलौकिक दिव्यास्त्र' : 'DIVINE CELESTIAL ASTRA';
+        detail = isHindi ? 'भगवान शिव का अमोघ पिनाक धनुष' : 'Inviolable Divine Energy';
+        badge = isHindi ? 'संहारक तेज' : 'DIVINE ASTRA';
+        chosenTemplateId = 'divine_weapon_showcase';
+      } else if (hasWord(/(?:शिलालेख|अभिलेख|stone|inscription|edict)/i)) {
+        title = isHindi ? 'अशोक शिलालेख प्रमाण' : 'ANCIENT INSCRIPTION';
+        detail = isHindi ? 'ब्राह्मी लिपि से आधुनिक देवनागरी अनुवाद' : 'Deciphered Archaeological Tablet';
+        badge = isHindi ? 'शिलालेख' : 'INSCRIPTION';
+        chosenTemplateId = 'stone_inscription_reveal';
+      } else if (hasWord(/(?:ब्रह्माण्ड|लोक|सृष्टि|cosmology|universe|lokas)/i)) {
+        title = isHindi ? 'वैदिक ब्रह्माण्ड रचना' : 'VEDIC COSMOLOGY';
+        detail = isHindi ? '१४ भुवन एवं मेरु पर्वत ब्रह्माण्डीय अक्ष' : 'Cosmic Spheres of Creation';
+        badge = isHindi ? 'सृष्टि चक्र' : 'COSMOLOGY';
+        chosenTemplateId = 'cosmic_universe_explainer';
+      } else if (hasWord(/(?:धनुष|पिनाक|शिव)/)) {
+        title = isHindi ? 'अलौकिक तेज' : 'CELESTIAL WEAPON';
+        detail = isHindi ? 'दिव्य भार संहारक ऊर्जा' : 'Inviolable Divine Energy';
+        badge = isHindi ? 'दिव्यास्त्र' : 'WEAPON';
+        chosenTemplateId = 'arrow_callout';
+      } else if (hasWord(/(?:\$|\%|\d{2,}|प्रतिशत|करोड़|लाख|हजार|rate|odds|percent|trillion|million)/i)) {
+        title = isHindi ? 'कर्म फल गणना' : 'METRIC SURGE';
+        detail = isHindi ? 'तीव्र वृद्धि और प्रभाव' : 'Live Data Verification';
+        badge = isHindi ? 'संख्या प्रभाव' : 'SURGE';
+        chosenTemplateId = 'metric_ticker';
+      } else if (hasWord(/(?:सील|मुहर|सत्य|गुप्त|secret|classified|forbidden|truth|unsealed)/i)) {
+        title = isHindi ? 'सत्यमेव जयते' : 'TOP SECRET';
+        detail = isHindi ? 'अमिट सत्य की मुहर' : 'Verified Evidence Seal';
+        badge = isHindi ? 'प्रमाण मुहर' : 'VERIFIED';
+        chosenTemplateId = 'redacted_stamp';
+      } else if (hasWord(/(?:दस्तावेज|ग्रंथ|पुस्तिका|साक्ष्य|archive|document|evidence|record|inspect)/i)) {
+        title = isHindi ? 'प्राचीन साक्ष्य' : 'INSPECT RECORD';
+        detail = isHindi ? 'विस्तारपूर्वक अनुसंधान' : 'Deep Archival Investigation';
+        badge = isHindi ? 'सूक्ष्म दृष्टि' : 'INSPECTION';
+        chosenTemplateId = 'magnifying_glass';
+      } else if (hasWord(/(?:निशाना|लक्ष्य|वेध|शत्रु|target|lock|threat|hostile)/i)) {
+        title = isHindi ? 'लक्ष्य निर्धारण' : 'TARGET LOCKED';
+        detail = isHindi ? 'अचूक संधान स्थिति' : 'Telemetry Acquired';
+        badge = isHindi ? 'अचूक लक्ष्य' : 'LOCK-ON';
+        chosenTemplateId = 'sniper_lock';
+      }
     }
 
     graphics.push(

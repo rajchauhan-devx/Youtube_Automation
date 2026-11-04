@@ -17,7 +17,7 @@ import type { DynamicMotionGraphicData } from '@tubeflow/editing-contracts';
 import { DynamicMotionPlayer, playSynthesizedSfx } from '../preview/DynamicMotionPlayer';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 
-export type ProfileId = 'ancient_dharma' | 'against_the_odds' | 'documentary_standard';
+export type ProfileId = 'ancient_dharma' | 'against_the_odds' | 'talvora' | 'documentary_standard';
 
 interface UsefulTemplateMeta {
   id: string;
@@ -543,6 +543,101 @@ const PROFILES: Array<{
     ],
   },
   {
+    id: 'talvora',
+    name: 'Talvora',
+    desc: 'Cinematic Romantic Drama, Nighttime Suspense & Encounters',
+    icon: '🌹',
+    color: '#F43F5E',
+    accent: '#FB7185',
+    badge: 'Rose & Warm Amber',
+    templates: [
+      {
+        id: 'vedic_title_reveal',
+        name: 'Cinematic Noir Title Reveal',
+        category: 'documentary',
+        icon: '✨',
+        description: 'Hook Attention Extractor: elegant rose-gold typography emerging with soft anamorphic glow.',
+        isHook: true,
+        defaultPlacement: 'center',
+        defaultSfx: 'whoosh',
+        defaultTitle: 'A CHANCE ENCOUNTER',
+        defaultDetail: 'MIDNIGHT IN THE RAIN // DESTINY',
+        defaultBadge: 'TURNING POINT',
+        role: 'Scene 0 Cold Hook (Attention Extractor #1)',
+      },
+      {
+        id: 'highlighter',
+        name: 'Rose Velvet Highlighter',
+        category: 'highlighter',
+        icon: '🖊️',
+        description: 'Velvet crimson-rose brush sweep emphasizing emotional and dramatic dialogue turns.',
+        isHook: false,
+        defaultPlacement: 'top',
+        defaultSfx: 'paper_slide',
+        defaultTitle: 'NEVER FORGET THIS NIGHT',
+        defaultDetail: 'AN UNSPOKEN PROMISE',
+        defaultBadge: 'WHISPER',
+        role: 'Keyword & Dialogue Highlight Sweep',
+      },
+      {
+        id: 'arrow_callout',
+        name: 'Subtle Gaze Directional Pointer',
+        category: 'arrow',
+        icon: '↗️',
+        description: 'Sleek golden hairline arrow indicating character gaze or focal point.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'crystal_ting',
+        defaultTitle: 'THE STRANGER TURNS',
+        defaultDetail: 'EYES MEET ACROSS THE SHADOWS',
+        defaultBadge: 'GAZE',
+        role: 'Character Gaze & Focal Pointer',
+      },
+      {
+        id: 'circle_callout',
+        name: 'Intimate Focus Vignette Ring',
+        category: 'circle',
+        icon: '⭕',
+        description: 'Soft glowing rose-gold ring softly encircling the focal subject or expression.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'crystal_ting',
+        defaultTitle: 'A HESITANT GLANCE',
+        defaultDetail: 'THE MOMENT EVERYTHING CHANGED',
+        defaultBadge: 'FOCUS',
+        role: 'Subject & Expression Focus Circle',
+      },
+      {
+        id: 'kinetic_underline',
+        name: 'Golden Ribbon Underline',
+        category: 'underline',
+        icon: '〰️',
+        description: 'Silken golden light trail tracing beneath title words or character names.',
+        isHook: false,
+        defaultPlacement: 'top',
+        defaultSfx: 'crystal_ting',
+        defaultTitle: 'UNRESOLVED TENSION',
+        defaultDetail: 'TWO PATHS CROSSING IN THE NIGHT',
+        defaultBadge: 'DESTINY',
+        role: 'Emotional Line & Title Accent',
+      },
+      {
+        id: 'shockwave_pulse',
+        name: 'Heartbeat Dramatic Pulse',
+        category: 'shockwave',
+        icon: '💓',
+        description: 'Warm crimson radial pulse wave accentuating emotional revelations or sudden plot turns.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'sub_impact',
+        defaultTitle: 'THE TRUTH UNVEILED',
+        defaultDetail: 'HE FINALLY SPEAKS HIS NAME',
+        defaultBadge: 'REVELATION',
+        role: 'Dramatic Climax & Revelation Pulse',
+      },
+    ],
+  },
+  {
     id: 'documentary_standard',
     name: 'Documentary Standard',
     desc: 'Vox-Style Editorial, Historical Analysis & Business Deep-Dives',
@@ -700,6 +795,7 @@ export function MotionTemplatesGallery() {
 
   const detectedProfileId: ProfileId = React.useMemo(() => {
     const raw = `${account.id} ${account.name} ${account.youtubeChannelTitle || ''}`.toLowerCase();
+    if (raw.includes('talvora') || raw.includes('romance')) return 'talvora';
     if (raw.includes('odds') || raw.includes('against')) return 'against_the_odds';
     if (raw.includes('dharma') || raw.includes('vedic') || raw.includes('ancient') || raw.includes('राम')) return 'ancient_dharma';
     return 'ancient_dharma';
@@ -1072,7 +1168,9 @@ export function MotionTemplatesGallery() {
                   backdrop === 'grid'
                     ? 'bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px] bg-[#0c0c0e]'
                     : backdrop === 'ambient'
-                    ? selectedProfileId === 'against_the_odds'
+                    ? selectedProfileId === 'talvora'
+                      ? 'bg-gradient-to-b from-[#1c080d] via-[#120508] to-[#0a0204]'
+                      : selectedProfileId === 'against_the_odds'
                       ? 'bg-gradient-to-b from-[#180a0a] via-[#100808] to-[#0a0505]'
                       : 'bg-gradient-to-b from-[#181109] via-[#0f0c08] to-[#080604]'
                     : backdrop === 'parchment'

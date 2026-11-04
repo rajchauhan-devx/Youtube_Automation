@@ -25,6 +25,7 @@ function profileGuidance(account: Account): string {
   const name = `${account.name} ${account.youtubeChannelTitle || ''}`.toLowerCase();
   if (/ancient dharma/.test(name)) return 'Ancient Dharma: carefully researched Indian history, Hindu philosophy, dharma, ancient texts, mythology and spiritual wisdom. Clearly distinguish traditional stories from established historical facts.';
   if (/against the odds/.test(name)) return 'Against the Odds: factual stories of survival, resilience, extraordinary comebacks and people overcoming adversity. Verify names, dates and outcomes.';
+  if (/talvora|romance/.test(name)) return 'Talvora: compelling cinematic romantic micro-dramas, emotional relationship dilemmas, and nighttime suspense stories featuring adult characters. Explore chance encounters, unspoken feelings, unexpected reunions, and relationship dilemmas with high emotional stakes.';
   return `Create videos relevant to ${account.youtubeChannelTitle || account.name}, using the selected script template to understand the audience and niche.`;
 }
 
