@@ -139,7 +139,9 @@ export function renderSceneGraphSvg(graph: SceneGraphData, frame: number, option
     return `<g data-node-id="${esc(n.id)}" transform="matrix(${s.matrix.join(' ')})" opacity="${s.opacity}" ${clip}>${body}</g>`;
   }).join('');
   const fade=Math.max(1,Math.min(options.fps*0.18,options.durationFrames*0.12));
-  const opacity=frame<0||frame>=options.durationFrames?0:still?1:Math.min(clamp(f/fade),clamp((options.durationFrames-1-f)/fade));
+  // Smoothstep fade: no visible brightness step at entry/exit boundaries.
+  const smooth=(x:number)=>{const c=clamp(x);return c*c*(3-2*c);};
+  const opacity=frame<0||frame>=options.durationFrames?0:still?1:Math.min(smooth(f/fade),smooth((options.durationFrames-1-f)/fade));
   const body=children();
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${options.width}" height="${options.height}" viewBox="0 0 ${options.width} ${options.height}" style="width:100%;height:100%;overflow:hidden" aria-hidden="true"><defs>${defs.join('')}</defs><g transform="translate(${graph.bounds.x} ${graph.bounds.y})" opacity="${opacity}">${body}</g></svg>`;
 }

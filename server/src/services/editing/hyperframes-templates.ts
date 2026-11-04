@@ -107,11 +107,14 @@ export function renderKineticCaption(opts: {
 
   opts.words.forEach((w, i) => {
     const isPower = w.isPower || /^\d+|record|survived|freefall|impossible|danger|guinness/i.test(w.text);
+    // Clamp every punch inside the caption's visible window so words never
+    // flash before the entrance or after the exit has begun.
+    const wStart = Math.max(opts.startSec, Math.min(w.start, opts.endSec - 0.35));
     js += `
       tl.fromTo("#${id}-w-${i}",
         { scale: 1.10, color: "${isPower ? '#FF3B30' : '#FFE600'}" },
         { scale: 1.0, color: "${isPower ? '#FFE600' : '#FFFFFF'}", duration: 0.22, ease: "power2.out" },
-        ${w.start}
+        ${wStart}
       );
     `;
   });
@@ -611,10 +614,10 @@ export function renderRouteMap(opts: {
       );
     }
 
-    // Waypoint radar ping
+    // Waypoint radar ping (finite cycles that stop before the exit)
     tl.fromTo("#${id}-dest-ping",
       { scale: 0.5, opacity: 1, transformOrigin: "720px 180px" },
-      { scale: 2.2, opacity: 0, duration: 0.8, repeat: -1, ease: "power2.out" },
+      { scale: 2.2, opacity: 0, duration: 0.8, repeat: ${Math.max(0, Math.floor((opts.durationSec - 1.55) / 0.8) - 1)}, ease: "power2.out" },
       ${opts.startSec + 1.2}
     );
 
@@ -1033,9 +1036,9 @@ export function renderCinematicTitle(opts: {
       ${opts.startSec + 0.15}
     );
 
-    // Subtle breathing hold
+    // True breathing hold: drift up and settle back (yoyo), never a one-way drift
     tl.to("#${id}",
-      { y: -4, duration: ${opts.durationSec - 0.75}, ease: "sine.inOut" },
+      { y: -4, duration: ${Math.max(0.3, (opts.durationSec - 0.75) / 2)}, yoyo: true, repeat: 1, ease: "sine.inOut" },
       ${opts.startSec + 0.45}
     );
 
@@ -1200,16 +1203,17 @@ export function renderSpotlight(opts: {
       }
     }
 
-    // Pulse opacity and scale on the inner reticle ring
+    // Pulse opacity and scale on the inner reticle ring (cycles capped to the hold)
     tl.fromTo("#${id}-ring",
       { strokeOpacity: 0.6, scale: 0.95, transformOrigin: "${t.x + t.width / 2}px ${t.y + t.height / 2}px" },
-      { strokeOpacity: 1.0, scale: 1.05, duration: 0.6, yoyo: true, repeat: ${Math.max(1, Math.floor(opts.durationSec * 1.5))}, ease: "sine.inOut" },
+      { strokeOpacity: 1.0, scale: 1.05, duration: 0.6, yoyo: true, repeat: ${Math.max(1, Math.floor((opts.durationSec - 0.1) / 0.6) - 1)}, ease: "sine.inOut" },
       ${opts.startSec + 0.1}
     );
 
-    // Continuous slow rotation on the outer dashed reticle ring
+    // Continuous slow rotation on the outer dashed reticle ring (single sweep sized
+    // to the hold at the original rate, so the timeline still completes)
     tl.to("#${id}-dashed",
-      { rotation: 360, transformOrigin: "${t.x + t.width / 2}px ${t.y + t.height / 2}px", duration: 16, repeat: -1, ease: "none" },
+      { rotation: ${Math.round(22.5 * opts.durationSec)}, transformOrigin: "${t.x + t.width / 2}px ${t.y + t.height / 2}px", duration: ${opts.durationSec}, ease: "none" },
       ${opts.startSec}
     );
     ` : ''}

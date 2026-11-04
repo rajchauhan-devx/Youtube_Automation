@@ -264,15 +264,20 @@ function renderThunderLightning(params: ProfileTemplateParams, kit: StyleKit, co
     if (sparks.length) {
       tl.fromTo(sparks, { scale: 0.2, opacity: 1, transformOrigin: "72px 405px" }, { scale: 1.6, opacity: 0, duration: 0.35, ease: "power2.out" }, 0.06);
     }
-    // High-energy strobe flicker bursts
-    tl.to(el.querySelectorAll(".dm-lightning-svg"), { opacity: 0.2, duration: 0.03, yoyo: true, repeat: 5 }, 0.08);
+    // Controlled after-flash dip that settles (no harsh strobe, no endless flicker)
+    const boltSvg = el.querySelector(".dm-lightning-svg");
+    if (boltSvg) {
+      tl.to(boltSvg, { opacity: 0.55, duration: 0.05, yoyo: true, repeat: 3, ease: "power1.inOut" }, 0.1);
+    }
     // Label pop with elastic punch
     const lbl = el.querySelector(".dm-lightning-label");
     if (lbl) {
       tl.fromTo(lbl, { scale: 0.6, opacity: 0, y: 20 }, { scale: 1, opacity: 1, y: 0, duration: 0.4, ease: "back.out(2.2)" }, 0.14);
     }
-    // Living idle electric crackle jitter
-    tl.to(mainBolt, { opacity: "random(0.75, 1)", duration: 0.08, repeat: -1, ease: "none" }, 0.4);
+    // Deterministic residual crackle that fades to a steady glow before the exit
+    if (mainBolt) {
+      tl.to(mainBolt, { opacity: 0.82, duration: 0.14, yoyo: true, repeat: 5, ease: "sine.inOut" }, 0.55);
+    }
   `;
 
   return { html, css, js };
@@ -300,13 +305,13 @@ function renderHighlighter(params: ProfileTemplateParams, kit: StyleKit, contain
             <div class="dm-hl-fill">
               <!-- Animated glint reflection sweep -->
               <span class="dm-hl-sheen"></span>
-              <!-- Authentic Chisel Nib Cursor following the stroke -->
-              <div class="dm-hl-nib">
-                <svg viewBox="0 0 24 24" width="22" height="22" fill="${markerColor}">
-                  <path d="M 3,18 L 8,23 L 21,10 L 14,3 Z" filter="drop-shadow(0 0 6px ${markerColor})"/>
-                  <polygon points="3,18 1,23 6,21" fill="#FFFFFF"/>
-                </svg>
-              </div>
+            </div>
+            <!-- Chisel nib travels with the stroke leading edge (outside the scaling fill so it never squashes) -->
+            <div class="dm-hl-nib">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="${markerColor}">
+                <path d="M 3,18 L 8,23 L 21,10 L 14,3 Z" filter="drop-shadow(0 0 6px ${markerColor})"/>
+                <polygon points="3,18 1,23 6,21" fill="#FFFFFF"/>
+              </svg>
             </div>
             <div class="dm-hl-text">${escapeHtml(params.title)}</div>
           </div>
@@ -325,7 +330,7 @@ function renderHighlighter(params: ProfileTemplateParams, kit: StyleKit, contain
     #${containerId} .dm-hl-line-container { position: relative; display: inline-block; padding: 6px 22px; margin: 4px 0; }
     #${containerId} .dm-hl-fill { position: absolute; inset: 0; background: linear-gradient(90deg, ${markerColor}55 0%, ${markerColor}88 70%, ${markerColor}bb 100%); border-radius: 4px 14px 16px 4px; transform-origin: left center; z-index: 1; box-shadow: 0 0 25px ${markerColor}77, inset 0 1px 1px rgba(255,255,255,0.4); border-top: 2px solid ${markerColor}; border-bottom: 2px solid ${markerColor}; overflow: visible; }
     #${containerId} .dm-hl-sheen { position: absolute; top: 0; bottom: 0; left: -100%; width: 50%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent); transform: skewX(-20deg); pointer-events: none; }
-    #${containerId} .dm-hl-nib { position: absolute; right: -12px; top: -14px; pointer-events: none; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.8)); }
+    #${containerId} .dm-hl-nib { position: absolute; left: 0; margin-left: -5px; top: -14px; pointer-events: none; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.8)); will-change: left, opacity, transform; }
     #${containerId} .dm-hl-text { position: relative; z-index: 2; font-size: 34px; font-weight: 900; color: #FFFFFF; letter-spacing: 0.02em; line-height: 1.25; text-shadow: 0 2px 14px rgba(0,0,0,0.98), 0 0 12px ${markerColor}44; font-family: ${kit.theme.fontFamily}; }
     #${containerId} .dm-hl-detail { font-size: 15px; font-weight: 600; color: #FFFFFF; background: rgba(12, 14, 20, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.2); padding: 3px 14px; border-radius: 8px; margin-top: 8px; text-shadow: 0 2px 6px rgba(0,0,0,0.9); font-family: ${kit.theme.fontFamily}; letter-spacing: 0.03em; }
   `;
@@ -338,8 +343,11 @@ function renderHighlighter(params: ProfileTemplateParams, kit: StyleKit, contain
       tl.fromTo(fill, { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: "power2.out" }, 0.1);
     }
     if (nib) {
-      tl.fromTo(nib, { opacity: 0, scale: 0.5 }, { opacity: 1, scale: 1, duration: 0.15 }, 0.05);
-      tl.to(nib, { opacity: 0, scale: 0.7, y: -8, duration: 0.25, ease: "power2.in" }, 0.65);
+      // Nib leads the stroke: appears as ink starts, glides to the right edge with the
+      // exact same timing/ease as the fill sweep, then lifts away.
+      tl.fromTo(nib, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.12, ease: "power2.out" }, 0.1);
+      tl.to(nib, { left: "100%", duration: 0.55, ease: "power2.out" }, 0.1);
+      tl.to(nib, { opacity: 0, y: -10, scale: 0.7, duration: 0.24, ease: "power2.in" }, 0.66);
     }
     const sheen = el.querySelector(".dm-hl-sheen");
     if (sheen) {
@@ -423,13 +431,16 @@ function renderArrowCallout(params: ProfileTemplateParams, kit: StyleKit, contai
     if (tag) {
       tl.fromTo(tag, { scale: 0.7, opacity: 0, x: -18 }, { scale: 1, opacity: 1, x: 0, duration: 0.4, ease: "back.out(2)" }, 0.08);
     }
-    // Target ping pulse loop
+    // Target ping pulse (finite cycles so the timeline completes with the exit)
     const ping = el.querySelector(".dm-ping-ring");
     if (ping) {
-      tl.fromTo(ping, { scale: 0.4, opacity: 1, transformOrigin: "165px 120px" }, { scale: 2.6, opacity: 0, duration: 0.8, repeat: -1, ease: "power2.out" }, 0.45);
+      tl.fromTo(ping, { scale: 0.4, opacity: 1, transformOrigin: "165px 120px" }, { scale: 2.6, opacity: 0, duration: 0.8, repeat: 3, ease: "power2.out" }, 0.45);
     }
-    // Creator-style floating spring bob toward target
-    tl.to(el.querySelector(".dm-3d-card"), { y: "+=7", duration: 0.75, ease: "sine.inOut", yoyo: true, repeat: -1 }, 0.5);
+    // Gentle floating spring bob that settles before the exit
+    const bobCard = el.querySelector(".dm-3d-card");
+    if (bobCard) {
+      tl.to(bobCard, { y: "+=7", duration: 0.75, ease: "sine.inOut", yoyo: true, repeat: 3 }, 0.5);
+    }
   `;
 
   return { html, css, js };
@@ -503,8 +514,11 @@ function renderCircleCallout(params: ProfileTemplateParams, kit: StyleKit, conta
     if (lbl) {
       tl.fromTo(lbl, { scale: 0.7, opacity: 0, y: 14 }, { scale: 1, opacity: 1, y: 0, duration: 0.38, ease: "back.out(2)" }, 0.35);
     }
-    // Living focus breathing pulse
-    tl.to(el.querySelector(".dm-circle-svg"), { scale: 1.04, duration: 0.9, yoyo: true, repeat: -1, ease: "sine.inOut" }, 0.7);
+    // Living focus breathing pulse (finite, settles before the exit)
+    const breathSvg = el.querySelector(".dm-circle-svg");
+    if (breathSvg) {
+      tl.to(breathSvg, { scale: 1.04, duration: 0.9, yoyo: true, repeat: 3, ease: "sine.inOut" }, 0.7);
+    }
   `;
 
   return { html, css, js };
@@ -577,10 +591,10 @@ function renderSniperLock(params: ProfileTemplateParams, kit: StyleKit, containe
     // Tactical brackets snap inward violently
     const brackets = el.querySelectorAll(".dm-bracket-tl, .dm-bracket-tr, .dm-bracket-bl, .dm-bracket-br");
     tl.fromTo(brackets, { scale: 1.7, opacity: 0, transformOrigin: "130px 130px" }, { scale: 1, opacity: 1, duration: 0.35, ease: "expo.out" }, 0.05);
-    // Rotating compass dial
+    // Rotating compass dial (single slow sweep sized to the hold, so the timeline completes)
     const dial = el.querySelector(".dm-hud-dial");
     if (dial) {
-      tl.to(dial, { rotation: 360, transformOrigin: "130px 130px", duration: 10, repeat: -1, ease: "none" }, 0);
+      tl.to(dial, { rotation: 160, transformOrigin: "130px 130px", duration: 4.4, ease: "none" }, 0);
     }
     // Label pop
     const lbl = el.querySelector(".dm-hud-label");
@@ -676,8 +690,13 @@ function renderMagnifyingGlass(params: ProfileTemplateParams, kit: StyleKit, con
     if (lbl) {
       tl.fromTo(lbl, { scale: 0.7, opacity: 0, y: 15 }, { scale: 1, opacity: 1, y: 0, duration: 0.38, ease: "back.out(2)" }, 0.28);
     }
-    // Living inspection hover pan
-    tl.to(svg, { x: "+=8", y: "+=5", duration: 1.1, yoyo: true, repeat: -1, ease: "sine.inOut" }, 0.6);
+    // Living inspection hover pan (finite round trips that settle at rest before the exit)
+    tl.to(svg, { keyframes: [
+      { x: 8, y: 5, duration: 1.0, ease: "sine.inOut" },
+      { x: 0, y: 0, duration: 1.0, ease: "sine.inOut" },
+      { x: 6, y: 4, duration: 0.9, ease: "sine.inOut" },
+      { x: 0, y: 0, duration: 0.9, ease: "sine.inOut" },
+    ] }, 0.6);
   `;
 
   return { html, css, js };
@@ -733,8 +752,17 @@ function renderRedactedStamp(params: ProfileTemplateParams, kit: StyleKit, conta
     if (dust) {
       tl.fromTo(dust, { scale: 0.2, opacity: 0.9 }, { scale: 1.6, opacity: 0, duration: 0.5, ease: "power2.out" }, 0.26);
     }
-    // Screen shake impact impulse
-    tl.to(el.querySelector(".dm-3d-card"), { x: "random(-5, 5)", y: "random(-5, 5)", duration: 0.04, repeat: 3, yoyo: true }, 0.26);
+    // Deterministic decaying impact shake (no random jitter; always settles at rest)
+    const shakeCard = el.querySelector(".dm-3d-card");
+    if (shakeCard) {
+      tl.to(shakeCard, { keyframes: [
+        { x: -5, y: 3, duration: 0.04, ease: "none" },
+        { x: 5, y: -3, duration: 0.04, ease: "none" },
+        { x: -3, y: 2, duration: 0.04, ease: "none" },
+        { x: 2, y: -1, duration: 0.04, ease: "none" },
+        { x: 0, y: 0, duration: 0.06, ease: "power1.out" },
+      ] }, 0.26);
+    }
   `;
 
   return { html, css, js };
@@ -859,7 +887,14 @@ function renderKineticUnderline(params: ProfileTemplateParams, kit: StyleKit, co
     }
     const spark = el.querySelector(".dm-ul-spark");
     if (spark) {
-      tl.fromTo(spark, { opacity: 1, scale: 1 }, { opacity: 0, scale: 1.8, duration: 0.45, ease: "power2.out" }, 0.45);
+      // Comet head travels with the leading edge of the stroke draw, arcs with the
+      // wave, then flares out exactly as the line completes.
+      tl.fromTo(spark, { opacity: 1, scale: 1 }, { x: 324, duration: 0.48, ease: "power3.out" }, 0.1);
+      tl.to(spark, { keyframes: [
+        { y: 5, duration: 0.24, ease: "sine.out" },
+        { y: 0, duration: 0.24, ease: "sine.in" },
+      ] }, 0.1);
+      tl.to(spark, { opacity: 0, scale: 1.8, duration: 0.3, ease: "power2.out" }, 0.58);
     }
   `;
 
@@ -923,6 +958,11 @@ function renderShockwavePulse(params: ProfileTemplateParams, kit: StyleKit, cont
     tl.fromTo(el.querySelector(".dm-wave-1"), { scale: 0.3, opacity: 1, transformOrigin: "110px 110px" }, { scale: 3.2, opacity: 0, duration: 0.85, ease: "power2.out" }, 0.05);
     tl.fromTo(el.querySelector(".dm-wave-2"), { scale: 0.25, opacity: 1, transformOrigin: "110px 110px" }, { scale: 2.6, opacity: 0, duration: 0.75, ease: "power2.out" }, 0.12);
     tl.fromTo(el.querySelector(".dm-wave-3"), { scale: 0.2, opacity: 1, transformOrigin: "110px 110px" }, { scale: 2.0, opacity: 0, duration: 0.65, ease: "power2.out" }, 0.18);
+    // Label arrives on the shockwave tail instead of popping with frame one
+    const shockLbl = el.querySelector(".dm-shock-label");
+    if (shockLbl) {
+      tl.fromTo(shockLbl, { scale: 0.7, opacity: 0, y: 12 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(2)" }, 0.22);
+    }
   `;
 
   return { html, css, js };

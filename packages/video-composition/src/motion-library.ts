@@ -62,6 +62,10 @@ export interface MotionTemplateOptions {
   layout?: 'auto' | 'horizontal' | 'vertical';
 }
 
+/** Shared easing curves: decelerating fades feel intentional, smooth draws feel hand-animated. */
+const EASE_OUT = { kind: 'bezier' as const, x1: 0.16, y1: 1, x2: 0.3, y2: 1 };
+const EASE_IN_OUT = { kind: 'bezier' as const, x1: 0.4, y1: 0, x2: 0.2, y2: 1 };
+
 /** Deterministic parametric composition. Accepted nodes are persisted and replayed as-is. */
 export function compileMotionTemplate(options: MotionTemplateOptions): SceneGraphData {
   const t = motionLibraryTemplate(options.templateId);
@@ -91,14 +95,14 @@ export function compileMotionTemplate(options: MotionTemplateOptions): SceneGrap
   const revealSpan = Math.min(Math.round(fps * 0.85), Math.round(duration * 0.18));
   const base = (id: string, index = 0) => ({ id, space: 'screen' as const, zIndex: 0, transform: identity(), opacity: 1,
     tracks: [{ property: 'opacity' as const, keyframes: [
-      { frame: 0, value: 0, easing: { kind: 'linear' as const } },
-      { frame: Math.max(1, Math.round(index * revealSpan / Math.max(1, items.length))), value: 0, easing: { kind: 'linear' as const } },
-      { frame: Math.max(2, Math.round(index * revealSpan / Math.max(1, items.length)) + Math.max(1, Math.round(fps * 0.18))), value: 1, easing: { kind: 'linear' as const } },
+      { frame: 0, value: 0, easing: EASE_OUT },
+      { frame: Math.max(1, Math.round(index * revealSpan / Math.max(1, items.length))), value: 0, easing: EASE_OUT },
+      { frame: Math.max(2, Math.round(index * revealSpan / Math.max(1, items.length)) + Math.max(1, Math.round(fps * 0.18))), value: 1, easing: EASE_OUT },
     ].filter((k, i, all) => !i || k.frame > all[i-1].frame) }] });
   const paint = { fill: null, stroke: theme.primary, strokeWidth: theme.lineWeight, dash: [] };
   const strokeReveal = (index: number) => ({property:'strokeProgress' as const,keyframes:[
-    {frame:0,value:0,easing:{kind:'linear' as const}},
-    {frame:Math.max(1,Math.min(duration-1,Math.round(fps*0.5+index*revealSpan/Math.max(1,items.length)))),value:1,easing:{kind:'linear' as const}},
+    {frame:0,value:0,easing:EASE_IN_OUT},
+    {frame:Math.max(1,Math.min(duration-1,Math.round(fps*0.5+index*revealSpan/Math.max(1,items.length)))),value:1,easing:EASE_IN_OUT},
   ]});
   const line = (id: string, x1: number, y1: number, x2: number, y2: number, index = 0) => {
     const b=base(id,index);
@@ -243,7 +247,7 @@ export function compileMotionTemplate(options: MotionTemplateOptions): SceneGrap
       const n=nodes[nodes.length-1];if(n.kind==='path')n.paint={...paint,strokeWidth:Math.min(16,fontSize*0.25)};
     }
     if(t.recipe==='reveal') {
-      const n=nodes.find(n=>n.id==='item-0');if(n)n.tracks.push({property:'clipProgress',keyframes:[{frame:0,value:0,easing:{kind:'linear'}},{frame:Math.max(1,Math.round(revealSpan)),value:1,easing:{kind:'linear'}}]});
+      const n=nodes.find(n=>n.id==='item-0');if(n)n.tracks.push({property:'clipProgress',keyframes:[{frame:0,value:0,easing:EASE_OUT},{frame:Math.max(1,Math.round(revealSpan)),value:1,easing:EASE_OUT}]});
     }
     if(t.recipe==='pin') {
       const cx=W/2,cy=H*0.14,r=Math.min(fontSize,H*0.06);
