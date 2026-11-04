@@ -30,7 +30,6 @@ interface DynamicMotionStudioProps {
 
 const STYLE_PRESETS = [
   { id: 'vedic-gold', label: 'Vedic Gold', desc: 'Ancient Dharma & Solar Aura', icon: '🌟', channel: 'Ancient Dharma' },
-  { id: 'tactical-cyber', label: 'Rule Zero HUD', desc: 'Tactical Cyan & Biometrics', icon: '🎯', channel: 'Rule Zero' },
   { id: 'archival-compass', label: 'Against the Odds', desc: 'Brass Compass & Topography', icon: '🧭', channel: 'Against the Odds' },
   { id: 'celestial-cyan', label: 'Celestial Cyan', desc: 'Cosmic Blue & Starlight', icon: '🌌' },
   { id: 'rudra-fire', label: 'Rudra Fire', desc: 'Shiva Tandava & Blazing Embers', icon: '🔥' },

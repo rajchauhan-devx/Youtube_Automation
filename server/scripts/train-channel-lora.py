@@ -4,8 +4,7 @@ TubeFlow — Per-Channel Juggernaut XL (SDXL 1.0) LoRA Trainer & Calibrator
 =========================================================================
 Strictly isolated per-channel LoRA training & calibration for:
   1. ancient_dharma   (Ancient Dharma / My Channel)
-  2. rule_zero        (Rule Zero / zero rule)
-  3. against_the_odds (Against the Odds)
+  2. against_the_odds (Against the Odds)
 
 Supports Apple Silicon (MPS), NVIDIA GPU (CUDA), and CPU.
 Outputs trained .safetensors directly into ComfyUI/models/loras/.
@@ -57,28 +56,6 @@ CHANNEL_CONFIGS = {
             "Celestial golden Sudarshana Chakra blazing above a misty Vedic battlefield at sunrise with flying saffron banners",
             "Sacred bronze Shiva Nataraja statue surrounded by flickering oil lamps and swirling golden incense smoke",
             "Ancient library of palm-leaf manuscripts illuminated by warm candlelight inside a sandstone monastery",
-        ],
-    },
-    "rule_zero": {
-        "name": "Rule Zero (zero rule)",
-        "base_lora": "rule_zero_dark_contrast_xl.safetensors",
-        "output_lora": "rule_zero_custom_xl.safetensors",
-        "trigger_token": "rulezero_noir_contrast",
-        "target_palette_rgb": (0.18, 0.42, 0.52),  # Cold neo-noir cyan/teal & obsidian
-        "contrast_boost": 1.28,
-        "shadow_bias": -0.14,
-        "style_caption": (
-            "rulezero_noir_contrast, stylized painterly graphic novel comic art, Alberto Mielgo "
-            "and Spider-Verse noir aesthetic, bold charcoal ink outlines, expressive textured brushstrokes, "
-            "dynamic two-step cel shading, high-contrast chiaroscuro shadows, wet pavement reflections, "
-            "cold cyan and teal shadows with vibrant warm amber rim lighting, moody high-stakes mystery, "
-            "no 3D, no photorealism, no CGI gloss"
-        ),
-        "sample_prompts": [
-            "Silhouetted strategist in charcoal suit standing in a brutalist glass boardroom overlooking a rain-swept metropolis at night",
-            "Low-key mahogany war room with a single overhead warm spotlight illuminating a chess board and geopolitical maps",
-            "Shadowed figure walking down a rain-slicked concrete corridor with cold cyan neon reflections and deep black shadows",
-            "Close-up of a luxury mechanical watch and fountain pen on a dark obsidian desk under dramatic rim lighting",
         ],
     },
     "against_the_odds": {
@@ -273,7 +250,7 @@ def main() -> None:
     parser.add_argument(
         "--channel",
         default="all",
-        choices=["all", "ancient_dharma", "rule_zero", "against_the_odds"],
+        choices=["all", "ancient_dharma", "against_the_odds"],
         help="Channel to train",
     )
     parser.add_argument("--steps", type=int, default=150, help="Number of optimization steps per channel")

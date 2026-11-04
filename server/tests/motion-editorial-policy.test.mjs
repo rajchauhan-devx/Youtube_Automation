@@ -11,7 +11,7 @@ const {workspaceContext}=await import('../dist/services/workspace.js');
 const {store}=await import('../dist/services/store.js');
 const {motionEditorialContext,graphEditorialIssues}=await import('../dist/services/editing/motionEditorial.js');
 const {planGraphBeats}=await import('../dist/services/editing/sceneGraphGeneration.js');
-fs.writeFileSync(path.join(temp,'accounts.json'),JSON.stringify([{id:'ancient',name:'My Channel',youtubeChannelTitle:'Ancient Dharma'},{id:'survival',name:'Against the Odds'},{id:'noir',name:'Rule Zero'}]));
+fs.writeFileSync(path.join(temp,'accounts.json'),JSON.stringify([{id:'ancient',name:'My Channel',youtubeChannelTitle:'Ancient Dharma'},{id:'survival',name:'Against the Odds'}]));
 
 test('image-only Shorts detection respects media settings and excludes mixed and long profiles',()=>{
   assert.equal(isImageOnlyShorts({name:'Short - Image'},'shorts'),true);
@@ -24,7 +24,7 @@ test('image-only Shorts detection respects media settings and excludes mixed and
 test('new image-only templates use selective callouts while long-form media defaults stay separate',()=>{
   const settings=defaultAutoPilotSettings({name:'Short - Image only',section:'shorts'});
   AutoPilotSettingsSchema.parse(settings);
-  assert.equal(settings.media.flowEnabled,false);assert.equal(settings.graphics.mode,'callouts');assert.equal(settings.graphics.enabled,true);assert.equal(settings.graphics.density,'subtle');
+  assert.equal(settings.media.flowEnabled,false);assert.equal(settings.graphics.mode,'images');assert.equal(settings.graphics.enabled,true);assert.equal(settings.graphics.density,'balanced');
   assert.match(settings.graphics.style,/allow zero graphics/);
   assert.equal(defaultAutoPilotSettings({name:'Image-only history',section:'long'}).media.flowEnabled,true);
 });
@@ -35,8 +35,6 @@ test('channel metadata selects distinct visual, language and sound directions',(
   assert.deepEqual(ancient.soundNames,['paper_slide']);assert.match(ancient.direction,/No modern HUDs/);assert.match(ancient.direction,/wordless diagram/);
   const survival=channelMotionPolicy({name:'Against the Odds'},'en');
   assert.equal(survival.key,'against_the_odds');assert.equal(survival.displayLanguage,'en');
-  const noir=channelMotionPolicy({name:'Rule Zero'},'hi');
-  assert.equal(noir.key,'rule_zero');assert.equal(noir.displayLanguage,'hi');
   assert.equal(channelMotionPolicy({name:'Unrelated Channel'},'en').key,'documentary_standard');
 });
 

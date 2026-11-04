@@ -1,15 +1,14 @@
 #!/usr/bin/env node
 /**
- * Setup & Download the 3 Channel-Isolated SDXL 1.0 LoRAs for Juggernaut XL.
+ * Setup & Download Channel-Isolated SDXL 1.0 LoRAs for Juggernaut XL.
  *
  * Each channel is strictly isolated to its own LoRA file in ComfyUI/models/loras/:
  *   1. Ancient Dharma (My Channel)      -> ancient_dharma_chiaroscuro_xl.safetensors
- *   2. Rule Zero (zero rule)            -> rule_zero_dark_contrast_xl.safetensors
- *   3. Against the Odds                 -> against_the_odds_analog_film_xl.safetensors
+ *   2. Against the Odds                 -> against_the_odds_analog_film_xl.safetensors
  *
  * Usage:
  *   npm run setup:loras
- *   node server/scripts/setup-channel-loras.mjs [--channel ancient_dharma|rule_zero|against_the_odds] [--force]
+ *   node server/scripts/setup-channel-loras.mjs [--channel ancient_dharma|against_the_odds] [--force]
  */
 
 import fs from 'node:fs';
@@ -38,22 +37,6 @@ export const CHANNEL_LORA_REGISTRY = {
     triggerWords: ['ArsMJStyle', 'chiaroscuro lighting', 'warm golden oil lamp glow'],
     styleDnaPrompt:
       'Sacred chiaroscuro lighting, warm golden oil-lamp glow, deep carved-stone temple shadows, volumetric incense haze, burnished gold and saffron color palette, painterly mythological photorealism.',
-  },
-  rule_zero: {
-    channelId: 'rule_zero',
-    channelNames: ['Rule Zero', 'zero rule'],
-    loraTitle: "Zavy's Dark Atmospheric Contrast XL (Neo-Noir Psychological Thriller)",
-    fileName: 'rule_zero_dark_contrast_xl.safetensors',
-    customFileName: 'rule_zero_custom_xl.safetensors',
-    civitaiModelId: 295530,
-    civitaiUrl: 'https://civitai.com/models/295530',
-    downloadUrl: 'https://civitai.com/api/download/models/332071',
-    expectedMinBytes: 150 * 1024 * 1024,
-    strengthModel: 0.75,
-    strengthClip: 0.75,
-    triggerWords: ['dark', 'chiaroscuro', 'low-key'],
-    styleDnaPrompt:
-      'Stylized painterly graphic novel comic art, Alberto Mielgo and Spider-Verse noir aesthetic, bold charcoal ink outlines, expressive textured brushstrokes, dynamic two-step cel shading, high-contrast chiaroscuro shadows, wet pavement reflections, cold cyan and teal ambient shadows sliced by vibrant warm amber and neon rim lighting, cinematic atmospheric mystery, no 3D, no photorealism, no CGI gloss.',
   },
   against_the_odds: {
     channelId: 'against_the_odds',
@@ -145,7 +128,7 @@ async function main() {
   );
 
   if (entries.length === 0) {
-    console.error(`Unknown --channel "${onlyChannel}". Valid options: ancient_dharma, rule_zero, against_the_odds`);
+    console.error(`Unknown --channel "${onlyChannel}". Valid options: ancient_dharma, against_the_odds`);
     process.exit(1);
   }
 

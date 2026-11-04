@@ -160,7 +160,7 @@ export async function listAvailableModels(): Promise<string[]> {
 
 
 export interface ResolvedChannelLora {
-  channelKey: 'ancient_dharma' | 'rule_zero' | 'against_the_odds';
+  channelKey: 'ancient_dharma' | 'against_the_odds';
   channelLabel: string;
   loraTitle: string;
   loraFileName: string;
@@ -190,18 +190,6 @@ const SERVER_CHANNEL_LORAS: Record<
     styleDna:
       'Sacred chiaroscuro lighting, warm golden oil-lamp glow, deep carved-stone temple shadows, volumetric incense haze, burnished gold and saffron color palette, painterly mythological photorealism.',
   },
-  rule_zero: {
-    channelKey: 'rule_zero',
-    channelLabel: 'Rule Zero',
-    loraTitle: "Zavy's Dark Atmospheric Contrast XL (Neo-Noir Thriller)",
-    preferredFile: 'rule_zero_custom_xl.safetensors',
-    fallbackFile: 'rule_zero_dark_contrast_xl.safetensors',
-    strengthModel: 0.75,
-    strengthClip: 0.75,
-    triggerToken: 'rulezero_noir_contrast',
-    styleDna:
-      'Stylized painterly graphic novel comic art, Alberto Mielgo and Spider-Verse noir aesthetic, bold charcoal ink outlines, expressive textured brushstrokes, dynamic two-step cel shading, high-contrast chiaroscuro shadows, wet pavement reflections, cold cyan and teal ambient shadows sliced by vibrant warm amber and neon rim lighting, cinematic atmospheric mystery, no 3D, no photorealism, no CGI gloss.',
-  },
   against_the_odds: {
     channelKey: 'against_the_odds',
     channelLabel: 'Against the Odds',
@@ -224,9 +212,7 @@ export function resolveComfyLorasDir(): string {
 export function resolveChannelLoraForAccount(accountId?: string): ResolvedChannelLora {
   const rawId = (accountId || currentWorkspace().accountId || 'default').toLowerCase();
   let channelKey: ResolvedChannelLora['channelKey'] = 'ancient_dharma';
-  if (rawId.includes('3ea89878') || rawId.includes('rule_zero') || rawId.includes('zero rule')) {
-    channelKey = 'rule_zero';
-  } else if (rawId.includes('620a1d5e') || rawId.includes('against_the_odds') || rawId.includes('against the odds')) {
+  if (rawId.includes('620a1d5e') || rawId.includes('against_the_odds') || rawId.includes('against the odds')) {
     channelKey = 'against_the_odds';
   } else {
     // Also check accounts.json if a custom account ID was used
@@ -239,9 +225,7 @@ export function resolveChannelLoraForAccount(accountId?: string): ResolvedChanne
           : null;
         if (matched) {
           const combined = `${matched.name || ''} ${matched.youtubeChannelTitle || ''}`.toLowerCase();
-          if (combined.includes('rule zero') || combined.includes('zero rule')) {
-            channelKey = 'rule_zero';
-          } else if (combined.includes('against the odds')) {
+          if (combined.includes('against the odds')) {
             channelKey = 'against_the_odds';
           }
         }

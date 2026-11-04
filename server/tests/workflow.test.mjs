@@ -62,7 +62,7 @@ test('preparePromptForImageGeneration extracts Negative Prompt and enforces 2D c
     disableChannelLora: prepared.is2dStylized,
     cfgOverride: prepared.is2dStylized ? 7.0 : undefined,
     seed: 99,
-    channelAccountId: 'acct_3ea89878-0f41-4dc9-86e5-3f55cda46ef7',
+    channelAccountId: 'acct_620a1d5e-bb1a-4b7e-8662-37acafaecbab',
   });
   assert.equal(Boolean(wf['20']), false, 'Photorealistic channel LoRA must be bypassed for 2D cartoon prompts');
   assert.match(wf['15'].inputs.text, /photorealistic/);

@@ -32,7 +32,7 @@ test('final review covers each scene and late motion graphics instead of only fi
 });
 const auth = await import('../dist/services/youtube-auth.js');
 accounts.updateAccount('default', { name: 'Ancient Dharma' });
-const ruleZero = accounts.createAccount('Rule Zero');
+const testAccount = accounts.createAccount('Test Channel');
 const odds = accounts.createAccount('Against the Odds');
 const scope = (accountId = 'default', profile = 'shorts') => ({ accountId, profile });
 const sourcePlan = { version: 1, title: 'Dharma', thumbnailPrompt: 'A detailed ancient forest', scenes: [
@@ -58,7 +58,6 @@ after(() => fs.rmSync(directory, { recursive: true, force: true }));
 
 test('profile-specific structures and performance memory use comparable, sufficiently sampled observations', () => {
   assert.match(retention.storyStructure(notes.readTopicNotes()), /traditional story/);
-  assert.match(retention.storyStructure(notes.readTopicNotes(ruleZero.id)), /impossible rule/);
   assert.match(retention.storyStructure(notes.readTopicNotes(odds.id)), /verified outcome/);
   const base = { topic: 'Previously uploaded story', scriptId: 'old', videoId: 'old', profile: 'shorts', uploadedAt: '2025-10-01', videoUrl: 'https://youtu.be/old',
     production: { hook: 'Observed opening', structure: 'A story', title: 'Previous story', duration: 60, musicMood: 'calm', scenes: [] },
@@ -240,7 +239,7 @@ test('HTTP editing preserves the source; extraction uses only a matching edited 
     const otherRaw = JSON.stringify({ ...sourcePlan, title: 'Changed source' });
     const unchanged = await (await post('/llm/extract', { scriptId: 'story', rawText: otherRaw })).json();
     assert.equal(unchanged.scenePlan.scenes[0].narration.startsWith('Welcome'), true);
-    const notFound = await originalFetch(base.replace('/default/', `/${ruleZero.id}/`) + '/retention/edit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: 'story' }) });
+    const notFound = await originalFetch(base.replace('/default/', `/${testAccount.id}/`) + '/retention/edit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: 'story' }) });
     assert.equal(notFound.status, 404);
   } finally { globalThis.fetch = originalFetch; server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });

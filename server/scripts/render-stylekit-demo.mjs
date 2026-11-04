@@ -50,20 +50,6 @@ const DEMOS = [
     },
   },
   {
-    channel: 'rule_zero',
-    kicker: 'TACTICAL // 03',
-    title: 'PROTOCOL ZERO',
-    sub: 'No survives the purge',
-    popup: {
-      shape: 'tactical_hexagon',
-      placement: 'top-right',
-      title: 'THREAT LOCKED',
-      subtitle: 'Zero margin for error',
-      badgeTag: 'TELEMETRY',
-      archetype: 'blueprint_diagram',
-    },
-  },
-  {
     channel: 'against_the_odds',
     kicker: 'SURVIVAL LOG',
     title: 'AGAINST ALL ODDS',

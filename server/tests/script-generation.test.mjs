@@ -5,7 +5,6 @@ import { buildResearchMessages, summarizeTemplateForResearch } from '../dist/ser
 import { serializeScenePlan } from '../dist/services/scene-plan-format.js';
 import { incompleteResponse } from '../dist/services/generation-status.js';
 import { ancientDharmaEditorial, ancientDharmaTemplateContext } from '../dist/services/ancient-dharma-editorial.js';
-import { ruleZeroEditorial } from '../dist/services/rule-zero-editorial.js';
 import { channelEditorialContext } from '../dist/services/channel-editorial.js';
 import { againstTheOddsEditorial } from '../dist/services/against-the-odds-editorial.js';
 
@@ -150,30 +149,6 @@ test('Ancient Dharma research and retention keep the complete editorial brief be
   const unrelated = 'A survival story with its own closing instructions. '.repeat(500);
   assert.equal(ancientDharmaTemplateContext(unrelated, 16000), unrelated.slice(0, 16000));
   assert.doesNotMatch(buildResearchMessages({ topic: 'Andes survival', template: unrelated })[1].content, /जय श्री राम|episode-appropriate comment/);
-});
-
-test('Rule Zero research analyzes fiction and retains its full canon and closing brief after a long visual bible', () => {
-  for (const profile of ['shorts', 'long']) {
-    const editorial = ruleZeroEditorial(profile);
-    const template = `${'Visual continuity reference. '.repeat(900)}\n${editorial}\n## SECTION 4 — ENGLISH TEXT OVERLAYS`;
-    const summary = summarizeTemplateForResearch(template);
-    assert.ok(summary.includes(editorial));
-    assert.equal(summary.split(editorial).length, 2);
-    const context = channelEditorialContext(template, 16000);
-    assert.ok(context.startsWith(editorial));
-    assert.ok(context.length <= 16000);
-    const messages = buildResearchMessages({ topic: 'Every extra day costs one memory', template, duration: profile === 'shorts' ? 90 : 300 });
-    assert.match(messages[0].content, /speculative-fiction/);
-    assert.ok(messages[1].content.includes(editorial));
-    assert.match(messages[1].content, /locked canon separately from permitted standalone inventions/);
-    assert.match(messages[1].content, /Physical Burden -> Ordinary Goal -> Dead End -> Rule-Breaking Choice -> Irreversible Payoff/);
-    assert.doesNotMatch(messages[1].content, /Specific real-world facts, names, dates|जय श्री राम|scriptural account/);
-    assert.deepEqual(supportingSections(buildFreePrompt(template, 'Memory price', '', 90)).map(s => s.id), ['4']);
-  }
-  const ancient = ancientDharmaEditorial('shorts');
-  assert.ok(channelEditorialContext(`Ancient visual reference\n${ancient}`, 16000).startsWith(ancient));
-  const unrelated = 'Survival research. '.repeat(1000);
-  assert.equal(channelEditorialContext(unrelated, 16000), unrelated.slice(0, 16000));
 });
 
 test('Against the Odds research keeps documentary evidence rules and the full closing brief beyond excerpt limits', () => {

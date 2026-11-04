@@ -17,12 +17,12 @@ import type { DynamicMotionGraphicData } from '@tubeflow/editing-contracts';
 import { DynamicMotionPlayer, playSynthesizedSfx } from '../preview/DynamicMotionPlayer';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 
-export type ProfileId = 'ancient_dharma' | 'rule_zero' | 'against_the_odds' | 'documentary_standard';
+export type ProfileId = 'ancient_dharma' | 'against_the_odds' | 'documentary_standard';
 
 interface UsefulTemplateMeta {
   id: string;
   name: string;
-  category: 'thunder' | 'highlighter' | 'arrow' | 'circle' | 'sniper' | 'magnifier' | 'stamp' | 'ticker' | 'underline' | 'shockwave';
+  category: 'thunder' | 'highlighter' | 'arrow' | 'circle' | 'sniper' | 'magnifier' | 'stamp' | 'ticker' | 'underline' | 'shockwave' | 'documentary';
   description: string;
   isHook: boolean;
   icon: string;
@@ -53,6 +53,202 @@ const PROFILES: Array<{
     accent: '#E0B872',
     badge: 'Vedic Gold / Sanskrit',
     templates: [
+      {
+        id: 'vedic_title_reveal',
+        name: '01. Cinematic Episode Title Reveal',
+        category: 'documentary',
+        icon: '🏛️',
+        description: 'Grand golden title emerging from darkness, radiant light rays, floating incense embers, and temple silhouette.',
+        isHook: true,
+        defaultPlacement: 'center',
+        defaultSfx: 'sacred_bell',
+        defaultTitle: 'रहस्यमयी कैलाश मन्दिर',
+        defaultDetail: 'प्राचीन भारत की अलौकिक वास्तुकला',
+        defaultBadge: 'दस्तावेजी गाथा',
+        role: 'Episode Title & Opening Cinematic Hook',
+      },
+      {
+        id: 'ancient_scroll_unfurl',
+        name: '02. Ancient Bhurjapatra Scroll Unfurl',
+        category: 'documentary',
+        icon: '📜',
+        description: 'Aged birch-bark parchment scroll unfurling with animated calligraphy Sanskrit ink-bleed and royal wax seal.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'paper_slide',
+        defaultTitle: 'वाल्मीकि रामायण पाण्डुलिपि',
+        defaultDetail: 'भोजपत्र पर लिखित बालकाण्ड मूल संहिता',
+        defaultBadge: 'प्राचीन पाण्डुलिपि',
+        role: 'Scripture, Purana & Manuscript Unfurl',
+      },
+      {
+        id: 'divine_character_intro',
+        name: '03. Divine Character & Sacred Mandala Halo',
+        category: 'documentary',
+        icon: '🕉️',
+        description: 'Deity and Rishi profile with continuously rotating Sri Yantra mandala halo, royal attributes badge, and sacred aura.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'sacred_bell',
+        defaultTitle: 'भगवान परशुराम',
+        defaultDetail: 'भृगुवंशी अजर-अमर चिरंजीवी तपस्वी',
+        defaultBadge: 'दिव्य अवतार',
+        role: 'Divine Deity & Legendary Character Intro',
+      },
+      {
+        id: 'ancient_india_map',
+        name: '04. Sacred Bharat Geography & Pilgrimage Map',
+        category: 'documentary',
+        icon: '🗺️',
+        description: 'Animated antique India map tracing sacred pilgrimage routes with glowing footsteps, rivers, and golden location pings.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'crystal_ting',
+        defaultTitle: 'श्री राम वनवास मार्ग',
+        defaultDetail: 'अयोध्या से जनकपुर व दण्डकारण्य तीर्थ',
+        defaultBadge: 'पवित्र भारतवर्ष',
+        role: 'Sacred Geography, Journeys & Historical Maps',
+      },
+      {
+        id: 'temple_architecture',
+        name: '05. Temple Architecture & Carving Breakdown',
+        category: 'documentary',
+        icon: '📐',
+        description: 'Iconic top-down rock-cut laser slice animation through the monolith with human scale silhouette (🧍 1.8m) vs 32m spire and tonnage metric.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'crystal_ting',
+        defaultTitle: 'कैलाश मन्दिर एकाश्म',
+        defaultDetail: '४००,००० टन पाषाण नक्काशी',
+        defaultBadge: 'शिल्प शास्त्र',
+        role: 'Temple Architecture & Top-Down Carving Laser',
+      },
+      {
+        id: 'historical_timeline',
+        name: '06. Historical Dynasty & Yuga Epoch Timeline',
+        category: 'documentary',
+        icon: '⏳',
+        description: 'Ascending golden Sushumna energy thread with animated laser scrubber and pulsing cosmic era milestone tags.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'telemetry_ticker',
+        defaultTitle: 'सनातन कालक्रम चक्र',
+        defaultDetail: 'सत्य युग से कलि युग तक चतुर्युगी काल चक्र',
+        defaultBadge: 'युग कालक्रम',
+        role: 'Historical Dynasty & Era Timeline',
+      },
+      {
+        id: 'sanskrit_shloka_reveal',
+        name: '07. Sacred Sanskrit Shloka & Meaning Reveal',
+        category: 'documentary',
+        icon: '🪔',
+        description: 'Sacred Sanskrit verse in radiant gold Devanagari with temple bracket double-dandas and blooming Om medallion.',
+        isHook: false,
+        defaultPlacement: 'top',
+        defaultSfx: 'sacred_bell',
+        defaultTitle: 'यदा यदा हि धर्मस्य ग्लानिर्भवति भारत',
+        defaultDetail: 'पवित्र श्लोक',
+        defaultBadge: 'श्रीमद्भगवद्गीता ४.७',
+        role: 'Sanskrit Mantra & Scripture Reveal',
+      },
+      {
+        id: 'sacred_geometry_yantra',
+        name: '08. Sri Yantra Sacred Geometry Pulse',
+        category: 'documentary',
+        icon: '✨',
+        description: 'Hypnotic 9 interlocking Sri Yantra triangles drawing themselves with counter-rotating lotus rings and Bindu shockwave ripples.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'energy_hum',
+        defaultTitle: 'महा श्री यन्त्र',
+        defaultDetail: 'नव आवरण दिव्य ज्यामिति',
+        defaultBadge: 'पवित्र ज्यामिति',
+        role: 'Sacred Geometry & Cosmic Yantra Pulse',
+      },
+      {
+        id: 'dynasty_family_tree',
+        name: '09. Mythological Lineage & Dynasty Tree',
+        category: 'documentary',
+        icon: '🌳',
+        description: 'Vertical cascading ancestral tree connecting royal avatar medallions with glowing golden Surya lineage branches.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'crystal_ting',
+        defaultTitle: 'सूर्यवंश दिव्य वंशावली',
+        defaultDetail: 'सूर्य देव → इक्ष्वाकु → श्री राम',
+        defaultBadge: 'राजवंश वृक्ष',
+        role: 'Lineage & Royal Dynasty Family Tree',
+      },
+      {
+        id: 'divine_weapon_showcase',
+        name: '18. Divine Astra & Celestial Weapon Showcase',
+        category: 'documentary',
+        icon: '🔱',
+        description: '16-serrated Sudarshana Chakra spinning at high velocity with counter-rotating solar flare rings and kinetic impact stats.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'sub_impact',
+        defaultTitle: 'सुदर्शन चक्र',
+        defaultDetail: 'संहार क्षमता १००%',
+        defaultBadge: 'दिव्यास्त्र',
+        role: 'Divine Weapons & Celestial Artifacts',
+      },
+      {
+        id: 'documentary_lower_third',
+        name: '11. Temple & Scripture Lower Third',
+        category: 'documentary',
+        icon: '🏷️',
+        description: 'Chiseled architectural stone nameplate with gold filigree trim, expert attribution, and sacred medallion.',
+        isHook: false,
+        defaultPlacement: 'top',
+        defaultSfx: 'paper_slide',
+        defaultTitle: 'डॉ. विद्याधर शास्त्री',
+        defaultDetail: 'पुरातत्वविद एवं वैदिक संस्कृति शोधकर्ता',
+        defaultBadge: 'इतिहासकार',
+        role: 'Documentary Attribution & Character Lower Third',
+      },
+      {
+        id: 'stone_inscription_reveal',
+        name: '15. Ancient Stone Inscription Deciphering',
+        category: 'documentary',
+        icon: '🗿',
+        description: 'Ancient rock-edict inscription tablet with golden deciphering laser scanline revealing modern Devanagari translation.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'telemetry_ticker',
+        defaultTitle: 'ब्राह्मी लिपि शिलालेख',
+        defaultDetail: 'अशोक कालीन धर्मलिपि अभिलेख',
+        defaultBadge: 'शिलालेख',
+        role: 'Archaeological Stone Inscription Deciphering',
+      },
+      {
+        id: 'cosmic_universe_explainer',
+        name: '16. Vedic Cosmology & Brahmanda Universe',
+        category: 'documentary',
+        icon: '🪐',
+        description: 'Concentric 14 Lokas cosmic sphere model with Mount Meru axis and cyclic Yuga time caliper odometer.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'energy_hum',
+        defaultTitle: '१४ भुवन ब्रह्माण्ड दर्शन',
+        defaultDetail: 'सत्यलोक से पाताल लोक तक चौदह भुवन',
+        defaultBadge: 'वैदिक ब्रह्माण्ड',
+        role: 'Cosmic Dimensions & Vedic Universe Explainer',
+      },
+      {
+        id: 'cinematic_outro_seal',
+        name: '20. Cinematic Outro & Shanti Mantra Seal',
+        category: 'documentary',
+        icon: '🕊️',
+        description: 'Ancient Dharma royal insignia, floating sacred embers, closing Shanti prayer invocation, and subscribe seal.',
+        isHook: false,
+        defaultPlacement: 'center',
+        defaultSfx: 'sacred_bell',
+        defaultTitle: 'ॐ शान्तिः शान्तिः शान्तिः',
+        defaultDetail: 'सनातन धर्म के गहन रहस्यों की खोज जारी',
+        defaultBadge: 'पूर्ण विराम',
+        role: 'Episode Outro & Final Sacred Seal',
+      },
       {
         id: 'thunder_lightning',
         name: 'Vajra Divine Thunderbolt Strike',
@@ -191,157 +387,6 @@ const PROFILES: Array<{
         defaultTitle: 'प्रचंड ध्वनि कम्पन',
         defaultDetail: 'समस्त त्रिलोकी में महाविस्फोट',
         defaultBadge: 'ब्रह्मास्त्र',
-        role: 'Dramatic Narrative Climax Shockwave',
-      },
-    ],
-  },
-  {
-    id: 'rule_zero',
-    name: 'Rule Zero',
-    desc: 'Tactical Sci-Fi, AI Telemetry & Cyberpunk HUD',
-    icon: '🎯',
-    color: '#00F0FF',
-    accent: '#00FF66',
-    badge: 'Cyber Cyan & Emerald',
-    templates: [
-      {
-        id: 'thunder_lightning',
-        name: 'Cyber High-Voltage Arc Surge',
-        category: 'thunder',
-        icon: '⚡',
-        description: 'Hook Attention Extractor: electric neon-cyan lightning surge snapping across the viewport with high-voltage flash.',
-        isHook: true,
-        defaultPlacement: 'center',
-        defaultSfx: 'hud_ping',
-        defaultTitle: 'CRITICAL SYSTEM BREACH',
-        defaultDetail: 'ANOMALY DETECTED IN SECTOR 07',
-        defaultBadge: 'OVERRIDE',
-        role: 'Scene 0 Cold Hook (Attention Extractor #1)',
-      },
-      {
-        id: 'highlighter',
-        name: 'Holographic Laser Cyan Highlighter',
-        category: 'highlighter',
-        icon: '🖊️',
-        description: 'Translucent cyan laser highlighter bar scanning across telemetry text with sliding cursor head.',
-        isHook: false,
-        defaultPlacement: 'top',
-        defaultSfx: 'telemetry_ticker',
-        defaultTitle: 'BIOMETRIC CONFIRMATION 99.4%',
-        defaultDetail: 'TARGET IDENTITY VERIFIED',
-        defaultBadge: 'SCAN // COMPLETE',
-        role: 'Keyword & Text Highlight Sweep',
-      },
-      {
-        id: 'arrow_callout',
-        name: 'Vector HUD Directional Arrow',
-        category: 'arrow',
-        icon: '🏹',
-        description: 'Sharp cyan tactical pointer arrow drawing an arc with pulsing ping beacon locking onto the focal target.',
-        isHook: false,
-        defaultPlacement: 'center',
-        defaultSfx: 'telemetry_chirp',
-        defaultTitle: 'TARGET VECTOR ACQUIRED',
-        defaultDetail: 'COORDINATES 34.05° N 118.24° W',
-        defaultBadge: 'TRACKING',
-        role: 'Subject & Weapon Pointer Callout',
-      },
-      {
-        id: 'circle_callout',
-        name: 'Tactical Reticle Target Lock',
-        category: 'circle',
-        icon: '⭕',
-        description: 'Precision dual-ring circular target crosshair with snapping brackets and lock-on ping.',
-        isHook: false,
-        defaultPlacement: 'center',
-        defaultSfx: 'hud_ping',
-        defaultTitle: 'HOSTILE ANOMALY',
-        defaultDetail: 'PERIMETER VIOLATION DETECTED',
-        defaultBadge: 'LOCK // ON',
-        role: 'Character / Detail Focus Circle',
-      },
-      {
-        id: 'sniper_lock',
-        name: 'Cyber Military HUD Lock-On',
-        category: 'sniper',
-        icon: '🎯',
-        description: 'High-tech cyan corner brackets slamming inward with spinning degree dial and TARGET ACQUIRED telemetry.',
-        isHook: false,
-        defaultPlacement: 'center',
-        defaultSfx: 'hud_ping',
-        defaultTitle: 'FIREWALL COMPROMISED',
-        defaultDetail: 'DEFENSE MATRIX BYPASS // PROTOCOL 0',
-        defaultBadge: 'TARGET LOCKED',
-        role: 'Target Lock-On & Subject Tracking',
-      },
-      {
-        id: 'magnifying_glass',
-        name: 'Forensic Lens Data Zoom',
-        category: 'magnifier',
-        icon: '🔎',
-        description: 'Cyber optic inspection loupe with glowing cyan rim, optical crosshair grid, and zoom telemetry readout.',
-        isHook: false,
-        defaultPlacement: 'center',
-        defaultSfx: 'telemetry_chirp',
-        defaultTitle: 'PACKET HEADER INSPECT',
-        defaultDetail: 'DEEP HEURISTIC TRAFFIC ANALYSIS',
-        defaultBadge: 'FORENSIC ZOOM',
-        role: 'Document & Evidence Inspection Loupe',
-      },
-      {
-        id: 'redacted_stamp',
-        name: 'CLASSIFIED // TOP SECRET Stamp',
-        category: 'stamp',
-        icon: '📜',
-        description: 'Angled classified rubber stamp slamming down with 3D impact shockwave and red/cyan alert borders.',
-        isHook: false,
-        defaultPlacement: 'center',
-        defaultSfx: 'impact',
-        defaultTitle: 'TOP SECRET PROTOCOL',
-        defaultDetail: 'UNAUTHORIZED ACCESS PUNISHABLE BY LAW',
-        defaultBadge: 'CLASSIFIED',
-        role: 'Authenticity Seal & Classified Stamp Slam',
-      },
-      {
-        id: 'metric_ticker',
-        name: 'Quantum Telemetry Stat Counter',
-        category: 'ticker',
-        icon: '📊',
-        description: 'High-speed live rolling digit ticker with cyan progress bar surge and +99.4% quantum delta badge.',
-        isHook: false,
-        defaultPlacement: 'top',
-        defaultSfx: 'telemetry_ticker',
-        defaultTitle: 'HASH RATE: +98.4%',
-        defaultDetail: 'ZERO DAY EXPLOIT PROBABILITY',
-        defaultBadge: 'QUANTUM SURGE',
-        role: 'Live Dynamic Numeric Counter & Surge Bar',
-      },
-      {
-        id: 'kinetic_underline',
-        name: 'Laser Scanline Underline',
-        category: 'underline',
-        icon: '〰️',
-        description: 'Glowing high-frequency laser beam underline snapping beneath technical terms with comet flare.',
-        isHook: false,
-        defaultPlacement: 'top',
-        defaultSfx: 'telemetry_chirp',
-        defaultTitle: 'ROOT SYSTEM OVERRIDE',
-        defaultDetail: 'ADMINISTRATIVE PRIVILEGES GRANTED',
-        defaultBadge: 'SCANLINE',
-        role: 'Headline & Keyword Accent Underline',
-      },
-      {
-        id: 'shockwave_pulse',
-        name: 'EMP Kinetic Shockwave Blast',
-        category: 'shockwave',
-        icon: '💥',
-        description: 'Expanding high-voltage EMP shockwave rings bursting from center with digital glitch.',
-        isHook: false,
-        defaultPlacement: 'center',
-        defaultSfx: 'sub_impact',
-        defaultTitle: 'EMP SYSTEM OVERLOAD',
-        defaultDetail: 'TOTAL HARDWARE SHUTDOWN IMMINENT',
-        defaultBadge: 'EMP BURST',
         role: 'Dramatic Narrative Climax Shockwave',
       },
     ],
@@ -655,7 +700,6 @@ export function MotionTemplatesGallery() {
 
   const detectedProfileId: ProfileId = React.useMemo(() => {
     const raw = `${account.id} ${account.name} ${account.youtubeChannelTitle || ''}`.toLowerCase();
-    if (raw.includes('rule') || raw.includes('zero')) return 'rule_zero';
     if (raw.includes('odds') || raw.includes('against')) return 'against_the_odds';
     if (raw.includes('dharma') || raw.includes('vedic') || raw.includes('ancient') || raw.includes('राम')) return 'ancient_dharma';
     return 'ancient_dharma';
@@ -671,14 +715,15 @@ export function MotionTemplatesGallery() {
   const [title, setTitle] = useState(activeTemplate.defaultTitle);
   const [detail, setDetail] = useState(activeTemplate.defaultDetail);
   const [badge, setBadge] = useState(activeTemplate.defaultBadge);
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'hooks' | 'highlighter' | 'callouts' | 'inspection' | 'data'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'documentary' | 'hooks' | 'highlighter' | 'callouts' | 'inspection' | 'data'>('all');
   const [size, setSize] = useState<'compact' | 'standard' | 'hero'>('standard');
   const [placement, setPlacement] = useState<string>(activeTemplate.defaultPlacement);
-  const [backdrop, setBackdrop] = useState<'dark' | 'grid' | 'ambient'>('dark');
+  const [backdrop, setBackdrop] = useState<'dark' | 'grid' | 'ambient' | 'parchment' | 'stone'>('dark');
 
   // Filtered templates based on selected category
   const filteredTemplates = activeProfile.templates.filter((tpl) => {
     if (selectedCategory === 'all') return true;
+    if (selectedCategory === 'documentary') return tpl.category === 'documentary';
     if (selectedCategory === 'hooks') return tpl.isHook || tpl.category === 'thunder' || tpl.category === 'shockwave';
     if (selectedCategory === 'highlighter') return tpl.category === 'highlighter';
     if (selectedCategory === 'callouts') return tpl.category === 'arrow' || tpl.category === 'circle';
@@ -784,14 +829,18 @@ export function MotionTemplatesGallery() {
                 Video Editor Motion Graphics Suite
               </span>
               <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-emerald-500/20">
-                10 Creator Tools · Specular Polish · Living Motion
+                {activeProfile.templates.length} Studio Templates · Specular Polish · Living Motion
               </span>
             </div>
             <h2 className="text-xl font-black text-white mt-1">
-              Practical Motion Graphics & Attention Tools
+              {activeProfile.id === 'ancient_dharma'
+                ? 'Ancient Dharma Mythology & Documentary Motion Suite'
+                : 'Practical Motion Graphics & Attention Tools'}
             </h2>
             <p className="text-xs text-muted mt-0.5 max-w-2xl leading-relaxed">
-              Real creator-grade tools used in vertical videos: <strong>Lightning Strikes</strong> for instant hook retention, <strong>Marker Highlighters</strong> with sliding nib, <strong>Bouncing Arrows</strong> with target ping, <strong>Double-Loop Focus Circles</strong>, <strong>Sniper Lock-On Reticles</strong>, <strong>Inspection Loupes</strong>, <strong>Classified Stamp Slams</strong>, <strong>Live Numeric Tickers</strong>, and <strong>Kinetic Underlines</strong>.
+              {activeProfile.id === 'ancient_dharma'
+                ? 'High-budget Indian mythology documentary templates (Cinematic Title Reveals, Birch-bark Scrolls, Temple Architecture Blueprints, Sacred India Maps, Dynasty Timelines, Sanskrit Shlokas, Sri Yantras, and Astra Showcases) plus 10 real-time Attention Tools (Lightning, Markers, Arrows, Circles, Reticles, Loupes, Stamps).'
+                : 'Real creator-grade tools used in vertical videos: Lightning Strikes for instant hook retention, Marker Highlighters with sliding nib, Bouncing Arrows with target ping, Double-Loop Focus Circles, Sniper Lock-On Reticles, Inspection Loupes, Classified Stamp Slams, Live Numeric Tickers, and Kinetic Underlines.'}
             </p>
           </div>
 
@@ -858,11 +907,14 @@ export function MotionTemplatesGallery() {
           <div className="flex flex-wrap gap-1.5 pb-1">
             {[
               { id: 'all', label: 'All', count: activeProfile.templates.length },
-              { id: 'hooks', label: '⚡ Hooks & Blasts', count: 2 },
-              { id: 'highlighter', label: '🖊️ Highlighter', count: 1 },
-              { id: 'callouts', label: '🏹 Pointer & Circles', count: 2 },
-              { id: 'inspection', label: '🎯 Reticles & Loupes', count: 2 },
-              { id: 'data', label: '📊 Stamps & Tickers', count: 3 },
+              ...(activeProfile.templates.some((t) => t.category === 'documentary')
+                ? [{ id: 'documentary', label: '🏛️ Sacred Documentary', count: activeProfile.templates.filter((t) => t.category === 'documentary').length }]
+                : []),
+              { id: 'hooks', label: '⚡ Hooks & Blasts', count: activeProfile.templates.filter((t) => t.isHook || t.category === 'thunder' || t.category === 'shockwave').length },
+              { id: 'highlighter', label: '🖊️ Highlighter', count: activeProfile.templates.filter((t) => t.category === 'highlighter').length },
+              { id: 'callouts', label: '🏹 Pointer & Circles', count: activeProfile.templates.filter((t) => t.category === 'arrow' || t.category === 'circle').length },
+              { id: 'inspection', label: '🎯 Reticles & Loupes', count: activeProfile.templates.filter((t) => t.category === 'sniper' || t.category === 'magnifier').length },
+              { id: 'data', label: '📊 Stamps & Tickers', count: activeProfile.templates.filter((t) => t.category === 'stamp' || t.category === 'ticker' || t.category === 'underline').length },
             ].map((cat) => (
               <button
                 key={cat.id}
@@ -993,6 +1045,22 @@ export function MotionTemplatesGallery() {
                   >
                     Ambient
                   </button>
+                  <button
+                    onClick={() => setBackdrop('parchment')}
+                    className={`px-2 py-1 rounded text-[11px] font-semibold ${
+                      backdrop === 'parchment' ? 'bg-accent text-white' : 'text-muted'
+                    }`}
+                  >
+                    📜 Parchment
+                  </button>
+                  <button
+                    onClick={() => setBackdrop('stone')}
+                    className={`px-2 py-1 rounded text-[11px] font-semibold ${
+                      backdrop === 'stone' ? 'bg-accent text-white' : 'text-muted'
+                    }`}
+                  >
+                    🪨 Stone
+                  </button>
                 </div>
               </div>
             </div>
@@ -1004,11 +1072,13 @@ export function MotionTemplatesGallery() {
                   backdrop === 'grid'
                     ? 'bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px] bg-[#0c0c0e]'
                     : backdrop === 'ambient'
-                    ? selectedProfileId === 'rule_zero'
-                      ? 'bg-gradient-to-b from-[#060c14] via-[#021820] to-[#040810]'
-                      : selectedProfileId === 'against_the_odds'
+                    ? selectedProfileId === 'against_the_odds'
                       ? 'bg-gradient-to-b from-[#180a0a] via-[#100808] to-[#0a0505]'
                       : 'bg-gradient-to-b from-[#181109] via-[#0f0c08] to-[#080604]'
+                    : backdrop === 'parchment'
+                    ? 'bg-gradient-to-b from-[#E8D9BD] via-[#DECBAE] to-[#CBB493]'
+                    : backdrop === 'stone'
+                    ? 'bg-gradient-to-b from-[#26231E] via-[#1C1A17] to-[#12110F]'
                     : 'bg-[#09090b]'
                 }`}
               >

@@ -39,15 +39,6 @@ export const PROFILE_THEMES: Record<ChannelProfileKey, ProfileTheme> = {
     fontDisplay: "'Cinzel', serif",
     labelPrefix: 'VEDIC // ',
   },
-  rule_zero: {
-    primary: '#00F0FF',
-    secondary: '#3B82F6',
-    accent: '#10B981',
-    glow: 'rgba(0, 240, 255, 0.4)',
-    fontMono: "'JetBrains Mono', monospace",
-    fontDisplay: "'Chakra Petch', sans-serif",
-    labelPrefix: 'RULE ZERO // ',
-  },
   against_the_odds: {
     primary: '#FACC15',
     secondary: '#F97316',
@@ -87,18 +78,6 @@ const CHANNEL_UI_DATA: Record<ChannelProfileKey, Omit<ChannelUiMeta, 'key'>> = {
     dotColor: 'bg-amber-400',
     desc: 'Ancient India, sacred Vedic history, Ramayana and Mahabharata epics.',
   },
-  rule_zero: {
-    name: 'Rule Zero',
-    subname: 'Cyberpunk Noir & Speculative Sci-Fi',
-    badge: 'NOIR',
-    tag: 'Speculative Sci-Fi',
-    themeColor: 'text-cyan-400',
-    accentBorder: 'border-cyan-400/60 ring-cyan-400/30',
-    badgeBg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-    activeBg: 'from-cyan-950/40 via-surface to-surface',
-    dotColor: 'bg-cyan-400',
-    desc: 'Graphic novel noir, immutable speculative world rules, cybernetic mysteries.',
-  },
   against_the_odds: {
     name: 'Against the Odds',
     subname: 'Documentary Survival & Extreme Expeditions',
@@ -136,13 +115,6 @@ export const PROFILE_IDENTITY_FALLBACKS: Record<ChannelProfileKey, ProfileIdenti
     avatar: 'AD',
     youtubeChannelTitle: 'Ancient Dharma',
   },
-  rule_zero: {
-    id: 'acct_3ea89878-0f41-4dc9-86e5-3f55cda46ef7',
-    name: 'Rule Zero',
-    color: '#00F0FF',
-    avatar: 'RZ',
-    youtubeChannelTitle: 'Rule Zero',
-  },
   against_the_odds: {
     id: 'acct_620a1d5e-bb1a-4b7e-8662-37acafaecbab',
     name: 'Against the Odds',
@@ -177,18 +149,6 @@ export const CHANNEL_LORA_CONFIG: Record<ChannelProfileKey, ChannelLoraConfig> =
     triggerToken: 'dharma_sacred_chiaroscuro',
     styleDna:
       'Sacred chiaroscuro lighting, warm golden oil-lamp glow, deep carved-stone temple shadows, volumetric incense haze, burnished gold and saffron color palette, painterly mythological photorealism.',
-  },
-  rule_zero: {
-    channelKey: 'rule_zero',
-    channelLabel: 'Rule Zero',
-    loraTitle: "Zavy's Dark Atmospheric Contrast XL (Neo-Noir Thriller)",
-    loraFileName: 'rule_zero_custom_xl.safetensors',
-    fallbackLoraFileName: 'rule_zero_dark_contrast_xl.safetensors',
-    strengthModel: 0.75,
-    strengthClip: 0.75,
-    triggerToken: 'rulezero_noir_contrast',
-    styleDna:
-      'Stylized painterly graphic novel comic art, Alberto Mielgo and Spider-Verse noir aesthetic, bold charcoal ink outlines, expressive textured brushstrokes, dynamic two-step cel shading, high-contrast chiaroscuro shadows, wet pavement reflections, cold cyan and teal ambient shadows sliced by vibrant warm amber and neon rim lighting, cinematic atmospheric mystery, no 3D, no photorealism, no CGI gloss.',
   },
   against_the_odds: {
     channelKey: 'against_the_odds',

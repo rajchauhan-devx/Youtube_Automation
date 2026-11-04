@@ -1,9 +1,8 @@
 import { extractAncientDharmaEditorial } from './ancient-dharma-editorial.js';
-import { extractRuleZeroEditorial } from './rule-zero-editorial.js';
 import { extractAgainstTheOddsEditorial } from './against-the-odds-editorial.js';
 
 export function extractChannelEditorial(template: string): string {
-  return extractAgainstTheOddsEditorial(template) || extractRuleZeroEditorial(template) || extractAncientDharmaEditorial(template);
+  return extractAgainstTheOddsEditorial(template) || extractAncientDharmaEditorial(template);
 }
 
 /** Keep channel story/closing rules intact even after a long visual bible. */

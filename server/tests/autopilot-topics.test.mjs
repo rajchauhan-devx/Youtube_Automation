@@ -15,7 +15,7 @@ const { selectAutoPilotTopic } = await import('../dist/services/autopilot-topic.
 const { store } = await import('../dist/services/store.js');
 const { workspacesRouter } = await import('../dist/routes/workspaces.js');
 const auth = await import('../dist/services/youtube-auth.js');
-const a = accounts.createAccount('Rule Zero');
+const a = accounts.createAccount('Historical Mysteries');
 const b = accounts.createAccount('Against the Odds');
 notes.initializeTopicNotes();
 const scope = (accountId = 'default', profile = 'shorts') => ({ accountId, profile });
@@ -26,7 +26,7 @@ test('three separate notes files share topic history across formats and isolate 
   const files = ['default', a.id, b.id].map(id => notes.topicNotesPath(id));
   assert.equal(new Set(files).size, 3);
   assert.ok(files.every(file => fs.existsSync(file)));
-  assert.match(notes.readTopicNotes(a.id).guidance, /fictional microdramas/);
+  assert.match(notes.readTopicNotes(a.id).guidance, /Historical Mysteries/);
   ws.workspaceContext.run(scope(a.id), () => {
     notes.recordUploadedTopic(entry('A city where nobody can lie'));
     notes.recordUploadedTopic(entry('A city where nobody can lie'));
