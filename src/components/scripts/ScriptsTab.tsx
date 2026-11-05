@@ -93,9 +93,16 @@ export function ScriptsTab({
                   <span>{s.duration}s target</span>
                 </div>
                 <div className="mt-3 flex items-center justify-between border-t border-borderSoft pt-3">
-                  <span className="rounded-md bg-white/[0.05] px-2 py-1 text-[11px] font-medium text-gray-300">
-                    {SCRIPT_MODELS.find(model => model.id === (s.model || 'gemini-3.6-flash'))?.name || s.model}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="rounded-md bg-white/[0.05] px-2 py-1 text-[11px] font-medium text-gray-300">
+                      {SCRIPT_MODELS.find(model => model.id === (s.model || 'gemini-3.6-flash'))?.name || s.model}
+                    </span>
+                    {s.conversational && (
+                      <span className="rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-[10px] font-semibold flex items-center gap-1">
+                        <span>🎭</span> Multi-Voice
+                      </span>
+                    )}
+                  </div>
                   <span className={selected ? 'text-[11px] font-semibold text-accent' : 'text-[11px] font-medium text-faint group-hover:text-muted'}>
                     {selected ? 'Selected' : 'Open →'}
                   </span>

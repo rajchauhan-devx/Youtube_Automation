@@ -12,16 +12,16 @@ export function cleanSpokenNarration(raw: string): string {
     .replace(/<\/?[a-zA-Z][^>]*>/g, ' ')
     // Strip ElevenLabs style (break) / (pause) markers
     .replace(/\((?:break|pause|beat|whisper|softly|sighs?|laughs?)\)/gi, ' ')
-    // Strip bracketed stage directions
-    .replace(/\[[^\]]*\]/g, ' ')
+    // Strip bracketed stage directions (preserve dialogue speaker tags like [Ram]: or [लक्ष्मण]:)
+    .replace(/\[(?!\s*[A-Za-z\u0900-\u097F\s]{2,25}\s*\]\s*:)[^\]]*\]/g, ' ')
     // Strip curly braces or angle brackets if any remain
-    .replace(/[<>{}[\]]/g, ' ')
+    .replace(/[<>{}]/g, ' ')
     // Strip markdown bold/italics
     .replace(/\*{1,3}/g, '')
     // Strip leading timestamp ranges like [0:00 - 0:10] or 0:00–0:10 at start of lines
     .replace(/^[ \t]*\d{1,2}:\d{2}(?::\d{2})?[ \t]*[–—-][ \t]*\d{1,2}:\d{2}(?::\d{2})?[ \t]*/gm, '')
-    // Strip leading "Line 1:" or "Narrator:" labels if accidentally included inside <script>
-    .replace(/^[ \t]*(?:Line\s+\d+|Narrator|Host|Voiceover)\s*:[ \t]*/gim, '')
+    // Strip leading "Line 1:" or "Host:" labels if accidentally included inside <script>
+    .replace(/^[ \t]*(?:Line\s+\d+|Host|Voiceover)\s*:[ \t]*/gim, '')
     // Collapse horizontal whitespace while keeping paragraph breaks
     .split('\n')
     .map(line => line.replace(/\s+/g, ' ').trim())

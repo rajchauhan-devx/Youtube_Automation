@@ -159,24 +159,61 @@ export function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]
   const sa = opts.sceneAnalysis;
   const tc = opts.timelineConfig;
   if (tc && tc.clips.length !== numImages) throw new Error('Timeline scene count must match images');
+
+  // Exact dialogue lip-sync trimming: Auto-detect turn timings from .turns.json if available
+  let turnTimings: { duration: number; transition: string; transitionDuration: number }[] | undefined = undefined;
+  if (opts.audioPath && opts.scriptId && !tc?.clips) {
+    try {
+      const resolvedAudio = resolveInputPath(opts.audioPath, opts.scriptId);
+      const turnsPath = resolvedAudio.replace(/\.[^.]+$/, '.turns.json');
+      if (fs.existsSync(turnsPath)) {
+        const data = JSON.parse(fs.readFileSync(turnsPath, 'utf8'));
+        if (Array.isArray(data.turns) && data.turns.length === numImages) {
+          const mappedTimings = data.turns.map((t: any, i: number) => {
+            const clipDuration = (i === data.turns.length - 1)
+              ? Math.max(1, totalVideoDuration - t.startSec)
+              : Math.max(1, data.turns[i + 1].startSec - t.startSec);
+            return {
+              duration: clipDuration,
+              transition: 'fade',
+              transitionDuration: 0.12, // Clean dialogue cut, eliminates lingering mouth movements
+            };
+          });
+          const totalPlanned = mappedTimings.reduce((sum: number, c: any) => sum + c.duration, 0);
+          if (Math.abs(totalPlanned - totalVideoDuration) > 0.001) {
+            mappedTimings[mappedTimings.length - 1].duration += (totalVideoDuration - totalPlanned);
+          }
+          turnTimings = mappedTimings;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
   const weights = sa?.timings?.length === numImages && sa.timings.every(t => Number.isFinite(t) && t > 0)
     ? sa.timings : resolvedImages.map(() => 1);
   const weightSum = weights.reduce((sum, value) => sum + value, 0);
-  const clips = tc?.clips ?? weights.map((weight, i) => ({
+  const clips = tc?.clips ?? (turnTimings ?? weights.map((weight, i) => ({
     duration: totalVideoDuration * weight / weightSum,
     transition: sa?.transitions?.[i] || 'fade',
     transitionDuration: defaultTransitionDuration,
-  }));
+  })));
   const plan = planTimeline(clips, totalVideoDuration);
   const filterParts: string[] = [];
   let lastLabel = 'zoomed0';
   resolvedImages.forEach((_, i) => {
     const clip = plan[i];
-    const motion = buildZoompanExpression(sa?.effects?.[i] || 'zoom-in', clip.frames, width, height, zoomFactor);
+    const isVideo = resolvedImages[i].endsWith('.mp4') || resolvedImages[i].endsWith('.mov') || resolvedImages[i].endsWith('.webm');
     const framing = (opts as any).framing === 'contain'
       ? `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`
       : `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
-    filterParts.push(`[${i}:v]${framing},setsar=1,${motion},trim=end_frame=${clip.frames},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
+    if (isVideo) {
+      filterParts.push(`[${i}:v]${framing},setsar=1,fps=${FPS},tpad=stop_mode=clone:stop_duration=5,trim=duration=${(clip.frames / FPS).toFixed(3)},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
+    } else {
+      const motion = buildZoompanExpression(sa?.effects?.[i] || 'zoom-in', clip.frames, width, height, zoomFactor);
+      filterParts.push(`[${i}:v]${framing},setsar=1,${motion},trim=end_frame=${clip.frames},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
+    }
     if (i === 0) return;
     const previous = plan[i - 1];
     const label = `blend${i}`;

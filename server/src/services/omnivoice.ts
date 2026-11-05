@@ -7,6 +7,8 @@ import { fileURLToPath } from 'url';
 import { TtsError, concatWavs, splitIntoChunks, sanitizeTextForPlainTTS, type VoiceInfo } from './tts-shared.js';
 import { checkOpenRouterStatus, synthesizeOpenRouter, generateCloudAudio, OPENROUTER_ENGLISH_VOICES, OPENROUTER_HINDI_VOICES } from './openrouter-tts.js';
 import { checkEdgeTtsStatus, previewEdgeTts, generateEdgeAudio, EDGE_ENGLISH_VOICES, EDGE_HINDI_VOICES } from './edge-tts.js';
+import { hasSpeakerDialogueTags, synthesizeConversationalBlock, resolveChannelKey, type DialogueTurn } from './conversational-tts.js';
+import { store } from './store.js';
 
 export { TtsError, type VoiceInfo } from './tts-shared.js';
 
@@ -164,15 +166,44 @@ export async function generateTTS(params: {
   pitch?: string;
   volume?: string;
   speed?: number;
-}): Promise<{ filename: string; publicUrl: string; elapsedMs: number; narrationText: string; provider: TtsProvider }> {
+  conversational?: boolean;
+}): Promise<{ filename: string; publicUrl: string; elapsedMs: number; narrationText: string; provider: TtsProvider; turns?: DialogueTurn[] }> {
   const provider = resolveTtsProvider(params.provider);
   const start = Date.now();
 
   let audioBuffer: Buffer;
   let ext: 'mp3' | 'wav' = 'mp3';
+  let recordedTurns: DialogueTurn[] | undefined = undefined;
+
+  // STRICT SEPARATION: Only activate multi-voice engine when conversational tags are present
+  // or conversational flag is explicitly enabled. Regular narrator scripts remain untouched!
+  const hasDialogue = hasSpeakerDialogueTags(params.text);
+  let isConversational = params.conversational === true || hasDialogue;
+  if (!isConversational && params.scriptId) {
+    try {
+      const scriptDoc = store.getById<any>('scripts', params.scriptId);
+      if (scriptDoc?.conversational === true || scriptDoc?.isConversational === true) {
+        isConversational = true;
+      }
+    } catch {
+      // Script store lookup optional
+    }
+  }
 
   if (provider === 'google') {
-    audioBuffer = await synthesizeGoogleTts(params.text, params.voice, params.language, params.speed);
+    if (isConversational && hasDialogue) {
+      const channelKey = resolveChannelKey(currentWorkspace().accountId);
+      const convResult = await synthesizeConversationalBlock({
+        text: params.text,
+        language: params.language,
+        channelKey,
+        defaultVoice: params.voice,
+      });
+      audioBuffer = convResult.buffer;
+      recordedTurns = convResult.turns;
+    } else {
+      audioBuffer = await synthesizeGoogleTts(params.text, params.voice, params.language, params.speed);
+    }
     ext = 'wav';
   } else if (provider === 'openrouter') {
     const result = await generateCloudAudio(params.text, params.voice, { speed: params.speed });
@@ -207,6 +238,10 @@ export async function generateTTS(params: {
   fs.mkdirSync(dir, { recursive: true });
   const filePath = path.join(dir, filename);
   fs.writeFileSync(filePath, audioBuffer);
+  if (recordedTurns && recordedTurns.length > 0) {
+    const turnsPath = filePath.replace(/\.[^.]+$/, '.turns.json');
+    fs.writeFileSync(turnsPath, JSON.stringify({ scriptId: params.scriptId, language: params.language, turns: recordedTurns }, null, 2));
+  }
   const narrationText = !['google', 'openrouter', 'edge'].includes(provider) ? preprocessForTTS(params.text) : params.text;
   writeNarrationMetadata(filePath, narrationText, params.language);
 
@@ -216,6 +251,7 @@ export async function generateTTS(params: {
     elapsedMs: Date.now() - start,
     narrationText,
     provider,
+    turns: recordedTurns,
   };
 }
 

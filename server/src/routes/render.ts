@@ -111,6 +111,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     }
     req.body = { ...req.body, resolution: { width: 1080, height: 1920 } };
   }
+  let timelineConfig = req.body?.timelineConfig;
   const {
     scriptId,
     imagePaths,
@@ -120,7 +121,6 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     resolution,
     zoomFactor,
     transitionDuration,
-    timelineConfig,
     sceneAnalysis,
     enableSubtitles,
     bgmTrack,
@@ -224,6 +224,37 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     if (!Number.isFinite(finalDuration) || finalDuration <= 0) throw new Error('Cannot measure narration duration');
     const maximum = store.getById<any>('scripts', scriptId)?.maxDurationSeconds;
     if (maximum !== undefined && (!Number.isFinite(maximum) || maximum <= 0 || finalDuration > maximum)) throw new Error(`This episode has a ${maximum / 60}-minute maximum. Shorten the narration before rendering.`);
+    
+    // Auto-detect conversational turn timings from .turns.json if timelineConfig wasn't explicitly supplied
+    if (!timelineConfig) {
+      const turnsPath = resolvedAudio.replace(/\.[^.]+$/, '.turns.json');
+      if (fs.existsSync(turnsPath)) {
+        try {
+          const data = JSON.parse(fs.readFileSync(turnsPath, 'utf8'));
+          if (Array.isArray(data.turns) && data.turns.length === imagePaths.length) {
+            const dialogueClips = data.turns.map((t: any, i: number) => {
+              const dur = (i === data.turns.length - 1)
+                ? Math.max(1, finalDuration - t.startSec)
+                : Math.max(1, data.turns[i + 1].startSec - t.startSec);
+              return {
+                id: `clip_${i}`,
+                duration: dur,
+                transition: 'fade',
+                transitionDuration: 0.12,
+              };
+            });
+            const totalPlanned = dialogueClips.reduce((sum: number, c: any) => sum + c.duration, 0);
+            if (Math.abs(totalPlanned - finalDuration) > 0.001) {
+              dialogueClips[dialogueClips.length - 1].duration += (finalDuration - totalPlanned);
+            }
+            timelineConfig = { clips: dialogueClips, totalDuration: finalDuration };
+          }
+        } catch (e) {
+          console.warn('[render] Could not parse .turns.json for dialogue timeline:', e);
+        }
+      }
+    }
+
     if (timelineConfig) {
       if (!Array.isArray(timelineConfig.clips) || timelineConfig.clips.length !== imagePaths.length) throw new Error('Timeline scene count must match images');
       planTimeline(timelineConfig.clips, finalDuration);

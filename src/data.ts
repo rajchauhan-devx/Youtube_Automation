@@ -154,6 +154,7 @@ export interface Script {
   enableSubtitles?: boolean;
   presenter?: import('../server/src/services/presenter-settings').PresenterSettings;
   maxDurationSeconds?: number;
+  conversational?: boolean;
   editing?: import('../server/src/services/auto-edit').EditingSettings;
   id: string;
   accountId?: string;

@@ -6,6 +6,7 @@ import { currentWorkspace } from '../services/workspace.js';
 import { safeSegment } from '../services/paths.js';
 import { startNarration, narrationStatus, cancelNarration } from '../services/long-narration.js';
 import { clearScriptVideo } from './render.js';
+import { resolveChannelKey, CHARACTER_CAST_PRESETS } from '../services/conversational-tts.js';
 import {
   generateTTS,
   getTtsProviderStatus,
@@ -31,6 +32,13 @@ ttsRouter.get('/providers', (_req, res) => res.json({
     kind: id === 'omni' ? 'local' : 'cloud',
   })),
 }));
+
+ttsRouter.get('/conversational/cast', (_req, res) => {
+  const { accountId } = currentWorkspace();
+  const channelKey = resolveChannelKey(accountId);
+  const cast = CHARACTER_CAST_PRESETS[channelKey] || CHARACTER_CAST_PRESETS.ancient_dharma;
+  res.json({ accountId, channelKey, cast });
+});
 ttsRouter.use(presenterGuard(['/start', '/long/start', '/preview', '/generate']));
 ttsRouter.use((req, res, next) => {
   if (req.method === 'POST' && ['/start', '/long/start', '/preview', '/generate'].includes(req.path) && localMusicBusy()) {
@@ -186,6 +194,7 @@ ttsRouter.post('/generate', async (req, res) => {
       pitch,
       volume,
       speed,
+      conversational: req.body?.conversational,
     });
     res.json({ ok: true, ...result });
   } catch (err: unknown) {

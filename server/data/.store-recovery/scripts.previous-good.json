@@ -1379,57 +1379,5 @@
     "generatedImages": [],
     "generatedAudio": [],
     "pipeline": []
-  },
-  {
-    "id": "test_popups_script_1793786011710",
-    "name": "Ancient Dharma Test Script",
-    "scenePlan": {
-      "scenes": [
-        {
-          "narration": "The ancient sanctum was carved from monolithic black granite stone.",
-          "imagePrompt": "Ancient temple sanctum with black granite walls",
-          "duration": 5
-        },
-        {
-          "narration": "Lord Rama wielded the divine golden arrow of celestial light.",
-          "imagePrompt": "Mythological divine warrior aiming golden glowing bow and arrow",
-          "duration": 6
-        }
-      ]
-    },
-    "extraPopups": [
-      {
-        "id": "popup_1_f25b4014",
-        "sceneIndex": 1,
-        "cueWord": "bow",
-        "cueOffsetSec": 1,
-        "durationSec": 3.2,
-        "title": "Shiva Bow",
-        "subtitle": "Unmatched Weight & Divine Tejas",
-        "badgeTag": "DIVINE WEAPON",
-        "archetype": "heritage_intel",
-        "prompt": "Isolated macro studio close-up of Shiva Bow, sacred craftsmanship, deep obsidian and antique gold sheen, micro-fissures with subtle glowing diya amber embers, razor-sharp tactile texture, centered composition, shallow depth of field, clean dark studio backdrop, 8k photorealistic.",
-        "shape": "cutout_relic",
-        "placement": "center-right",
-        "scalePercent": 30,
-        "sfx": "crystal_ting",
-        "status": "ready"
-      },
-      {
-        "id": "popup_custom_6e82da03",
-        "sceneIndex": 1,
-        "cueWord": "Sacred Diya Flame",
-        "cueOffsetSec": 1,
-        "durationSec": 3.2,
-        "title": "Sacred Diya Flame",
-        "prompt": "Isolated macro studio close-up of Sacred Diya Flame, sacred craftsmanship, deep obsidian and antique gold sheen, micro-fissures with subtle glowing diya amber embers, razor-sharp tactile texture, centered composition, shallow depth of field, clean dark studio backdrop, 8k photorealistic.",
-        "shape": "circle_medallion",
-        "placement": "top-left",
-        "scalePercent": 30,
-        "sfx": "none",
-        "archetype": "circle_medallion",
-        "status": "pending"
-      }
-    ]
   }
 ]
