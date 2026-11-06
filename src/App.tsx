@@ -1384,6 +1384,7 @@ export default function App() {
             body: JSON.stringify({
               scriptId,
               ...voiceOptions,
+              conversational: Boolean(currentScript.conversational),
             }),
             signal: controller.signal,
           });

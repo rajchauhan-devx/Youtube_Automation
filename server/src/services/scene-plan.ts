@@ -7,8 +7,9 @@ import {
   isImageOnlyTemplate,
   parseSimpleTagPackage,
 } from './simple-tag-package.js';
+import { extractSpeakerName } from './conversational-types.js';
 
-export { cleanSpokenNarration, distributeNarrationToScenes, isImageOnlyTemplate, parseSimpleTagPackage };
+export { cleanSpokenNarration, distributeNarrationToScenes, isImageOnlyTemplate, parseSimpleTagPackage, extractSpeakerName };
 
 export interface NarrationScene {
   id: string;
@@ -20,6 +21,7 @@ export interface NarrationScene {
   duration?: number;
   role: 'story' | 'cta';
   motionGraphics?: any[];
+  speaker?: string;
 }
 export interface ScenePlan {
   version: 1;
@@ -43,11 +45,15 @@ export function syncScenePlanNarration(plan: ScenePlan, fullNarration: string): 
   const narrations = distributeNarrationToScenes(fullNarration, plan.scenes.length);
   return {
     ...plan,
-    scenes: plan.scenes.map((scene, index) => ({
-      ...scene,
-      narration: narrations[index] || scene.narration,
-      ...(scene.motionGraphics ? {motionGraphics:refreshMotionHints(scene.motionGraphics,narrations[index] || scene.narration)} : {}),
-    })),
+    scenes: plan.scenes.map((scene, index) => {
+      const nextNarration = narrations[index] || scene.narration;
+      return {
+        ...scene,
+        narration: nextNarration,
+        speaker: extractSpeakerName(nextNarration) || scene.speaker,
+        ...(scene.motionGraphics ? {motionGraphics:refreshMotionHints(scene.motionGraphics,nextNarration)} : {}),
+      };
+    }),
   };
 }
 

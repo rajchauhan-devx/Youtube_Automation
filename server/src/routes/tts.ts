@@ -48,14 +48,14 @@ ttsRouter.use((req, res, next) => {
 });
 
 ttsRouter.post('/long/start', async (req, res) => {
-  const { scriptId, language, voice, rate, pitch, speed, provider } = req.body || {};
+  const { scriptId, language, voice, rate, pitch, speed, provider, conversational } = req.body || {};
   if (!safeSegment(scriptId) || !['hi', 'en'].includes(language) || typeof voice !== 'string' || !voice) {
     res.status(400).json({ error: 'Select a Long Video script, language and voice.' }); return;
   }
   let started = false;
   try {
     // Reserve the narration job synchronously before invalidating existing render output.
-    startNarration({ scriptId, language, voice, rate, pitch, speed, provider });
+    startNarration({ scriptId, language, voice, rate, pitch, speed, provider, conversational });
     started = true;
     await clearScriptVideo(scriptId);
     res.status(202).json(narrationStatus(scriptId));

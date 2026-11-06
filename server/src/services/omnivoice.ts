@@ -167,6 +167,7 @@ export async function generateTTS(params: {
   volume?: string;
   speed?: number;
   conversational?: boolean;
+  speaker?: string;
 }): Promise<{ filename: string; publicUrl: string; elapsedMs: number; narrationText: string; provider: TtsProvider; turns?: DialogueTurn[] }> {
   const provider = resolveTtsProvider(params.provider);
   const start = Date.now();
@@ -191,10 +192,13 @@ export async function generateTTS(params: {
   }
 
   if (provider === 'google') {
-    if (isConversational && hasDialogue) {
+    if (isConversational && (hasDialogue || params.speaker)) {
       const channelKey = resolveChannelKey(currentWorkspace().accountId);
+      const textToSynthesize = (!hasDialogue && params.speaker)
+        ? `[${params.speaker}]: ${params.text}`
+        : params.text;
       const convResult = await synthesizeConversationalBlock({
-        text: params.text,
+        text: textToSynthesize,
         language: params.language,
         channelKey,
         defaultVoice: params.voice,

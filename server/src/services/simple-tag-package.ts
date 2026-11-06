@@ -1,5 +1,6 @@
 import { parseMotionScriptHint } from './script-motion.js';
 import type { NarrationScene, ScenePlan } from './scene-plan.js';
+import { hasSpeakerDialogueTags, parseDialogueTurns, extractSpeakerName } from './conversational-types.js';
 
 /**
  * Clean spoken narration extracted from <script> or <narration> tags so TTS
@@ -13,7 +14,7 @@ export function cleanSpokenNarration(raw: string): string {
     // Strip ElevenLabs style (break) / (pause) markers
     .replace(/\((?:break|pause|beat|whisper|softly|sighs?|laughs?)\)/gi, ' ')
     // Strip bracketed stage directions (preserve dialogue speaker tags like [Ram]: or [लक्ष्मण]:)
-    .replace(/\[(?!\s*[A-Za-z\u0900-\u097F\s]{2,25}\s*\]\s*:)[^\]]*\]/g, ' ')
+    .replace(/\[(?!\s*[A-Za-z\u0900-\u097F\s]{2,25}\s*\]\s*[:—–-])[^\]]*\]/g, ' ')
     // Strip curly braces or angle brackets if any remain
     .replace(/[<>{}]/g, ' ')
     // Strip markdown bold/italics
@@ -42,6 +43,11 @@ export function distributeNarrationToScenes(fullNarration: string, sceneCount: n
     throw new Error('The <script> (or <narration>) tag is empty. Include the spoken voiceover text inside <script>...</script>.');
   }
   if (sceneCount <= 1) return [cleaned.replace(/\s+/g, ' ').trim()];
+
+  // Conversational Multi-Character Pipeline: preserve dialogue turn boundaries and speaker tags
+  if (hasSpeakerDialogueTags(cleaned)) {
+    return distributeConversationalNarrationToScenes(cleaned, sceneCount);
+  }
 
   // 1. Try paragraph split first (blank-line separated blocks)
   const paragraphs = cleaned.split(/\n\s*\n+/).map(p => p.replace(/\s+/g, ' ').trim()).filter(Boolean);
@@ -123,6 +129,103 @@ export function distributeNarrationToScenes(fullNarration: string, sceneCount: n
     result.push(slice.join(' ').trim());
   }
   return result;
+}
+
+/**
+ * Distributes conversational multi-character narration across `sceneCount` scenes
+ * while strictly guaranteeing that EVERY scene retains its proper [Speaker]: attribution tag.
+ * No sentence is ever orphaned, and character identities remain intact.
+ */
+export function distributeConversationalNarrationToScenes(cleaned: string, sceneCount: number): string[] {
+  const turns = parseDialogueTurns(cleaned);
+  if (turns.length === 0) return [cleaned];
+  if (sceneCount <= 1) return [turns.map(t => `[${t.speaker}]: ${t.text}`).join('\n')];
+  if (turns.length === sceneCount) return turns.map(t => `[${t.speaker}]: ${t.text}`);
+
+  if (turns.length < sceneCount) {
+    // Expand turns by splitting the longest multi-sentence turn
+    let items = turns.map(t => {
+      const sentences = t.text.split(/(?<=[.!?।॥])\s+/u).map(s => s.trim()).filter(Boolean);
+      return { speaker: t.speaker, sentences: sentences.length > 0 ? sentences : [t.text] };
+    });
+
+    while (items.length < sceneCount) {
+      let bestIdx = -1;
+      let maxSentences = 1;
+      let maxLen = 0;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].sentences.length > 1) {
+          const len = items[i].sentences.join(' ').length;
+          if (items[i].sentences.length > maxSentences || (items[i].sentences.length === maxSentences && len > maxLen)) {
+            maxSentences = items[i].sentences.length;
+            maxLen = len;
+            bestIdx = i;
+          }
+        }
+      }
+
+      if (bestIdx === -1) {
+        // All items have 1 sentence; try splitting on clause or word midpoint
+        let longestIdx = -1;
+        let longestLen = 0;
+        for (let i = 0; i < items.length; i++) {
+          const s = items[i].sentences[0] || '';
+          if (s.length > longestLen && s.split(/\s+/).length >= 4) {
+            longestLen = s.length;
+            longestIdx = i;
+          }
+        }
+        if (longestIdx === -1) break;
+        const target = items[longestIdx];
+        const s = target.sentences[0];
+        const words = s.split(/\s+/);
+        const mid = Math.floor(words.length / 2);
+        const part1 = words.slice(0, mid).join(' ');
+        const part2 = words.slice(mid).join(' ');
+        items.splice(longestIdx, 1,
+          { speaker: target.speaker, sentences: [part1] },
+          { speaker: target.speaker, sentences: [part2] }
+        );
+        continue;
+      }
+
+      const target = items[bestIdx];
+      const mid = Math.ceil(target.sentences.length / 2);
+      const part1 = target.sentences.slice(0, mid);
+      const part2 = target.sentences.slice(mid);
+      items.splice(bestIdx, 1,
+        { speaker: target.speaker, sentences: part1 },
+        { speaker: target.speaker, sentences: part2 }
+      );
+    }
+
+    // Pad if still fewer
+    while (items.length < sceneCount) {
+      const last = items[items.length - 1];
+      items.push({ speaker: last.speaker, sentences: last.sentences });
+    }
+
+    const res: string[] = [];
+    for (let i = 0; i < sceneCount; i++) {
+      const start = Math.round((i * items.length) / sceneCount);
+      const end = Math.round(((i + 1) * items.length) / sceneCount);
+      const slice = items.slice(start, Math.max(start + 1, end));
+      const sceneLines = slice.map(item => `[${item.speaker}]: ${item.sentences.join(' ')}`);
+      res.push(sceneLines.join('\n'));
+    }
+    return res;
+  }
+
+  // turns.length > sceneCount: group turns into sceneCount contiguous buckets
+  const res: string[] = [];
+  for (let i = 0; i < sceneCount; i++) {
+    const start = Math.round((i * turns.length) / sceneCount);
+    const end = Math.round(((i + 1) * turns.length) / sceneCount);
+    const slice = turns.slice(start, Math.max(start + 1, end));
+    const sceneLines = slice.map(t => `[${t.speaker}]: ${t.text}`);
+    res.push(sceneLines.join('\n'));
+  }
+  return res;
 }
 
 interface ParsedVisualAsset {
@@ -492,11 +595,14 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
   const scenes: NarrationScene[] = slots.map((slot, index) => {
     const num = index + 1;
     const hint = sceneHints.get(num);
+    const sceneNarration = narrations[index] || '';
+    const detectedSpeaker = extractSpeakerName(sceneNarration);
     return {
       id: `scene_${String(num).padStart(3, '0')}`,
       chapter: slot.sceneTitle || hint?.title || `Scene ${num}`,
       role: slot.isFollowFrame ? ('cta' as const) : ('story' as const),
-      narration: narrations[index],
+      narration: sceneNarration,
+      speaker: detectedSpeaker,
       mediaType: slot.mediaType,
       duration: slot.duration || hint?.duration || (slot.mediaType === 'video' ? 8 : 5),
       imagePrompt: slot.imagePrompt,

@@ -3,13 +3,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { atomicJson } from './accounts.js';
-import { generatedDir, mediaUrl, workspaceKey } from './workspace.js';
+import { generatedDir, mediaUrl, workspaceKey, currentWorkspace } from './workspace.js';
 import { containedFile } from './paths.js';
 import { store } from './store.js';
 import { generateTTS, resolveTtsProvider, ttsProviderName } from './omnivoice.js';
 import { runMedia } from './media-process.js';
 import { writeNarrationMetadata } from './editing/media.js';
 import { normalizeNarration, spokenText, syncScenePlanNarration, validateScenePlan, validateSync, type ScenePlan, type NarrationSync } from './scene-plan.js';
+import {
+  isConversationalScript,
+  hasSpeakerDialogueTags,
+  extractSpeakerName,
+  resolveChannelKey,
+  resolveCharacterVoice,
+  type DialogueTurn,
+} from './conversational-tts.js';
 
 export const planHash = (plan: ScenePlan) => createHash('sha256').update(JSON.stringify(validateScenePlan(plan))).digest('hex');
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -58,13 +66,25 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
   const partial = containedFile(dir, `narration-${runId}.partial.wav`);
   const sync: NarrationSync = { version: 1, timingMode: 'narration', planHash: planHash(plan), sampleRate: 48000, totalSamples: 0, scenes: [] };
   fs.writeFileSync(raw, Buffer.alloc(0));
+
+  const script = store.getById<any>('scripts', options.scriptId);
+  const isConv = isConversationalScript(script) || options.conversational === true;
+  const channelKey = resolveChannelKey(currentWorkspace().accountId);
+  const allTurns: DialogueTurn[] = [];
+
   try {
     for (const scene of plan.scenes) {
       signal.throwIfAborted();
+      const sceneSpeaker = scene.speaker || (scene.narration ? extractSpeakerName(scene.narration) : undefined);
+      let sceneText = scene.narration;
+      if (isConv && sceneSpeaker && !hasSpeakerDialogueTags(sceneText)) {
+        sceneText = `[${sceneSpeaker}]: ${sceneText}`;
+      }
+
       const provider = resolveTtsProvider(options.provider);
-      const key = hash({ version: 2, provider: ttsProviderName(provider),
+      const key = hash({ version: 3, provider: ttsProviderName(provider),
         synthesis: provider === 'google' ? GOOGLE_TTS_REVISION : undefined,
-        options, text: scene.narration });
+        options, text: sceneText, speaker: sceneSpeaker, conversational: isConv });
       const pcm = containedFile(cache, `${key}.pcm`);
       const meta = `${pcm}.json`;
       let valid = false;
@@ -73,7 +93,13 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
         try { valid = JSON.parse(fs.readFileSync(meta, 'utf8')).hash === hash(bytes.toString('base64')) && bytes.length >= 3200 && bytes.length % 2 === 0; } catch { /* regenerate corrupt cache */ }
       }
       if (!valid) {
-        const audio = await synthesize({ ...options, text: scene.narration });
+        const audio = await synthesize({
+          ...options,
+          text: sceneText,
+          conversational: isConv,
+          speaker: sceneSpeaker,
+          scriptId: options.scriptId,
+        });
         const source = containedFile(dir, audio.filename);
         const temp = `${pcm}.partial`;
         try {
@@ -97,6 +123,23 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
       if (sync.totalSamples > 48000 * maxDurationSeconds) throw new Error(`Episode exceeds its ${maxDurationSeconds / 60}-minute maximum at scene ${scene.id}. Shorten the scene plan and generate again. No speech was cut.`);
       sync.scenes.push({ sceneId: scene.id, startSample, endSample: sync.totalSamples });
       fs.appendFileSync(raw, Buffer.concat([bytes, pauseBuffer]));
+
+      if (isConv) {
+        const startSec = startSample / 48000;
+        const durationSec = (bytes.length / 2) / 48000;
+        const effectiveSpeaker = sceneSpeaker || 'Narrator';
+        const cast = resolveCharacterVoice(effectiveSpeaker, options.language, channelKey, options.voice);
+        allTurns.push({
+          speaker: effectiveSpeaker,
+          text: sceneText.replace(/^\s*\[[^\]]+\]\s*[:—–-]\s*/, '').trim(),
+          voiceId: cast.voiceId,
+          speed: cast.speed,
+          startSec,
+          endSec: startSec + durationSec,
+          durationSec,
+        });
+      }
+
       progress(sync.scenes.length);
     }
     validateSync(plan, sync);
@@ -107,8 +150,20 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
     signal.throwIfAborted();
     fs.renameSync(partial, output);
     atomicJson(`${output}.sync.json`, { ...sync, audioHash: createHash('sha256').update(fs.readFileSync(output)).digest('hex') });
+    if (isConv && allTurns.length > 0) {
+      atomicJson(output.replace(/\.wav$/i, '.turns.json'), { turns: allTurns, durationSec: sync.totalSamples / 48000 });
+    }
     writeNarrationMetadata(output, spokenText(plan), options.language);
-    return { filename, url: mediaUrl(`generate/file/${options.scriptId}/${filename}`), language: options.language, voice: options.voice, provider: resolveTtsProvider(options.provider), sync, narrationText: spokenText(plan) };
+    return {
+      filename,
+      url: mediaUrl(`generate/file/${options.scriptId}/${filename}`),
+      language: options.language,
+      voice: options.voice,
+      provider: resolveTtsProvider(options.provider),
+      sync,
+      narrationText: spokenText(plan),
+      turns: isConv ? allTurns : undefined,
+    };
   } catch (error) {
     fs.rmSync(output, { force: true }); fs.rmSync(`${output}.sync.json`, { force: true });
     throw error;

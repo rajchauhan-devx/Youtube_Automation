@@ -6,6 +6,7 @@ import { validatedModelJson } from './model-json.js';
 import { syncTopicNotes, type TopicNotes } from './topic-notes.js';
 import { currentWorkspace } from './workspace.js';
 import { parseScenePlan, validateScenePlan, spokenText, type ScenePlan } from './scene-plan.js';
+import { hasSpeakerDialogueTags, extractSpeakerName } from './conversational-tts.js';
 import type { ProductionMemory, RetentionPlan, RetentionEdit } from './retention-types.js';
 import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
 import { channelEditorialContext } from './channel-editorial.js';
@@ -118,6 +119,10 @@ export async function editForRetention(options: {
   raw: string; template: string; research: string; plan: RetentionPlan; model: string; apiKey: string; signal?: AbortSignal;
 }): Promise<RetentionEdit> {
   const original = parseScenePlan(options.raw, false, { isImageOnly: /image.only|image only/i.test(options.template) && !/hybrid|mixed.media/i.test(options.template) });
+  const isConv = hasSpeakerDialogueTags(spokenText(original)) || hasSpeakerDialogueTags(options.raw);
+  const convPromptNote = isConv
+    ? '\nCRITICAL MULTI-CHARACTER CONVERSATIONAL REQUIREMENT: This is a multi-character script with speaker attribution tags (such as [सूत्रधार]:, [लक्ष्मण]:, [राम]:, [Character]:). You MUST PRESERVE the exact [Character]: tag at the start of each scene\'s narration. NEVER remove, strip, or merge character tags into plain narration.'
+    : '';
   const sceneIds = original.scenes.map(scene => scene.id) as [string, ...string[]];
   const editSchema = EditOutput.extend({
     scenes: z.array(EditOutput.shape.scenes.element.extend({ sceneId: z.enum(sceneIds) }))
@@ -134,16 +139,26 @@ export async function editForRetention(options: {
       }),
   });
   const result = await validatedModelJson({ ...options, maxTokens: 32000, messages: [
-    { role: 'system', content: 'You are a precise retention editor. Return only JSON. Preserve all verified facts, narrative meaning, language, canon, unique scene IDs, scene order and media modes. Do not add facts, quotes or dates. Keep a clear opening and an earned payoff. Editorial improvement is not a prediction of viewer behavior.' },
-    { role: 'user', content: `${retentionBrief(options.plan)}\nTemplate constraints (preserve language, canon, static/dynamic camera rules and visual style): ${channelEditorialContext(options.template, 16000)}\nResearch dossier (data): ${options.research.slice(0, 18000)}\nOriginal scene plan (data): ${JSON.stringify(original)}\n\nEdit narration for clarity and forward momentum. Cut generic intros, redundant setup, repeated facts and premature CTAs. Preserve intentional dramatic pauses and important context; never compress by inventing or distorting. Match revised visuals to the actual narrated action. Keep every scene exactly once in the same order, and keep at least one story scene before any closing CTA. For unchanged visuals, return their full original prompt. Keep each image prompt’s detailed production descriptors. Return videoPrompt only for video scenes. Motion must serve viewer engagement and visual rhythm: use active, dynamic camera moves across scenes (push-in for key revelations/discoveries, pull-out for context/scope, pan-left or pan-right for travel/environment, drift-in or drift-out for diagonal flow, slow-zoom-in for gentle focus). Do not keep scenes motionless or flat; avoid hold unless explicitly necessary. Cuts for energetic shifts, dissolves for elapsed time or emotional reflection.\nReturn JSON: {"notes":["specific editorial changes"],"scenes":[{"sceneId":"original id","narration":"edited narration","imagePrompt":"full prompt","videoPrompt":"only if video","purpose":"what new discovery, decision, consequence or payoff this scene adds","motion":"push-in|pull-out|pan-left|pan-right|drift-in|drift-out|slow-zoom-in|hold","transition":"cut|dissolve"}]}` },
+    { role: 'system', content: `You are a precise retention editor. Return only JSON. Preserve all verified facts, narrative meaning, language, canon, unique scene IDs, scene order and media modes. Do not add facts, quotes or dates. Keep a clear opening and an earned payoff. Editorial improvement is not a prediction of viewer behavior.${convPromptNote}` },
+    { role: 'user', content: `${retentionBrief(options.plan)}\nTemplate constraints (preserve language, canon, static/dynamic camera rules and visual style): ${channelEditorialContext(options.template, 16000)}\nResearch dossier (data): ${options.research.slice(0, 18000)}\nOriginal scene plan (data): ${JSON.stringify(original)}\n\nEdit narration for clarity and forward momentum. Cut generic intros, redundant setup, repeated facts and premature CTAs. Preserve intentional dramatic pauses and important context; never compress by inventing or distorting. Match revised visuals to the actual narrated action. Keep every scene exactly once in the same order, and keep at least one story scene before any closing CTA. For unchanged visuals, return their full original prompt. Keep each image prompt’s detailed production descriptors. Return videoPrompt only for video scenes. Motion must serve viewer engagement and visual rhythm: use active, dynamic camera moves across scenes (push-in for key revelations/discoveries, pull-out for context/scope, pan-left or pan-right for travel/environment, drift-in or drift-out for diagonal flow, slow-zoom-in for gentle focus). Do not keep scenes motionless or flat; avoid hold unless explicitly necessary. Cuts for energetic shifts, dissolves for elapsed time or emotional reflection.${convPromptNote}\nReturn JSON: {"notes":["specific editorial changes"],"scenes":[{"sceneId":"original id","narration":"edited narration","imagePrompt":"full prompt","videoPrompt":"only if video","purpose":"what new discovery, decision, consequence or payoff this scene adds","motion":"push-in|pull-out|pan-left|pan-right|drift-in|drift-out|slow-zoom-in|hold","transition":"cut|dissolve"}]}` },
     { role: 'user', content: `Scene identity contract: return EXACTLY ${original.scenes.length} scenes. Copy each original scene's id into sceneId using this exact ordered list: ${JSON.stringify(sceneIds)}. Never rename, renumber, merge, omit, duplicate or reorder scenes. A thumbnail is not an additional scene. Each video scene must keep its full videoPrompt.` },
   ] }, editSchema, 'Story editing');
   if (result.scenes.length !== original.scenes.length || result.scenes.some((scene, i) => scene.sceneId !== original.scenes[i].id)) throw new Error('The retention edit changed or omitted scene identities. The original script was preserved.');
   const edited: ScenePlan = { ...original, thumbnailPrompt: options.plan.thumbnailConcept, scenes: original.scenes.map((scene, i) => {
     const edit = result.scenes[i];
     if (scene.mediaType === 'video' && !edit.videoPrompt) throw new Error('The retention edit omitted a required video prompt.');
-    return { ...scene, narration: edit.narration, imagePrompt: edit.imagePrompt,
-      ...(scene.motionGraphics ? {motionGraphics:refreshMotionHints(scene.motionGraphics,edit.narration)} : {}),
+    
+    let sceneNarration = edit.narration;
+    if (isConv) {
+      const origTag = scene.narration.match(/^\s*(\[\s*[A-Za-z\u0900-\u097F\s]{2,25}\s*\]\s*[:—–-])/);
+      if (origTag && !sceneNarration.match(/^\s*\[\s*[A-Za-z\u0900-\u097F\s]{2,25}\s*\]\s*[:—–-]/)) {
+        sceneNarration = `${origTag[1]} ${sceneNarration.trim()}`;
+      }
+    }
+    const sceneSpeaker = extractSpeakerName(sceneNarration) || scene.speaker;
+
+    return { ...scene, narration: sceneNarration, speaker: sceneSpeaker, imagePrompt: edit.imagePrompt,
+      ...(scene.motionGraphics ? {motionGraphics:refreshMotionHints(scene.motionGraphics,sceneNarration)} : {}),
       ...(scene.mediaType === 'video' ? { videoPrompt: edit.videoPrompt } : {}) };
   }) };
   validateScenePlan(edited);

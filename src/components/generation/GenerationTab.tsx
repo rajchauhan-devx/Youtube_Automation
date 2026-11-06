@@ -1204,7 +1204,20 @@ function AudioGenerationContent({
       }
       setGenerating(true); setError(''); setProgressPercent(0);
       try {
-        const { ok, data } = await fetchJson('/api/tts/long/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: selectedProvider, speed: googleSpeed, scriptId: script.id, language: selectedLanguage, voice: selectedVoice, rate: formattedRate, pitch: formattedPitch }) });
+        const { ok, data } = await fetchJson('/api/tts/long/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: selectedProvider,
+            speed: googleSpeed,
+            scriptId: script.id,
+            language: selectedLanguage,
+            voice: selectedVoice,
+            rate: formattedRate,
+            pitch: formattedPitch,
+            conversational: Boolean(script.conversational),
+          }),
+        });
         if (!ok) throw new Error(data?.error || 'Could not start narration');
         onUpdate({ generatedAudio: [], timelineConfig: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined });
       } catch (error) { setGenerating(false); setError(getErrorMessage(error, 'Could not start narration')); }

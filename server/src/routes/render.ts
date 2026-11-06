@@ -231,11 +231,12 @@ const startRender: import('express').RequestHandler = async (req, res) => {
       if (fs.existsSync(turnsPath)) {
         try {
           const data = JSON.parse(fs.readFileSync(turnsPath, 'utf8'));
-          if (Array.isArray(data.turns) && data.turns.length === imagePaths.length) {
-            const dialogueClips = data.turns.map((t: any, i: number) => {
-              const dur = (i === data.turns.length - 1)
+          const turns = Array.isArray(data) ? data : (Array.isArray(data?.turns) ? data.turns : []);
+          if (turns.length === imagePaths.length) {
+            const dialogueClips = turns.map((t: any, i: number) => {
+              const dur = (i === turns.length - 1)
                 ? Math.max(1, finalDuration - t.startSec)
-                : Math.max(1, data.turns[i + 1].startSec - t.startSec);
+                : Math.max(1, turns[i + 1].startSec - t.startSec);
               return {
                 id: `clip_${i}`,
                 duration: dur,
