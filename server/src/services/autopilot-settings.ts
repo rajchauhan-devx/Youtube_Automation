@@ -4,7 +4,7 @@ import { editingPreset, validateEditingSettings, type EditingSettings } from './
 import { SELECTIVE_MOTION_DIRECTION, isImageOnlyShorts } from './motion-editorial-policy.js';
 import { defaultPresenter, type PresenterSettings } from './presenter-settings.js';
 
-export const VoiceProvider = z.enum(['default', 'google', 'edge', 'openrouter', 'omni']);
+export const VoiceProvider = z.enum(['default', 'google', 'edge', 'openrouter', 'omni', 'flow']);
 
 export const PresenterSettingsSchema = z.strictObject({
   enabled: z.boolean().default(false),
@@ -33,6 +33,7 @@ export const AutoPilotSettingsSchema = z.strictObject({
     flowEnabled: z.boolean(), flowResolution: z.enum(['720p', '1080p']),
     flowDuration: z.union([z.literal(4), z.literal(6), z.literal(8)]),
     allowImageFallback: z.boolean(),
+    videoOnly: z.boolean().default(false),
   }),
   voice: z.strictObject({
     provider: VoiceProvider, language: z.enum(['auto', 'en', 'hi']), voiceId: z.string().trim().min(1).max(150),
@@ -74,10 +75,10 @@ export function defaultAutoPilotSettings(script: { section?: string; name?: stri
   const imageOnly = isImageOnlyShorts(script, script.section || 'shorts');
   return {
     version: 1,
-    media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: !imageOnly, flowResolution: '720p', flowDuration: 8, allowImageFallback: true },
+    media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: !imageOnly, flowResolution: '720p', flowDuration: 8, allowImageFallback: true, videoOnly: false },
     voice: { provider: 'google', language: 'auto', voiceId: defaultGoogleVoice(script.generatedAudio?.[0]?.language === 'hi' ? 'hi' : 'en'), rate: 0, pitch: 0, speed: 1 },
     captions: script.enableSubtitles === true ? 'motion' : 'off',
-    graphics: { enabled: true, mode: 'images', density: 'balanced', treatment: 'auto', style: SELECTIVE_MOTION_DIRECTION, model: '' },
+    graphics: { enabled: false, mode: 'images', density: 'balanced', treatment: 'auto', style: SELECTIVE_MOTION_DIRECTION, model: '' },
     editing: { mode: script.editing?.enabled ? 'custom' : 'story', settings: script.editing || { ...editingPreset('cinematic'), motion: 'balanced', transitionSeconds: 0.35, bookendFades: false, colorLook: 'none' } },
     audio: { music: 'auto', musicVolume: 0.10, voiceVolume: script.ttsVolume ?? 1 },
     youtube: {

@@ -34,11 +34,11 @@ export const SELECTIVE_MOTION_DIRECTION =
 
 const AGAINST_THE_ODDS_HINTS = ['620a1d5e', 'against_the_odds', 'against the odds'];
 const ANCIENT_DHARMA_HINTS = ['ancient_dharma', 'ancient dharma', 'dharma', 'vedic', 'प्राचीन', 'धर्म'];
-const TALVORA_HINTS = ['talvora', 'romance', 'microdrama'];
+const TALVORA_HINTS = ['talvora', 'talevora', 'romance', 'microdrama'];
 
 const AGAINST_THE_ODDS_REGEX = /against.?the.?odds|620a1d5e/i;
 const ANCIENT_DHARMA_REGEX = /ancient.?dharma|vedic|dharma|प्राचीन|धर्म/i;
-const TALVORA_REGEX = /talvora/i;
+const TALVORA_REGEX = /talvora|talevora/i;
 const ANCIENT_SOURCE_CONTEXT_REGEX = /ancient india|vedic|ramayana|mahabharata|प्राचीन भारत|रामायण|महाभारत/i;
 
 /** Resolves channel identity (account id, name, channel title, or text) to a server policy key. */
@@ -80,7 +80,7 @@ export function detectChannelMotionKey(
   // 4. Loose token hints when input is a string (e.g. from UI profile picker)
   if (typeof input === 'string') {
     if (/\b(?:odds|against)\b/.test(identity)) return 'against_the_odds';
-    if (/\b(?:talvora|romance)\b/.test(identity)) return 'talvora';
+    if (/\b(?:talvora|talevora|romance)\b/.test(identity)) return 'talvora';
   }
 
   return fallback;

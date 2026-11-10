@@ -101,15 +101,15 @@ const CHANNEL_UI_DATA: Record<ChannelProfileKey, Omit<ChannelUiMeta, 'key'>> = {
   },
   talvora: {
     name: 'Talvora',
-    subname: 'Cinematic Romance & Romantic Suspense',
-    badge: 'ROMANCE',
-    tag: 'Romantic Drama',
-    themeColor: 'text-rose-400',
-    accentBorder: 'border-rose-400/60 ring-rose-400/30',
-    badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
-    activeBg: 'from-rose-950/40 via-surface to-surface',
-    dotColor: 'bg-rose-400',
-    desc: 'Cinematic romantic micro-dramas, emotional relationship dilemmas, and nighttime suspense.',
+    subname: 'Cinematic Suspense & Mystery Thriller',
+    badge: 'THRILLER',
+    tag: 'Suspense Drama',
+    themeColor: 'text-amber-400',
+    accentBorder: 'border-amber-400/60 ring-amber-400/30',
+    badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    activeBg: 'from-amber-950/40 via-surface to-surface',
+    dotColor: 'bg-amber-400',
+    desc: 'High-stakes suspense and mystery micro-dramas: sharp adult heroines, high-tension conflict, strict character consistency and brisk natural dialogue.',
   },
 };
 
@@ -162,6 +162,7 @@ export interface ChannelLoraConfig {
   strengthClip: number;
   triggerToken: string;
   styleDna: string;
+  narrativeDna?: string;
 }
 
 /** Single source of truth for per-profile LoRA image generation models and prompts. */
@@ -200,6 +201,8 @@ export const CHANNEL_LORA_CONFIG: Record<ChannelProfileKey, ChannelLoraConfig> =
     strengthClip: 0.75,
     triggerToken: 'talvora_mood_drama',
     styleDna:
-      'Cinematic 35mm shallow depth of field portraiture, atmospheric nighttime moody lighting, soft anamorphic lens bokeh, warm amber streetlight reflections and deep nocturnal shadows, realistic elegant contemporary aesthetic, high emotional expression, photorealistic.',
+      'Cinematic night-portrait thriller cinematography with 35mm shallow depth of field, atmospheric nighttime noir lighting, sharp anamorphic lens bokeh, wet asphalt streetlight reflections and moody volumetric shadows, featuring a striking, sharp-featured adult heroine in her mid-20s (intense focused dark eyes, high cheekbones, sleek jet-black hair tied back, elegant tailored dark blazer or jacket over a minimalist top), locked facial consistency across all scenes, photorealistic, premium web-series production value.',
+    narrativeDna:
+      'High-stakes story-first suspense: every episode centers on a sharp, charismatic adult heroine in her mid-20s navigating dangerous secrets, conspiracies, undercover confrontations, and unexpected plot twists opposite intense counterparts. Strict character consistency across all scenes. Brisk, natural conversational pacing (1.04x speed) with punchy back-and-forth dialogue lines (under 15 words) and strict lip-sync coordination. Zero narrator voiceover — 100% pure character dialogue.',
   },
 };

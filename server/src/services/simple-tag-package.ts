@@ -1,6 +1,6 @@
 import { parseMotionScriptHint } from './script-motion.js';
 import type { NarrationScene, ScenePlan } from './scene-plan.js';
-import { hasSpeakerDialogueTags, parseDialogueTurns, extractSpeakerName } from './conversational-types.js';
+import { hasSpeakerDialogueTags, parseDialogueTurns, extractSpeakerName, normalizeCharacterName, stripSpeakerTags } from './conversational-types.js';
 
 /**
  * Clean spoken narration extracted from <script> or <narration> tags so TTS
@@ -591,24 +591,46 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
   }
 
   // 5. Distribute narration across all slots
+  const isConversational = hasSpeakerDialogueTags(rawNarration) || hasSpeakerDialogueTags(text);
   const narrations = distributeNarrationToScenes(rawNarration, slots.length);
   const scenes: NarrationScene[] = slots.map((slot, index) => {
     const num = index + 1;
     const hint = sceneHints.get(num);
     const sceneNarration = narrations[index] || '';
     const detectedSpeaker = extractSpeakerName(sceneNarration);
+    const mediaType = (isConversational && !imageOnly) ? 'video' : slot.mediaType;
     return {
       id: `scene_${String(num).padStart(3, '0')}`,
       chapter: slot.sceneTitle || hint?.title || `Scene ${num}`,
       role: slot.isFollowFrame ? ('cta' as const) : ('story' as const),
       narration: sceneNarration,
       speaker: detectedSpeaker,
-      mediaType: slot.mediaType,
-      duration: slot.duration || hint?.duration || (slot.mediaType === 'video' ? 8 : 5),
+      mediaType,
+      duration: slot.duration || hint?.duration || (mediaType === 'video' ? 8 : 5),
       imagePrompt: slot.imagePrompt,
-      ...(slot.mediaType === 'video' ? { videoPrompt: slot.videoPrompt || slot.imagePrompt } : {}),
+      ...(mediaType === 'video' ? { videoPrompt: slot.videoPrompt || slot.imagePrompt } : {}),
     };
   });
+
+  // GUARANTEE: In conversational scripts, Scene 1 must always start with a character speaking line
+  if (hasSpeakerDialogueTags(rawNarration) && scenes.length >= 2) {
+    const sc0Speaker = normalizeCharacterName(scenes[0].speaker || extractSpeakerName(scenes[0].narration) || '');
+    if (sc0Speaker === 'narrator' || sc0Speaker === 'सूत्रधार') {
+      const charIdx = scenes.findIndex((sc, idx) => {
+        if (idx === 0) return false;
+        const spk = normalizeCharacterName(sc.speaker || extractSpeakerName(sc.narration) || '');
+        return spk && spk !== 'narrator' && spk !== 'सूत्रधार';
+      });
+      if (charIdx > 0) {
+        const sc0Narration = scenes[0].narration;
+        const sc0Speaker = scenes[0].speaker;
+        scenes[0].narration = scenes[charIdx].narration;
+        scenes[0].speaker = scenes[charIdx].speaker;
+        scenes[charIdx].narration = sc0Narration;
+        scenes[charIdx].speaker = sc0Speaker;
+      }
+    }
+  }
 
   const title =
     text.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i)?.[1]?.trim() ||

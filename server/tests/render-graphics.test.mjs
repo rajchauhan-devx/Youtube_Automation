@@ -69,6 +69,18 @@ test('legacy edits preserve the saved graphics; unrelated or stale inputs are re
   assert.throws(() => savedGraphicsForRender('other-script', 'tone.wav', ['image.png'], resolution), /another script/);
 });
 
+test('a run with optional graphics disabled keeps saved motion graphics out of the render', () => {
+  const dynamicScript = {
+    ...script,
+    dynamicMotionGraphics: [{ id: 'dm-1', type: 'title', title: 'Hook', sceneIndex: 0, startSec: 0.5, durationSec: 2 }],
+  };
+  store.add('scripts', dynamicScript);
+  assert.ok(snapshot(), 'dynamic motion graphics composite while the run keeps graphics enabled');
+  store.add('scripts', { ...dynamicScript, autoPilotSettings: { graphics: { enabled: false }, captions: 'off' } });
+  assert.equal(snapshot(), undefined, 'a graphics-disabled run must not composite saved motion graphics');
+  store.add('scripts', script);
+});
+
 test('legacy export blocks a required image-led revision with only labels or all images hidden', () => {
   const original = current(p.id);
   const textOnly = nextRevision(original);

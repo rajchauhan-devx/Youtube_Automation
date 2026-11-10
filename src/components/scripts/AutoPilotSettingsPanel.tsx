@@ -346,7 +346,17 @@ export function AutoPilotSettingsPanel({
             <NumberInput label="Image seed" value={value.media.seed} min={0} max={2147483647} onChange={seed => patch('media', { seed })} />
           )}
         </div>
-        <Toggle label="Generate video scenes with Google Flow" checked={value.media.flowEnabled} onChange={flowEnabled => patch('media', { flowEnabled })} />
+        <Toggle
+          label="Video only — every scene is a video clip (no stills)"
+          checked={value.media.videoOnly}
+          onChange={videoOnly => patch('media', videoOnly
+            ? { videoOnly, flowEnabled: true, allowImageFallback: false }
+            : { videoOnly })}
+        />
+        {value.media.videoOnly && (
+          <p className="text-xs text-muted">Disables still-image fallback entirely: each scene must produce a full Google Flow video clip, or the run fails fast. Requires a signed-in Flow profile and account credits. Keyframe images are still generated as Flow reference frames and thumbnail fallback.</p>
+        )}
+        <Toggle label="Generate video scenes with Google Flow" checked={value.media.flowEnabled} onChange={flowEnabled => patch('media', flowEnabled ? { flowEnabled } : { flowEnabled, videoOnly: false })} disabled={value.media.videoOnly} />
         {value.media.flowEnabled && (
           <>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -371,7 +381,7 @@ export function AutoPilotSettingsPanel({
               />
             </div>
             <p className="text-xs text-muted">Uses Veo 3.1 Fast for scenes marked as video by the script. An image-only template stays image-only. Flow uses your connected account’s credits.</p>
-            <Toggle label="Use still images if Flow is unavailable" checked={value.media.allowImageFallback} onChange={allowImageFallback => patch('media', { allowImageFallback })} />
+            <Toggle label="Use still images if Flow is unavailable" checked={value.media.allowImageFallback} onChange={allowImageFallback => patch('media', { allowImageFallback })} disabled={value.media.videoOnly} />
           </>
         )}
         <p className="text-xs text-muted">Final MP4: {profile === 'shorts' ? '1080 × 1920 · Portrait' : '1920 × 1080 · Landscape'}. Image provider fallback follows the Generation tab’s configured availability.</p>

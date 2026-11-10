@@ -609,14 +609,21 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
         }
       }
 
-      // Check if Flow shows a failure card / message (e.g. "Audio generation failed", "Failed", etc.)
-      const failureCard = page.locator('div, section, mat-card, .error-message').filter({
+      // Check if Flow shows an explicit failure card / alert (e.g. "Audio generation failed", "Failed", etc.)
+      const failureCard = page.locator('.error-message, mat-card, [role="alert"]').filter({
         hasText: /Audio generation failed|Generation failed|Video generation failed|Please try a different prompt/i
       }).first();
-      const isFailed = (await failureCard.count()) > 0 && (await failureCard.isVisible().catch(() => false));
+      let isFailed = (await failureCard.count()) > 0 && (await failureCard.isVisible().catch(() => false));
+      let errorText = '';
+      if (isFailed) {
+        errorText = (await failureCard.innerText().catch(() => '')).trim();
+        // Ignore video player controls or progress text falsely picked up
+        if (!errorText || /volume_up|current time|play_arrow|\b\d{1,3}%\s+volume/i.test(errorText)) {
+          isFailed = false;
+        }
+      }
 
       if (isFailed && Date.now() - lastRetryAt > 8000) {
-        const errorText = (await failureCard.innerText().catch(() => 'Audio generation failed')).trim();
         console.warn(`[Flow Worker] Generation failure detected in Flow: ${errorText.replace(/\n+/g, ' ')}`);
 
         // Check for Retry/Regenerate button inside the card or near it

@@ -173,6 +173,9 @@ scriptsRouter.put('/:id', async (req, res) => {
     delete updated.retentionEdit;
     delete updated.retentionReview;
     delete updated.retentionProduction;
+    delete updated.dynamicMotionGraphics;
+    delete updated.extraPopups;
+    delete updated.twoStepVerification;
     if (!req.body?.retentionPlan || req.body.retentionPlan.topic !== updated.topicName) delete updated.retentionPlan;
     delete updated.generatedMusic;
     for (const key of ['timelineConfig', 'sceneAnalysis', 'youtubeExport', 'facebookExport', 'instagramExport', 'scenePlan']) delete updated[key];

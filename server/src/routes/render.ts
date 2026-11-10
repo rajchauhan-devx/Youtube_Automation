@@ -264,8 +264,9 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     const currentScript = store.getById<any>('scripts', scriptId);
     const hasDynamicGraphics = Boolean(currentScript?.dynamicMotionGraphics?.length > 0);
     const hasPopups = Boolean(currentScript?.extraPopups?.some((p: any) => p.status !== 'failed' && (p.title || p.cueWord)));
+    const graphicsEnabled = currentScript?.autoPilotSettings?.graphics?.enabled !== false;
 
-    if ((!hasDynamicGraphics || !hasPopups) && effectiveEditing?.enabled !== false) {
+    if (graphicsEnabled && (!hasDynamicGraphics || !hasPopups) && effectiveEditing?.enabled !== false) {
       try {
         console.log(`[render] Auto-orchestrating motion graphics and popups for script ${scriptId}...`);
         await runTwoStepVerification({
@@ -298,7 +299,8 @@ const startRender: import('express').RequestHandler = async (req, res) => {
 
   // Generate subtitles if enabled and narration provided
   let subtitlePath: string | undefined = undefined;
-  if (enableSubtitles && !savedMotionCaptions && narration && !longSync) {
+  const isNative = req.body?.useNativeVideoAudio === true || req.body?.audioSource === 'flow' || req.body?.provider === 'flow';
+  if (!isNative && enableSubtitles && !savedMotionCaptions && narration && !longSync) {
     try {
       subtitlePath = generateSubtitleFile({
         scriptId,
@@ -320,7 +322,16 @@ const startRender: import('express').RequestHandler = async (req, res) => {
   const revision = renderRevision(scriptId);
   persistedRevision = revision;
   try { persist(true); } catch (error) { job.status = 'error'; job.error = 'Could not save the validated render inputs. Check the data folder.'; finish(); res.status(500).json({ error: job.error }); return; }
+  const useNativeVideoAudio = req.body?.useNativeVideoAudio === true ||
+    req.body?.audioSource === 'flow' ||
+    req.body?.provider === 'flow' ||
+    scriptForPresenter?.autoPilotSettings?.voice?.provider === 'flow' ||
+    scriptForPresenter?.voiceProvider === 'flow' ||
+    scriptForPresenter?.generatedAudio?.[0]?.provider === 'flow' ||
+    (Boolean(scriptForPresenter?.conversational) && imagePaths.some((p: string) => p.endsWith('.mp4')));
   const renderOptions = {
+    useNativeVideoAudio,
+    audioSource: useNativeVideoAudio ? 'flow' : 'tts',
     polishAudio: Boolean(scriptForPresenter?.retentionPlan && scriptForPresenter?.retentionEdit && effectiveEditing?.enabled !== false),
     signal: controller.signal,
     scriptId,
@@ -332,15 +343,15 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     transitionDuration,
     timelineConfig,
     sceneAnalysis,
-    enableSubtitles: Boolean(enableSubtitles && !hasVisualArtifacts && (longSync || subtitlePath)),
-    subtitlePath,
+    enableSubtitles: !useNativeVideoAudio && Boolean(enableSubtitles && !hasVisualArtifacts && (longSync || subtitlePath)),
+    subtitlePath: useNativeVideoAudio ? undefined : subtitlePath,
     bgmPath: resolvedBgm || undefined,
     bgmVolume: typeof bgmVolume === 'number' ? bgmVolume : 0.12,
     ttsVolume: typeof ttsVolume === 'number' ? ttsVolume : 1.0,
     colorGrade: typeof colorGrade === 'string' ? colorGrade : undefined,
     enableVignette: enableVignette !== false,
     enableSfx: enableSfx !== false,
-    editing: hasVisualArtifacts && effectiveEditing ? { ...effectiveEditing, captions: false } : effectiveEditing,
+    editing: (useNativeVideoAudio || hasVisualArtifacts) && effectiveEditing ? { ...effectiveEditing, captions: false } : effectiveEditing,
     presenter,
     presenterSourceSize,
     onProgress: (percent) => {
@@ -367,7 +378,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     .then(async (result) => {
       try {
         let finalCaptionPath: string | undefined;
-        if (hasVisualArtifacts && enableSubtitles && !savedMotionCaptions && (!effectiveEditing?.enabled || effectiveEditing.captions)) {
+        if (!useNativeVideoAudio && hasVisualArtifacts && enableSubtitles && !savedMotionCaptions && (!effectiveEditing?.enabled || effectiveEditing.captions)) {
           if (longPlan && longSync) {
             finalCaptionPath = path.join(getOutputDir(scriptId), `${result.filename}.captions.ass`);
             fs.writeFileSync(finalCaptionPath, reservePresenterCaptionSpace(synchronizedCaptionAss(longPlan, longSync,

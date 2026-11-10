@@ -1,4 +1,4 @@
-import {isImageOnlyShorts} from '../server/src/services/motion-editorial-policy';
+import { isImageOnlyShorts } from '@tubeflow/editing-contracts';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Zap,
@@ -910,6 +910,33 @@ export default function App() {
         enterStage(AUTO_PILOT_STAGES[startStage].id);
         addAutoPilotLog(activeStage, `Resuming ${AUTO_PILOT_STAGES[startStage].label}. Completed stages and saved media will be reused.`, 'info');
       }
+
+      // -------------------------------------------------------------
+      // VIDEO-ONLY MODE: every scene must be a full video clip.
+      // Normalize the saved scene plan BEFORE any stage runs so narration
+      // (planHash) is generated against the final video-only plan. If a
+      // previous run still had still images, re-run media + narration.
+      // -------------------------------------------------------------
+      if (runSettings.media.videoOnly && currentScript.scenePlan?.scenes?.length) {
+        let videoPlanChanged = false;
+        const videoScenes: NonNullable<Script['scenePlan']>['scenes'] = currentScript.scenePlan.scenes.map((sc) => {
+          if (sc.mediaType === 'video') return sc;
+          videoPlanChanged = true;
+          return { ...sc, mediaType: 'video' as const, videoPrompt: (sc.videoPrompt?.trim() || sc.imagePrompt?.trim() || undefined) };
+        });
+        if (videoPlanChanged) {
+          currentScript = { ...currentScript, scenePlan: { ...currentScript.scenePlan, scenes: videoScenes } };
+          patchScriptState(scriptId, { scenePlan: currentScript.scenePlan });
+          if (!await persistScript(scriptId, { scenePlan: currentScript.scenePlan })) throw new Error('Could not save the video-only scene plan.');
+          addAutoPilotLog(activeStage, 'Video-only mode: converted remaining still scenes to video clips.', 'info');
+          if (startStage >= 4) {
+            startStage = 3;
+            addAutoPilotLog('generate_images', 'Video-only mode: re-running visual generation and narration so no still frames remain.', 'info');
+            enterStage(AUTO_PILOT_STAGES[startStage].id);
+          }
+        }
+      }
+
       if (startStage === 0) {
         enterStage('plan_hooks');
         const memoryResponse = await fetch('/api/youtube/retention/sync', {
@@ -939,7 +966,8 @@ export default function App() {
         retention = await apiPost<{ plan: NonNullable<Script['retentionPlan']>; brief: string }>(
           '/api/retention/plan', { scriptId, topic, instructions }, getApiKey(), fetch, controller.signal);
         await checkPauseOrAbort();
-        patchScriptState(scriptId, { retentionPlan: retention.plan });
+        patchScriptState(scriptId, { retentionPlan: retention.plan, dynamicMotionGraphics: [], extraPopups: [] });
+        await persistScript(scriptId, { dynamicMotionGraphics: [], extraPopups: [] });
         setAutoPilotState(prev => ({ ...prev, retentionBrief: retention.brief }));
         addAutoPilotLog('plan_hooks', `Selected hook ${retention.plan.selectedHookIndex + 1}/3: ${retention.plan.hooks[retention.plan.selectedHookIndex].openingLine}`, 'success');
         addAutoPilotLog('plan_hooks', `Viewer promise: ${retention.plan.viewerPromise}`, 'info');
@@ -1023,6 +1051,17 @@ export default function App() {
         );
 
         scenePlan = extractResult.scenePlan;
+        if (runSettings.media.videoOnly && scenePlan?.scenes?.length) {
+          scenePlan = {
+            ...scenePlan,
+            scenes: scenePlan.scenes.map((sc) => sc.mediaType === 'video' ? sc : ({
+              ...sc,
+              mediaType: 'video' as const,
+              videoPrompt: (sc.videoPrompt?.trim() || sc.imagePrompt?.trim() || undefined),
+            })),
+          };
+          addAutoPilotLog('extract_assets', 'Video-only mode: every extracted scene planned as a full video clip.', 'info');
+        }
         imagePrompts = extractResult.imagePrompts || [];
         narration = extractResult.ttsText || '';
         extractedScript = extractResult.script || '';
@@ -1098,6 +1137,16 @@ export default function App() {
               : imagePrompts.map((p) => ({ imagePrompt: p })));
 
         let flowAvailableThisRun = true;
+        const videoOnly = runSettings.media.videoOnly === true;
+
+        if (videoOnly) {
+          const flowStatusRes = await fetch('/api/flow/status', { signal: controller.signal });
+          const flowStatusData = flowStatusRes.ok ? await flowStatusRes.json() : null;
+          if (!flowStatusData?.profileReady) {
+            throw new Error('Video-only mode requires Google Flow. Sign in to Flow in the Media settings (or turn off Video only) before running this profile.');
+          }
+          addAutoPilotLog('generate_images', 'Video-only mode: still-image fallback disabled — every scene will be a full video clip.', 'info');
+        }
 
         for (let i = 0; i < scenesToRender.length; i++) {
           await checkPauseOrAbort();
@@ -1113,11 +1162,11 @@ export default function App() {
           addAutoPilotLog('generate_images', `Rendering scene ${i + 1}/${scenesToRender.length}: "${scenePrompt.slice(0, 50)}..."`, 'info');
 
           const explicitMediaType = (scenesToRender[i] as any).mediaType;
-          const isPlannedVideo = runSettings.media.flowEnabled && (
+          const isPlannedVideo = videoOnly || (runSettings.media.flowEnabled && (
             explicitMediaType === 'video' ||
             (explicitMediaType !== 'image' && Boolean((scenesToRender[i] as any).videoPrompt)) ||
             (explicitMediaType === undefined && section === 'shorts' && (currentScript.name?.toLowerCase().includes('mixed') || currentScript.topic?.toLowerCase().includes('mixed')) && i % 2 === 0)
-          );
+          ));
           const savedAsset = currentScript.generatedImages?.find(asset => asset.index === i && asset.status === 'done' && asset.url
             && asset.prompt === (asset.mediaType === 'video' ? (scenesToRender[i] as any).videoPrompt || scenePrompt : scenePrompt));
           const needsVideo = flowAvailableThisRun && isPlannedVideo;
@@ -1244,6 +1293,7 @@ export default function App() {
                     } else if (jobResult.state === 'error') {
                       const isAuth = jobResult.overseerCode === 'AUTH_EXPIRED' || /auth-expired|login required|signed out/i.test(jobResult.error || '');
                       if (isAuth) {
+                        if (videoOnly) throw new Error(`Video-only mode: Google Flow login expired (Scene ${i + 1}). Reconnect Flow and resume.`);
                         flowAvailableThisRun = false;
                         addAutoPilotLog('generate_images', `Google Flow login expired. Using reference keyframes for subsequent video scenes.`, 'warn');
                         break;
@@ -1256,6 +1306,42 @@ export default function App() {
                   } else {
                     const errJson = await flowJobRes.json().catch(() => ({}));
                     const errMsg = errJson.error || `Flow job failed to start (${flowJobRes.status})`;
+                    if (/already running/i.test(errMsg)) {
+                      addAutoPilotLog('generate_images', `Scene ${i + 1}: Waiting for in-flight Flow job to finish...`, 'info');
+                      for (let poll = 0; poll < 45 && !videoImported; poll++) {
+                        await new Promise((r) => setTimeout(r, 4000));
+                        await checkPauseOrAbort();
+                        const activeRes = await fetch(`/api/flow/jobs?scriptId=${encodeURIComponent(scriptId)}`);
+                        if (activeRes.ok) {
+                          const activeData = await activeRes.json();
+                          const matching = (activeData.jobs || []).find((j: any) => j.sceneIndex === i && (j.state === 'done' || j.state === 'error'));
+                          if (matching && matching.state === 'done' && matching.result?.downloadId) {
+                            const dl = await fetch(`/api/flow/downloads/${matching.result.downloadId}`);
+                            if (dl.ok) {
+                              const videoBlob = await dl.blob();
+                              const importRes = await fetch(`/api/media-import/${encodeURIComponent(scriptId)}/${i}?extension=mp4`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/octet-stream' },
+                                body: videoBlob,
+                              });
+                              if (importRes.ok) {
+                                const importJson = await importRes.json();
+                                if (importJson.generatedImages) {
+                                  patchScriptState(scriptId, { generatedImages: importJson.generatedImages });
+                                  await persistScript(scriptId, { generatedImages: importJson.generatedImages });
+                                }
+                                addAutoPilotLog('generate_images', `Scene ${i + 1} full video motion rendered & imported!`, 'success');
+                                videoImported = true;
+                                break;
+                              }
+                            }
+                          } else if (matching && matching.state === 'error') {
+                            break;
+                          }
+                        }
+                      }
+                      if (videoImported) break;
+                    }
                     if (videoAttempt < MAX_VIDEO_ATTEMPTS) {
                       addAutoPilotLog('generate_images', `Scene ${i + 1} Flow notice: ${errMsg}. Retrying...`, 'info');
                     } else {
@@ -1264,10 +1350,12 @@ export default function App() {
                   }
                 }
               } else {
+                if (videoOnly) throw new Error(`Video-only mode: the Google Flow worker is not signed in (Scene ${i + 1}). Connect Flow and resume.`);
                 flowAvailableThisRun = false;
                 addAutoPilotLog('generate_images', `Scene ${i + 1}: Flow video worker is not signed in. Using reference keyframe.`, 'info');
               }
             } catch (videoErr) {
+              if (videoOnly) throw videoErr instanceof Error ? videoErr : new Error(String(videoErr));
               const isAuth = /auth-expired|login required|signed out/i.test(videoErr instanceof Error ? videoErr.message : '');
               if (isAuth) {
                 flowAvailableThisRun = false;
@@ -1277,7 +1365,12 @@ export default function App() {
               }
             }
           }
-          if (isVideoScene && !runSettings.media.allowImageFallback) {
+          if (videoOnly && isPlannedVideo) {
+            const check = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`, { signal: controller.signal });
+            const saved = await check.json() as Script;
+            if (!saved.generatedImages?.some(asset => asset.index === i && asset.mediaType === 'video' && asset.status === 'done'))
+              throw new Error(`Video-only mode: scene ${i + 1} did not produce a video clip. Resolve the Google Flow error (or disable Video only) before continuing.`);
+          } else if (isVideoScene && !runSettings.media.allowImageFallback) {
             const check = await fetch(`/api/scripts/${encodeURIComponent(scriptId)}`, { signal: controller.signal });
             const saved = await check.json() as Script;
             if (!saved.generatedImages?.some(asset => asset.index === i && asset.mediaType === 'video' && asset.status === 'done'))
@@ -1356,6 +1449,7 @@ export default function App() {
             body: JSON.stringify({
               text: textToNarrate,
               scriptId,
+              conversational: Boolean(currentScript.conversational),
               ...voiceOptions,
             }),
             signal: controller.signal,
@@ -1549,8 +1643,8 @@ export default function App() {
           addAutoPilotLog('plan_motion', 'Motion graphics and motion captions are off for this run.', 'info');
         }
 
-        // Extra Popups Auto-Generation for Shorts retention callouts
-        if (section === 'shorts') {
+        // Extra Popups Auto-Generation for Shorts retention callouts (only when optional graphics are on)
+        if (section === 'shorts' && runSettings.graphics.enabled) {
           try {
             addAutoPilotLog('plan_motion', 'Scanning scenes for retention detail callouts (Extra Popups)...', 'gemini');
             const popupsRes = await fetch(`/api/extra-popups/detect/${encodeURIComponent(scriptId)}`, {

@@ -6,7 +6,7 @@ import { validatedModelJson } from './model-json.js';
 import { syncTopicNotes, type TopicNotes } from './topic-notes.js';
 import { currentWorkspace } from './workspace.js';
 import { parseScenePlan, validateScenePlan, spokenText, type ScenePlan } from './scene-plan.js';
-import { hasSpeakerDialogueTags, extractSpeakerName } from './conversational-tts.js';
+import { hasSpeakerDialogueTags, extractSpeakerName, normalizeCharacterName } from './conversational-tts.js';
 import type { ProductionMemory, RetentionPlan, RetentionEdit } from './retention-types.js';
 import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
 import { channelEditorialContext } from './channel-editorial.js';
@@ -66,7 +66,7 @@ export function storyStructure(notes: Pick<TopicNotes, 'name' | 'guidance'>): st
   const identity = `${notes.name} ${notes.guidance}`.toLowerCase();
   if (/ancient dharma/.test(identity)) return 'Source-supported action, contradiction or consequential choice → authentic traditional story with connected discoveries and intermediate answers → decisive reason and outcome → one brief, varied Hindi invitation to like, subscribe and leave an episode-relevant comment. Do not restart with biography after the hook. Distinguish tradition, interpretation and historical evidence; revise a provisional hook when research does not support it. For long videos, resolve connected subquestions across chapters before the central payoff.';
   if (/against the odds/.test(identity)) return 'Verified immediate danger → constrained choices → documented attempts and setbacks → decisive action or assistance → complete verified outcome → one brief, varied English invitation to like, subscribe and comment on a case-specific decision, resource or rescue contribution. Advance the predicament after the hook instead of restarting with biography. Preserve chronology, what survivors and rescuers knew, uncertainty, and any relevant losses. For long videos, develop connected factual chapter questions. Build suspense without inventing facts, quotations, countdowns or suffering; revise unsupported provisional hooks and never withhold the outcome for engagement.';
-  if (/talvora|romance/.test(identity)) return 'Intriguing nocturnal opening or chance meeting between adult protagonists → palpable emotional or dramatic tension → unexpected revelation or turning point in their relationship → deeply resonant payoff or dramatic cliffhanger → compact engagement close inviting viewers to share their thoughts.';
+  if (/talvora|talevora|suspense|thriller/.test(identity)) return 'High-stakes nocturnal hook establishing an urgent threat, discovery or dilemma → intense direct confrontation between the sharp heroine and counterpart with strict character consistency → sudden twist, breach, or escalation raising the survival/investigation stakes → decisive action or unexpected revelation flipping the power dynamic → explosive cliffhanger ending leaving the outcome unresolved → compact invitation to watch the next episode.';
   return 'A clear question or problem → escalating evidence or events → a satisfying, accurate answer. Follow the selected template’s audience and genre.';
 }
 
@@ -89,9 +89,15 @@ export async function createRetentionPlan(options: {
 }): Promise<RetentionPlan> {
   const notes = syncTopicNotes();
   const memoryEvidence = retentionMemory(notes, options.duration);
+  const isConv = /conversational|dialogue|multi-voice|character/i.test(options.template)
+    || /conversational|dialogue/i.test(options.instructions)
+    || hasSpeakerDialogueTags(options.template);
+  const convHookMandate = isConv
+    ? '\n🚨 MANDATORY MULTI-CHARACTER ZERO-NARRATOR & FULL-VIDEO MANDATE: This is a 100% video conversational script with strictly NO narrator (सूत्रधार). Every scene from Scene 1 to the final scene must be spoken directly by one of the characters ([Character]: "Spoken dialogue in Hindi..."). Every scene must be a full video clip (<video_prompt[N]>), never a still image. Scene 1 must open directly with a dramatic spoken line by a character. Every following scene must be another character speaking directly in response or confrontation. Never introduce a narrator or सूत्रधार voice.'
+    : '';
   const result = await validatedModelJson({ ...options, messages: [
     { role: 'system', content: 'You are a meticulous story editor and YouTube packaging editor. Return only JSON. Quality judgments are editorial hypotheses, never predicted audience retention scores. Never invent historical facts, quotations, metrics or prior episode canon.' },
-    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${notes.guidance}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${channelEditorialContext(options.template, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
+    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${notes.guidance}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${channelEditorialContext(options.template, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\n${convHookMandate}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
   ] }, PlanOutput, 'Hook planning');
   if (new Set(result.hooks.map(hook => hook.openingLine.toLocaleLowerCase())).size !== 3) throw new Error('Hook planning returned duplicate openings. Generate three distinct hooks.');
 
@@ -121,7 +127,7 @@ export async function editForRetention(options: {
   const original = parseScenePlan(options.raw, false, { isImageOnly: /image.only|image only/i.test(options.template) && !/hybrid|mixed.media/i.test(options.template) });
   const isConv = hasSpeakerDialogueTags(spokenText(original)) || hasSpeakerDialogueTags(options.raw);
   const convPromptNote = isConv
-    ? '\nCRITICAL MULTI-CHARACTER CONVERSATIONAL REQUIREMENT: This is a multi-character script with speaker attribution tags (such as [सूत्रधार]:, [लक्ष्मण]:, [राम]:, [Character]:). You MUST PRESERVE the exact [Character]: tag at the start of each scene\'s narration. NEVER remove, strip, or merge character tags into plain narration.'
+    ? '\n🚨 CRITICAL MULTI-CHARACTER CONVERSATIONAL REQUIREMENT:\n1. STRICT ZERO NARRATOR MANDATE: Strictly NO [सूत्रधार] or [Narrator]. Every single scene must be spoken directly by a character ([राम], [लक्ष्मण], [नताशा], [विक्रम], etc.) in active dramatic dialogue.\n2. FULL VIDEO ONLY: Every scene must be a video scene (<video_prompt[N]>) with its full videoPrompt for Google Flow character speech and natural lip-sync.\n3. You MUST PRESERVE the exact [Character]: tag at the start of each scene\'s narration. NEVER remove, strip, or merge character tags.'
     : '';
   const sceneIds = original.scenes.map(scene => scene.id) as [string, ...string[]];
   const editSchema = EditOutput.extend({
@@ -161,6 +167,40 @@ export async function editForRetention(options: {
       ...(scene.motionGraphics ? {motionGraphics:refreshMotionHints(scene.motionGraphics,sceneNarration)} : {}),
       ...(scene.mediaType === 'video' ? { videoPrompt: edit.videoPrompt } : {}) };
   }) };
+  // GUARANTEE: In conversational scripts, Scene 1 MUST open with a character speaking line
+  if (isConv && edited.scenes.length >= 2) {
+    const sc0Speaker = normalizeCharacterName(edited.scenes[0].speaker || extractSpeakerName(edited.scenes[0].narration) || '');
+    if (sc0Speaker === 'narrator' || sc0Speaker === 'सूत्रधार') {
+      const charIdx = edited.scenes.findIndex((sc, idx) => {
+        if (idx === 0) return false;
+        const spk = normalizeCharacterName(sc.speaker || extractSpeakerName(sc.narration) || '');
+        return spk && spk !== 'narrator' && spk !== 'सूत्रधार';
+      });
+      if (charIdx > 0) {
+        const sc0 = edited.scenes[0];
+        const scChar = edited.scenes[charIdx];
+        edited.scenes[0] = {
+          ...sc0,
+          narration: scChar.narration,
+          speaker: scChar.speaker,
+          imagePrompt: scChar.imagePrompt,
+          videoPrompt: scChar.videoPrompt,
+          mediaType: scChar.mediaType || 'video',
+          motionGraphics: scChar.motionGraphics,
+        };
+        edited.scenes[charIdx] = {
+          ...scChar,
+          narration: sc0.narration,
+          speaker: sc0.speaker,
+          imagePrompt: sc0.imagePrompt,
+          videoPrompt: sc0.videoPrompt,
+          mediaType: sc0.mediaType || 'video',
+          motionGraphics: sc0.motionGraphics,
+        };
+      }
+    }
+  }
+
   validateScenePlan(edited);
   if (!spokenText(edited).trim()) throw new Error('The retention edit returned empty narration.');
   return { sourceHash: responseHash(options.raw), plan: edited, notes: result.notes,

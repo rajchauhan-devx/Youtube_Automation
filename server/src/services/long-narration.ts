@@ -1,4 +1,4 @@
-import { GOOGLE_TTS_REVISION } from './google-tts.js';
+import { GOOGLE_TTS_REVISION, synthesizeGoogleTts } from './google-tts.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
@@ -7,6 +7,7 @@ import { generatedDir, mediaUrl, workspaceKey, currentWorkspace } from './worksp
 import { containedFile } from './paths.js';
 import { store } from './store.js';
 import { generateTTS, resolveTtsProvider, ttsProviderName } from './omnivoice.js';
+import { probeHasAudio, resolveInputPath } from './video.js';
 import { runMedia } from './media-process.js';
 import { writeNarrationMetadata } from './editing/media.js';
 import { normalizeNarration, spokenText, syncScenePlanNarration, validateScenePlan, validateSync, type ScenePlan, type NarrationSync } from './scene-plan.js';
@@ -16,6 +17,8 @@ import {
   extractSpeakerName,
   resolveChannelKey,
   resolveCharacterVoice,
+  getOrCreateScriptVoiceSession,
+  CharacterVoiceSession,
   type DialogueTurn,
 } from './conversational-tts.js';
 
@@ -71,9 +74,15 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
   const isConv = isConversationalScript(script) || options.conversational === true;
   const channelKey = resolveChannelKey(currentWorkspace().accountId);
   const allTurns: DialogueTurn[] = [];
+  const voiceSession = getOrCreateScriptVoiceSession(options.scriptId, {
+    language: options.language,
+    channelKey,
+    defaultVoice: options.voice,
+  });
 
   try {
-    for (const scene of plan.scenes) {
+    for (let i = 0; i < plan.scenes.length; i++) {
+      const scene = plan.scenes[i];
       signal.throwIfAborted();
       const sceneSpeaker = scene.speaker || (scene.narration ? extractSpeakerName(scene.narration) : undefined);
       let sceneText = scene.narration;
@@ -81,8 +90,122 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
         sceneText = `[${sceneSpeaker}]: ${sceneText}`;
       }
 
+      const cast = isConv ? voiceSession.getVoice(sceneSpeaker || "Narrator") : undefined;
       const provider = resolveTtsProvider(options.provider);
-      const key = hash({ version: 3, provider: ttsProviderName(provider),
+
+      if (provider === 'flow') {
+        let videoFile = null;
+        const imgItem = script?.generatedImages?.find((img: any) => img.index === i);
+        if (imgItem?.url) {
+          try {
+            const resolved = resolveInputPath(imgItem.url, options.scriptId);
+            if (fs.existsSync(resolved) && (await probeHasAudio(resolved))) {
+              videoFile = resolved;
+            }
+          } catch {}
+        }
+        if (!videoFile && fs.existsSync(dir)) {
+          const candidates = fs.readdirSync(dir).filter(f => (f.startsWith(`import_${i}_`) || f.startsWith(`scene-${i}.`)) && f.endsWith('.mp4'));
+          for (const cand of candidates) {
+            const resolved = path.join(dir, cand);
+            if (await probeHasAudio(resolved)) {
+              videoFile = resolved;
+              break;
+            }
+          }
+        }
+        const tempPcm = containedFile(cache, `flow-scene-${i}-${runId}.pcm`);
+        if (!videoFile) {
+          // Graceful Self-Healing Fallback: If Flow video is missing (e.g. credit exhaustion or Flow error),
+          // synthesize speech with Google Chirp 3 HD character voice and create an animated clip from the scene keyframe
+          try {
+            const rawSpoken = sceneText.replace(/^\s*\[[^\]]+\]\s*[:—–-]?\s*/, '').replace(/^[\"'\s]+|[\"'\s]+$/g, '').trim();
+            const charCast = isConv ? voiceSession.getVoice(sceneSpeaker || 'Character') : undefined;
+            const ttsAudio = await synthesizeGoogleTts(rawSpoken, charCast?.voiceId || 'hi-IN-Chirp3-HD-Fenrir', options.language as 'en' | 'hi', charCast?.speed || 1.0);
+            const tempWav = containedFile(cache, `flow-fallback-${i}-${runId}.wav`);
+            fs.writeFileSync(tempWav, ttsAudio);
+
+            let imageSource: string | null = null;
+            if (imgItem?.url) {
+              const resImg = resolveInputPath(imgItem.url, options.scriptId);
+              if (fs.existsSync(resImg) && (resImg.endsWith('.png') || resImg.endsWith('.jpg'))) imageSource = resImg;
+            }
+            if (!imageSource && fs.existsSync(dir)) {
+              const imgCand = fs.readdirSync(dir).find(f => (f.startsWith(`image-${String(i).padStart(2, '0')}-`) || f.startsWith(`image-${i}-`)) && (f.endsWith('.png') || f.endsWith('.jpg')));
+              if (imgCand) imageSource = path.join(dir, imgCand);
+            }
+
+            if (imageSource) {
+              const fallbackMp4 = containedFile(dir, `import_${i}_auto_fallback_${runId.slice(0, 8)}.mp4`);
+              await runMedia('ffmpeg', [
+                '-v', 'error', '-y',
+                '-loop', '1', '-i', imageSource,
+                '-i', tempWav,
+                '-filter_complex', '[0:v]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,format=yuv420p[v];[1:a]apad=whole_dur=7.93,volume=1.0[a]',
+                '-map', '[v]', '-map', '[a]',
+                '-c:v', 'libx264', '-preset', 'fast', '-crf', '20',
+                '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', '-ac', '2',
+                '-t', '7.93', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+                fallbackMp4
+              ], signal);
+              fs.rmSync(tempWav, { force: true });
+              if (fs.existsSync(fallbackMp4) && (await probeHasAudio(fallbackMp4))) {
+                videoFile = fallbackMp4;
+              }
+            } else {
+              await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', tempWav, '-vn', '-ac', '1', '-ar', '48000', '-c:a', 'pcm_s16le', '-f', 's16le', tempPcm], signal);
+              fs.rmSync(tempWav, { force: true });
+            }
+          } catch (fallbackErr) {
+            console.warn(`[Flow Audio] Auto fallback for scene ${i + 1} failed:`, fallbackErr);
+          }
+        }
+        if (!videoFile && !fs.existsSync(tempPcm)) {
+          throw new Error(`Scene ${i + 1} (${scene.id}) has no Google Flow video clip with audio. Generate or import your Google Flow video clips in the Media tab first.`);
+        }
+
+        try {
+          signal.throwIfAborted();
+          if (videoFile) {
+            await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', videoFile, '-vn', '-ac', '1', '-ar', '48000', '-c:a', 'pcm_s16le', '-f', 's16le', tempPcm], signal);
+          }
+          let bytes = fs.readFileSync(tempPcm);
+          if (bytes.length < 3200 || bytes.length % 2 !== 0) {
+            throw new Error(`Scene ${scene.id} video audio is too short or invalid.`);
+          }
+          if (i === plan.scenes.length - 1) {
+            // Append a 1.0s clean silent tail buffer to the final scene
+            // so concluding words reverberate cleanly and are never cut off prematurely
+            const tailSamples = Math.round(48000 * 1.0);
+            const tailBuffer = Buffer.alloc(tailSamples * 2);
+            bytes = Buffer.concat([bytes, tailBuffer]);
+          }
+          const startSample = sync.totalSamples;
+          const sceneSamples = bytes.length / 2;
+          sync.totalSamples += sceneSamples;
+          sync.scenes.push({ sceneId: scene.id, startSample, endSample: sync.totalSamples });
+          fs.appendFileSync(raw, bytes);
+
+          const startSec = startSample / 48000;
+          const durationSec = sceneSamples / 48000;
+          const effectiveSpeaker = sceneSpeaker || 'Character';
+          allTurns.push({
+            speaker: effectiveSpeaker,
+            text: sceneText.replace(/^\s*\[[^\]]+\]\s*[:—–-]\s*/, '').trim(),
+            voiceId: 'flow-native',
+            speed: 1.0,
+            startSec,
+            endSec: startSec + durationSec,
+            durationSec,
+          });
+        } finally {
+          fs.rmSync(tempPcm, { force: true });
+        }
+        progress(sync.scenes.length);
+        continue;
+      }
+      const key = hash({ version: 4, provider: ttsProviderName(provider),
+        voiceId: cast?.voiceId,
         synthesis: provider === 'google' ? GOOGLE_TTS_REVISION : undefined,
         options, text: sceneText, speaker: sceneSpeaker, conversational: isConv });
       const pcm = containedFile(cache, `${key}.pcm`);
@@ -128,7 +251,7 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
         const startSec = startSample / 48000;
         const durationSec = (bytes.length / 2) / 48000;
         const effectiveSpeaker = sceneSpeaker || 'Narrator';
-        const cast = resolveCharacterVoice(effectiveSpeaker, options.language, channelKey, options.voice);
+        const cast = voiceSession.getVoice(effectiveSpeaker);
         allTurns.push({
           speaker: effectiveSpeaker,
           text: sceneText.replace(/^\s*\[[^\]]+\]\s*[:—–-]\s*/, '').trim(),

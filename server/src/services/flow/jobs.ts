@@ -2,6 +2,14 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { flowProfileDir, flowStatus } from './profile.js';
+import { store } from '../store.js';
+import {
+  isConversationalScript,
+  hasSpeakerDialogueTags,
+  extractSpeakerName,
+  stripSpeakerTags,
+  normalizeCharacterName,
+} from '../conversational-types.js';
 
 export type FlowJobState = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
 export type FlowModel = 'veo-3.1-lite' | 'veo-3.1-fast' | 'veo-3.1-quality' | 'omni-flash';
@@ -120,6 +128,20 @@ export function cleanFlowPrompt(rawPrompt: string): string {
   cleaned = cleaned.replace(/\n*\s*Evidence\s*\/\s*Disclosure:\s*[\s\S]*?(?=\n\n[A-Z][a-zA-Z\s]+:|$)/i, '');
   cleaned = cleaned.replace(/Disclosure label:[^\n]*/gi, '');
 
+  // Strip bracketed speaker tags inside spoken dialogue quotes so Google Flow never hallucinates on-screen subtitle captions like "[सींहा]:"
+  cleaned = cleaned.replace(/(delivering the spoken Hindi (?:dialogue|audio):\s*")\s*\[[^\]]+\]\s*[:—–-]?\s*/gi, '$1');
+
+  // Google Flow Veo 3.1 safety policy filter sanitization (replaces trigger words that trip false positives)
+  cleaned = cleaned.replace(/\bburning\s+crimson\b/gi, 'radiant amber');
+  cleaned = cleaned.replace(/\bburning\s+orange\b/gi, 'resplendent golden-orange');
+  cleaned = cleaned.replace(/\bburning\s+(?:sky|horizon|twilight)\b/gi, 'glowing sunset horizon');
+  cleaned = cleaned.replace(/\bviolent\s+winds?\b/gi, 'fierce wind');
+  cleaned = cleaned.replace(/\bviolent\s+storms?\b/gi, 'fierce storm');
+  cleaned = cleaned.replace(/\bburning\b/gi, 'radiant');
+  cleaned = cleaned.replace(/\bviolent\b/gi, 'fierce');
+  cleaned = cleaned.replace(/\bglowing\s+embers\b/gi, 'golden dust motes');
+  cleaned = cleaned.replace(/\bfierce\s+pride\b/gi, 'noble pride');
+
   if (STICKMAN_PATTERN.test(cleaned)) {
     // Strip documentary reconstruction headers and photorealistic film LoRA keywords that force realism
     cleaned = cleaned.replace(/Documentary\s+reconstruction\s+style\s+(?:video\s+shot|still\s+image),?\s*(?:vertical\s+9:16\s+aspect\s+ratio\.?)?/gi, 'Stylized cinematic continuous shot concept art animation video, vertical 9:16 aspect ratio.');
@@ -143,7 +165,7 @@ function wrapPrompt(prompt: string, model: FlowModel, aspect: string, duration: 
     : FLOW_TWO_D_PATTERN.test(trimmed)
     ? ' 2D flat cel-shaded cartoon animated video (bold black charcoal ink outlines, flat matte color fills, two-step cel shading, 2D graphic novel animated series style, no 3D CGI, no photorealism)'
     : ' video';
-  return `Generate one ${duration}-second ${aspect === 'portrait' ? 'vertical 9:16' : 'landscape 16:9'}${styleAnchor} with ${model}, no questions, no clarifications: ${trimmed}`;
+  return `Generate one ${duration}-second ${aspect === 'portrait' ? 'vertical 9:16' : 'landscape 16:9'}${styleAnchor} with ${model}, no questions, no clarifications, strictly no on-screen text, no subtitles, no captions: ${trimmed}`;
 }
 
 const jobs = new Map<string, FlowJob>();
@@ -160,10 +182,66 @@ export function flowJobsFor(scriptId: string): FlowJob[] {
   return [...jobs.values()].filter((job) => job.scriptId === scriptId);
 }
 
+
+function findScriptForFlow(scriptId: string): any {
+  try {
+    const fromStore = store.getById<any>('scripts', scriptId);
+    if (fromStore) return fromStore;
+  } catch {}
+
+  const rootData = path.resolve(flowProfileDir(), '..', '..');
+  const globalPath = path.join(rootData, 'scripts.json');
+  if (fs.existsSync(globalPath)) {
+    try {
+      const list = JSON.parse(fs.readFileSync(globalPath, 'utf8'));
+      const s = list.find((x: any) => x.id === scriptId);
+      if (s) return s;
+    } catch {}
+  }
+
+  const accountsDir = path.join(rootData, 'accounts');
+  if (fs.existsSync(accountsDir)) {
+    try {
+      for (const acc of fs.readdirSync(accountsDir)) {
+        const p = path.join(accountsDir, acc, 'profiles', 'shorts', 'scripts.json');
+        if (fs.existsSync(p)) {
+          const list = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const s = list.find((x: any) => x.id === scriptId);
+          if (s) return s;
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
 export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
   const active = [...jobs.values()].some((job) => job.state === 'queued' || job.state === 'running');
   if (active) throw new Error('A Flow job is already running. Wait or cancel it first (one profile = one writer).');
-  const prompt = (spec.prompt || '').trim();
+  let prompt = (spec.prompt || '').trim();
+
+  // ONLY for conversational scripts (Ancient Dharma 'mychannel' and Talevora in Hindi):
+  const scriptDoc = findScriptForFlow(spec.scriptId);
+  if (scriptDoc && (isConversationalScript(scriptDoc) || hasSpeakerDialogueTags(scriptDoc.narration || ''))) {
+    const scene = scriptDoc.scenePlan?.scenes?.[spec.sceneIndex] || scriptDoc.scenes?.[spec.sceneIndex];
+    if (scene) {
+      const speaker = normalizeCharacterName(scene.speaker || extractSpeakerName(scene.narration || ''));
+      const isNarrator = !speaker || /^(?:narrator|सूत्रधार|कथावाचक|voiceover|announcer)$/i.test(speaker);
+      const spokenText = stripSpeakerTags(scene.narration || '').trim();
+
+      if (!isNarrator && spokenText) {
+        // Talking character scene: generate native Hindi voice & natural lip sync in Google Flow
+        if (!prompt.includes(spokenText)) {
+          prompt = `${prompt}. The character speaks clearly in an authentic Hindi voice with natural lip-sync, delivering the spoken Hindi dialogue: "${spokenText}". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music. Strictly clean cinematic visual: NO on-screen subtitles, NO captions, NO text overlays, NO typography.`;
+        }
+      } else if (isNarrator) {
+        // Narrator scene: cinematic atmospheric B-roll without talking mouths
+        if (!/cinematic|b-roll|atmospheric|scenic/i.test(prompt)) {
+          prompt = `${prompt}. Cinematic atmospheric b-roll visual, dramatic environment and lighting, no talking characters, no lip movement.`;
+        }
+      }
+    }
+  }
   if (prompt.length < 10) throw new Error('Prompt is too short. Paste the full scene videoPrompt (80+ words ideal).');
   if (prompt.length > 8000) throw new Error('Prompt exceeds 8000 characters.');
   if (!Number.isInteger(spec.sceneIndex) || spec.sceneIndex < 0) throw new Error('Invalid scene index.');

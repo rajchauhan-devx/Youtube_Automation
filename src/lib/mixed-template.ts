@@ -150,15 +150,23 @@ export function withChannelStyleDna(
   channelOrAccount?: { id?: string; name?: string; youtubeChannelTitle?: string } | string | null,
 ): string {
   const profile = getChannelLoraProfile(channelOrAccount);
-  const block = `
+  const blocks: string[] = [];
+  if (!template.includes('MANDATORY CHANNEL VISUAL STYLE-DNA')) {
+    blocks.push(`
 
 ## MANDATORY CHANNEL VISUAL STYLE-DNA (STRICT CHANNEL ISOLATION — ${profile.channelLabel.toUpperCase()})
 Every <image_prompt>, <video_prompt>, imagePrompt, and videoPrompt MUST incorporate this channel's locked Juggernaut XL LoRA aesthetic so local ComfyUI images and online Google Studio videos match 100% in style:
 - Active Channel LoRA: ${profile.loraTitle} (${profile.loraFileName}, weight ${profile.strengthModel})
 - Mandatory Visual Style-DNA: ${profile.styleDna}
-- Never mix visual styles from other channels.`;
-  if (template.includes('MANDATORY CHANNEL VISUAL STYLE-DNA')) {
-    return template;
+- Never mix visual styles from other channels.`);
   }
-  return `${template.trimEnd()}${block}`;
+  if (profile.narrativeDna && !template.includes('MANDATORY CHANNEL NARRATIVE DIRECTION')) {
+    blocks.push(`
+
+## MANDATORY CHANNEL NARRATIVE DIRECTION — ${profile.channelLabel.toUpperCase()}
+${profile.narrativeDna}
+Apply this to the spoken script, hooks and scene beats without breaking the template's structure, output contract or factual standards.`);
+  }
+  if (!blocks.length) return template;
+  return `${template.trimEnd()}${blocks.join('')}`;
 }

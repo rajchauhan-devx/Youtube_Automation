@@ -15,6 +15,7 @@ import { autoEditPlan, autoMotionFilter, smoothMotionFilter, autoEditAss, autoAu
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { generatedDir, mediaUrl, currentWorkspace } from './workspace.js';
 import { outputDir as workspaceOutputDir } from './workspace.js';
+import { stripBracketCues } from './conversational-types.js';
 
 if (!fs.existsSync(workspaceOutputDir())) {
   fs.mkdirSync(workspaceOutputDir(), { recursive: true });
@@ -46,6 +47,8 @@ export function videoEncoderFlags(useNvenc: boolean, crf = 21): string[] {
 
 
 export interface RenderOptions {
+  useNativeVideoAudio?: boolean;
+  audioSource?: 'tts' | 'flow' | 'native';
   polishAudio?: boolean;
   presenter?: PresenterSettings;
   presenterPath?: string;
@@ -77,6 +80,7 @@ export interface RenderOptions {
   colorGrade?: string;
   enableVignette?: boolean;
   enableSfx?: boolean;
+  videoDurations?: Record<number, number>;
   signal?: AbortSignal;
   onProgress?: (percent: number) => void;
 }
@@ -98,6 +102,16 @@ export async function probeAudioDuration(filePath: string): Promise<number> {
       }
     });
   });
+}
+
+export async function probeHasAudio(filePath: string): Promise<boolean> {
+  try {
+    const raw = await runMedia('ffprobe', ['-v', 'error', '-show_streams', '-select_streams', 'a', '-of', 'json', filePath]);
+    const probe = JSON.parse(raw);
+    return Array.isArray(probe.streams) && probe.streams.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 export function resolveInputPath(p: string, scriptId: string): string {
@@ -209,7 +223,11 @@ export function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]
       ? `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`
       : `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}`;
     if (isVideo) {
-      filterParts.push(`[${i}:v]${framing},setsar=1,fps=${FPS},tpad=stop_mode=clone:stop_duration=5,trim=duration=${(clip.frames / FPS).toFixed(3)},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
+      const sourceDuration = opts.videoDurations?.[i] || 5.0;
+      const targetDuration = clip.frames / FPS;
+      const ratio = targetDuration / sourceDuration;
+      const stretch = Math.min(1.25, Math.max(0.75, ratio));
+      filterParts.push(`[${i}:v]${framing},setsar=1,fps=${FPS},setpts=(PTS-STARTPTS)*${stretch.toFixed(4)},tpad=stop_mode=clone:stop_duration=5,trim=duration=${(clip.frames / FPS).toFixed(3)},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
     } else {
       const motion = buildZoompanExpression(sa?.effects?.[i] || 'zoom-in', clip.frames, width, height, zoomFactor);
       filterParts.push(`[${i}:v]${framing},setsar=1,${motion},trim=end_frame=${clip.frames},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
@@ -241,7 +259,7 @@ export function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]
   }
 
   // Subtitles
-  if (opts.enableSubtitles && opts.subtitlePath && fs.existsSync(opts.subtitlePath)) {
+  if (opts.enableSubtitles && !opts.useNativeVideoAudio && opts.subtitlePath && fs.existsSync(opts.subtitlePath)) {
     const cleanSubPath = path.resolve(opts.subtitlePath).replace(/\\/g, '/').replace(/:/g, '\\:');
     postFilters.push(`ass='${cleanSubPath}':shaping=complex`);
   }
@@ -296,6 +314,20 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
   if (!Number.isFinite(audioDuration) || audioDuration <= 0) throw new Error('Cannot measure narration duration; check the audio file and ffprobe');
   const duration = audioDuration;
   opts.duration = duration;
+
+  if (!opts.videoDurations) {
+    const vDurs: Record<number, number> = {};
+    for (let i = 0; i < resolvedImages.length; i++) {
+      const isVid = resolvedImages[i].endsWith('.mp4') || resolvedImages[i].endsWith('.mov') || resolvedImages[i].endsWith('.webm');
+      if (isVid) {
+        try {
+          const d = await probeAudioDuration(resolvedImages[i]);
+          if (Number.isFinite(d) && d > 0) vDurs[i] = d;
+        } catch {}
+      }
+    }
+    opts.videoDurations = vDurs;
+  }
 
   const hasBgm = Boolean(opts.bgmPath && fs.existsSync(opts.bgmPath));
 
@@ -422,11 +454,16 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         const sourceDuration = await probeAudioDuration(resolveInputPath(opts.imagePaths[i], opts.scriptId));
         const targetDuration = frames / FPS;
         if (!Number.isFinite(sourceDuration) || sourceDuration <= 0) throw new Error(`Scene ${scenePlan.scenes[i].id}: cannot measure video duration.`);
-        // Trim longer footage; slow shorter footage gently (up to 25%), then hold
-        // the final frame cleanly until the narration scene completes. Never repeat an action.
-        const stretch = Math.min(1.25, Math.max(1, targetDuration / sourceDuration));
-        holdDuration = Math.max(2.1, (targetDuration - sourceDuration * stretch) + 1.0);
-        videoTiming = `setpts=(PTS-STARTPTS)*${stretch}`;
+        // Dynamically retime lip articulation footage to match speech duration.
+        if (opts.useNativeVideoAudio) {
+          videoTiming = 'setpts=PTS-STARTPTS';
+          holdDuration = Math.max(1.0, (targetDuration - sourceDuration) + 0.5);
+        } else {
+          const ratio = targetDuration / sourceDuration;
+          const stretch = Math.min(1.25, Math.max(0.75, ratio));
+          holdDuration = Math.max(2.1, (targetDuration - sourceDuration * stretch) + 1.0);
+          videoTiming = `setpts=(PTS-STARTPTS)*${stretch.toFixed(4)}`;
+        }
       }
       const fitVideo = (framing: string) => `${videoTiming},${framing},setsar=1,fps=${FPS},tpad=stop_mode=clone:stop_duration=${holdDuration.toFixed(2)},trim=duration=${frames / FPS}`;
       let filter = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,${buildZoompanExpression(opts.sceneAnalysis?.effects?.[i] || 'zoom-in', frames, width, height, opts.zoomFactor ?? 1.1)}`;
@@ -448,8 +485,22 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         const clean = `clean-${i}.mp4`;
         const file = `scene-${i}.mp4`;
         const length = frames / FPS;
-        await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', resolveInputPath(opts.imagePaths[i], opts.scriptId), '-vf', `${filter},${normalizeVideo}`,
-          '-frames:v', String(frames), '-an', ...videoEncoderFlags(useNvenc, editing.quality === 'high' ? 18 : 21), '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), clean], opts.signal, work);
+        const inputPath = resolveInputPath(opts.imagePaths[i], opts.scriptId);
+        const isVideo = scenePlan.scenes[i].mediaType === 'video';
+        const hasAudio = isVideo && (await probeHasAudio(inputPath));
+        const cleanCmd = ['-v', 'error', '-y', '-i', inputPath];
+        if (opts.useNativeVideoAudio && !hasAudio) {
+          cleanCmd.push('-f', 'lavfi', '-t', String(frames / FPS), '-i', 'anullsrc=channel_layout=stereo:sample_rate=48000');
+          cleanCmd.push('-vf', `${filter},${normalizeVideo}`, '-frames:v', String(frames));
+          cleanCmd.push('-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-b:a', '192k');
+        } else if (opts.useNativeVideoAudio && hasAudio) {
+          cleanCmd.push('-vf', `${filter},${normalizeVideo}`, '-frames:v', String(frames));
+          cleanCmd.push('-af', `apad=whole_dur=${(frames / FPS).toFixed(4)}`, '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-b:a', '192k');
+        } else {
+          cleanCmd.push('-vf', `${filter},${normalizeVideo}`, '-frames:v', String(frames), '-an');
+        }
+        cleanCmd.push(...videoEncoderFlags(useNvenc, editing.quality === 'high' ? 18 : 21), '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), clean);
+        await runMedia('ffmpeg', cleanCmd, opts.signal, work);
         const transitionLength = Math.min(editing.transitionSeconds, length / 3);
         const post: string[] = [];
         if ((i === 0 && editing.bookendFades) || decisions[i].transition === 'dip-black') post.push(`fade=t=in:st=0:d=${transitionLength}`);
@@ -458,7 +509,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
           const bar = Math.round(height * 0.065);
           post.push(`drawbox=x=0:y=0:w=iw:h=${bar}:color=black:t=fill`, `drawbox=x=0:y=ih-${bar}:w=iw:h=${bar}:color=black:t=fill`);
         }
-        if (editing.captions && opts.enableSubtitles !== false) {
+        if (editing.captions && opts.enableSubtitles !== false && !opts.useNativeVideoAudio) {
           fs.writeFileSync(containedFile(work, `polish-${i}.ass`), reservePresenterCaptionSpace(autoEditAss(scenePlan.scenes[i].narration, length, '', width, height, editing, true), opts.presenter, presenterSourceSize));
           post.push(`ass=polish-${i}.ass:shaping=complex`);
         }
@@ -469,8 +520,20 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
           // timeline segments, stolen video frames, caption ghosts or audio shifts.
           sceneArgs.push('-loop', '1', '-framerate', String(FPS), '-i', 'previous-tail.png', '-filter_complex_threads', '1', '-filter_complex',
             `[1:v]trim=duration=${transitionLength},settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[tail];[0:v]settb=AVTB,setpts=PTS-STARTPTS,format=yuv420p[current];[tail][current]xfade=transition=fade:duration=${transitionLength}:offset=0,${post.join(',')}[v]`, '-map', '[v]');
-        } else sceneArgs.push('-vf', post.join(','));
-        sceneArgs.push('-frames:v', String(frames), '-an', ...videoEncoderFlags(useNvenc, editing.quality === 'high' ? 19 : 23), '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), file);
+          if (opts.useNativeVideoAudio) {
+            sceneArgs.push('-map', '0:a', '-c:a', 'copy');
+          }
+        } else {
+          sceneArgs.push('-vf', post.join(','));
+          if (opts.useNativeVideoAudio) {
+            sceneArgs.push('-c:a', 'copy');
+          }
+        }
+        sceneArgs.push('-frames:v', String(frames));
+        if (!opts.useNativeVideoAudio) {
+          sceneArgs.push('-an');
+        }
+        sceneArgs.push(...videoEncoderFlags(useNvenc, editing.quality === 'high' ? 19 : 23), '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), file);
         await runMedia('ffmpeg', sceneArgs, opts.signal, work);
         if (decisions[i + 1]?.transition === 'dissolve') await runMedia('ffmpeg', ['-v', 'error', '-y', '-sseof', String(-1 / FPS), '-i', clean, '-frames:v', '1', '-update', '1', 'previous-tail.png'], opts.signal, work);
         fs.rmSync(containedFile(work, clean), { force: true });
@@ -478,8 +541,8 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         opts.onProgress?.(Math.round(90 * (i + 1) / scenePlan.scenes.length));
         continue;
       }
-      if (opts.enableSubtitles) {
-        const caption = scenePlan.scenes[i].narration.replace(/[{}\\\r\n]/g, ' ').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
+      if (opts.enableSubtitles && !opts.useNativeVideoAudio) {
+        const caption = stripBracketCues(scenePlan.scenes[i].narration).replace(/[{}\\\r\n]/g, ' ').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
         const vMargin = Math.round(height * (height > width ? 0.20 : 0.08));
         const ass = `[Script Info]\nScriptType: v4.00+\nPlayResX: ${width}\nPlayResY: ${height}\nWrapStyle: 0\n[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\nStyle: Default,Nirmala UI,40,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,0,0,0,0,100,100,0,0,1,2,0,2,96,96,${vMargin},1\n[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\nDialogue: 0,0:00:00.00,${time(frames / FPS)},Default,,0,0,0,,${caption}\n`;
         fs.writeFileSync(containedFile(work, `caption-${i}.ass`), reservePresenterCaptionSpace(ass, opts.presenter, presenterSourceSize));
@@ -487,26 +550,65 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
       }
       filter += `,${normalizeVideo}`;
       const file = `scene-${i}.mp4`;
-      await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', resolveInputPath(opts.imagePaths[i], opts.scriptId), '-vf', filter,
-        '-frames:v', String(frames), '-an', ...videoEncoderFlags(useNvenc, 23), '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), file], opts.signal, work);
+      const inputPath = resolveInputPath(opts.imagePaths[i], opts.scriptId);
+      const isVideo = scenePlan.scenes[i].mediaType === 'video';
+      const hasAudio = isVideo && (await probeHasAudio(inputPath));
+      const sceneCmd = ['-v', 'error', '-y', '-i', inputPath];
+      if (opts.useNativeVideoAudio && !hasAudio) {
+        sceneCmd.push('-f', 'lavfi', '-t', String(frames / FPS), '-i', 'anullsrc=channel_layout=stereo:sample_rate=48000');
+        sceneCmd.push('-vf', filter, '-frames:v', String(frames));
+        sceneCmd.push('-map', '0:v', '-map', '1:a', '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-b:a', '192k');
+      } else if (opts.useNativeVideoAudio && hasAudio) {
+        sceneCmd.push('-vf', filter, '-frames:v', String(frames));
+        sceneCmd.push('-af', `apad=whole_dur=${(frames / FPS).toFixed(4)}`, '-c:a', 'aac', '-ar', '48000', '-ac', '2', '-b:a', '192k');
+      } else {
+        sceneCmd.push('-vf', filter, '-frames:v', String(frames), '-an');
+      }
+      sceneCmd.push(...videoEncoderFlags(useNvenc, 23), '-pix_fmt', 'yuv420p', ...colorSpaceArgs, '-r', String(FPS), file);
+      await runMedia('ffmpeg', sceneCmd, opts.signal, work);
       files.push(`file '${file}'`);
       opts.onProgress?.(Math.round(90 * (i + 1) / scenePlan.scenes.length));
     }
     fs.writeFileSync(containedFile(work, 'concat.txt'), files.join('\n'));
-    const args = ['-v', 'error', '-y', '-f', 'concat', '-safe', '1', '-i', 'concat.txt', '-i', resolveInputPath(opts.audioPath, opts.scriptId)];
-    const voiceVolume = opts.ttsVolume ?? 1;
-    if (editing && decisions) {
-      if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
-      const chapterTimes = decisions.flatMap((decision, i) => i > 0 && decision.chapterStart ? [sync.scenes[i].startSample / sync.sampleRate] : []);
-      args.push('-filter_complex', autoAudioGraph(editing, duration, voiceVolume, opts.bgmVolume ?? 0.12, Boolean(opts.bgmPath), chapterTimes));
-    } else if (opts.polishAudio) {
-      if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
-      args.push('-filter_complex', autoAudioGraph(editingPreset('documentary'), duration, voiceVolume, opts.bgmVolume ?? 0.1, Boolean(opts.bgmPath), []));
-    } else if (opts.bgmPath) {
-      args.push('-stream_loop', '-1', '-i', opts.bgmPath, '-filter_complex', `[1:a]volume=${voiceVolume}[voice];[2:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,volume=${opts.bgmVolume ?? 0.15},afade=t=in:d=${Math.min(1, duration / 4)},afade=t=out:st=${Math.max(0, duration - 1.5)}:d=${Math.min(1.5, duration)}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`);
-    } else args.push('-filter_complex', `[1:a]volume=${voiceVolume}[a]`);
-    args.push('-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-t', String(duration), '-movflags', '+faststart', partial);
-    await runMedia('ffmpeg', args, opts.signal, work);
+    if (opts.useNativeVideoAudio) {
+      const args = ['-v', 'error', '-y', '-f', 'concat', '-safe', '1', '-i', 'concat.txt'];
+      const voiceVolume = opts.ttsVolume ?? 1;
+      if (editing && decisions) {
+        if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
+        const chapterTimes = decisions.flatMap((decision, i) => i > 0 && decision.chapterStart ? [sync.scenes[i].startSample / sync.sampleRate] : []);
+        const remappedGraph = autoAudioGraph(editing, duration, voiceVolume, opts.bgmVolume ?? 0.12, Boolean(opts.bgmPath), chapterTimes)
+          .replace(/\[1:a\]/g, '[0:a]')
+          .replace(/\[2:a\]/g, '[1:a]');
+        args.push('-filter_complex', remappedGraph);
+      } else if (opts.polishAudio) {
+        if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
+        const remappedGraph = autoAudioGraph(editingPreset('documentary'), duration, voiceVolume, opts.bgmVolume ?? 0.1, Boolean(opts.bgmPath), [])
+          .replace(/\[1:a\]/g, '[0:a]')
+          .replace(/\[2:a\]/g, '[1:a]');
+        args.push('-filter_complex', remappedGraph);
+      } else if (opts.bgmPath) {
+        args.push('-stream_loop', '-1', '-i', opts.bgmPath, '-filter_complex', `[0:a]volume=${voiceVolume}[voice];[1:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,volume=${opts.bgmVolume ?? 0.15},afade=t=in:d=${Math.min(1, duration / 4)},afade=t=out:st=${Math.max(0, duration - 1.5)}:d=${Math.min(1.5, duration)}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`);
+      } else {
+        args.push('-filter_complex', `[0:a]volume=${voiceVolume}[a]`);
+      }
+      args.push('-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-t', String(duration), '-movflags', '+faststart', partial);
+      await runMedia('ffmpeg', args, opts.signal, work);
+    } else {
+      const args = ['-v', 'error', '-y', '-f', 'concat', '-safe', '1', '-i', 'concat.txt', '-i', resolveInputPath(opts.audioPath, opts.scriptId)];
+      const voiceVolume = opts.ttsVolume ?? 1;
+      if (editing && decisions) {
+        if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
+        const chapterTimes = decisions.flatMap((decision, i) => i > 0 && decision.chapterStart ? [sync.scenes[i].startSample / sync.sampleRate] : []);
+        args.push('-filter_complex', autoAudioGraph(editing, duration, voiceVolume, opts.bgmVolume ?? 0.12, Boolean(opts.bgmPath), chapterTimes));
+      } else if (opts.polishAudio) {
+        if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
+        args.push('-filter_complex', autoAudioGraph(editingPreset('documentary'), duration, voiceVolume, opts.bgmVolume ?? 0.1, Boolean(opts.bgmPath), []));
+      } else if (opts.bgmPath) {
+        args.push('-stream_loop', '-1', '-i', opts.bgmPath, '-filter_complex', `[1:a]volume=${voiceVolume}[voice];[2:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,volume=${opts.bgmVolume ?? 0.15},afade=t=in:d=${Math.min(1, duration / 4)},afade=t=out:st=${Math.max(0, duration - 1.5)}:d=${Math.min(1.5, duration)}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`);
+      } else args.push('-filter_complex', `[1:a]volume=${voiceVolume}[a]`);
+      args.push('-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-t', String(duration), '-movflags', '+faststart', partial);
+      await runMedia('ffmpeg', args, opts.signal, work);
+    }
     if (opts.presenter?.enabled && opts.presenterPath) {
       opts.onProgress?.(95);
       await compositePresenter(partial, opts.presenterPath, opts.presenter, width, height, duration, opts.signal);

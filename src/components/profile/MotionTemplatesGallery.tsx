@@ -795,7 +795,7 @@ export function MotionTemplatesGallery() {
 
   const detectedProfileId: ProfileId = React.useMemo(() => {
     const raw = `${account.id} ${account.name} ${account.youtubeChannelTitle || ''}`.toLowerCase();
-    if (raw.includes('talvora') || raw.includes('romance')) return 'talvora';
+    if (raw.includes('talvora') || raw.includes('talevora') || raw.includes('romance')) return 'talvora';
     if (raw.includes('odds') || raw.includes('against')) return 'against_the_odds';
     if (raw.includes('dharma') || raw.includes('vedic') || raw.includes('ancient') || raw.includes('राम')) return 'ancient_dharma';
     return 'ancient_dharma';

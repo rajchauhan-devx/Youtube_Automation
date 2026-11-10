@@ -289,5 +289,335 @@
     "generatedImages": [],
     "generatedAudio": [],
     "pipeline": []
+  },
+  {
+    "id": "usr_dharma_conversational_dialogue",
+    "name": "Short — Ramayana Conversational Dialogue (Multi-Voice & Google Flow Lips)",
+    "prompts": [
+      {
+        "id": "prompt_dharma_conversational_v1",
+        "name": "Ramayana & Sacred Epics — Pure Multi-Character Dialogue Master Prompt (100% Video, Zero Narrator)",
+        "content": "STEP 0 — DEEP RESEARCH FIRST (MANDATORY)\nBefore writing a single word of narration or dialogue, thoroughly RESEARCH the given Topic and Source Material (Valmiki Ramayana, Vyasa Mahabharata, or sacred Puranas).\nEstablish:\n1. The central characters in this episode:\n   - For Ramayana: Shri Ram & Lakshman, Sita & Ravana, Ram & Hanuman, Lakshman & Meghnad, Ram & Bharat, Sugriva & Vali, Kevat & Ram, Jatayu & Ravana, Angad & Ravana, Ram & Samudra Dev.\n   - For Mahabharata / Puranas: Krishna & Arjuna, Karna & Krishna, Draupadi & Krishna, Bhishma & Duryodhana, Shiva & Parvati.\n2. The core moral dilemma, intense confrontation, or decisive turning point.\n3. The decisive truth, action, pledge, or divine realization that resolves the tension.\n\n🎭 PURE MULTI-CHARACTER CONVERSATIONAL DRAMA (100% FULL VIDEO ONLY — ZERO NARRATOR MANDATE)\nIn this format, there is STRICTLY NO NARRATOR ([सूत्रधार]). The entire video is pure character dialogue between the key figures.\n\n🚨 MANDATORY RULE #1 — ZERO NARRATOR MANDATE (NO [सूत्रधार] / NO NARRATOR):\n- NEVER write [सूत्रधार] or [Narrator]!\n- Every single line in <script> must be spoken directly by one of the characters ([लक्ष्मण], [राम], [सीता], [हनुमान], [रावण], [समुद्र], [केवट], [विभीषण], [कृष्ण], [अर्जुन], etc.).\n- Characters speak directly to each other from second zero through the final closing sacred line.\n\n🙏 SACRED CHARACTER DICTION & DIGNIFIED SCRIPTURAL HINDI:\n- When ancient gods, avataras, and epic figures speak (Devi Sita, Sri Rama, Lakshmana, Ravana, Hanuman, Krishna), they must speak with supreme scriptural dignity, noble vocabulary, and sacred gravitas true to the Valmiki Ramayana and Ramcharitmanas.\n- STRICTLY FORBIDDEN STREET SLANG & RUDE PRONOUNS: Never use 'तू', 'तेरा', 'तुझे', 'तूने', 'काय रे', 'अरे', or modern street insults!\n- Even when confronting evil or expressing righteous fury:\n  * Mata Sita addresses Ravana as 'दशानन', 'रे निशाचर', 'लंकेश्वर', 'अधर्मी', using dignified pronouns: 'तुम्हारा', 'तुम्हें'.\n  * Ravana speaks with royal ego and sovereign pride ('सीता! त्रिलोक विजेता लंकापति...'), never cheap street slang.\n\n⏱️ FLOW CLIP DURATION LIMIT (NEVER CUT OFF AUDIO):\n- Every Google Flow (Veo 3.1) scene video clip is strictly ~8 seconds long.\n- Spoken dialogue in each scene MUST be concise: strictly 10 to 16 Hindi words (~3.5 to 4.5 seconds of spoken speech).\n- This leaves at least 3 seconds of calm ambient room before the scene ends.\n- The concluding scene (Scene 10) must NEVER be an overloaded paragraph; it must be a concise, powerful sacred conclusion (10–12 words, e.g. '[सीता]: सत्य और धर्म की सदा विजय होती है! अधर्म का नाश निश्चित है। जय श्री राम!') so speech finishes cleanly without being abruptly cut off.\n\n🎬 100% FULL VIDEO ONLY PROTOCOL (GOOGLE FLOW NATIVE AUDIOVISUAL GENERATION):\n- EVERY scene in the episode MUST be a full video shot (<video_prompt[N]>), never a still image.\n- Google Flow (Veo 3.1) co-generates the character video and spoken Hindi voice in a single pass with natural lip-sync matching the dialogue in quotes.\n- In each <video_prompt[N]>, provide:\n  1. Camera motion & framing (medium close-up, dynamic camera move, epic volumetric lighting).\n  2. Character physical consistency.\n  3. Google Flow Speech Command:\n     \"The character speaks clearly in an authentic Hindi voice with natural lip-sync, delivering the spoken Hindi dialogue: \\\"[Character]: [exact spoken Hindi line]\\\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient tone, no background music.\"\n\n🏷️ THE THREE-TAG MASTER PROTOCOL:\n\n1. Audio Narration Tag: Exactly ONE <script>...</script> block.\n- Spoken Devanagari Hindi only.\n- 100% character dialogue with zero [सूत्रधार].\n- Alternating dialogue between characters.\n\n2. Sequential Visual Tags (Numbered Timeline):\n- Scene 1 Hook: ALWAYS <video_prompt1>...</video_prompt1> showing the opening character speaking their challenge.\n- All subsequent scenes: <video_prompt2> to <video_prompt[N]> each showing the speaking character with explicit Google Flow lip/jaw articulation directions.\n- Thumbnail: <image_prompt0> strictly reserved for the external 16:9 promotional cover."
+      }
+    ],
+    "howItWorks": "AI dynamically writes character spoken dialogue and narrator action beats. Scene 1 always starts with a character hook line. Google Flow animates speaking character lips when talking, and silent cinematic reaction shots when narrator speaks. Audio uses native SSML breath pauses and 0.75x–1.25x dynamic lip articulation retiming.",
+    "duration": 60,
+    "model": "gemini-3.7-flash",
+    "locked": false,
+    "enableSubtitles": false,
+    "presenter": {
+      "enabled": false,
+      "avatarId": "avatar_013",
+      "style": "transparent",
+      "widthPercent": 35,
+      "bottomPercent": 2,
+      "marginPercent": 0,
+      "horizontalPercent": 100,
+      "crop": {
+        "x": 32,
+        "y": 2,
+        "width": 40,
+        "height": 67
+      },
+      "silenceGate": false,
+      "silenceThresholdDb": -40
+    },
+    "ttsVolume": 1.2,
+    "autoPilotSettings": {
+      "version": 1,
+      "media": {
+        "imageProvider": "google",
+        "imageQuality": "standard",
+        "seedMode": "random",
+        "seed": 108,
+        "flowEnabled": true,
+        "flowResolution": "720p",
+        "flowDuration": 8,
+        "allowImageFallback": false,
+        "videoOnly": true
+      },
+      "voice": {
+        "provider": "google",
+        "language": "hi",
+        "voiceId": "hi-IN-Chirp3-HD-Charon",
+        "rate": 0,
+        "pitch": 0,
+        "speed": 1
+      },
+      "captions": "off",
+      "graphics": {
+        "enabled": false,
+        "mode": "images",
+        "density": "subtle",
+        "treatment": "auto",
+        "style": "Cinematic Vedic graphics only for sacred revelations.",
+        "model": ""
+      },
+      "editing": {
+        "mode": "story",
+        "settings": {
+          "enabled": true,
+          "preset": "documentary",
+          "motion": "gentle",
+          "transitions": "auto",
+          "transitionSeconds": 0.35,
+          "framing": "contain",
+          "chapterTitles": false,
+          "bookendFades": false,
+          "captionStyle": "minimal",
+          "captions": false,
+          "colorLook": "none",
+          "vignette": false,
+          "captionWords": 8,
+          "voicePolish": true,
+          "musicDucking": true,
+          "chapterSound": false,
+          "grain": false,
+          "sharpen": false,
+          "letterbox": false,
+          "quality": "high",
+          "overrides": {}
+        }
+      },
+      "audio": {
+        "music": "auto",
+        "musicVolume": 0.1,
+        "voiceVolume": 1
+      },
+      "youtube": {
+        "enabled": false,
+        "privacyStatus": "public",
+        "publishMode": "now",
+        "scheduledPublishAt": ""
+      },
+      "presenter": {
+        "enabled": false,
+        "avatarId": "avatar_013",
+        "style": "transparent",
+        "widthPercent": 35,
+        "bottomPercent": 2,
+        "marginPercent": 0,
+        "horizontalPercent": 100,
+        "crop": {
+          "x": 32,
+          "y": 2,
+          "width": 40,
+          "height": 67
+        },
+        "silenceGate": false,
+        "silenceThresholdDb": -40
+      }
+    },
+    "accountId": "default",
+    "section": "shorts",
+    "status": "draft",
+    "lastUsed": "Never",
+    "aiResponse": "",
+    "extractedScript": "",
+    "narration": "",
+    "imagePrompts": [],
+    "generatedImages": [],
+    "generatedAudio": [],
+    "pipeline": []
+  },
+  {
+    "id": "usr_talevora_conversational_dialogue",
+    "name": "Short — Talevora Suspense Thriller (Natasha & Vikram Midnight Breach)",
+    "prompts": [
+      {
+        "id": "prompt_talevora_conversational_v1",
+        "name": "Talevora Suspense & Mystery — Pure Character Dialogue Master Prompt (100% Video, Zero Narrator)",
+        "content": "STEP 0 — HIGH-STAKES SUSPENSE PRE-PLANNING (MANDATORY)\nPlan a high-stakes nocturnal suspense thriller micro-drama in Hindi.\nCenter the story on a sharp, charismatic adult heroine (Natasha: mid-20s, striking looks, high intelligence, sleek jet-black hair tied back, tailored dark blazer over minimalist top) opposite an intense counterpart (Vikram: early-30s, sharp tactical operative, dark tactical turtleneck).\nBuild the story on GENUINE DRAMA & PLOT TENSION: high-stakes breaches, stolen intelligence, corporate/criminal conspiracies, survival, and unexpected twists.\n\n🎭 PURE MULTI-CHARACTER CONVERSATIONAL DRAMA (100% FULL VIDEO ONLY — ZERO NARRATOR MANDATE)\nIn Talevora conversational episodes, there is STRICTLY NO NARRATOR ([सूत्रधार]). The entire story is told purely through intense, snappy character dialogue ([नताशा], [विक्रम]).\n\n🚨 MANDATORY RULE #1 — ZERO NARRATOR MANDATE:\n- NEVER write [सूत्रधार] or [Narrator]!\n- Every single line in <script> must be spoken directly by one of the characters ([नताशा], [विक्रम], etc.).\n- Characters speak directly to each other from second zero through the final line.\n\n⚡ MANDATORY RULE #2 — NATURAL CRISP PACING & SPEED:\n- Dialogue delivery is crisp, natural, and energetic (1.04x speed).\n- Keep each line short and punchy (under 12-15 words). NO dragging monologues or slow theatrical reciting.\n- Rapid back-and-forth conversational momentum that pulls the viewer in immediately.\n\n🔒 MANDATORY RULE #3 — STRICT CHARACTER CONSISTENCY:\n- Lock the visual appearance of Natasha and Vikram in every single scene.\n- Natasha: mid-20s, sharp facial features, intense dark eyes, sleek black hair tied back, tailored charcoal-black blazer.\n- Vikram: early-30s, defined jawline, trimmed stubble, dark tactical turtleneck.\n\n🎬 MANDATORY RULE #4 — 100% FULL VIDEO & STRICT LIP-SYNC:\n- EVERY scene in the episode MUST be a full video shot (<video_prompt[N]>), never a still image.\n- In each <video_prompt[N]>, instruct Google Flow / video generator:\n  \"The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \\\"[Character]: [exact spoken Hindi line]\\\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music.\"\n\n🏷️ THE THREE-TAG MASTER PROTOCOL:\n1. Audio Narration Tag: Exactly ONE <script>...</script> block in pure spoken Hindi (Devanagari).\n2. Sequential Visual Tags: <video_prompt1> to <video_prompt[N]> each showing the speaking character with explicit lip-sync instructions.\n3. Thumbnail: <image_prompt0> reserved for the 16:9 / 9:16 promotional cover."
+      }
+    ],
+    "duration": 52,
+    "model": "gemini-3.7-flash",
+    "enableSubtitles": false,
+    "presenter": {
+      "enabled": false,
+      "avatarId": "avatar_013",
+      "style": "transparent",
+      "widthPercent": 35,
+      "bottomPercent": 2,
+      "marginPercent": 0,
+      "horizontalPercent": 100,
+      "crop": {
+        "x": 32,
+        "y": 2,
+        "width": 40,
+        "height": 67
+      },
+      "silenceGate": false,
+      "silenceThresholdDb": -40
+    },
+    "autoPilotSettings": {
+      "version": 1,
+      "media": {
+        "imageProvider": "google",
+        "imageQuality": "standard",
+        "seedMode": "random",
+        "seed": 42,
+        "flowEnabled": true,
+        "flowResolution": "720p",
+        "flowDuration": 8,
+        "allowImageFallback": true,
+        "videoOnly": false
+      },
+      "voice": {
+        "provider": "google",
+        "language": "hi",
+        "voiceId": "hi-IN-Chirp3-HD-Charon",
+        "rate": 0,
+        "pitch": 0,
+        "speed": 1
+      },
+      "captions": "off",
+      "graphics": {
+        "enabled": false,
+        "mode": "images",
+        "density": "balanced",
+        "treatment": "auto",
+        "style": "Let AI choose only moments where a graphic materially explains the narration. Metadata is a suggestion, never a command to decorate every scene. Leave ordinary footage clean, keep breathing room between beats, and allow zero graphics. Use purposeful typography, fine lines and explanatory diagrams in open space around subjects. Never invent facts, coordinates, source labels or telemetry. Preview the actual result before export.",
+        "model": ""
+      },
+      "editing": {
+        "mode": "story",
+        "settings": {
+          "enabled": true,
+          "preset": "cinematic",
+          "motion": "balanced",
+          "transitions": "auto",
+          "transitionSeconds": 0.35,
+          "framing": "contain",
+          "chapterTitles": false,
+          "bookendFades": false,
+          "captionStyle": "gold",
+          "captions": true,
+          "colorLook": "none",
+          "vignette": true,
+          "captionWords": 8,
+          "voicePolish": true,
+          "musicDucking": true,
+          "chapterSound": false,
+          "grain": false,
+          "sharpen": false,
+          "letterbox": false,
+          "quality": "high",
+          "overrides": {}
+        }
+      },
+      "audio": {
+        "music": "auto",
+        "musicVolume": 0.1,
+        "voiceVolume": 1
+      },
+      "youtube": {
+        "enabled": false,
+        "privacyStatus": "private",
+        "publishMode": "now",
+        "scheduledPublishAt": ""
+      },
+      "presenter": {
+        "enabled": false,
+        "avatarId": "avatar_013",
+        "style": "transparent",
+        "widthPercent": 35,
+        "bottomPercent": 2,
+        "marginPercent": 0,
+        "horizontalPercent": 100,
+        "crop": {
+          "x": 32,
+          "y": 2,
+          "width": 40,
+          "height": 67
+        },
+        "silenceGate": false,
+        "silenceThresholdDb": -40
+      }
+    },
+    "accountId": "default",
+    "section": "shorts",
+    "status": "draft",
+    "lastUsed": "Never",
+    "aiResponse": "",
+    "extractedScript": "",
+    "narration": "",
+    "imagePrompts": [],
+    "generatedImages": [],
+    "generatedAudio": [],
+    "pipeline": [],
+    "scenePlan": {
+      "version": 1,
+      "title": "Talevora Midnight Breach",
+      "thumbnailPrompt": "Cinematic split composition: Natasha with focused intense gaze examining an encrypted microchip on the left; Vikram on the right aiming a tactical defense device toward an opening steel vault in volumetric nocturnal blue and amber lighting.",
+      "scenes": [
+        {
+          "id": "scene_001",
+          "chapter": "Scene 1",
+          "role": "hook",
+          "narration": "[नताशा]: विक्रम! सिस्टम का सेफ़ कोड बदल दिया गया है... क्या ये धोखा अंदर से हुआ है?",
+          "speaker": "नताशा",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Cinematic close medium shot, smooth tracking in. Natasha (mid-20s South Asian woman, sharp striking features, intense dark eyes, sleek jet-black hair tied back, wearing a tailored charcoal-black blazer over a minimalist top) stands in a dimly lit high-tech control room with volumetric blue and amber terminal reflections. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[नताशा]: विक्रम! सिस्टम का सेफ़ कोड बदल दिया गया है... क्या ये धोखा अंदर से हुआ है?\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient server hum, no background music.",
+          "videoPrompt": "Cinematic close medium shot, smooth tracking in. Natasha (mid-20s South Asian woman, sharp striking features, intense dark eyes, sleek jet-black hair tied back, wearing a tailored charcoal-black blazer over a minimalist top) stands in a dimly lit high-tech control room with volumetric blue and amber terminal reflections. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[नताशा]: विक्रम! सिस्टम का सेफ़ कोड बदल दिया गया है... क्या ये धोखा अंदर से हुआ है?\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient server hum, no background music."
+        },
+        {
+          "id": "scene_002",
+          "chapter": "Scene 2",
+          "role": "story",
+          "narration": "[विक्रम]: शांत रहो नताशा! बैकअप ड्राइव सिर्फ़ तुम्हारे और मेरे फ़िंगरप्रिंट से खुल सकती है।",
+          "speaker": "विक्रम",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Cinematic medium close-up, slow forward push-in. Vikram (early-30s South Asian man, sharp defined jawline, intense tactical gaze, trimmed stubble, wearing a dark tactical turtleneck) stands guard beside the glass partition, checking his biometric scanner. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[विक्रम]: शांत रहो नताशा! बैकअप ड्राइव सिर्फ़ तुम्हारे और मेरे फ़िंगरप्रिंट से खुल सकती है।\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music.",
+          "videoPrompt": "Cinematic medium close-up, slow forward push-in. Vikram (early-30s South Asian man, sharp defined jawline, intense tactical gaze, trimmed stubble, wearing a dark tactical turtleneck) stands guard beside the glass partition, checking his biometric scanner. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[विक्रम]: शांत रहो नताशा! बैकअप ड्राइव सिर्फ़ तुम्हारे और मेरे फ़िंगरप्रिंट से खुल सकती है।\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music."
+        },
+        {
+          "id": "scene_003",
+          "chapter": "Scene 3",
+          "role": "story",
+          "narration": "[नताशा]: तो फिर मुख्य सर्वर से फ़ाइलें किसके इशारे पर डिलीट हो रही हैं, विक्रम?",
+          "speaker": "नताशा",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Tight close-up on Natasha's determined, intense eyes and expressive face, neon reflections flickering across her high cheekbones as she turns from the terminal. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[नताशा]: तो फिर मुख्य सर्वर से फ़ाइलें किसके इशारे पर डिलीट हो रही हैं, विक्रम?\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music.",
+          "videoPrompt": "Tight close-up on Natasha's determined, intense eyes and expressive face, neon reflections flickering across her high cheekbones as she turns from the terminal. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[नताशा]: तो फिर मुख्य सर्वर से फ़ाइलें किसके इशारे पर डिलीट हो रही हैं, विक्रम?\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music."
+        },
+        {
+          "id": "scene_004",
+          "chapter": "Scene 4",
+          "role": "story",
+          "narration": "[विक्रम]: कोई हमें फंसा रहा है! बाहर कॉरिडोर की सिक्योरिटी फ़ीड कट चुकी है!",
+          "speaker": "विक्रम",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Low-angle medium shot of Vikram pulling a concealed defense device and moving swiftly toward the steel reinforced door, eyes scanning the dark hallway. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[विक्रम]: कोई हमें फंसा रहा है! बाहर कॉरिडोर की सिक्योरिटी फ़ीड कट चुकी है!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music.",
+          "videoPrompt": "Low-angle medium shot of Vikram pulling a concealed defense device and moving swiftly toward the steel reinforced door, eyes scanning the dark hallway. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[विक्रम]: कोई हमें फंसा रहा है! बाहर कॉरिडोर की सिक्योरिटी फ़ीड कट चुकी है!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music."
+        },
+        {
+          "id": "scene_005",
+          "chapter": "Scene 5",
+          "role": "story",
+          "narration": "[नताशा]: अगर दरवाज़ा टूटा, तो ये सीक्रेट चिप किसी भी हालत में उनके हाथ नहीं लगनी चाहिए!",
+          "speaker": "नताशा",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Dynamic over-the-shoulder shot looking from Vikram to Natasha as she slots a glowing microchip into an encrypted steel case, her expression resolute and fearless. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[नताशा]: अगर दरवाज़ा टूटा, तो ये सीक्रेट चिप किसी भी हालत में उनके हाथ नहीं लगनी चाहिए!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music.",
+          "videoPrompt": "Dynamic over-the-shoulder shot looking from Vikram to Natasha as she slots a glowing microchip into an encrypted steel case, her expression resolute and fearless. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[नताशा]: अगर दरवाज़ा टूटा, तो ये सीक्रेट चिप किसी भी हालत में उनके हाथ नहीं लगनी चाहिए!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music."
+        },
+        {
+          "id": "scene_006",
+          "chapter": "Scene 6",
+          "role": "cliffhanger",
+          "narration": "[विक्रम]: जब तक मैं ज़िंदा हूँ, वो इस कमरे की चौखट भी पार नहीं कर सकते... तैयार रहो!",
+          "speaker": "विक्रम",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Cinematic two-shot with shallow depth of field; Vikram takes position at the steel door as emergency red strobe lights activate, Natasha standing firmly behind him with tactical readiness. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[विक्रम]: जब तक मैं ज़िंदा हूँ, वो इस कमरे की चौखट भी पार नहीं कर सकते... तैयार रहो!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient alarm hum, no background music.",
+          "videoPrompt": "Cinematic two-shot with shallow depth of field; Vikram takes position at the steel door as emergency red strobe lights activate, Natasha standing firmly behind him with tactical readiness. The character speaks clearly in an authentic Hindi voice with strict frame-by-frame lip-sync matching the spoken Hindi dialogue: \"[विक्रम]: जब तक मैं ज़िंदा हूँ, वो इस कमरे की चौखट भी पार नहीं कर सकते... तैयार रहो!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient alarm hum, no background music."
+        }
+      ]
+    }
   }
 ]

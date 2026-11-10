@@ -212,7 +212,7 @@ const SERVER_CHANNEL_LORAS: Record<
     strengthClip: 0.75,
     triggerToken: 'talvora_mood_drama',
     styleDna:
-      'Cinematic 35mm shallow depth of field portraiture, atmospheric nighttime moody lighting, soft anamorphic lens bokeh, warm amber streetlight reflections and deep nocturnal shadows, realistic elegant contemporary aesthetic, high emotional expression, photorealistic.',
+      'Cinematic night-portrait photography with 35mm shallow depth of field, atmospheric nighttime moody lighting, soft anamorphic lens bokeh, warm amber streetlight reflections and deep nocturnal shadows, a stunning glamorous adult heroine in her mid-20s with a voluptuous hourglass figure, narrow waist and full busty curve, gorgeous captivating face, wearing tight revealing-but-tasteful figure-hugging fashion (low-cut and deep-V necklines showing cleavage, form-fitting bodycon and party dresses, crop tops, backless tops, high-slit gowns, sarees with midriff, beach or pool swimwear only in context), confident seductive allure, high emotional expression, photorealistic, classy and never nude.',
   },
 };
 
@@ -226,7 +226,7 @@ export function resolveChannelLoraForAccount(accountId?: string): ResolvedChanne
   let channelKey: ResolvedChannelLora['channelKey'] = 'ancient_dharma';
   if (rawId.includes('620a1d5e') || rawId.includes('against_the_odds') || rawId.includes('against the odds')) {
     channelKey = 'against_the_odds';
-  } else if (rawId.includes('talvora') || rawId.includes('romance')) {
+  } else if (rawId.includes('talvora') || rawId.includes('talevora') || rawId.includes('romance')) {
     channelKey = 'talvora';
   } else {
     // Also check accounts.json if a custom account ID was used
@@ -241,7 +241,7 @@ export function resolveChannelLoraForAccount(accountId?: string): ResolvedChanne
           const combined = `${matched.name || ''} ${matched.youtubeChannelTitle || ''}`.toLowerCase();
           if (combined.includes('against the odds')) {
             channelKey = 'against_the_odds';
-          } else if (combined.includes('talvora') || combined.includes('romance')) {
+          } else if (combined.includes('talvora') || combined.includes('talevora') || combined.includes('romance')) {
             channelKey = 'talvora';
           }
         }

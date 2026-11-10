@@ -16,6 +16,7 @@ import { isLocalModel, LOCAL_MODELS } from '../services/local-models.js';
 import { streamLocal } from '../services/ollama.js';
 import { conductScriptResearch } from '../services/script-research.js';
 import { selectAutoPilotTopic } from '../services/autopilot-topic.js';
+import { isConversationalScript, hasSpeakerDialogueTags } from '../services/conversational-tts.js';
 import { syncTopicNotes } from '../services/topic-notes.js';
 import { responseHash } from '../services/retention.js';
 
@@ -43,6 +44,8 @@ llmRouter.post('/autopilot-topic', async (req, res) => {
       template: (script.prompts || []).map((prompt: { content: string }) => prompt.content).join('\n\n'),
       instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : '',
       duration: script.duration || 30, model, apiKey: apiKey || '', signal: controller.signal,
+      script,
+      isConversational: isConversationalScript(script),
     });
     res.json(result);
   } catch (error) {
@@ -565,18 +568,24 @@ llmRouter.post('/enhance-narration', async (req, res) => {
 
     const selectedTone = toneInstructions[tone] || toneInstructions.storyteller;
     const isHindi = language === 'hi';
+    const keepSpeakerTags = hasSpeakerDialogueTags(text);
 
     const systemPrompt = `You are an elite YouTube voiceover script doctor and vocal director.
 Your mission is to rewrite the input narration into natural, human-grade spoken dialogue for natural Hindi or English speech synthesis.
 
 Tone Target: ${selectedTone}
 Language: ${isHindi ? 'Hindi (or conversational Hinglish as used in input)' : 'English'}
-
+${keepSpeakerTags ? `
+CRITICAL SPEAKER ATTRIBUTION RULES (this is a multi-character dialogue script):
+A. The input marks who is speaking with attribution tags such as [Name]: or [नाम]: at the start of each speaker's line. KEEP every attribution tag EXACTLY as written — same name, same bracket form, same position at the start of its segment. Never drop, translate, rename or rewrite a tag.
+B. Never merge lines from different speakers into one segment and never move a tag to the middle of a line. Each tag must continue to start its own speaker's line.
+C. The attribution tags are the ONLY bracketed text you may keep. Every other bracketed or parenthesized stage direction ([whispers], (laughs), [pause], [SFX: ...]) must still be removed.
+` : ''}
 CRITICAL TTS FORMATTING RULES:
 1. Short Spoken Cadence: Break long, dense, formal sentences into punchy spoken phrases. Humans speak in short thought-clusters, not academic paragraphs.
 2. Natural Breath & Suspense Pauses: Use commas, full stops, paragraph breaks and occasional ellipses before reveals or natural breath breaks.
 3. Expressive Pitch Variation: Use exclamation marks (!) for authentic vocal energy and question marks (?) for rising pitch to engage the listener.
-4. ABSOLUTELY NO STAGE DIRECTIONS: Never include [whispers], (laughs), [softly], [dramatic pause], [SFX: ...], "Narrator:", "Host:", or scene numbers.
+4. ABSOLUTELY NO STAGE DIRECTIONS: Never include [whispers], (laughs), [softly], [dramatic pause], [SFX: ...]${keepSpeakerTags ? '' : ', "Narrator:", "Host:"'}, or scene numbers.
 5. NO MARKDOWN: Do not use bold (**), italics (*), bullet points (-), hashtags (#), backslashes (\\), or quotation marks around the output.
 6. NO SSML / XML: Use plain text and natural punctuation; the application handles speech synthesis formatting.
 7. Preserve Core Message: Keep all facts, names, and narrative points intact—only elevate the rhythm, engagement, and vocal delivery.

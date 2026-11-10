@@ -115,6 +115,7 @@ export function buildGenerationPrompt(template: string, topic: string, instructi
   const minimum = promptMinimumWords(template);
   const sceneCount = Math.min(160, Math.ceil(duration / 10));
   const cleanResearch = sanitizeResearchForPrompt(researchData);
+  const isConv = /conversational|dialogue|multi-voice|character/i.test(template) || /conversational|dialogue/i.test(instructions);
   return `${withScenePlanFormat(template, profile)}
 
 ## Selected episode settings
@@ -130,6 +131,7 @@ ${requiresBothMedia(template) ? 'This template requires both image and video pla
 Each imagePrompt must contain at least ${minimum.image} words and each videoPrompt at least ${minimum.video} words when present. Expand with concrete renderable detail, not repeated adjectives.
 ${supporting.length ? `After the extraction tags, include these original supporting section headings with their complete requested editorial content (without repeating extraction wrappers):\n${supporting.map(section => section.heading).join('\n')}` : ''}
 ${instructions.trim() ? `Additional Instructions: ${instructions.trim()}` : ''}
+${isConv ? `\n## Mandatory Multi-Character Conversational Storytelling Rules\n1. FORCE FULL MULTI-CHARACTER CONVERSATION: Even if the topic is phrased as a title, event, or summary without mentioning dialogue (e.g. "Ram Setu Nirman", "Draupadi Vastraharan", "Karna Kavach Kundal", "Lakshman Rekha"), you MUST NOT write a third-person documentary narration! You MUST dramatize this episode into direct, living spoken dialogue between the central characters involved. Keep the authentic meaning, sacred lore, and moral truth intact, but FORCE THE CHARACTERS TO SPEAK directly to each other.\n2. ZERO NARRATOR & FULL VIDEO MANDATE: Strictly NO narrator or [सूत्रधार]! The entire script is pure character dialogue. Every single scene must begin with an exact bracketed character speaker tag: [लक्ष्मण]:, [राम]:, [सीता]:, [हनुमान]:, [नताशा]:, [विक्रम]:, etc. Every scene must be a full video shot (<video_prompt[N]>), never a still image. Characters must speak directly to each other throughout the entire episode.\n3. SCENE 1 HOOK RULE: Scene 1 MUST ALWAYS START WITH A CHARACTER SPOKEN LINE in high emotional stakes or confrontation (never [सूत्रधार]).\n4. STRICT NEGATIVE CONSTRAINT: DO NOT include modern science, archaeology, satellite data, carbon dating, or engineering documentary analysis. Focus purely on sacred story and character emotions.` : ''}
 ${cleanResearch ? `\n## Pre-Generation Research Dossier (Mandatory Reference Data)\nUse the following researched facts, chronology, narrative beats, and visual world-building data related to the script and topic when generating the narration and visual scene prompts:\n${cleanResearch}` : ''}`.trim();
 }
 
@@ -163,6 +165,17 @@ export function buildFreePrompt(template: string, topic: string, instructions: s
     ...[motionInstructionsForTemplate(head)].filter(Boolean),
   ];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
+  const isConv = /conversational|dialogue|multi-voice|character/i.test(template) || /conversational|dialogue/i.test(instructions);
+  if (isConv) {
+    tail.push(
+      '\n🚨 MANDATORY MULTI-CHARACTER CONVERSATIONAL STORYTELLING RULES:' +
+      '\n1. FORCE FULL MULTI-CHARACTER CONVERSATION: Even if the topic does not explicitly state characters or dialogue (e.g. if the topic is phrased as a title, event, or summary like "Ram Setu Nirman", "Draupadi Vastraharan", "Karna Kavach Kundal", "Lakshman Rekha"), you MUST NOT write a third-person documentary narration! You MUST dramatize this episode into direct, living spoken dialogue between the central characters involved. Keep the authentic meaning, sacred lore, and moral truth intact, but FORCE THE CHARACTERS TO SPEAK directly to each other in confrontation, dilemma, or devotion.' +
+      '\n2. ZERO NARRATOR & FULL VIDEO MANDATE: Strictly NO narrator or [सूत्रधार]! The entire script is pure character dialogue. Every single scene must begin with an exact bracketed character speaker tag: [लक्ष्मण]:, [राम]:, [सीता]:, [हनुमान]:, [नताशा]:, [विक्रम]:, etc. Every scene must be a full video shot (<video_prompt[N]>), never a still image. Characters must speak directly to each other throughout the entire episode.' +
+      '\n3. SCENE 1 HOOK RULE: Scene 1 (0–3s) MUST ALWAYS START WITH A CHARACTER SPOKEN LINE in high emotional stakes or confrontation. NEVER start Scene 1 with [सूत्रधार] or [Narrator]! The opening scene MUST feature a named character speaking directly.' +
+      '\n4. VISUAL LIP ARTICULATION: Scene 1 <video_prompt1> and every scene where a character speaks MUST include explicit camera framing and Google Flow lip/jaw articulation commands delivering their exact spoken words.' +
+      '\n5. STRICT NEGATIVE CONSTRAINT: DO NOT include modern science, archaeology, satellite data, carbon dating, or engineering documentary analysis. Focus purely on the sacred epic story and living character dialogue.'
+    );
+  }
   if (cleanResearch) {
     tail.push(
       `\n## Pre-Generation Research Dossier (Use This Researched Data in Your Response)\nThe AI research step gathered the following facts, chronology, story beats, and visual world-building details for this script and topic. Use this researched data to write the <script> narration and <image_prompt>/<video_prompt> blocks so the script is accurate, authentic, and deeply detailed (do not output the research headings themselves—apply the data directly inside the required template output):\n\n${cleanResearch}`

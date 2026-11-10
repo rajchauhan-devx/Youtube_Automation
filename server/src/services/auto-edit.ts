@@ -2,6 +2,23 @@ import type { ScenePlan } from './scene-plan.js';
 import { smoothMotionFilter } from '@tubeflow/video-composition';
 export { smoothMotionFilter };
 
+/**
+ * Removes speaker attributions and bracketed stage cues for anything that gets BURNED
+ * into the frame (ASS subtitles, caption phrases): [Ram]: → dropped with its separator,
+ * [pause 1s] / [Scene 2]: → dropped, stray leading separators trimmed.
+ */
+export function stripBracketCues(text: string): string {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    // eslint-disable-next-line no-misleading-character-class
+    .replace(/\[[A-Za-z\u0900-\u097F\s]{2,25}\][ \t]*[:—–-][ \t]*/g, ' ')
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/^[\s:;–—-]+/, '')
+    .replace(/^(\s*["“'«])\s+/, '$1')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
 export const EDIT_MOTIONS = ['auto', 'hold', 'push-in', 'pull-out', 'pan-left', 'pan-right', 'rise', 'drift-in', 'drift-out'] as const;
 export const EDIT_TRANSITIONS = ['auto', 'cut', 'dissolve', 'dip-black'] as const;
 export interface EditingSettings {
@@ -80,7 +97,9 @@ const assTime = (seconds: number) => {
   const value = Math.round(seconds * 100);
   return `${Math.floor(value / 360000)}:${String(Math.floor(value / 6000) % 60).padStart(2, '0')}:${String(Math.floor(value / 100) % 60).padStart(2, '0')}.${String(value % 100).padStart(2, '0')}`;
 };
-const safeText = (text: string) => text.replace(/[{}\\\r\n]/g, ' ').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
+// Captions must never burn speaker attributions ([Ram]:) or bracketed stage cues ([pause 1s])
+// into the frame — strip every attribution/cue first, then sanitize ASS-unsafe characters.
+const safeText = (text: string) => stripBracketCues(text).replace(/[{}\\\r\n]/g, ' ').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
 export function captionPhrases(text: string, wordsPerPhrase: number) {
   const clean = safeText(text);
   if (!clean) return [];

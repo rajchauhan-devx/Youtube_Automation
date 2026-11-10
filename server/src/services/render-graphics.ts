@@ -26,7 +26,8 @@ export function graphicsForRun(project: EditingProject, settings?: { graphics: {
 export function graphicsRenderRevision(script: { editingProjectId?: string; dynamicMotionGraphics?: any[]; extraPopups?: any[]; autoPilotSettings?: { graphics: { enabled: boolean }; captions: string } }) {
   const hasDynamic = (script.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) ||
     (script.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status === 'ready'));
-  if (hasDynamic) {
+  const graphicsEnabled = script.autoPilotSettings?.graphics?.enabled !== false;
+  if (hasDynamic && graphicsEnabled) {
     return { version: 1, rendererVersion: RENDERER_VERSION, projectId: script.editingProjectId || 'dynamic', hash: objectHash({ dmg: script.dynamicMotionGraphics, ep: script.extraPopups }) };
   }
   if (!script.editingProjectId) return undefined;
@@ -240,7 +241,8 @@ export function savedGraphicsForRender(
   const script = store.getById<any>('scripts', scriptId);
   const hasDynamic = (script?.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) ||
     (script?.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status !== 'failed' && (p.title || p.cueWord)));
-  if (hasDynamic) {
+  const graphicsEnabled = script?.autoPilotSettings?.graphics?.enabled !== false;
+  if (hasDynamic && graphicsEnabled) {
     const dynProj = dynamicMotionProjectForRender(script, audioPath, imagePaths, resolution, duration);
     if (dynProj) return dynProj;
   }

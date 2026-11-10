@@ -1,4 +1,3 @@
-import type { Account } from './accounts.js';
 import {
   SELECTIVE_MOTION_DIRECTION,
   isImageOnlyShorts,
@@ -21,7 +20,7 @@ export type {
 };
 
 export function channelMotionPolicy(
-  account: Partial<Account> = {},
+  account: Partial<{ id?: string; name?: string; youtubeChannelTitle?: string }> = {},
   narrationLanguage: 'en' | 'hi' = 'en',
   sourceContext = ''
 ): MotionEditorialPolicy {

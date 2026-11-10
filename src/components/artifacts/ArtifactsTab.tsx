@@ -11,7 +11,7 @@ import { GraphicLayoutEditor } from './GraphicLayoutEditor';
 import { useDraftHistory } from '../../hooks/useDraftHistory';
 import { MotionStylePanel } from './MotionStylePanel';
 import { MotionDemoGallery } from './MotionDemoGallery';
-import {SELECTIVE_MOTION_DIRECTION,isImageOnlyShorts} from '../../../server/src/services/motion-editorial-policy';
+import { SELECTIVE_MOTION_DIRECTION, isImageOnlyShorts } from '@tubeflow/editing-contracts';
 
 const activeStates = ['queued', 'running', 'cancel_requested'];
 const button = 'rounded-xl bg-gradient-to-r from-accent to-[#e11d48] px-4 py-2 text-sm font-semibold text-white shadow-glow transition-all hover:brightness-110 active:scale-95 disabled:opacity-40 disabled:shadow-none';

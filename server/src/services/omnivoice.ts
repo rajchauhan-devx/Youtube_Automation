@@ -7,8 +7,9 @@ import { fileURLToPath } from 'url';
 import { TtsError, concatWavs, splitIntoChunks, sanitizeTextForPlainTTS, type VoiceInfo } from './tts-shared.js';
 import { checkOpenRouterStatus, synthesizeOpenRouter, generateCloudAudio, OPENROUTER_ENGLISH_VOICES, OPENROUTER_HINDI_VOICES } from './openrouter-tts.js';
 import { checkEdgeTtsStatus, previewEdgeTts, generateEdgeAudio, EDGE_ENGLISH_VOICES, EDGE_HINDI_VOICES } from './edge-tts.js';
-import { hasSpeakerDialogueTags, synthesizeConversationalBlock, resolveChannelKey, type DialogueTurn } from './conversational-tts.js';
+import { hasSpeakerDialogueTags, synthesizeConversationalBlock, resolveChannelKey, stripSpeakerTags, type DialogueTurn } from './conversational-tts.js';
 import { store } from './store.js';
+import { runMedia } from './media-process.js';
 
 export { TtsError, type VoiceInfo } from './tts-shared.js';
 
@@ -18,19 +19,19 @@ import { generatedDir, mediaUrl, currentWorkspace } from './workspace.js';
 const OMNIVOICE_START_CMD = (process.env.TTS_START_CMD || process.env.OMNIVOICE_START_CMD || 'python -m omnivoice_server --port 8880');
 
 // Cloud speech is the default; the legacy local engine remains opt-in.
-export type TtsProvider = 'google' | 'edge' | 'openrouter' | 'omni';
+export type TtsProvider = 'google' | 'edge' | 'openrouter' | 'omni' | 'flow';
 const configuredProvider = (process.env.TTS_PROVIDER || 'google').toLowerCase();
-export const TTS_PROVIDER: TtsProvider = ['google', 'edge', 'openrouter', 'omni'].includes(configuredProvider) ? configuredProvider as TtsProvider : 'google';
+export const TTS_PROVIDER: TtsProvider = ['google', 'edge', 'openrouter', 'omni', 'flow'].includes(configuredProvider) ? configuredProvider as TtsProvider : 'google';
 export const TTS_PROVIDER_NAME = ttsProviderName(TTS_PROVIDER);
-export const TTS_PROVIDER_KIND = TTS_PROVIDER === 'omni' ? 'local' : 'cloud';
+export const TTS_PROVIDER_KIND = TTS_PROVIDER === 'omni' ? 'local' : TTS_PROVIDER === 'flow' ? 'native' : 'cloud';
 
 export function resolveTtsProvider(value?: string): TtsProvider {
   const provider = !value || value === 'default' ? TTS_PROVIDER : value;
-  if (!['google', 'edge', 'openrouter', 'omni'].includes(provider)) throw new TtsError('VALIDATION', 'Choose a supported voice engine.');
+  if (!['google', 'edge', 'openrouter', 'omni', 'flow'].includes(provider)) throw new TtsError('VALIDATION', 'Choose a supported voice engine.');
   return provider as TtsProvider;
 }
 export function ttsProviderName(provider: TtsProvider) {
-  return { google: 'Google Chirp 3 HD', edge: 'Edge Neural TTS', openrouter: 'OpenRouter TTS', omni: 'OmniVoice' }[provider];
+  return { google: 'Google Chirp 3 HD', edge: 'Edge Neural TTS', openrouter: 'OpenRouter TTS', omni: 'OmniVoice', flow: 'Google Flow (Native Video Dialogue & Lip-Sync)' }[provider];
 }
 
 
@@ -56,6 +57,19 @@ export async function getVoices(language?: string, selectedProvider?: string): P
   const provider = resolveTtsProvider(selectedProvider);
   if (language !== undefined && language !== 'en' && language !== 'hi') throw new TtsError('VALIDATION', 'Choose Hindi or English.');
   const lang = language === 'hi' ? 'hi' : 'en';
+  if (provider === 'flow') {
+    return [
+      {
+        id: 'flow-native',
+        name: 'Google Flow Native Voice (Veo 3.1 Synchronized)',
+        description: 'Native audio synthesized directly inside Google Flow video clips with authentic lip-sync.',
+        gender: 'neutral',
+        language: lang,
+        sampleText: lang === 'hi' ? 'दशग्रीव! तेरे और मेरे बीच यह तिनका ही तेरी सीमा है!' : 'Native video audio synthesized directly inside Google Flow clips.',
+        pitch: 1.0,
+      },
+    ];
+  }
   if (provider === 'google') return getGoogleTtsVoices(lang);
 
 
@@ -172,7 +186,7 @@ export async function generateTTS(params: {
   const provider = resolveTtsProvider(params.provider);
   const start = Date.now();
 
-  let audioBuffer: Buffer;
+  let audioBuffer!: Buffer;
   let ext: 'mp3' | 'wav' = 'mp3';
   let recordedTurns: DialogueTurn[] | undefined = undefined;
 
@@ -191,7 +205,29 @@ export async function generateTTS(params: {
     }
   }
 
-  if (provider === 'google') {
+  if (provider === 'flow') {
+    ext = 'wav';
+    const dir = path.join(generatedDir(), params.scriptId);
+    let extracted = false;
+    if (fs.existsSync(dir)) {
+      const mp4Files = fs.readdirSync(dir).filter(f => f.endsWith('.mp4'));
+      if (mp4Files.length > 0) {
+        const videoClip = path.join(dir, mp4Files[0]);
+        const tempWav = path.join(dir, `flow_extracted_${Date.now()}.wav`);
+        try {
+          await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', videoClip, '-vn', '-ac', '1', '-ar', '48000', '-c:a', 'pcm_s16le', tempWav]);
+          if (fs.existsSync(tempWav)) {
+            audioBuffer = fs.readFileSync(tempWav);
+            fs.rmSync(tempWav, { force: true });
+            extracted = true;
+          }
+        } catch {}
+      }
+    }
+    if (!extracted) {
+      audioBuffer = await synthesizeGoogleTts(params.text, params.voice, params.language, params.speed);
+    }
+  } else if (provider === 'google') {
     if (isConversational && (hasDialogue || params.speaker)) {
       const channelKey = resolveChannelKey(currentWorkspace().accountId);
       const textToSynthesize = (!hasDialogue && params.speaker)
@@ -202,6 +238,7 @@ export async function generateTTS(params: {
         language: params.language,
         channelKey,
         defaultVoice: params.voice,
+        scriptId: params.scriptId,
       });
       audioBuffer = convResult.buffer;
       recordedTurns = convResult.turns;
@@ -214,7 +251,11 @@ export async function generateTTS(params: {
     audioBuffer = result.buffer;
     ext = result.ext;
   } else if (provider === 'edge') {
-    const result = await generateEdgeAudio(params.text, params.voice, {
+    // Edge has no speaker-tag awareness: without stripping, "[अर्जुन]:" would be spoken
+    // aloud as the character's name. Google strips tags internally; OpenRouter/OmniVoice
+    // sanitize all bracketed text — Edge needs the attribution removed here.
+    const edgeText = isConversational ? stripSpeakerTags(params.text) : params.text;
+    const result = await generateEdgeAudio(edgeText, params.voice, {
       rate: params.rate,
       pitch: params.pitch,
       volume: params.volume,
@@ -274,6 +315,34 @@ export async function previewTTS(params: {
   const matched = allVoices.find((v) => v.id === params.voice) || allVoices[0];
   const sampleText = params.text?.trim() || matched?.sampleText || (params.language === 'hi' ? 'नमस्ते! यह मेरी आवाज़ का नमूना है।' : 'Hello! This is a sample of my voice.');
 
+  if (provider === 'flow') {
+    try {
+      const downloads = path.join(__dirname, '..', '..', 'data', 'flow', 'downloads');
+      if (fs.existsSync(downloads)) {
+        const files = fs.readdirSync(downloads).filter(f => f.endsWith('.mp4'));
+        if (files.length > 0) {
+          const sampleVideo = path.join(downloads, files[0]);
+          const sampleWav = path.join(downloads, 'preview_sample.wav');
+          await runMedia('ffmpeg', ['-v', 'error', '-y', '-i', sampleVideo, '-t', '3.5', '-vn', '-ac', '1', '-ar', '48000', '-c:a', 'pcm_s16le', sampleWav]);
+          if (fs.existsSync(sampleWav)) {
+            const buf = fs.readFileSync(sampleWav);
+            fs.rmSync(sampleWav, { force: true });
+            return { buffer: buf, contentType: 'audio/wav' };
+          }
+        }
+      }
+    } catch {}
+    return {
+      buffer: await previewEdgeTts(sampleText, 'hi-IN-MadhurNeural', {
+        rate: params.rate,
+        pitch: params.pitch,
+        volume: params.volume,
+        language: params.language,
+      }),
+      contentType: 'audio/mpeg',
+    };
+  }
+
   if (provider === 'google') return { buffer: await previewGoogleTts(sampleText, params.voice, params.language, params.speed), contentType: 'audio/wav' };
   if (provider === 'openrouter') {
     return {
@@ -300,7 +369,7 @@ export interface TtsProviderStatus {
   ready: boolean;
   state: 'offline' | 'loading' | 'ready' | 'error';
   provider: string;
-  providerKind: 'local' | 'cloud';
+  providerKind: 'local' | 'cloud' | 'native';
   model?: string;
   device?: string;
   message?: string;
@@ -311,6 +380,9 @@ export interface TtsProviderStatus {
 export async function getTtsProviderStatus(selectedProvider?: string): Promise<TtsProviderStatus> {
   const provider = resolveTtsProvider(selectedProvider);
   const providerName = ttsProviderName(provider);
+  if (provider === 'flow') {
+    return { online: true, ready: true, state: 'ready', provider: providerName, providerKind: 'native', model: 'Google Veo 3.1 Lip-Synchronized Dialogue', message: 'Google Flow native video audio active' };
+  }
   if (provider === 'google') return { ...await googleTtsStatus(), provider: providerName, providerKind: 'cloud' };
   if (provider === 'openrouter') {
     const status = await checkOpenRouterStatus();
@@ -350,6 +422,9 @@ export async function checkOmniVoiceStatus(selectedProvider?: string): Promise<b
 export async function startOmniVoice(selectedProvider?: string): Promise<{ success: boolean; ready?: boolean; state?: string; message: string }> {
   const provider = resolveTtsProvider(selectedProvider);
   const providerName = ttsProviderName(provider);
+  if (provider === 'flow') {
+    return { success: true, ready: true, state: 'ready', message: 'Google Flow native video audio engine is ready.' };
+  }
   if (provider === 'google') {
     const status = await googleTtsStatus();
     return { success: status.ready, ready: status.ready, state: status.state, message: status.error || 'Google Chirp 3 HD is ready.' };

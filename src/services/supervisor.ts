@@ -1,4 +1,4 @@
-import {isImageOnlyShorts} from '../../server/src/services/motion-editorial-policy';
+import { isImageOnlyShorts } from '@tubeflow/editing-contracts';
 import { narrationOptions, type AutoPilotSettings } from '../../server/src/services/autopilot-settings';
 import type { AutoPilotStage, AutoPilotLog } from './autoPilotTypes';
 import { getApiKey } from './api';

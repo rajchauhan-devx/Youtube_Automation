@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { generatedDir, mediaUrl, currentWorkspace } from './workspace.js';
+import { stripBracketCues } from './conversational-types.js';
 
 function formatAssTime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -44,11 +45,10 @@ export function generateSubtitleFile(opts: {
 
   const filePath = path.join(outDir, 'subtitles.ass');
 
-  // Clean narration text
-  const cleanText = narration
-    .replace(/\[.*?\]/g, '')
-    .replace(/<[^>]*>/g, '')
-    .replace(/[{}\\]/g, '')
+  // Clean narration text (never burn speaker attributions or stage cues)
+  const cleanText = stripBracketCues(narration)
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[{}\\]/g, ' ')
     .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();

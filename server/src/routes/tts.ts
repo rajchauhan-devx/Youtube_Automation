@@ -27,9 +27,9 @@ ttsRouter.use((req, res, next) => {
 });
 ttsRouter.get('/providers', (_req, res) => res.json({
   defaultProvider: TTS_PROVIDER,
-  providers: ['google', 'edge', 'openrouter', 'omni'].map(id => ({ id, name: ttsProviderName(resolveTtsProvider(id)),
-    configured: id === 'google' ? isGoogleTtsConfigured() : id !== 'openrouter' || Boolean(process.env.OPENROUTER_API_KEY?.trim()),
-    kind: id === 'omni' ? 'local' : 'cloud',
+  providers: ['google', 'edge', 'openrouter', 'omni', 'flow'].map(id => ({ id, name: ttsProviderName(resolveTtsProvider(id)),
+    configured: id === 'google' ? isGoogleTtsConfigured() : id === 'flow' ? true : id !== 'openrouter' || Boolean(process.env.OPENROUTER_API_KEY?.trim()),
+    kind: id === 'omni' ? 'local' : id === 'flow' ? 'native' : 'cloud',
   })),
 }));
 

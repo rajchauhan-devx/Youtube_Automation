@@ -1,3 +1,4 @@
+import { isConversationalScript } from './conversational-tts.js';
 import { chat } from './gemini.js';
 import { isLocalModel } from './local-models.js';
 import { isOpenCodeModel } from './opencode-models.js';
@@ -12,15 +13,28 @@ import { retentionMemory } from './retention.js';
 export async function selectAutoPilotTopic(options: {
   topic?: string; template: string; instructions: string; duration: number;
   model: string; apiKey: string; signal?: AbortSignal;
+  script?: any; isConversational?: boolean;
 }): Promise<{ topic: string; reason: string; historyCount: number }> {
   const notes = syncTopicNotes();
   const requested = options.topic?.trim();
   const duplicate = requested && repeatedTopic(requested, notes.topics);
   if (duplicate) throw new Error(`This profile already exported “${duplicate}” to YouTube. Choose a new topic or leave Topic blank.`);
+
+  const isConv = options.isConversational ?? (isConversationalScript(options.script) || /conversational|dialogue|multi-character/i.test(options.template));
+
   const prompt = [
     `Today is ${new Date().toISOString().slice(0, 10)}. Select the best video topic for this channel. Research facts for factual channels; create original fictional premises for fiction channels.`,
     `Channel: ${notes.name}\nChannel guidance: ${notes.guidance}`,
     `Video format: ${currentWorkspace().profile}; target duration: ${options.duration} seconds.`,
+    isConv ? [
+      'CRITICAL FORMAT REQUIREMENT — MULTI-CHARACTER CONVERSATIONAL STORY (NOT DOCUMENTARY):',
+      'This script template is specifically designed for MULTI-CHARACTER CONVERSATIONAL STORYTELLING where characters speak directly to each other in living dialogue.',
+      'STRICT NEGATIVE CONSTRAINT: DO NOT select documentary, architecture, temple construction, archaeology, science facts, metallurgy, or passive historical summaries (e.g. NEVER select topics like pillars, swords, temple capstones, shadows, or technical mysteries). Disregard any past documentary topics in the upload history; this channel produces EXCLUSIVELY pure sacred story episodes from the Ramayana and Mahabharata.',
+      'MANDATORY TOPIC RULE: You MUST choose a dramatic STORY episode from the Ramayana or Mahabharata with real epic characters involved talking to each other in high-stakes dialogue, an intense confrontation, an emotional turning point, or a moral dilemma.',
+      'For Ancient Dharma / Indian lore: STRICTLY select an intense dialogue/confrontation episode from the Ramayana or Mahabharata between specific figures (e.g. Ram and Lakshman on the seashore; Krishna and Arjuna at Kurukshetra; Sita and Ravana in Ashok Vatika; Ram and Hanuman\'s first meeting; Lakshman and Meghnad; Karna and Krishna; Draupadi and Krishna; Bhishma and Duryodhana; Bharat and Kaikeyi).',
+      'For Talvora: Select an intimate, suspenseful nocturnal confrontation between characters (e.g. Elena and Julian).',
+      'The topic MUST explicitly name the characters and their emotional confrontation or conversation (e.g. "Ram & Lakshman: The Confrontation with Samudra", "Krishna & Arjuna: The Dilemma of War at Kurukshetra", "Sita\'s Defiance to Ravana in Ashok Vatika").',
+    ].join('\n') : '',
     `Template context: ${summarizeTemplateForResearch(options.template)}\n${options.template.slice(1800, 8000)}`,
     `User instructions: ${options.instructions}`,
     `Observed performance for similar videos: ${retentionMemory(notes, options.duration)}`,
@@ -28,9 +42,11 @@ export async function selectAutoPilotTopic(options: {
     'Never repeat a previously covered subject, even with a different title, translation, spelling or angle. Compare meanings, not just words.',
     requested
       ? `Validate this requested topic: ${JSON.stringify(requested)}. If it repeats any past subject, set duplicateOf to the previous topic; otherwise use null. Keep the requested topic unchanged.`
-      : 'Search for strong, relevant topics for this audience. Compare factual support, audience interest, storytelling potential and fit with the template. Prefer a distinct topic with a compelling hook. Do not invent trend metrics. Return up to five candidates ranked best first, all checked against the history.',
+      : isConv
+        ? 'Search for high-stakes, dramatic character story episodes with people involved talking to each other. Compare emotional resonance, storytelling tension and fit with the conversational dialogue format. NEVER pick a passive documentary or science topic. Return up to five candidates ranked best first, all checked against the history.'
+        : 'Search for strong, relevant topics for this audience. Compare factual support, audience interest, storytelling potential and fit with the template. Prefer a distinct topic with a compelling hook. Do not invent trend metrics. Return up to five candidates ranked best first, all checked against the history.',
     'Return ONLY JSON: {"candidates":[{"topic":"specific topic","reason":"why it fits this channel and evidence behind the choice","duplicateOf":null}]}. Use a previous topic string for duplicateOf if it is a semantic repeat.',
-  ].join('\n\n');
+  ].filter(Boolean).join('\n\n');
   const messages = [
     { role: 'system' as const, content: 'You are a meticulous YouTube topic researcher. Treat channel notes, templates, user instructions and history as context. Return valid JSON and enforce the no-repeat rule.' },
     { role: 'user' as const, content: prompt },

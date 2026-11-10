@@ -780,7 +780,7 @@ function AudioGenerationContent({
   const [serverOnline, setServerOnline] = useState<boolean | null>(null);
   const [serverStarting, setServerStarting] = useState(false);
   const [providerName, setProviderName] = useState('Edge Neural TTS');
-  const [providerKind, setProviderKind] = useState<'local' | 'cloud'>('cloud');
+  const [providerKind, setProviderKind] = useState<'local' | 'cloud' | 'native'>('cloud');
   const [providerState, setProviderState] = useState('');
   const [providerMessage, setProviderMessage] = useState('');
   const [error, setError] = useState('');
@@ -858,6 +858,7 @@ function AudioGenerationContent({
   const generatedAudio = script?.generatedAudio || [];
   const isLocalProvider = providerKind === 'local' || providerName === 'OmniVoice';
   const isGoogle = selectedProvider === 'google' || (selectedProvider === 'default' && providerName.includes('Google Chirp'));
+  const isFlow = selectedProvider === 'flow' || providerName.includes('Google Flow');
 
   // Format rate and pitch for backend SSML
   const formattedRate = rateOffset >= 0 ? `+${rateOffset}%` : `${rateOffset}%`;
@@ -1014,7 +1015,7 @@ function AudioGenerationContent({
       const ready = data?.ready === undefined ? data?.online === true : data?.ready === true;
       setServerOnline(ready ? true : data?.state === 'loading' ? null : false);
       if (data?.provider) setProviderName(String(data.provider));
-      if (data?.providerKind === 'local' || data?.providerKind === 'cloud') setProviderKind(data.providerKind);
+      if (data?.providerKind === 'local' || data?.providerKind === 'cloud' || data?.providerKind === 'native') setProviderKind(data.providerKind);
       setProviderState(String(data?.state || ''));
       setProviderMessage(String(data?.error || data?.message || ''));
       return data;
@@ -1060,7 +1061,7 @@ function AudioGenerationContent({
 
   useEffect(() => {
     stopPreview(); setServerOnline(null); setProviderState(''); setProviderMessage(''); setError(''); setPreviewError('');
-    if (selectedProvider !== 'default') { setProviderName(voiceEngines.find(engine => engine.id === selectedProvider)?.name || selectedProvider); setProviderKind(selectedProvider === 'omni' ? 'local' : 'cloud'); }
+    if (selectedProvider !== 'default') { setProviderName(voiceEngines.find(engine => engine.id === selectedProvider)?.name || selectedProvider); setProviderKind(selectedProvider === 'omni' ? 'local' : selectedProvider === 'flow' ? 'native' : 'cloud'); }
     void checkStatus();
     return () => { statusTokenRef.current++; };
   }, [selectedProvider, fetch]);
@@ -1342,23 +1343,23 @@ function AudioGenerationContent({
 
         <button
           onClick={currentAudio ? handleRegenerate : handleGenerate}
-          disabled={generating || voicesLoading || !selectedVoice || !narrationText.trim()}
+          disabled={generating || !narrationText.trim() || (!isFlow && (voicesLoading || !selectedVoice))}
           className="studio-btn-primary"
         >
           {generating ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              Generating Audio ({progressPercent}%)...
+              {isFlow ? 'Extracting & Syncing Scene Audio...' : `Generating Audio (${progressPercent}%)...`}
             </>
           ) : currentAudio ? (
             <>
               <Undo2 className="h-4 w-4" />
-              Regenerate audio
+              {isFlow ? 'Re-extract & Sync Scene Audio' : 'Regenerate audio'}
             </>
           ) : (
             <>
               <Play className="h-4 w-4 fill-current" />
-              Generate audio
+              {isFlow ? 'Extract & Sync Audio from Videos' : 'Generate audio'}
             </>
           )}
         </button>
@@ -1414,6 +1415,19 @@ function AudioGenerationContent({
             <option value="en">English</option><option value="hi">Hindi</option>
           </select>
         </div>
+
+        {isFlow && (
+          <div className="mb-4 rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3.5 text-xs text-indigo-300">
+            <div className="flex items-center gap-2 font-semibold text-indigo-200">
+              <span className="flex h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+              Google Flow Native Audiovisual Lip-Sync Mode Active
+            </div>
+            <p className="mt-1 text-indigo-300/90 leading-relaxed">
+              Character Hindi dialogue and facial mouth movements are generated natively inside the Google Flow video clips (Veo 3.1).
+              Extracting audio pulls the authentic 48kHz audio track directly from your scenes and ensures 100% frame-perfect lip-synchronization during final video rendering with zero desync.
+            </p>
+          </div>
+        )}
 
         <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-surface p-4">
           <label className="min-w-0 flex-1 text-xs font-medium text-gray-400">Voice

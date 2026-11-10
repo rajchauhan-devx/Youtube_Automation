@@ -14,6 +14,9 @@ function sceneWords(project: EditingProject, scene: EditingProject['scenes'][num
     const weight = matches.reduce((sum, match) => sum + match[0].length, 0);
     let cursor = 0;
     for (const match of matches) {
+      // Never burn speaker attributions ([Ram]:) or bracketed stage cues into captions.
+      // Keep the cursor advancing so the remaining words keep their proportional timing.
+      if (/[[\]]/.test(match[0])) { cursor += match[0].length; continue; }
       const start = token.start + (token.end - token.start) * cursor / weight;
       cursor += match[0].length;
       words.push({ text: match[0], start, end: token.start + (token.end - token.start) * cursor / weight, tokenId: id });
