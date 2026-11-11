@@ -128,8 +128,9 @@ export function buildResearchMessages(params: {
 }): ChatMessage[] {
   const targetDuration = Number.isFinite(params.duration) && (params.duration || 0) > 0 ? Math.round(params.duration!) : 30;
   const templateSummary = summarizeTemplateForResearch(params.template);
-  const isConv = /conversational|dialogue|multi-character|multi-voice/i.test(params.template || '') ||
-    /conversational|dialogue/i.test(params.instructions || '');
+  const templateWithoutEditorial = (params.template || '').replace(extractAncientDharmaEditorial(params.template || ''), '');
+  const isConv = /conversational|multi-character|multi-voice/i.test(templateWithoutEditorial) ||
+    /conversational|dialogue|multi-character/i.test(params.instructions || '');
   const ancientDharma = Boolean(extractAncientDharmaEditorial(params.template || ''));
   const againstTheOdds = Boolean(extractAgainstTheOddsEditorial(params.template || ''));
   const webBlock =

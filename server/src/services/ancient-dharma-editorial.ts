@@ -6,6 +6,8 @@ export function ancientDharmaEditorial(profile: 'shorts' | 'long'): string {
   return `${ANCIENT_DHARMA_EDITORIAL_START}
 Apply these writing rules to Ancient Dharma episodes. For an explicitly unrelated topic, follow that topic's own tradition and audience instead of adding Hindu devotional language. These rules update the research, narration and closing instructions below; preserve every existing output section, extraction tag, asset number, media mode, character bible and narration-to-scene mapping. Perform the editorial work silently; do not add a new output section.
 
+RESEARCH BEFORE COMMITTING TO A HOOK: Identify the actual source/version, what it supports, what belongs to a regional retelling, and what is interpretation. Establish one central dilemma, the strongest supported detail, the decisive choice and the real outcome. Treat any preselected retention hook as provisional: revise its wording and promise when the research does not support it. Never invent dialogue, motives, quotations, miracles as scientific proof, or scriptural attribution to make a hook work. Keep source notes in the existing production notes, with a brief natural attribution in speech where necessary.
+
 FORMAT & LAYOUT (INSTAGRAM REEL & YOUTUBE SHORTS):
 - Vertical 9:16 layout containing a centered 16:9 letterboxed video canvas with a top banner reading "Goosebumps 🚩".
 - ART STYLE: Modern Indian digital graphic novel / comic book aesthetic with high contrast, sharp line art, detailed muscular anatomy, and realistic lighting. Warm color palette dominated by fire orange, sunrise yellow, deep war browns, and dramatic atmospheric shadows.
@@ -16,7 +18,7 @@ IMAGE GENERATION PROMPT FORMULA (<image_prompt[N]>):
 
 AUDIO & SPOKEN CONTENT BREAKDOWN (GOOGLE FLOW MUSIC + NARRATIVE VOICE):
 1. DIALOGUE PHASE (DRAMATIC NARRATIVE CONFRONTATION / SACRED VOW):
-   Dramatize the episode faithfully through living character dialogue true to the sacred lore of the Valmiki Ramayana, Ramcharitmanas, or Mahabharata:
+   For conversational multi-character episodes: dramatize the episode faithfully through living character dialogue true to the sacred lore of the Valmiki Ramayana, Ramcharitmanas, or Mahabharata: strictly NEVER include modern science, satellite imagery, or archaeology:
    - Sri Rama: "हनुमान, अगर सूर्य निकल गया तो लक्ष्मण मर जाएगा।"
    - Hanuman: "प्रभु, सूर्यदेव मेरा स्वभाव जानते हैं... मैं जब तक जड़ी-बूटी लेकर नहीं आऊँगा, सूरज को उगने नहीं दूंगा।"
    - Sri Rama: "हनुमान, मौत आगे बढ़ रही है..."

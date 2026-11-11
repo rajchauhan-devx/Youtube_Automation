@@ -686,7 +686,7 @@ export function renderPolaroidBadge(opts: {
       width: ${opts.bounds ? '100%' : 'auto'};
       height: ${opts.bounds ? '100%' : 'auto'};
       max-width: ${opts.bounds ? 'none' : '560px'};
-      background: transparent;
+      background: rgba(18, 25, 35, 0.85);
       padding: ${opts.bounds && opts.bounds.height < 100 ? '6px 12px' : '12px 20px 12px 14px'};
       border-radius: 8px;
       border: none;
@@ -1079,8 +1079,8 @@ export function renderSpotlight(opts: {
   if (t) {
     const cx = t.x + t.width / 2;
     const cy = t.y + t.height / 2;
-    const rx = Math.max(28, t.width / 2 + 6);
-    const ry = Math.max(28, t.height / 2 + 6);
+    const rx = t.width / 2 + 4;
+    const ry = t.height / 2 + 4;
 
     const fromX = Math.max(b.x, Math.min(cx, b.x + b.width));
     const fromY = Math.max(b.y, Math.min(cy, b.y + b.height));
@@ -1094,7 +1094,7 @@ export function renderSpotlight(opts: {
       <svg width="${width}" height="${height}" style="position: absolute; inset: 0; pointer-events: none; overflow: visible;">
         <defs>
           <filter id="${id}-glow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feGaussianBlur stdDeviation="2" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -1102,22 +1102,24 @@ export function renderSpotlight(opts: {
           </filter>
         </defs>
         <!-- Outer contrast ring -->
-        <ellipse cx="${cx}" cy="${cy}" rx="${rx + 18}" ry="${ry + 18}" fill="none" stroke="#07111D" stroke-width="6" opacity="0.8" />
+        <ellipse cx="${cx}" cy="${cy}" rx="${rx + 16}" ry="${ry + 16}" fill="none" stroke="#07111D" stroke-width="6" opacity="0.8" />
         <!-- Rotating outer dashed reticle ring -->
-        <ellipse id="${id}-dashed" cx="${cx}" cy="${cy}" rx="${rx + 18}" ry="${ry + 18}" fill="none" stroke="${theme.primary}" stroke-width="2.5" stroke-dasharray="10 8" opacity="0.85" />
-        <!-- Inner glowing targeting ring -->
-        <ellipse id="${id}-ring" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="${theme.primary}" stroke-width="3.5" filter="url(#${id}-glow)" />
+        <ellipse id="${id}-dashed" cx="${cx}" cy="${cy}" rx="${rx + 16}" ry="${ry + 16}" fill="none" stroke="${theme.primary}" stroke-width="2" stroke-dasharray="10 8" opacity="0.85" />
+        <!-- Outer shadow ring for anchor contrast -->
+        <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="#07111D" stroke-width="7" opacity="0.85" />
+        <!-- Amber spotlight anchor ellipse (passes through west = t.x - 4, centerY) -->
+        <ellipse id="${id}-ring" cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="none" stroke="#FFA834" stroke-width="3" filter="url(#${id}-glow)" />
         <!-- Crosshairs N, S, E, W -->
-        <line x1="${cx - rx - 14}" y1="${cy}" x2="${cx - rx + 4}" y2="${cy}" stroke="${theme.primary}" stroke-width="3" stroke-linecap="round" />
-        <line x1="${cx + rx - 4}" y1="${cy}" x2="${cx + rx + 14}" y2="${cy}" stroke="${theme.primary}" stroke-width="3" stroke-linecap="round" />
-        <line x1="${cx}" y1="${cy - ry - 14}" x2="${cx}" y2="${cy - ry + 4}" stroke="${theme.primary}" stroke-width="3" stroke-linecap="round" />
-        <line x1="${cx}" y1="${cy + ry - 4}" x2="${cx}" y2="${cy + ry + 14}" stroke="${theme.primary}" stroke-width="3" stroke-linecap="round" />
+        <line x1="${cx - rx - 10}" y1="${cy}" x2="${cx - rx + 4}" y2="${cy}" stroke="#FFA834" stroke-width="2.5" stroke-linecap="round" />
+        <line x1="${cx + rx - 4}" y1="${cy}" x2="${cx + rx + 10}" y2="${cy}" stroke="#FFA834" stroke-width="2.5" stroke-linecap="round" />
+        <line x1="${cx}" y1="${cy - ry - 10}" x2="${cx}" y2="${cy - ry + 4}" stroke="#FFA834" stroke-width="2.5" stroke-linecap="round" />
+        <line x1="${cx}" y1="${cy + ry - 4}" x2="${cx}" y2="${cy + ry + 10}" stroke="#FFA834" stroke-width="2.5" stroke-linecap="round" />
         <!-- Center anchor dot -->
-        <circle cx="${cx}" cy="${cy}" r="4" fill="${theme.primary}" />
+        <circle cx="${cx}" cy="${cy}" r="3.5" fill="#FFA834" />
         <!-- Leader path from card to target -->
-        <path id="${id}-leader" d="M${fromX},${fromY} Q${fromX},${toY} ${toX},${toY}" fill="none" stroke="${theme.primary}" stroke-width="3" stroke-linecap="round" />
-        <circle cx="${fromX}" cy="${fromY}" r="4.5" fill="${theme.primary}" />
-        <circle cx="${toX}" cy="${toY}" r="4.5" fill="${theme.primary}" />
+        <path id="${id}-leader" d="M${fromX},${fromY} Q${fromX},${toY} ${toX},${toY}" fill="none" stroke="#FFA834" stroke-width="2.5" stroke-linecap="round" />
+        <circle cx="${fromX}" cy="${fromY}" r="4" fill="#FFA834" />
+        <circle cx="${toX}" cy="${toY}" r="4" fill="#FFA834" />
       </svg>
     `;
   }
@@ -1203,10 +1205,10 @@ export function renderSpotlight(opts: {
       }
     }
 
-    // Pulse opacity and scale on the inner reticle ring (cycles capped to the hold)
+    // Pulse opacity on the inner reticle ring (cycles capped to the hold)
     tl.fromTo("#${id}-ring",
-      { strokeOpacity: 0.6, scale: 0.95, transformOrigin: "${t.x + t.width / 2}px ${t.y + t.height / 2}px" },
-      { strokeOpacity: 1.0, scale: 1.05, duration: 0.6, yoyo: true, repeat: ${Math.max(1, Math.floor((opts.durationSec - 0.1) / 0.6) - 1)}, ease: "sine.inOut" },
+      { strokeOpacity: 0.8 },
+      { strokeOpacity: 1.0, duration: 0.5, yoyo: true, repeat: ${Math.max(1, Math.floor((opts.durationSec - 0.1) / 0.5) - 1)}, ease: "sine.inOut" },
       ${opts.startSec + 0.1}
     );
 

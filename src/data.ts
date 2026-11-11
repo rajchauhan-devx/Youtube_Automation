@@ -24,6 +24,7 @@ export interface TimelineConfig {
   ttsVolume?: number;
   bgmVolume?: number;
   bgmTrack?: string;
+  renderedVideoUrl?: string | null;
 }
 
 export interface PromptBlock {
@@ -185,6 +186,7 @@ export interface Script {
     generatedMusic?: { filename: string; url: string; prompt: string; duration: number; seed: number; contextHash: string; createdAt: string };
   pipeline?: PipelineStep[];
   timelineConfig?: TimelineConfig;
+  renderedVideoUrl?: string | null;
   sceneAnalysis?: SceneAnalysis;
   youtubeExport?: YouTubeExportData;
   facebookExport?: FacebookExportData;

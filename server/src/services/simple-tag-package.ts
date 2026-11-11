@@ -591,20 +591,20 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
   }
 
   // 5. Distribute narration across all slots
-  const isConversational = hasSpeakerDialogueTags(rawNarration) || hasSpeakerDialogueTags(text);
+  const isConversational = hasSpeakerDialogueTags(rawNarration);
   const narrations = distributeNarrationToScenes(rawNarration, slots.length);
   const scenes: NarrationScene[] = slots.map((slot, index) => {
     const num = index + 1;
     const hint = sceneHints.get(num);
     const sceneNarration = narrations[index] || '';
-    const detectedSpeaker = extractSpeakerName(sceneNarration);
+    const detectedSpeaker = isConversational ? extractSpeakerName(sceneNarration) : undefined;
     const mediaType = (isConversational && !imageOnly) ? 'video' : slot.mediaType;
     return {
       id: `scene_${String(num).padStart(3, '0')}`,
       chapter: slot.sceneTitle || hint?.title || `Scene ${num}`,
       role: slot.isFollowFrame ? ('cta' as const) : ('story' as const),
       narration: sceneNarration,
-      speaker: detectedSpeaker,
+      ...(detectedSpeaker ? { speaker: detectedSpeaker } : {}),
       mediaType,
       duration: slot.duration || hint?.duration || (mediaType === 'video' ? 8 : 5),
       imagePrompt: slot.imagePrompt,

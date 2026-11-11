@@ -84,7 +84,7 @@ export function ReviewAdjustTab({
   // Video render options & state
   const [rendering, setRendering] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [renderedVideo, setRenderedVideo] = useState<string | null>(null);
+  const [renderedVideo, setRenderedVideo] = useState<string | null>(() => script?.renderedVideoUrl || script?.timelineConfig?.renderedVideoUrl || null);
   const [renderError, setRenderError] = useState('');
   const [canRestartRender, setCanRestartRender] = useState(false);
   const [duration, setDuration] = useState(script?.duration || 30);
@@ -202,9 +202,10 @@ export function ReviewAdjustTab({
   useEffect(() => {
     const controller = new AbortController();
     const epoch = ++renderEpoch.current;
-    setRenderedVideo(null);
+    const initialVideo = script?.renderedVideoUrl || script?.timelineConfig?.renderedVideoUrl || null;
+    setRenderedVideo(initialVideo);
     setCanRestartRender(false);
-    if (script?.id && script.generatedImages?.length && script.generatedAudio?.length) {
+    if (script?.id) {
       fetch(`/api/render/status/${script.id}`, { signal: controller.signal })
         .then((r) => r.json())
         .then((data) => {
@@ -212,13 +213,17 @@ export function ReviewAdjustTab({
           if (data.status === 'running') { setRendering(true); startPolling(script.id); }
           if (data.status === 'error') { setRenderError(data.error || 'Previous render failed'); setCanRestartRender(Boolean(data.recoverable)); }
           if (data.videos?.length > 0) {
-            setRenderedVideo(data.videos[0].url);
+            const videoUrl = data.videos[0].url;
+            setRenderedVideo(videoUrl);
+            if (script.renderedVideoUrl !== videoUrl) {
+              onUpdate({ renderedVideoUrl: videoUrl });
+            }
           }
         })
         .catch(() => {});
     }
     return () => controller.abort();
-  }, [script?.id, script?.generatedImages?.length, script?.generatedAudio?.length]);
+  }, [script?.id, script?.renderedVideoUrl]);
 
   // Sync TTS volume when script changes
   useEffect(() => {
@@ -436,12 +441,12 @@ export function ReviewAdjustTab({
   }, [renderedVideo]);
 
   const selectedClip = useMemo(
-    () => timeline?.clips.find((c) => c.id === selectedClipId) || null,
+    () => timeline?.clips?.find((c) => c.id === selectedClipId) || null,
     [timeline, selectedClipId]
   );
 
   const currentImageIndex = useMemo(() => {
-    if (!timeline) return 0;
+    if (!timeline?.clips?.length) return 0;
     let elapsed = 0;
     for (let i = 0; i < timeline.clips.length; i++) {
       elapsed += timeline.clips[i].duration;
@@ -540,7 +545,9 @@ export function ReviewAdjustTab({
             clearInterval(progressInterval);
             setRendering(false);
             setProgress(100);
-            setRenderedVideo(statusData.videos[0].url);
+            const videoUrl = statusData.videos[0].url;
+            setRenderedVideo(videoUrl);
+            onUpdate({ renderedVideoUrl: videoUrl });
           } else if (statusData.status === 'running') {
             setRenderStage(statusData.message || 'Rendering video');
             setProgress(
@@ -700,7 +707,7 @@ export function ReviewAdjustTab({
     <div className="flex flex-col gap-6">
       {profile !== 'shorts' && <AutoEditPanel key={script.id} scriptId={script.id} value={editing} plan={script.scenePlan} disabled={rendering || musicBusy} onChange={changeEditing} onBusyChange={setEditingBusy} />}
       {sceneBacked && <div role="status" className={`rounded-lg border p-4 text-sm ${syncError ? 'border-amber-600 text-amber-200' : 'border-emerald-700 text-emerald-200'}`}>
-        {syncError || `Audio sync ready: ${script.scenePlan?.scenes.length} scenes timed to the generated narration. Scene order and durations follow the audio. Select a scene to review its spoken text.`}
+        {syncError || `Audio sync ready: ${script.scenePlan?.scenes?.length || 0} scenes timed to the generated narration. Scene order and durations follow the audio. Select a scene to review its spoken text.`}
       </div>}
       {sceneBacked && measuredSeconds && !syncError && <p role="status" className={`text-sm ${Math.abs(runtimeDifference) > 0.15 ? 'text-amber-200' : 'text-gray-400'}`}>
         Measured narration: {formatTime(measuredSeconds)}. Selected target: {formatTime(script.duration || measuredSeconds)}. Clips cover the complete narration.

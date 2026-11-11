@@ -39,7 +39,7 @@ export function ExportTab({
 }) {
   const [rendering, setRendering] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [renderedVideo, setRenderedVideo] = useState<string | null>(null);
+  const [renderedVideo, setRenderedVideo] = useState<string | null>(() => script?.renderedVideoUrl || script?.timelineConfig?.renderedVideoUrl || null);
   const [error, setError] = useState('');
   const [duration, setDuration] = useState(script?.duration || 30);
   const [resolution, setResolution] = useState<'1080x1920' | '1920x1080'>('1080x1920');
@@ -86,6 +86,7 @@ export function ExportTab({
   }, [script?.id, script?.duration]);
 
   useEffect(() => {
+    setRenderedVideo(script?.renderedVideoUrl || script?.timelineConfig?.renderedVideoUrl || null);
     if (script?.id) {
       checkExistingVideos(script.id);
       const savedVol = script?.timelineConfig?.ttsVolume ?? script?.ttsVolume;
@@ -93,7 +94,7 @@ export function ExportTab({
         setTtsVolume(savedVol);
       }
     }
-  }, [script?.id]);
+  }, [script?.id, script?.renderedVideoUrl]);
 
   async function checkExistingVideos(scriptId: string) {
     try {

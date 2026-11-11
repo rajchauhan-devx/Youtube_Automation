@@ -78,6 +78,7 @@ export async function renderHyperFramesOverlay(opts: HyperFramesRenderOptions): 
       cliBin,
       'render',
       '--format', 'webm',
+      '--quality', 'delivery',
       '-o', pending,
       '--fps', String(fps),
       '--workers', '1',

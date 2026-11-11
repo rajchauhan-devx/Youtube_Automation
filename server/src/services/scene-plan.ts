@@ -1,6 +1,8 @@
 import { parseMotionScriptHint, refreshMotionHints } from './script-motion.js';
 import { isTaggedShortsResponse, parseShortsPackage } from './shorts-package.js';
 import { parseLegacyScenePackage } from './legacy-scene-package.js';
+import { parseProductionPackage } from './production-package.js';
+import { parseV72ScenePackage } from './v72-scene-package.js';
 import {
   cleanSpokenNarration,
   distributeNarrationToScenes,
@@ -91,7 +93,7 @@ export function validateScenePlan(value: unknown): ScenePlan {
   return p;
 }
 
-export function parseScenePlan(raw: string, _useTimelineNarration = false, options?: { isImageOnly?: boolean }): ScenePlan {
+export function parseScenePlan(raw: string, useTimelineNarration = false, options?: { isImageOnly?: boolean }): ScenePlan {
   if (raw.trimStart().startsWith('{')) {
     let value: unknown;
     try { value = JSON.parse(raw); }
@@ -100,11 +102,22 @@ export function parseScenePlan(raw: string, _useTimelineNarration = false, optio
   }
 
   const longBlocks = [...raw.matchAll(/<long_video>\s*([\s\S]*?)\s*<\/long_video>/gi)];
+  if (longBlocks.some(block => /^\s*(?:\*\*)?ASSET:/im.test(block[1]))) {
+    if ((raw.match(/<long_video>/gi) || []).length !== longBlocks.length || (raw.match(/<\/long_video>/gi) || []).length !== longBlocks.length) {
+      throw new Error('An asset has an incomplete <long_video> wrapper.');
+    }
+    return validateScenePlan(parseProductionPackage(raw, longBlocks.map(block => block[1]), useTimelineNarration));
+  }
   if (longBlocks.length === 1 && longBlocks[0][1].trimStart().startsWith('{')) {
     let value: unknown;
     try { value = JSON.parse(longBlocks[0][1]); }
     catch (error) { throw new Error(`The scene plan contains incomplete or invalid JSON: ${error instanceof Error ? error.message : 'parse failed'}`); }
-    return validateScenePlan(value);
+    const plan = validateScenePlan(value);
+    const script = raw.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
+    if (script && normalizeNarration(script[1]) !== normalizeNarration(spokenText(plan))) {
+      throw new Error('The full narration differs from the scene narration. Correct the scene plan before extracting.');
+    }
+    return plan;
   }
 
   if (isTaggedShortsResponse(raw)) {
@@ -118,6 +131,14 @@ export function parseScenePlan(raw: string, _useTimelineNarration = false, optio
       // Tag-only extraction: strict SECTION 1 / manifest / title / narration
       // linking must never block usable <script> + <image_prompt> /
       // <video_prompt> assets. Fall back to the universal tag parser.
+      return validateScenePlan(parseSimpleTagPackage(raw, options));
+    }
+  }
+
+  if (/\u{1F3AC}\s*SCENE\s+\d+/u.test(raw)) {
+    try {
+      return validateScenePlan(parseV72ScenePackage(raw));
+    } catch {
       return validateScenePlan(parseSimpleTagPackage(raw, options));
     }
   }

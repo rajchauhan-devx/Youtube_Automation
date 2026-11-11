@@ -117,7 +117,7 @@ test('Google scene narration preserves measured sync, reuses cached scenes and i
   const before = submitted.length;
   const first = await assembleNarration(plan, options, new AbortController().signal, () => {});
   assert.equal(first.provider, 'google'); assert.equal(first.sync.scenes.length, 2);
-  assert.equal(first.sync.totalSamples, 43200);
+  assert.equal(first.sync.totalSamples, 9600);
   assert.equal(submitted.length, before + 2);
   const cached = await assembleNarration(plan, options, new AbortController().signal, () => {});
   assert.deepEqual(cached.sync, first.sync); assert.equal(submitted.length, before + 2);

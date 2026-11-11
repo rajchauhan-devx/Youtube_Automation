@@ -121,6 +121,7 @@ export function ProfilePage({
             onAccountsChange={onAccountsChange}
             onSelectAccount={onSelectAccount}
           />
+          <RecoveryPanel />
         </div>
       )}
 

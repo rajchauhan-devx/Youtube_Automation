@@ -19,7 +19,7 @@ export function EditScriptModal({ script, onClose, onSavePatch, onSaveSpoken }: 
   const [howItWorks, setHowItWorks] = useState(script.howItWorks || '');
   const [spoken, setSpoken] = useState(script.narration || script.extractedScript || '');
   const [response, setResponse] = useState(script.aiResponse || '');
-  const [scenes, setScenes] = useState(script.scenePlan?.scenes.map(scene => scene.narration) || []);
+  const [scenes, setScenes] = useState(script.scenePlan?.scenes?.map(scene => scene.narration) || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const field = 'w-full rounded-lg border border-border bg-bg px-3 py-2 text-sm text-white outline-none focus:border-accent';
@@ -40,7 +40,7 @@ export function EditScriptModal({ script, onClose, onSavePatch, onSaveSpoken }: 
           generatedImages: [], generatedAudio: [], generatedMusic: undefined, scenePlan: undefined,
           timelineConfig: undefined, sceneAnalysis: undefined, youtubeExport: undefined, facebookExport: undefined, instagramExport: undefined,
           pipeline: [{ id: 'response', label: 'Response', status: 'done', summary: 'Response edited — ready to extract', inputLog: '', outputPreview: response.trim().slice(0, 120) }] });
-      } else if (script.scenePlan) {
+      } else if (script.scenePlan && Array.isArray(script.scenePlan.scenes)) {
         if (script.scenePlan.scenes.every((scene, index) => scene.narration === scenes[index]?.trim())) { onClose(); return; }
         const scenePlan = validateScenePlan({ ...script.scenePlan, scenes: script.scenePlan.scenes.map((scene, index) => ({ ...scene, narration: scenes[index]?.trim() || '' })) });
         const narration = spokenText(scenePlan);
@@ -82,9 +82,9 @@ export function EditScriptModal({ script, onClose, onSavePatch, onSaveSpoken }: 
         </> : tab === 'response' ? <>
           <label className="block text-xs font-semibold text-gray-300">Complete AI response<textarea aria-label="Complete AI response" className={`${field} mt-1 min-h-72 resize-y font-mono leading-6`} value={response} onChange={event => setResponse(event.target.value)} /></label>
           <p className="text-xs text-gray-400">Saving replaces the response and clears extracted assets and generated media. Extract assets again after saving.</p>
-        </> : script.scenePlan ? <>
+        </> : (script.scenePlan && Array.isArray(script.scenePlan.scenes)) ? <>
           <p className="text-xs text-gray-400">Edit each scene’s spoken words. Saving keeps the scene map and media prompts, and clears narration timing and generated audio.</p>
-          {script.scenePlan.scenes.map((scene, index) => <label key={scene.id} className="block text-xs font-semibold text-gray-300">Scene {index + 1} · {scene.chapter}<textarea aria-label={`Scene ${index + 1} narration`} className={`${field} mt-1 min-h-28 resize-y`} value={scenes[index] || ''} onChange={event => setScenes(current => current.map((value, i) => i === index ? event.target.value : value))} /></label>)}
+          {(script.scenePlan.scenes || []).map((scene, index) => <label key={scene.id} className="block text-xs font-semibold text-gray-300">Scene {index + 1} · {scene.chapter}<textarea aria-label={`Scene ${index + 1} narration`} className={`${field} mt-1 min-h-28 resize-y`} value={scenes[index] || ''} onChange={event => setScenes(current => current.map((value, i) => i === index ? event.target.value : value))} /></label>)}
         </> : <>
           <label className="block text-xs font-semibold text-gray-300">Spoken script<textarea aria-label="Spoken script" className={`${field} mt-1 min-h-72 resize-y leading-6`} value={spoken} onChange={event => setSpoken(event.target.value)} /></label>
           <p className="text-xs text-gray-400">Saving updates the next voice generation and clears earlier generated audio and export. Extracting the original AI response again will replace this edit.</p>

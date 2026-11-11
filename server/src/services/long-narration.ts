@@ -238,14 +238,14 @@ export async function assembleNarration(plan: ScenePlan, options: VoiceOptions, 
       // Planned durations describe source assets, never the length of spoken audio.
       const bytes = fs.readFileSync(pcm);
       const startSample = sync.totalSamples;
-      // Natural 350ms acoustic breath pause between scene narration cuts
-      const pauseSamples = Math.round(48000 * 0.35);
-      const pauseBuffer = Buffer.alloc(pauseSamples * 2);
+      // Natural 350ms acoustic breath pause between scene narration cuts in conversational multi-speaker episodes
+      const pauseSamples = isConv ? Math.round(48000 * 0.35) : 0;
+      const pauseBuffer = pauseSamples > 0 ? Buffer.alloc(pauseSamples * 2) : Buffer.alloc(0);
       const sceneSamples = (bytes.length / 2) + pauseSamples;
       sync.totalSamples += sceneSamples;
       if (sync.totalSamples > 48000 * maxDurationSeconds) throw new Error(`Episode exceeds its ${maxDurationSeconds / 60}-minute maximum at scene ${scene.id}. Shorten the scene plan and generate again. No speech was cut.`);
       sync.scenes.push({ sceneId: scene.id, startSample, endSample: sync.totalSamples });
-      fs.appendFileSync(raw, Buffer.concat([bytes, pauseBuffer]));
+      fs.appendFileSync(raw, pauseSamples > 0 ? Buffer.concat([bytes, pauseBuffer]) : bytes);
 
       if (isConv) {
         const startSec = startSample / 48000;

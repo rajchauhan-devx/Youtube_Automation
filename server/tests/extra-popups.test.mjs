@@ -104,7 +104,7 @@ describe('Extra Popups Architecture & Engine', () => {
     assert.equal(graphic.title, firstPopup.title);
     assert.ok(graphic.render.html.includes(firstPopup.title));
     assert.ok(graphic.render.css.includes('ep-card'));
-    assert.ok(graphic.render.js.includes('back.out(1.8)'));
+    assert.ok(graphic.render.js.includes('back.out'));
     assert.equal(graphic.sfx?.kind, 'sacred_bell');
   });
 

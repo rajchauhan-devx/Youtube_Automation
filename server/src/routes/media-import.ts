@@ -22,6 +22,9 @@ mediaImportRouter.post('/:scriptId/:index', express.raw({ type: 'application/oct
     const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(extension);
     if (!isVideo && !isImage) throw new Error('Choose an MP4 video or a PNG, JPG, WebP image.');
     const type = isVideo ? 'video' : 'image';
+    if (currentWorkspace().profile === 'mixed' && scene.mediaType && scene.mediaType !== type) {
+      throw new Error(scene.mediaType === 'video' ? 'Choose an MP4 video.' : 'Choose a PNG, JPG or WebP image.');
+    }
     if (!Buffer.isBuffer(req.body) || !req.body.length) throw new Error('The media file is empty.');
     const dir = containedFile(generatedDir(), scriptId);
     fs.mkdirSync(dir, { recursive: true });

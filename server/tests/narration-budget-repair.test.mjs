@@ -6,9 +6,9 @@ const plan={version:1,title:'Episode',thumbnailPrompt:'Ocean',supportingNotes:'R
 test('speech budget repair retains exact scene, visual and editorial identities',async()=>{
   const original=structuredClone(plan);let calls=0;
   const updated=await repairNarrationBudget('fixture',plan,30,'Preserve facts','gemini-3.1-flash-lite',undefined,async()=>{
-    calls++;return {choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:plan.scenes.map(s=>({id:s.id,narration:Array(53).fill('fact').join(' ')}))})}}]};
+    calls++;return {choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:plan.scenes.map(s=>({id:s.id,narration:Array(36).fill('fact').join(' ')}))})}}]};
   });
-  assert.equal(calls,1);assert.equal(spokenText(updated).split(/\s+/).length,106);assert.deepEqual(plan,original);
+  assert.equal(calls,1);assert.equal(spokenText(updated).split(/\s+/).length,72);assert.deepEqual(plan,original);
   assert.deepEqual(updated.scenes.map(({narration,...s})=>s),original.scenes.map(({narration,...s})=>s));assert.equal(updated.supportingNotes,original.supportingNotes);
 });
 test('missing narration IDs cannot silently drop the rest of the story',async()=>{
@@ -22,10 +22,10 @@ test('near-boundary retries use the measured word excess and preserve all scenes
   const updated=await repairNarrationBudget('fixture',plan,30,'Preserve facts','gemini-3.1-flash-lite',undefined,async(_key,request)=>{
     calls++;
     assert.match(request.messages[0].content,/Count words separated by spaces/);
-    if(calls===2) assert.match(request.messages[0].content,/current part has 118 words/);
-    return {choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:plan.scenes.map(s=>({id:s.id,narration:Array(calls===1?59:53).fill('fact').join(' ')}))})}}]};
+    if(calls===2) assert.match(request.messages[0].content,/current part has 84 words/);
+    return {choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:plan.scenes.map(s=>({id:s.id,narration:Array(calls===1?42:36).fill('fact').join(' ')}))})}}]};
   });
-  assert.equal(calls,2);assert.equal(spokenText(updated).split(/\s+/).length,106);
+  assert.equal(calls,2);assert.equal(spokenText(updated).split(/\s+/).length,72);
 });
 
 test('counted fallback joins complete words without truncation or changing visuals',async()=>{
@@ -34,14 +34,14 @@ test('counted fallback joins complete words without truncation or changing visua
     calls++;
     const counted=request.jsonSchema.properties.scenes.items.properties.narrationWords;
     if(calls<3){assert.equal(counted,undefined);return {choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:plan.scenes.map(s=>({id:s.id,narration:s.narration}))})}}]};}
-    assert.equal(counted.minItems,48);assert.equal(counted.maxItems,57);
-    return {choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:plan.scenes.map(s=>({id:s.id,narrationWords:Array(53).fill('fact.')}))})}}]};
+    assert.equal(counted.minItems,33);assert.equal(counted.maxItems,40);
+    return {choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:plan.scenes.map(s=>({id:s.id,narrationWords:Array(36).fill('fact.')}))})}}]};
   });
-  assert.equal(calls,3);assert.equal(spokenText(updated).split(/\s+/).length,106);
-  assert.equal(updated.scenes[0].narration,Array(53).fill('fact.').join(' '));
+  assert.equal(calls,3);assert.equal(spokenText(updated).split(/\s+/).length,72);
+  assert.equal(updated.scenes[0].narration,Array(36).fill('fact.').join(' '));
   assert.deepEqual(updated.scenes.map(({narration,...s})=>s),plan.scenes.map(({narration,...s})=>s));
 });
 
 test('counted items cannot hide extra words inside one item',async()=>{
-  await assert.rejects(repairNarrationBudget('fixture',plan,30,'Preserve facts','gemini-3.1-flash-lite',undefined,async()=>({choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:plan.scenes.map(s=>({id:s.id,narrationWords:Array(53).fill('hidden extra words')}))})}}]})),/still has/);
+  await assert.rejects(repairNarrationBudget('fixture',plan,30,'Preserve facts','gemini-3.1-flash-lite',undefined,async()=>({choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:plan.scenes.map(s=>({id:s.id,narrationWords:Array(36).fill('hidden extra words')}))})}}]})),/still has/);
 });

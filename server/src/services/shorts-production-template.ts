@@ -62,7 +62,7 @@ CRITICAL HOOK LAW FOR HIGH RETENTION (8K+ VIEW FORMULA):
   - First scene (Scene 1) MUST ALWAYS be a video (<video_prompt1>) to hook the user immediately.
   - Maintain an alternating rhythm across scenes (Scene 1: Video, Scene 2: Image, Scene 3: Video, Scene 4: Image, etc.).
   - For an odd total number of scenes (e.g. 5, 7, 11 scenes), provide the closest split with Scene 1 always as video.
-  - Every video scene MUST have both an <image_prompt> (to generate the reference keyframe) and a <video_prompt> (for image-to-video animation).
+  - Every video scene MUST have both an <image_prompt> (to generate the reference keyframe or still-image alternative) and a <video_prompt> (for image-to-video animation).
 - Even in predominantly image-driven productions, Scene 1 is non-negotiably a moving cinematic video hook (<video_prompt1>) while subsequent scenes can be high-detail static images. Never open any Short with a static still image.
 
 ## 6. Character, location and style continuity

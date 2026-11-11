@@ -1772,7 +1772,82 @@
     "imagePrompts": [],
     "generatedImages": [],
     "generatedAudio": [],
-    "pipeline": []
+    "pipeline": [],
+    "conversational": true,
+    "isConversational": true,
+    "scenePlan": {
+      "version": 1,
+      "title": "Ramayana Conversational Dialogue",
+      "thumbnailPrompt": "Cinematic close-up portrait: Shri Ram and Lakshman standing heroically on the stormy shores of the southern ocean, golden dawn lighting, volumetric mist and crashing ocean waves in dramatic Treta Yuga realism.",
+      "scenes": [
+        {
+          "id": "scene_001",
+          "chapter": "Scene 1",
+          "role": "hook",
+          "narration": "[लक्ष्मण]: भ्राता राम! यह समुद्र हमारी विनय नहीं समझता! आदेश दीजिए, मैं इसे बाणों से सुखा दूँगा!",
+          "speaker": "लक्ष्मण",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Cinematic medium close-up, dynamic camera push-in. Lakshman in golden Vedic armor and saffron attire drawing an arrow onto his magnificent bow, fierce youthful warrior intensity. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[लक्ष्मण]: भ्राता राम! यह समुद्र हमारी विनय नहीं समझता! आदेश दीजिए, मैं इसे बाणों से सुखा दूँगा!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient ocean roar, no background music.",
+          "videoPrompt": "Cinematic medium close-up, dynamic camera push-in. Lakshman in golden Vedic armor and saffron attire drawing an arrow onto his magnificent bow, fierce youthful warrior intensity. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[लक्ष्मण]: भ्राता राम! यह समुद्र हमारी विनय नहीं समझता! आदेश दीजिए, मैं इसे बाणों से सुखा दूँगा!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient ocean roar, no background music."
+        },
+        {
+          "id": "scene_002",
+          "chapter": "Scene 2",
+          "role": "story",
+          "narration": "[राम]: शांत हो जाओ, सौमित्र! धैर्य और मर्यादा ही क्षत्रिय का वास्तविक आभूषण हैं।",
+          "speaker": "राम",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Cinematic slow forward tracking shot of Shri Ram with divine transcendent calm, noble posture, golden sunrise illuminating his sacred profile. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[राम]: शांत हो जाओ, सौमित्र! धैर्य और मर्यादा ही क्षत्रिय का वास्तविक आभूषण हैं।\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music.",
+          "videoPrompt": "Cinematic slow forward tracking shot of Shri Ram with divine transcendent calm, noble posture, golden sunrise illuminating his sacred profile. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[राम]: शांत हो जाओ, सौमित्र! धैर्य और मर्यादा ही क्षत्रिय का वास्तविक आभूषण हैं।\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient room tone, no background music."
+        },
+        {
+          "id": "scene_003",
+          "chapter": "Scene 3",
+          "role": "story",
+          "narration": "[लक्ष्मण]: किंतु भ्राता, तीन दिन बीत चुके हैं! क्या विनय का कोई मोल नहीं?",
+          "speaker": "लक्ष्मण",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Medium shot of Lakshman turning passionately toward Shri Ram with folded hands yet burning devotion in his eyes against the foaming turbulent sea. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[लक्ष्मण]: किंतु भ्राता, तीन दिन बीत चुके हैं! क्या विनय का कोई मोल नहीं?\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient wind, no background music.",
+          "videoPrompt": "Medium shot of Lakshman turning passionately toward Shri Ram with folded hands yet burning devotion in his eyes against the foaming turbulent sea. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[लक्ष्मण]: किंतु भ्राता, तीन दिन बीत चुके हैं! क्या विनय का कोई मोल नहीं?\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient wind, no background music."
+        },
+        {
+          "id": "scene_004",
+          "chapter": "Scene 4",
+          "role": "story",
+          "narration": "[राम]: भय बिनु होइ न प्रीति! हे समुद्र, मर्यादा का स्मरण करो!",
+          "speaker": "राम",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Dramatic low-angle hero shot of Shri Ram raising his divine bow Kodanda, eyes flashing with righteous authority as the sea churns in cosmic turbulence. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[राम]: भय बिनु होइ न प्रीति! हे समुद्र, मर्यादा का स्मरण करो!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient thunder hum, no background music.",
+          "videoPrompt": "Dramatic low-angle hero shot of Shri Ram raising his divine bow Kodanda, eyes flashing with righteous authority as the sea churns in cosmic turbulence. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[राम]: भय बिनु होइ न प्रीति! हे समुद्र, मर्यादा का स्मरण करो!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient thunder hum, no background music."
+        },
+        {
+          "id": "scene_005",
+          "chapter": "Scene 5",
+          "role": "story",
+          "narration": "[समुद्र]: क्षमा करें, हे मर्यादा पुरुषोत्तम! यह सागर आपके चरणों में नतमस्तक है।",
+          "speaker": "समुद्र",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Mythological visual of Samudra Dev emerging from the deep waves holding divine offerings of pearls and gems, bowing with deep reverence. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[समुद्र]: क्षमा करें, हे मर्यादा पुरुषोत्तम! यह सागर आपके चरणों में नतमस्तक है।\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient ocean surge, no background music.",
+          "videoPrompt": "Mythological visual of Samudra Dev emerging from the deep waves holding divine offerings of pearls and gems, bowing with deep reverence. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[समुद्र]: क्षमा करें, हे मर्यादा पुरुषोत्तम! यह सागर आपके चरणों में नतमस्तक है।\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient ocean surge, no background music."
+        },
+        {
+          "id": "scene_006",
+          "chapter": "Scene 6",
+          "role": "cliffhanger",
+          "narration": "[राम]: नल और नील सेतु का निर्माण करेंगे... धर्म की विजय निश्चित है!",
+          "speaker": "राम",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Cinematic epic wide shot of Shri Ram pointing toward the southern horizon as the Vanara army cheers with divine banners, golden sunrise breaking. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[राम]: नल और नील सेतु का निर्माण करेंगे... धर्म की विजय निश्चित है!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient war cry echoes, no background music.",
+          "videoPrompt": "Cinematic epic wide shot of Shri Ram pointing toward the southern horizon as the Vanara army cheers with divine banners, golden sunrise breaking. The character speaks clearly in an authentic Hindi voice with natural lip-sync matching the spoken Hindi dialogue: \"[राम]: नल और नील सेतु का निर्माण करेंगे... धर्म की विजय निश्चित है!\". Natural mouth and jaw movements in sync with the spoken Hindi words, clean vocal dialogue audio, ambient war cry echoes, no background music."
+        }
+      ]
+    }
   },
   {
     "id": "usr_talevora_conversational_dialogue",

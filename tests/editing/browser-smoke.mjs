@@ -108,7 +108,7 @@ try {
     const handles = await page.$$("button");
     for (const button of handles)
       if ((await button.evaluate((el) => el.textContent)).trim().endsWith(text) && await button.isVisible()) {
-        await button.click();
+        await button.evaluate((el) => el.click());
         return;
       }
     throw new Error("Missing button " + text);

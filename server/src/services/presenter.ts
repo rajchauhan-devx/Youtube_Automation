@@ -98,7 +98,7 @@ export function museTalkRoot(): string {
 export function presenterPythonPath(): string | undefined {
   if (process.env.MUSETALK_PYTHON) {
     const configured = path.resolve(REPO_ROOT, process.env.MUSETALK_PYTHON);
-    if (fs.existsSync(configured)) return configured;
+    return fs.existsSync(configured) ? configured : undefined;
   }
 
   // Check virtual environments inside all candidate roots

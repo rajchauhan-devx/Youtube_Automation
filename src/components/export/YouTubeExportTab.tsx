@@ -93,7 +93,7 @@ export function YouTubeExportTab({
 }) {
   // Video State
   const { fetch, profile, account } = useWorkspaceApi();
-  const [renderedVideo, setRenderedVideo] = useState<string | null>(null);
+  const [renderedVideo, setRenderedVideo] = useState<string | null>(() => script?.renderedVideoUrl || script?.timelineConfig?.renderedVideoUrl || null);
   const [videoFilename, setVideoFilename] = useState<string | null>(null);
   const [videoResolution, setVideoResolution] = useState<string>(profile !== 'shorts' ? '1920x1080' : '1080x1920');
   const [checkingVideo, setCheckingVideo] = useState(true);
@@ -171,9 +171,10 @@ export function YouTubeExportTab({
 
   // 1. Fetch Rendered Video
   useEffect(() => {
-    setRenderedVideo(null);
+    const initialVideo = script?.renderedVideoUrl || script?.timelineConfig?.renderedVideoUrl || null;
+    setRenderedVideo(initialVideo);
     setVideoFilename(null);
-    if (!script?.id || !script.generatedImages?.length || !script.generatedAudio?.length) {
+    if (!script?.id) {
       setCheckingVideo(false);
       return;
     }
@@ -190,7 +191,10 @@ export function YouTubeExportTab({
           if (video.resolution) {
             setVideoResolution(video.resolution);
           }
-        } else {
+          if (script.renderedVideoUrl !== video.url) {
+            onUpdate({ renderedVideoUrl: video.url });
+          }
+        } else if (!initialVideo) {
           setRenderedVideo(null);
           setVideoFilename(null);
         }
@@ -198,7 +202,7 @@ export function YouTubeExportTab({
       .catch(() => {})
       .finally(() => { if (!controller.signal.aborted) setCheckingVideo(false); });
     return () => controller.abort();
-  }, [script?.id, script?.generatedImages?.length, script?.generatedAudio?.length]);
+  }, [script?.id, script?.renderedVideoUrl]);
 
   // 2. Fetch YouTube Connection Status
   async function refreshYouTubeStatus() {

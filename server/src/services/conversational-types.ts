@@ -500,13 +500,28 @@ export function isConversationalScript(script: any): boolean {
   return hasSpeakerDialogueTags(narrationText);
 }
 
+const NON_SPEAKER_LABELS = new Set([
+  'prompt', 'prompts', 'scene', 'scenes', 'asset', 'assets', 'timeline', 'negative', 'negative prompt',
+  'style', 'style tags', 'shot', 'behavior', 'constraints', 'duration', 'step', 'chapter', 'note',
+  'title', 'format', 'section', 'version', 'description', 'visual', 'visuals', 'image', 'video',
+  'audio', 'music', 'sfx', 'camera', 'lights', 'focus', 'action', 'cut', 'hook', 'resolution',
+  'fps', 'status', 'script', 'narration', 'break', 'purpose', 'continuity', 'coverage', 'manifest'
+]);
+
 /**
  * Detects if a text block contains character dialogue attribution tags like [Ram]:, [लक्ष्मण]:, or Lakshman:
  */
 export function hasSpeakerDialogueTags(text: string): boolean {
   if (!text || typeof text !== 'string') return false;
-  const speakerTagRegex = /(?:^|\n|\s)(?:\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]|([A-Za-z\u0900-\u097F]{2,20}))\s*[:—–-]\s*/m;
-  return speakerTagRegex.test(text);
+  const speakerTagRegex = /(?:^|\n)\s*(?:\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]|([A-Za-z\u0900-\u097F]{2,20}))\s*:\s*|(?:^|\n|\s)\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]\s*[:—–-]?\s*/gm;
+  let match: RegExpExecArray | null;
+  while ((match = speakerTagRegex.exec(text)) !== null) {
+    const rawName = (match[1] || match[2] || match[3] || '').trim().toLowerCase();
+    if (rawName && !NON_SPEAKER_LABELS.has(rawName)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -544,8 +559,19 @@ export function stripBracketCues(text: string): string {
  */
 export function extractSpeakerName(text: string): string | undefined {
   if (!text || typeof text !== 'string') return undefined;
-  const m = text.match(/(?:^|\n|\s)(?:\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]|([A-Za-z\u0900-\u097F]{2,20}))\s*[:—–-]/m);
-  return m ? (m[1] || m[2]).trim() : undefined;
+  // Bracketed tags: [Ram]: or [लक्ष्मण]: or [Sita] -
+  const bracketed = text.match(/(?:^|\n|\s)\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]\s*[:—–-]?/m);
+  if (bracketed) {
+    const name = bracketed[1].trim();
+    if (name && !NON_SPEAKER_LABELS.has(name.toLowerCase())) return name;
+  }
+  // Line-start unbracketed tags: Ram: or लक्ष्मण: (must be at start of line followed by colon)
+  const lineStart = text.match(/(?:^|\n)\s*([A-Za-z\u0900-\u097F]{2,20})\s*:\s*/m);
+  if (lineStart) {
+    const name = lineStart[1].trim();
+    if (name && !NON_SPEAKER_LABELS.has(name.toLowerCase())) return name;
+  }
+  return undefined;
 }
 
 /**
@@ -559,7 +585,7 @@ export function parseDialogueTurns(text: string): DialogueTurn[] {
   const lines = normalized.split('\n').map((l) => l.trim()).filter(Boolean);
   const turns: DialogueTurn[] = [];
 
-  const lineRegex = /^(?:\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]|([A-Za-z\u0900-\u097F]{2,20}))\s*[:—–-]\s*(.*)$/;
+  const lineRegex = /^(?:\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]\s*[:—–-]?|([A-Za-z\u0900-\u097F]{2,20})\s*:)\s*(.*)$/;
 
   let currentSpeaker = 'Narrator';
   let currentText = '';

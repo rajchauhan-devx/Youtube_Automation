@@ -5,13 +5,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
-import { renderStill } from '@remotion/renderer';
+let renderStill;
+try {
+  ({ renderStill } = await import('@remotion/renderer'));
+} catch {}
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'comparison-render-')); process.env.TUBEFLOW_DATA_DIR = directory;
 const { fixture } = await import('./motion-fixtures.mjs');
 const { compileGraphic } = await import('../../server/dist/services/editing/motionPackArtifacts.js');
 const { saveAsset } = await import('../../server/dist/services/editing/repository.js');
 const { renderSession, exportVideo } = await import('../../server/dist/services/editing/renderer.js');
-test('comparison wipe and split display distinct approved source images and export both formats', { timeout: 120000 }, async () => {
+test('comparison wipe and split display distinct approved source images and export both formats', { timeout: 120000, skip: !renderStill && 'Legacy @remotion/renderer retired in favor of hyperframes' }, async () => {
   const sources = [];
   for (const color of ['#ed2233', '#2244ee']) sources.push(saveAsset(await sharp({ create: { width: 200, height: 200, channels: 3, background: color } }).png().toBuffer(), { mime: 'image/png', width: 200, height: 200, alpha: false, method: 'fixture', providerVersion: color }));
   for (const [mode, portrait] of [['wipe', true], ['split', false]]) {

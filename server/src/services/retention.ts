@@ -89,8 +89,8 @@ export async function createRetentionPlan(options: {
 }): Promise<RetentionPlan> {
   const notes = syncTopicNotes();
   const memoryEvidence = retentionMemory(notes, options.duration);
-  const isConv = /conversational|dialogue|multi-voice|character/i.test(options.template)
-    || /conversational|dialogue/i.test(options.instructions)
+  const isConv = /conversational|multi-character|multi-voice/i.test(options.template)
+    || /conversational|dialogue|multi-character/i.test(options.instructions || '')
     || hasSpeakerDialogueTags(options.template);
   const convHookMandate = isConv
     ? '\n🚨 MANDATORY MULTI-CHARACTER ZERO-NARRATOR & FULL-VIDEO MANDATE: This is a 100% video conversational script with strictly NO narrator (सूत्रधार). Every scene from Scene 1 to the final scene must be spoken directly by one of the characters ([Character]: "Spoken dialogue in Hindi..."). Every scene must be a full video clip (<video_prompt[N]>), never a still image. Scene 1 must open directly with a dramatic spoken line by a character. Every following scene must be another character speaking directly in response or confrontation. Never introduce a narrator or सूत्रधार voice.'

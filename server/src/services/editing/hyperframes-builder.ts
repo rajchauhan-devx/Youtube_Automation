@@ -346,19 +346,88 @@ export function buildHyperFramesComposition(opts: HyperFramesBuildOptions): stri
       cssParts.push(res.css);
       jsParts.push(res.js);
     } else if (g.kind === 'composition') {
-      // Documentary Image Collage
-      const res = renderPolaroidBadge({
-        id: artifact.id,
-        imageUrl: '/api/placeholder/400/400',
-        title: g.title,
-        subtitle: g.detail,
-        startSec,
-        durationSec: duration,
-        theme,
-      });
-      htmlParts.push(res.html);
-      cssParts.push(res.css);
-      jsParts.push(res.js);
+      const comp = g.composition;
+      if (comp && comp.layers && comp.layers.length > 0) {
+        fs.mkdirSync(path.join(outputDir, 'assets'), { recursive: true });
+        const layerElements: string[] = [];
+        const layerCss: string[] = [];
+        const layerJs: string[] = [];
+
+        comp.layers.forEach((layer, idx) => {
+          const layerId = `comp-${artifact.id}-layer-${idx}`;
+          const relName = `assets/comp-${artifact.id}-${idx}.png`;
+          const src = assetFile(layer.assetId);
+          if (fs.existsSync(src)) {
+            fs.copyFileSync(src, path.join(outputDir, relName));
+          }
+          const bx = Math.round((layer.bounds?.x ?? 0) * width);
+          const by = Math.round((layer.bounds?.y ?? 0) * height);
+          const bw = Math.round((layer.bounds?.width ?? 1) * width);
+          const bh = Math.round((layer.bounds?.height ?? 1) * height);
+
+          layerElements.push(`
+            <div id="${layerId}" class="doc-comp-layer">
+              <img src="./${relName}" class="doc-comp-img" alt="" />
+            </div>
+          `);
+
+          layerCss.push(`
+            #${layerId}.doc-comp-layer {
+              position: absolute;
+              left: ${bx}px;
+              top: ${by}px;
+              width: ${bw}px;
+              height: ${bh}px;
+              overflow: hidden;
+              opacity: 0;
+              z-index: ${30 + idx};
+              transform: rotate(${layer.rotation || 0}deg);
+            }
+            #${layerId} .doc-comp-img {
+              width: 100%;
+              height: 100%;
+              object-fit: ${layer.fit === 'contain' ? 'contain' : 'cover'};
+              display: block;
+            }
+          `);
+
+          const layerStart = startSec + (layer.delay || 0) * sceneDuration;
+          const layerEnd = endSec;
+          layerJs.push(`
+            tl.fromTo("#${layerId}",
+              { opacity: 0 },
+              { opacity: 1, duration: 0.05, ease: "none" },
+              ${layerStart}
+            );
+            tl.to("#${layerId}",
+              { opacity: 0, duration: 0.05, ease: "none" },
+              ${Math.max(layerStart + 0.1, layerEnd - 0.05)}
+            );
+          `);
+        });
+
+        htmlParts.push(`
+          <div id="comp-${artifact.id}" class="documentary-composition-wrap" data-start="${startSec}" data-duration="${sceneDuration}">
+            ${layerElements.join('\n')}
+          </div>
+        `);
+        cssParts.push(layerCss.join('\n'));
+        jsParts.push(layerJs.join('\n'));
+      } else {
+        // Fallback for empty composition layers
+        const res = renderPolaroidBadge({
+          id: artifact.id,
+          imageUrl: '/api/placeholder/400/400',
+          title: g.title,
+          subtitle: g.detail,
+          startSec,
+          durationSec: duration,
+          theme,
+        });
+        htmlParts.push(res.html);
+        cssParts.push(res.css);
+        jsParts.push(res.js);
+      }
     }
   }
 

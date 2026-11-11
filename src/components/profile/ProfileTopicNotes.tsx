@@ -48,18 +48,18 @@ export function ProfileTopicNotes() {
     <h2 className="flex items-center gap-2 text-base font-bold text-white"><BookOpen size={18} className="text-accent" />Auto-Pilot Topic Notes</h2>
     <p className="mt-2 text-xs leading-relaxed text-muted">Each profile has its own notes file. Successful YouTube exports are remembered across Shorts, Long Video and Mixed Media so AI can avoid repeating a topic.</p>
     <div className="mt-3 flex flex-wrap items-center gap-3">
-      <button type="button" disabled={syncing || !notes?.topics.length} onClick={() => void refreshPerformance()} className="studio-btn-ghost text-xs disabled:opacity-40"><RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />{syncing ? 'Importing performance…' : 'Refresh YouTube retention'}</button>
+      <button type="button" disabled={syncing || !notes?.topics?.length} onClick={() => void refreshPerformance()} className="studio-btn-ghost text-xs disabled:opacity-40"><RefreshCw size={13} className={syncing ? 'animate-spin' : ''} />{syncing ? 'Importing performance…' : 'Refresh YouTube retention'}</button>
       <p className="text-[11px] text-muted">Requires YouTube Analytics access. New uploads need time to accumulate data.</p>
     </div>
     {message && <p role="status" className="mt-2 text-xs text-gray-300">{message}</p>}
     {error && <p role="alert" className="mt-3 text-xs text-red-300">{error}</p>}
     {!notes && !error && <p className="mt-3 text-xs text-muted">Loading notes…</p>}
     {notes && <>
-      <p className="mt-4 text-sm font-semibold text-white">{notes.name} · {notes.topics.length} exported topics</p>
+      <p className="mt-4 text-sm font-semibold text-white">{notes.name} · {notes.topics?.length || 0} exported topics</p>
       <p className="mt-1 text-xs leading-relaxed text-muted">{notes.guidance}</p>
-      {!notes.topics.length && <p className="mt-3 text-xs text-muted">Topics will appear here after a video is successfully exported to YouTube.</p>}
+      {!notes.topics?.length && <p className="mt-3 text-xs text-muted">Topics will appear here after a video is successfully exported to YouTube.</p>}
       <ul className="mt-3 max-h-[32rem] space-y-2 overflow-y-auto">
-        {[...notes.topics].reverse().map(entry => <li key={entry.videoId} className="rounded-lg border border-border p-3 text-xs">
+        {[...(notes.topics || [])].reverse().map(entry => <li key={entry.videoId} className="rounded-lg border border-border p-3 text-xs">
           <div className="flex items-start justify-between gap-3"><span className="min-w-0 break-words text-gray-200">{entry.topic}</span>
           <a href={`https://youtu.be/${encodeURIComponent(entry.videoId)}`} target="_blank" rel="noreferrer" className="flex shrink-0 items-center gap-1 text-accent"><ExternalLink size={12} />YouTube</a></div>
           {entry.production && <p className="mt-2 leading-relaxed text-muted">Opening: {entry.production.hook}</p>}

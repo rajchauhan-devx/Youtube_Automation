@@ -178,7 +178,8 @@ scriptsRouter.put('/:id', async (req, res) => {
     delete updated.twoStepVerification;
     if (!req.body?.retentionPlan || req.body.retentionPlan.topic !== updated.topicName) delete updated.retentionPlan;
     delete updated.generatedMusic;
-    for (const key of ['timelineConfig', 'sceneAnalysis', 'youtubeExport', 'facebookExport', 'instagramExport', 'scenePlan']) delete updated[key];
+    delete updated.renderedVideoUrl;
+    for (const key of ['timelineConfig', 'sceneAnalysis', 'youtubeExport', 'facebookExport', 'instagramExport', 'scenePlan', 'renderedVideoUrl']) delete updated[key];
     if (!('researchData' in (req.body || {}))) delete updated.researchData;
     if (!('researchSources' in (req.body || {}))) delete updated.researchSources;
     updated.generatedImages = [];
@@ -191,9 +192,9 @@ scriptsRouter.put('/:id', async (req, res) => {
     if (updated.status === 'draft') { delete updated.topicName; delete updated.aiInstructions; }
     store.set(`pipeline_${req.params.id}`, []);
   }
-  if (sceneChanged) { updated.generatedAudio = []; delete updated.timelineConfig; delete updated.youtubeExport; delete updated.facebookExport; delete updated.instagramExport; delete updated.generatedMusic; }
+  if (sceneChanged) { updated.generatedAudio = []; delete updated.renderedVideoUrl; delete updated.timelineConfig; delete updated.youtubeExport; delete updated.facebookExport; delete updated.instagramExport; delete updated.generatedMusic; }
   if (sceneChanged || mediaModeChanged) delete updated.retentionReview;
-  if (mediaModeChanged) { delete updated.timelineConfig; delete updated.youtubeExport; delete updated.facebookExport; delete updated.instagramExport; }
+  if (mediaModeChanged) { delete updated.renderedVideoUrl; delete updated.timelineConfig; delete updated.youtubeExport; delete updated.facebookExport; delete updated.instagramExport; }
   store.add('scripts', updated);
   res.json(updated);
 });

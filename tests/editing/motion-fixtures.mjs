@@ -12,7 +12,7 @@ export async function fixture(theme = 'museum', portrait = false, empty = false,
     const title = theme === 'science' ? 'पानी का परिवर्तन' : 'Bronze statue';
     const quote = theme === 'science' ? 'पानी गर्म होता है।' : 'a bronze statue and its hand';
     const target = kind === 'spotlight' ? { label: 'bronze statue', region: { x: 0.50, y: 0.35, width: 0.09, height: 0.1 }, evidence: 'Synthetic fixture region', verified: true } : undefined;
-    p.artifacts = [compileGraphic(p, { sceneId: p.scenes[0].id, kind, title, detail: theme === 'science' ? 'Water becomes vapor' : 'A story in bronze', target: target?.label || '', quote }, target, 'explanation')];
+    p.artifacts = [compileGraphic(p, { sceneId: p.scenes[0].id, kind, title, detail: theme === 'science' ? 'पानी भाप बनता है' : 'A story in bronze', target: target?.label || '', quote }, target, 'explanation')];
   }
   p.sceneOutcomes = p.scenes.map(s => ({ sceneId: s.id, state: empty ? 'not_needed' : 'complete', reason: empty ? 'Clean scene.' : 'Fixture graphic.', artifactIds: p.artifacts.filter(a => a.sceneId === s.id).map(a => a.id) }));
   publish(p, base.revisionId);

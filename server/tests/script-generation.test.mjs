@@ -8,7 +8,7 @@ import { ancientDharmaEditorial, ancientDharmaTemplateContext } from '../dist/se
 import { channelEditorialContext } from '../dist/services/channel-editorial.js';
 import { againstTheOddsEditorial } from '../dist/services/against-the-odds-editorial.js';
 
-const plan = (words = 210, duration = 60) => ({version:1,title:'Survival',thumbnailPrompt:'Ship on the sea',scenes:[0,1,2].map(i => ({id:`scene_00${i+1}`,chapter:'Journey',role:'story',mediaType:'image',duration:duration/3,narration:Array.from({length:Math.floor(words/3)},()=> 'Survival').join(' '),imagePrompt:'A ship on a stormy ocean'}))});
+const plan = (words = 145, duration = 60) => ({version:1,title:'Survival',thumbnailPrompt:'Ship on the sea',scenes:[0,1,2].map(i => ({id:`scene_00${i+1}`,chapter:'Journey',role:'story',mediaType:'image',duration:duration/3,narration:Array.from({length:Math.floor(words/3)},()=> 'Survival').join(' '),imagePrompt:'A ship on a stormy ocean'}))});
 
 test('every profile receives the original template, selected duration and one extraction contract', () => {
   for (const profile of ['shorts','long','mixed']) {
@@ -17,7 +17,7 @@ test('every profile receives the original template, selected duration and one ex
     assert.ok(prompt.includes('Target Duration: ~900 seconds.'));
     assert.ok(prompt.includes('Additional Instructions: Use Hindi'));
     assert.equal((prompt.match(/Shared extraction format V1/g)||[]).length,1);
-    assert.deepEqual(narrationWordBudget(900), {minimum:2835,maximum:3465});
+    assert.deepEqual(narrationWordBudget(900), {minimum:1958,maximum:2392});
   }
 });
 
@@ -37,7 +37,7 @@ test('a provider STOP is not sufficient for an invalid or short episode', () => 
   const prompt=buildGenerationPrompt('Story', 'Ocean', '', 60, 'long');
   assert.equal(generationIssue(prompt,serializeScenePlan(plan()),60),undefined);
   assert.match(generationIssue(prompt,serializeScenePlan(plan(60)),60),/Narration has/);
-  assert.match(generationIssue(prompt,serializeScenePlan(plan(210,20)),60),/Scene planning/);
+  assert.match(generationIssue(prompt,serializeScenePlan(plan(145,20)),60),/Scene planning/);
   assert.match(generationIssue(prompt,'<long_video>{invalid}</long_video>',60),/invalid JSON/);
   assert.match(generationIssue(prompt,'<long_video>{',60),/Unfinished/);
   const video=plan(); video.scenes[0].mediaType='video';video.scenes[0].videoPrompt='Bare video directions';
@@ -56,7 +56,7 @@ test('short chapter narration gets a visual allocation and actionable overflow r
   assert.match(prompt,/Short-episode allocation: prefer 12/);
   assert.match(prompt,/exactly 3 video scenes/);
   assert.match(generationResponseSchema(120,template).properties.scenes.description,/Prefer 12/);
-  const p=plan(420,120);p.scenes[0].narration='voice '.repeat(129).trim();
+  const p=plan(220,120);p.scenes[0].narration='voice '.repeat(129).trim();
   assert.match(generationIssue(prompt,JSON.stringify(p),120),/Scene scene_001: narration has 773 characters/);
   assert.match(generationIssue(prompt,JSON.stringify(p),120),/Split this chapter.*required video quota/);
 });

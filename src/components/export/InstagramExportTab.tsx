@@ -49,7 +49,7 @@ export function InstagramExportTab({
   onNavigateToTimeline?: () => void;
 }) {
   const { fetch, account, profile } = useWorkspaceApi();
-  const [renderedVideo, setRenderedVideo] = useState<string | null>(null);
+  const [renderedVideo, setRenderedVideo] = useState<string | null>(() => script?.renderedVideoUrl || script?.timelineConfig?.renderedVideoUrl || null);
   const [videoFilename, setVideoFilename] = useState<string | null>(null);
   const [checkingVideo, setCheckingVideo] = useState(true);
 
@@ -83,9 +83,10 @@ export function InstagramExportTab({
   const [uploadError, setUploadError] = useState('');
 
   useEffect(() => {
-    setRenderedVideo(null);
+    const initialVideo = script?.renderedVideoUrl || script?.timelineConfig?.renderedVideoUrl || null;
+    setRenderedVideo(initialVideo);
     setVideoFilename(null);
-    if (!script?.id || !script.generatedImages?.length || !script.generatedAudio?.length) {
+    if (!script?.id) {
       setCheckingVideo(false);
       return;
     }
@@ -96,14 +97,21 @@ export function InstagramExportTab({
       .then((data) => {
         if (controller.signal.aborted) return;
         if (data.videos && data.videos.length > 0) {
-          setRenderedVideo(data.videos[0].url);
-          setVideoFilename(data.videos[0].filename);
+          const video = data.videos[0];
+          setRenderedVideo(video.url);
+          setVideoFilename(video.filename);
+          if (script.renderedVideoUrl !== video.url) {
+            onUpdate({ renderedVideoUrl: video.url });
+          }
+        } else if (!initialVideo) {
+          setRenderedVideo(null);
+          setVideoFilename(null);
         }
       })
       .catch(() => {})
       .finally(() => { if (!controller.signal.aborted) setCheckingVideo(false); });
     return () => controller.abort();
-  }, [script?.id, script?.generatedImages?.length, script?.generatedAudio?.length]);
+  }, [script?.id, script?.renderedVideoUrl]);
 
   async function refreshStatus() {
     setCheckingStatus(true);

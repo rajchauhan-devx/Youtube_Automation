@@ -504,9 +504,8 @@ export function artifactRepresentation(artifact: z.infer<typeof Artifact>): Arti
 }
 
 export function isRenderableArtifact(artifact: z.infer<typeof Artifact>): boolean {
-  if (!artifact.enabled) return false;
   const rep = artifactRepresentation(artifact);
-  return rep !== 'empty';
+  return rep === 'scene-graph' || rep === 'legacy-graphic';
 }
 
 export function collectArtifactAssets(artifact: z.infer<typeof Artifact>): string[] {

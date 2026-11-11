@@ -52,7 +52,7 @@ export function GenerationTab({
 }) {
   const [generationSubTab, setGenerationSubTab] = useState<'images' | 'audio' | 'popups'>('images');
   const { profile, account } = useWorkspaceApi();
-  const mixedScenes = profile === 'mixed' || profile === 'shorts' || script?.scenePlan?.scenes.some(scene => scene.mediaType === 'video');
+  const mixedScenes = profile === 'mixed' || profile === 'shorts' || Boolean(script?.scenePlan?.scenes?.some(scene => scene.mediaType === 'video'));
 
   return (
     <ErrorBoundary fallbackLabel="Generation Tab Error">

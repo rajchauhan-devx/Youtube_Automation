@@ -115,7 +115,7 @@ export function buildGenerationPrompt(template: string, topic: string, instructi
   const minimum = promptMinimumWords(template);
   const sceneCount = Math.min(160, Math.ceil(duration / 10));
   const cleanResearch = sanitizeResearchForPrompt(researchData);
-  const isConv = /conversational|dialogue|multi-voice|character/i.test(template) || /conversational|dialogue/i.test(instructions);
+  const isConv = /conversational|multi-character|multi-voice/i.test(template) || /conversational|dialogue|multi-character/i.test(instructions);
   return `${withScenePlanFormat(template, profile)}
 
 ## Selected episode settings
@@ -165,7 +165,7 @@ export function buildFreePrompt(template: string, topic: string, instructions: s
     ...[motionInstructionsForTemplate(head)].filter(Boolean),
   ];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
-  const isConv = /conversational|dialogue|multi-voice|character/i.test(template) || /conversational|dialogue/i.test(instructions);
+  const isConv = /conversational|multi-character|multi-voice/i.test(template) || /conversational|dialogue|multi-character/i.test(instructions);
   if (isConv) {
     tail.push(
       '\n🚨 MANDATORY MULTI-CHARACTER CONVERSATIONAL STORYTELLING RULES:' +

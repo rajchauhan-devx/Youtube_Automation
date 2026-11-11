@@ -462,6 +462,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         } else {
           const ratio = targetDuration / sourceDuration;
           const stretch = Math.min(1.25, Math.max(0.75, ratio));
+          if (targetDuration > sourceDuration * stretch + 2 + 1 / FPS) throw new Error(`Scene ${scenePlan.scenes[i].id}: ${sourceDuration.toFixed(1)}s of footage cannot cover ${targetDuration.toFixed(1)}s of narration naturally. Import a longer clip for this scene. Narration was not cut.`);
           holdDuration = Math.max(2.1, (targetDuration - sourceDuration * stretch) + 1.0);
           videoTiming = `setpts=(PTS-STARTPTS)*${stretch.toFixed(4)}`;
         }

@@ -117,7 +117,7 @@ export function defaultAutoPilotSettings(script: { section?: string; name?: stri
     media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: !imageOnly, flowResolution: '720p', flowDuration: 8, allowImageFallback: true, videoOnly: false },
     voice: { provider: 'google', language: 'auto', voiceId: defaultGoogleVoice(script.generatedAudio?.[0]?.language === 'hi' ? 'hi' : 'en'), rate: 0, pitch: 0, speed: 1 },
     captions: script.enableSubtitles === true ? 'motion' : 'off',
-    graphics: { enabled: false, mode: 'images', density: 'balanced', treatment: 'auto', style: SELECTIVE_MOTION_DIRECTION, model: '' },
+    graphics: { enabled: imageOnly, mode: 'images', density: 'balanced', treatment: 'auto', style: SELECTIVE_MOTION_DIRECTION, model: '' },
     editing: { mode: script.editing?.enabled ? 'custom' : 'story', settings: script.editing || { ...editingPreset('cinematic'), motion: 'balanced', transitionSeconds: 0.35, bookendFades: false, colorLook: 'none' } },
     audio: { music: 'auto', musicVolume: 0.10, voiceVolume: script.ttsVolume ?? 1 },
     youtube: {

@@ -259,23 +259,23 @@ test('designSceneGraph preserves channel typography and colors without container
   assert.ok(dharmaGraph.nodes.every(n => n.kind === 'text'), 'Dharma keeps labels unboxed over footage');
   assert.ok(dharmaGraph.evidence.every(e => dharmaGraph.nodes.some(n => n.id === e.targetNodeId)));
 
-  // 2. Rule Zero
-  const ruleZeroTheme = getChannelUniverseTheme('acct_3ea89878-0f41-4dc9-86e5-3f55cda46ef7', 'Rule Zero');
-  assert.equal(ruleZeroTheme.primary, '#00F0FF', 'Rule Zero uses Cyber Cyan');
-  assert.ok(ruleZeroTheme.fontFamily.includes('JetBrains Mono'), 'Uses Monospace font');
+  // 2. Talvora
+  const talvoraTheme = getChannelUniverseTheme('acct_talvora', 'Talvora');
+  assert.equal(talvoraTheme.primary, '#F43F5E', 'Talvora uses Rose Quartz');
+  assert.ok(talvoraTheme.fontFamily.includes('Playfair'), 'Uses serif romance font');
 
-  const ruleBeat = {
+  const talvoraBeat = {
     sceneId: 'scene-1',
     category: 'evidence',
     warrantsGraphic: true,
-    intent: 'Rule Zero Protocol',
-    supportingText: 'Directive 0: Absolute Discipline',
-    extractedFacts: { title: 'RULE ZERO', label: 'PROTOCOL' },
+    intent: 'Romance Microdrama',
+    supportingText: 'Chapter 1: The First Encounter',
+    extractedFacts: { title: 'TALVORA', label: 'ROMANCE' },
   };
-  const ruleGraph = designSceneGraph(ruleBeat, dummyScene, dummyProject, ruleZeroTheme);
-  assert.ok(ruleGraph);
-  assert.ok(ruleGraph.nodes.every(n => n.kind === 'text'), 'Rule Zero has no enclosing HUD panel');
-  assert.equal(ruleGraph.nodes[0].style.color, ruleZeroTheme.primary);
+  const talvoraGraph = designSceneGraph(talvoraBeat, dummyScene, dummyProject, talvoraTheme);
+  assert.ok(talvoraGraph);
+  assert.ok(talvoraGraph.nodes.every(n => n.kind === 'text'), 'Talvora has no enclosing HUD panel');
+  assert.equal(talvoraGraph.nodes[0].style.color, talvoraTheme.primary);
 
   // 3. Against the Odds
   const oddsTheme = getChannelUniverseTheme('acct_620a1d5e-bb1a-4b7e-8662-37acafaecbab', 'Against the Odds');

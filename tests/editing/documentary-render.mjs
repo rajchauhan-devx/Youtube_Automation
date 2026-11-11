@@ -7,7 +7,13 @@ const { fixture } = await import('./motion-fixtures.mjs');
 const { compileGraphic } = await import('../../server/dist/services/editing/motionPackArtifacts.js');
 const { exportVideo, previewFrames, renderSession } = await import('../../server/dist/services/editing/renderer.js');
 const { projectDir, saveAsset } = await import('../../server/dist/services/editing/repository.js');
-const { renderStill } = await import('@remotion/renderer');
+let renderStill;
+try {
+  ({ renderStill } = await import('@remotion/renderer'));
+} catch {
+  console.log('Skipping legacy documentary-render: @remotion/renderer retired in favor of hyperframes (use npm run test:editing:render)');
+  process.exit(0);
+}
 const sharp = (await import('sharp')).default;
 const results = [];
 for (const [treatment, portrait] of [['archival', false], ['cinematic', true], ['map', false]]) {

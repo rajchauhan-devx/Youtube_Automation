@@ -102,7 +102,7 @@ function savedProductionStage(script: Script): number {
   if (!script.retentionPlan) return 0;
   if (!script.aiResponse?.trim()) return 1;
   if (!script.retentionEdit) return 2;
-  const count = script.scenePlan?.scenes.length || script.imagePrompts?.length || 0;
+  const count = script.scenePlan?.scenes?.length || script.imagePrompts?.length || 0;
   if (!count || !(script.narration || script.extractedScript)?.trim()) return 3;
   const flowVideoActive = Boolean((script.autoPilotSettings?.media?.flowEnabled || script.autoPilotSettings?.media?.videoOnly) && !script.autoPilotSettings?.media?.allowImageFallback);
   if (Array.from({ length: count }, (_, index) => index).some(index => {
@@ -113,7 +113,7 @@ function savedProductionStage(script: Script): number {
     return false;
   })) return 4;
   if (!script.generatedAudio?.[0]?.url) return 5;
-  if (!script.timelineConfig?.renderedVideoUrl && !(script as any).renderedVideoUrl) return 6;
+  if (!script.timelineConfig?.renderedVideoUrl && !script.renderedVideoUrl) return 6;
   return 9;
 }
 
@@ -1064,7 +1064,7 @@ export default function App() {
       let imagePrompts: string[] = currentScript.imagePrompts || [];
       let narration = currentScript.narration || '';
       let extractedScript = currentScript.extractedScript || '';
-      let sceneCount = scenePlan?.scenes.length || imagePrompts.length || 1;
+      let sceneCount = scenePlan?.scenes?.length || imagePrompts.length || 1;
 
       await executeStage('extract_assets', async () => {
         setTab('assets');

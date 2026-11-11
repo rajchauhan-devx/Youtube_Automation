@@ -357,7 +357,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                       <div style={{ fontSize: '8px', color: '#FF6B00', fontWeight: 'bold', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
                         CHAPTER // PRODUCTION RECORD
                       </div>
-                      <div style={{ fontSize: '13px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px', letterSpacing: '0.02em' }}>
+                      <div data-editing-text="motion" style={{ fontSize: '13px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px', letterSpacing: '0.02em' }}>
                         {g.title}
                       </div>
                       {g.detail && (
@@ -394,7 +394,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                       <div style={{ fontSize: '10px', color: '#E2E8F0', marginTop: '1px' }}>
                         {g.detail || 'ELEVATION / ALTITUDE'}
                       </div>
-                      <div style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '4px 0 6px', fontFamily: 'monospace' }}>
+                      <div data-editing-text="motion" style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '4px 0 6px', fontFamily: 'monospace' }}>
                         {g.title}
                       </div>
                       <div style={{ height: '3px', width: '100%', background: '#334155', borderRadius: 0, overflow: 'hidden' }}>
@@ -434,7 +434,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                         <text x="30" y="85" fill="#FFF" fontSize="8" fontWeight="bold" textAnchor="middle">CRASH SITE</text>
                         <text x="270" y="85" fill="#FFF" fontSize="8" fontWeight="bold" textAnchor="middle">OUTPOST</text>
                       </svg>
-                      <div style={{ fontSize: '8px', color: '#CBD5E1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '4px' }}>
+                      <div data-editing-text="motion" style={{ fontSize: '8px', color: '#CBD5E1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '4px' }}>
                         {g.title}
                       </div>
                     </div>
@@ -461,7 +461,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                       }}
                     >
                       <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 900, color: '#FFFFFF', textTransform: 'uppercase' }}>
+                        <div data-editing-text="motion" style={{ fontSize: '11px', fontWeight: 900, color: '#FFFFFF', textTransform: 'uppercase' }}>
                           {g.title}
                         </div>
                         {g.detail && (
@@ -496,7 +496,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                         textShadow: '0 2px 4px #000, 0 0 2px #000',
                         }}
                       >
-                        <div style={{ fontSize: '10px', fontWeight: 900, color: '#FFF' }}>
+                        <div data-editing-text="motion" style={{ fontSize: '10px', fontWeight: 900, color: '#FFF' }}>
                           {g.title}
                         </div>
                         {g.detail && (
@@ -531,13 +531,116 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                       <div style={{ fontSize: '7px', color: '#475569', fontWeight: 'bold', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid #CBD5E1', paddingBottom: '3px' }}>
                         HISTORICAL ARCHIVE // DISASTER INVESTIGATION
                       </div>
-                      <div style={{ fontSize: '14px', fontWeight: 900, color: '#FFFFFF', marginTop: '6px', lineHeight: '1.2' }}>
+                      <div data-editing-text="motion" style={{ fontSize: '14px', fontWeight: 900, color: '#FFFFFF', marginTop: '6px', lineHeight: '1.2' }}>
                         <span>{g.title}</span>
                       </div>
                       <div style={{ height: '2px', background: '#E2E8F0', margin: '8px 0 4px' }} />
                       <div style={{ fontSize: '8px', color: '#CBD5E1' }}>
                         {g.detail || 'Verified survivor accounted for following extensive search.'}
                       </div>
+                    </div>
+                  );
+                }
+
+                // Documentary Composition (image layers, before/after comparison)
+                if (g.kind === 'composition') {
+                  const comp = g.composition;
+                  const comparison = comp?.comparison;
+                  const b = g.bounds || { x: 0, y: 0, width: compositionWidth, height: compositionHeight };
+                  const duration = art.endFrame - art.startFrame;
+                  const local = roundedFrame - art.startFrame;
+                  const wipe = Math.max(0, Math.min(1, (local / Math.max(1, duration - 1) - 0.15) / 0.7));
+                  const accent = project?.style?.colors?.accent || '#8bb9e8';
+                  return (
+                    <div
+                      key={art.id}
+                      style={{
+                        position: 'absolute',
+                        left: `${(b.x / compositionWidth) * 100}%`,
+                        top: `${(b.y / compositionHeight) * 100}%`,
+                        width: `${(b.width / compositionWidth) * 100}%`,
+                        height: `${(b.height / compositionHeight) * 100}%`,
+                        zIndex: 10,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div data-editing-text="motion" style={{ display: 'none' }}>
+                        {g.title}
+                      </div>
+                      {(comp?.layers || []).map((layer: any, index: number) => {
+                        const asset = assets[layer.assetId];
+                        const lBounds = comparison
+                          ? { x: comparison.mode === 'split' ? index * 0.5 : 0, y: 0, width: comparison.mode === 'split' ? 0.5 : 1, height: 1 }
+                          : layer.bounds || { x: 0, y: 0, width: 1, height: 1 };
+                        const clip = comparison?.mode === 'wipe' && index === 1 ? `inset(0 ${(1 - wipe) * 100}% 0 0)` : undefined;
+                        return (
+                          <div
+                            key={layer.id}
+                            data-documentary-layer={layer.id}
+                            style={{
+                              position: 'absolute',
+                              left: `${lBounds.x * 100}%`,
+                              top: `${lBounds.y * 100}%`,
+                              width: `${lBounds.width * 100}%`,
+                              height: `${lBounds.height * 100}%`,
+                              clipPath: clip,
+                              overflow: 'hidden',
+                              boxSizing: 'border-box',
+                              border: comp?.treatment === 'archival' ? '2px solid #e8e0d0' : '1px solid rgba(255, 255, 255, 0.25)',
+                              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
+                            }}
+                          >
+                            {asset?.url && (
+                              <img
+                                src={asset.url}
+                                alt={layer.id}
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  objectFit: layer.fit || 'cover',
+                                }}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+                      {comparison && (
+                        <>
+                          <div
+                            data-comparison-divider=""
+                            style={{
+                              position: 'absolute',
+                              left: `${(comparison.mode === 'split' ? 0.5 : wipe) * 100}%`,
+                              top: 0,
+                              bottom: 0,
+                              width: Math.max(2, compositionWidth / 500),
+                              background: accent,
+                              transform: 'translateX(-50%)',
+                              zIndex: 15,
+                            }}
+                          />
+                          {[comparison.beforeLabel, comparison.afterLabel].map((label: string, index: number) => label ? (
+                            <div
+                              key={index}
+                              style={{
+                                position: 'absolute',
+                                top: 8,
+                                ...(index === 0 ? { left: 8 } : { right: 8 }),
+                                maxWidth: '45%',
+                                padding: '4px 8px',
+                                background: 'rgba(16, 20, 28, 0.85)',
+                                color: '#fff',
+                                fontSize: '11px',
+                                borderRadius: 4,
+                                overflowWrap: 'anywhere',
+                                zIndex: 16,
+                              }}
+                            >
+                              {label}
+                            </div>
+                          ) : null)}
+                        </>
+                      )}
                     </div>
                   );
                 }
@@ -563,7 +666,7 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                     <div style={{ fontSize: '8px', color: '#FF6B00', fontWeight: 'bold', textTransform: 'uppercase' }}>
                       {g.kind}
                     </div>
-                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#FFF' }}>
+                    <div data-editing-text="motion" style={{ fontSize: '12px', fontWeight: 800, color: '#FFF' }}>
                       {g.title}
                     </div>
                   </div>

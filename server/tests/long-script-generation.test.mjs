@@ -6,7 +6,7 @@ import { parseScenePlan } from '../dist/services/scene-plan.js';
 
 const prompt=buildGenerationPrompt('Original story template.','Ocean survival','',300,'long');
 const request={model:'gemini-3.1-flash-lite',jsonSchema:generationResponseSchema(300),messages:[{role:'system',content:'Preserve the story.'},{role:'user',content:prompt}]};
-const response=(part,short=false)=>({choices:[{finish_reason:'STOP',message:{content:JSON.stringify({version:1,title:'Ocean survival',thumbnailPrompt:'A stormy ocean',supportingNotes:part===3?'Research notes.':'',scenes:Array.from({length:10},(_,i)=>({id:`scene_${i+1}`,chapter:`Part ${part}`,role:'story',mediaType:'image',duration:10,narration:Array(short?2:35).fill(`Part${part}`).join(' '),imagePrompt:'A sailing ship on a stormy ocean.'}))})}}]});
+const response=(part,short=false)=>({choices:[{finish_reason:'STOP',message:{content:JSON.stringify({version:1,title:'Ocean survival',thumbnailPrompt:'A stormy ocean',supportingNotes:part===3?'Research notes.':'',scenes:Array.from({length:10},(_,i)=>({id:`scene_${i+1}`,chapter:`Part ${part}`,role:'story',mediaType:'image',duration:10,narration:Array(short?2:24).fill(`Part${part}`).join(' '),imagePrompt:'A sailing ship on a stormy ocean.'}))})}}]});
 
 test('long episodes distribute complete speech and scenes over bounded parts',()=>{
   for(const duration of [300,600,900,1200,3600]) {
@@ -25,7 +25,7 @@ test('short parts repair locally and stream one exact ordered plan without repea
     assert.ok(r.messages[1].content.startsWith(prompt));
     if(!r.jsonSchema.properties.scenes.items.properties.imagePrompt) {
       assert.equal(r.max_tokens,8192);
-      return {choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:Array.from({length:10},(_,i)=>({id:`scene_${i+1}`,narration:Array(35).fill('Part1').join(' ')}))})}}]};
+      return {choices:[{finish_reason:'STOP',message:{content:JSON.stringify({scenes:Array.from({length:10},(_,i)=>({id:`scene_${i+1}`,narration:Array(24).fill('Part1').join(' ')}))})}}]};
     }
     assert.equal(r.max_tokens,16384);
     const part=Number(r.messages[0].content.match(/ONLY part (\d+) of/)[1]);

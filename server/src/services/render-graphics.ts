@@ -27,7 +27,7 @@ export function graphicsRenderRevision(script: { editingProjectId?: string; dyna
   const hasDynamic = (script.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) ||
     (script.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status === 'ready'));
   const graphicsEnabled = script.autoPilotSettings?.graphics?.enabled !== false;
-  if (hasDynamic && graphicsEnabled) {
+  if (!script?.editingProjectId && hasDynamic && graphicsEnabled) {
     return { version: 1, rendererVersion: RENDERER_VERSION, projectId: script.editingProjectId || 'dynamic', hash: objectHash({ dmg: script.dynamicMotionGraphics, ep: script.extraPopups }) };
   }
   if (!script.editingProjectId) return undefined;
@@ -242,7 +242,7 @@ export function savedGraphicsForRender(
   const hasDynamic = (script?.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) ||
     (script?.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status !== 'failed' && (p.title || p.cueWord)));
   const graphicsEnabled = script?.autoPilotSettings?.graphics?.enabled !== false;
-  if (hasDynamic && graphicsEnabled) {
+  if (!script?.editingProjectId && hasDynamic && graphicsEnabled) {
     const dynProj = dynamicMotionProjectForRender(script, audioPath, imagePaths, resolution, duration);
     if (dynProj) return dynProj;
   }
@@ -289,7 +289,7 @@ export function graphicsCameras(project: EditingProject, options: RenderOptions,
     const motion = editing && decisions
       ? { motion: editing.motion === 'off' ? 'hold' : decisions[index].motion, travel: editing.motion === 'balanced' ? 0.08 : 0.04 }
       : legacyMotion(options.sceneAnalysis?.effects?.[index] || 'zoom-in', options.zoomFactor ?? (sync ? 1.1 : 1.15));
-    const camera: LegacyCamera = { startFrame: timing.startFrame, frames: timing.frames, framing: editing?.framing || 'contain', ...motion };
+    const camera: LegacyCamera = { startFrame: timing.startFrame, frames: timing.frames, framing: editing?.framing || 'cover', ...motion };
     cameras[scene.id] = camera;
     const spotlightsOrComps = project.artifacts.filter(a => a.enabled && a.sceneId === scene.id &&
       (a.graphic?.kind === 'spotlight' || a.graphic?.kind === 'composition'));
