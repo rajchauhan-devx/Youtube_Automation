@@ -192,7 +192,16 @@ const startRender: import('express').RequestHandler = async (req, res) => {
   let hasVisualArtifacts = false;
   let effectiveEditing = editing;
   try {
-    resolvedBgm = bgmTrack === 'none' ? null : (bgmTrack === 'ai' ? resolveGeneratedMusic(scriptId) : (bgmTrack ? resolveMusicTrack(bgmTrack) : resolveMusicTrack('auto')));
+    try {
+      resolvedBgm = bgmTrack === 'none' ? null : (bgmTrack === 'ai' ? resolveGeneratedMusic(scriptId) : (bgmTrack ? resolveMusicTrack(bgmTrack) : resolveMusicTrack('auto')));
+    } catch (bgmError) {
+      if (bgmTrack === 'ai') {
+        console.warn(`[Render] AI background music track could not be resolved (${bgmError instanceof Error ? bgmError.message : bgmError}). Falling back to automatic mood track.`);
+        resolvedBgm = resolveMusicTrack(store.getById<any>('scripts', scriptId)?.sceneAnalysis?.mood || 'auto');
+      } else {
+        throw bgmError;
+      }
+    }
     const resolvedAudio = resolveInputPath(audioPath, scriptId);
     if (currentWorkspace().profile !== 'shorts' || store.getById<any>('scripts', scriptId)?.scenePlan) {
       if (narrationStatus(scriptId).status === 'running') throw new Error('Wait for synchronized narration to finish.');
@@ -352,6 +361,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     enableVignette: enableVignette !== false,
     enableSfx: enableSfx !== false,
     editing: (useNativeVideoAudio || hasVisualArtifacts) && effectiveEditing ? { ...effectiveEditing, captions: false } : effectiveEditing,
+    letterboxBanner: req.body?.letterboxBanner || effectiveEditing?.letterboxBanner || scriptForPresenter?.autoPilotSettings?.flowMusic?.letterboxBanner || (scriptForPresenter?.autoPilotSettings?.flowMusic?.imageOnlyReel ? 'Goosebumps 🚩' : undefined),
     presenter,
     presenterSourceSize,
     onProgress: (percent) => {

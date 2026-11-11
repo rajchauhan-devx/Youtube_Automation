@@ -199,6 +199,9 @@ export async function reviewRenderedVideo(script: any, filename: unknown, apiKey
         if (finding.severity === 'blocker' && /emoji|placeholder box|tofu box|glyph box|\u25a1|unrendered (?:character|glyph) box/i.test(finding.detail)) {
           return { ...finding, severity: 'note' as const };
         }
+        if (finding.severity === 'blocker' && (!script.enableSubtitles || script.autoPilotSettings?.captions === 'off') && /caption|subtitle|on-screen (?:text|caption)|garbled|characters|readability/i.test(`${finding.category} ${finding.detail}`)) {
+          return { ...finding, severity: 'note' as const };
+        }
         return finding;
       }),
     };

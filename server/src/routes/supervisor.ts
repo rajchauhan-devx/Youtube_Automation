@@ -143,6 +143,17 @@ supervisorRouter.post('/diagnose', async (req, res) => {
     return;
   }
 
+  // Fast-path recovery for missing or stale music dependencies
+  if (/Generate music|select a local track|missing music asset|music dependency/i.test(error)) {
+    res.json({
+      diagnosis: 'Background music track was missing or unfulfilled for the story composition.',
+      recoveryAction: 'retry_stage',
+      details: 'Reconcile background music with the automatic mood track and resume video render.',
+      confidence: 0.98,
+    });
+    return;
+  }
+
   const script = scriptId ? store.getById<any>('scripts', scriptId) : null;
   const apiKey = getGeminiApiKey(req.get('x-api-key') || req.body?.apiKey);
 

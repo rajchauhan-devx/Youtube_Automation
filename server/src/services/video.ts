@@ -54,6 +54,7 @@ export interface RenderOptions {
   presenterPath?: string;
   presenterSourceSize?: { width: number; height: number };
   editing?: EditingSettings;
+  letterboxBanner?: string;
   scriptId: string;
   imagePaths: string[];
   audioPath: string;
@@ -505,7 +506,15 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         const post: string[] = [];
         if ((i === 0 && editing.bookendFades) || decisions[i].transition === 'dip-black') post.push(`fade=t=in:st=0:d=${transitionLength}`);
         if ((i === scenePlan.scenes.length - 1 && editing.bookendFades) || decisions[i + 1]?.transition === 'dip-black') post.push(`fade=t=out:st=${length - transitionLength}:d=${transitionLength}`);
-        if (editing.letterbox) {
+        if (opts.letterboxBanner || editing.letterboxBanner) {
+          const bannerText = (opts.letterboxBanner || editing.letterboxBanner || 'Goosebumps 🚩').replace(/:/g, '\\:').replace(/'/g, '');
+          const bar = Math.round(height * 0.12);
+          post.push(
+            `drawbox=x=0:y=0:w=iw:h=${bar}:color=black@0.95:t=fill`,
+            `drawtext=text='${bannerText}':fontcolor=0xFDE047:fontsize=${Math.round(height * 0.032)}:x=(w-text_w)/2:y=${Math.round(bar * 0.35)}:shadowcolor=black:shadowx=2:shadowy=2`,
+            `drawbox=x=0:y=ih-${bar}:w=iw:h=${bar}:color=black@0.95:t=fill`
+          );
+        } else if (editing.letterbox) {
           const bar = Math.round(height * 0.065);
           post.push(`drawbox=x=0:y=0:w=iw:h=${bar}:color=black:t=fill`, `drawbox=x=0:y=ih-${bar}:w=iw:h=${bar}:color=black:t=fill`);
         }

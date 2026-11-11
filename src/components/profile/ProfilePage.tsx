@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Channel } from '../../data';
 import { YouTubeAccountsPanel } from './YouTubeAccountsPanel';
 import { MetaAccountsPanel } from './MetaAccountsPanel';
@@ -6,7 +6,8 @@ import { ProfileTopicNotes } from './ProfileTopicNotes';
 import { RecoveryPanel } from './RecoveryPanel';
 import { MotionTemplatesGallery } from './MotionTemplatesGallery';
 import { useWorkspaceApi } from '../../services/workspaceApi';
-import { Users, FileText, Wrench, Sparkles } from 'lucide-react';
+import { Users, FileText, Wrench, Sparkles, Music } from 'lucide-react';
+import { GoogleFlowMusicContent } from '../generation/GoogleFlowMusicContent';
 
 export function ProfilePage({
   accounts,
@@ -19,10 +20,17 @@ export function ProfilePage({
   onAccountsChange: (accounts: Channel[]) => void;
   onSelectAccount: (account: Channel) => void;
   onOpenDashboard?: () => void;
-  initialTab?: 'accounts' | 'topics' | 'templates' | 'recovery';
+  initialTab?: 'accounts' | 'topics' | 'templates' | 'recovery' | 'flow-music';
 }) {
   const { account } = useWorkspaceApi();
-  const [activeTab, setActiveTab] = useState<'accounts' | 'topics' | 'templates' | 'recovery'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'accounts' | 'topics' | 'templates' | 'recovery' | 'flow-music'>(initialTab);
+  const isAncientDharma = account?.id?.toLowerCase().includes('dharma') || account?.name?.toLowerCase().includes('dharma');
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 animate-fade-up">
@@ -31,13 +39,13 @@ export function ProfilePage({
         <div>
           <p className="flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] text-accent">
             <span className="h-1.5 w-5 rounded-full bg-accent" />
-            Channel Profile · {account.name}
+            Channel Profile · {account?.name || 'Ancient Dharma'}
           </p>
           <h1 className="text-2xl font-bold tracking-tight text-white mt-1">Channel Profile & Workspace</h1>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex items-center gap-1.5 rounded-xl border border-border bg-surface/90 p-1">
+        <div className="flex items-center gap-1.5 rounded-xl border border-border bg-surface/90 p-1 flex-wrap">
           <button
             onClick={() => setActiveTab('accounts')}
             className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
@@ -70,6 +78,20 @@ export function ProfilePage({
           >
             <Sparkles className="h-3.5 w-3.5" />
             Motion Templates
+          </button>
+          <button
+            onClick={() => setActiveTab('flow-music')}
+            className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-xs font-semibold transition ${
+              activeTab === 'flow-music'
+                ? 'bg-amber-600 text-white shadow-glow'
+                : 'text-amber-400 hover:text-amber-300'
+            }`}
+          >
+            <Music className="h-3.5 w-3.5" />
+            Google Flow Music
+            <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-300">
+              Dharma
+            </span>
           </button>
           <button
             onClick={() => setActiveTab('recovery')}
@@ -111,6 +133,14 @@ export function ProfilePage({
       {activeTab === 'templates' && (
         <div className="space-y-6">
           <MotionTemplatesGallery />
+        </div>
+      )}
+
+      {activeTab === 'flow-music' && (
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-amber-500/30 bg-surface/90 shadow-card p-2 sm:p-4">
+            <GoogleFlowMusicContent />
+          </div>
         </div>
       )}
 

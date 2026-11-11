@@ -20,6 +20,7 @@ import {
   Check,
   X,
   Sparkles,
+  Music,
 } from 'lucide-react';
 import { createWorkspaceFetch, DEFAULT_ACCOUNT, WorkspaceApiContext } from './services/workspaceApi';
 import type { Section, Tab, Channel, Script, PipelineStep, GeneratedAudio } from './data';
@@ -32,6 +33,7 @@ import { ScriptRunModal } from './components/scripts/ScriptRunModal';
 import { PreviewTab } from './components/preview/PreviewTab';
 import { AssetsTab } from './components/assets/AssetsTab';
 import { GenerationTab } from './components/generation/GenerationTab';
+import { GoogleFlowMusicContent } from './components/generation/GoogleFlowMusicContent';
 import { EditingWorkspace } from './components/editor/EditingWorkspace';
 import { ArtifactsTab } from './components/artifacts/ArtifactsTab';
 import { SetupTab } from './components/setup/SetupTab';
@@ -70,6 +72,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     items: [
       { id: 'dashboard', label: 'YT Studio', icon: LayoutDashboard, badge: '3 YT' },
       { id: 'templates', label: 'Motion Templates', icon: Sparkles, badge: 'Gallery' },
+      { id: 'flow-music', label: 'Flow Music', icon: Music, badge: 'Dharma' },
     ],
   },
   {
@@ -101,9 +104,16 @@ function savedProductionStage(script: Script): number {
   if (!script.retentionEdit) return 2;
   const count = script.scenePlan?.scenes.length || script.imagePrompts?.length || 0;
   if (!count || !(script.narration || script.extractedScript)?.trim()) return 3;
-  if (Array.from({ length: count }, (_, index) => index).some(index =>
-    !script.generatedImages?.some(image => image.index === index && image.url && image.status === 'done'))) return 4;
+  const flowVideoActive = Boolean((script.autoPilotSettings?.media?.flowEnabled || script.autoPilotSettings?.media?.videoOnly) && !script.autoPilotSettings?.media?.allowImageFallback);
+  if (Array.from({ length: count }, (_, index) => index).some(index => {
+    const asset = script.generatedImages?.find(image => image.index === index && image.url && image.status === 'done');
+    if (!asset) return true;
+    const scene = script.scenePlan?.scenes?.[index];
+    if (flowVideoActive && (script.autoPilotSettings?.media?.videoOnly || scene?.mediaType === 'video' || Boolean(scene?.videoPrompt)) && asset.mediaType !== 'video') return true;
+    return false;
+  })) return 4;
   if (!script.generatedAudio?.[0]?.url) return 5;
+  if (!script.timelineConfig?.renderedVideoUrl && !(script as any).renderedVideoUrl) return 6;
   return 9;
 }
 
@@ -149,22 +159,28 @@ function saveUiState(state: PersistedUiState) {
   }
 }
 
-type SidebarId = Section | 'dashboard' | 'queue' | 'library' | 'settings' | 'profile' | 'templates';
+type SidebarId = Section | 'dashboard' | 'queue' | 'library' | 'settings' | 'profile' | 'templates' | 'flow-music';
 
 function isMainSectionSidebar(id: SidebarId): boolean {
   return id === 'shorts' || id === 'long' || id === 'mixed';
 }
 
+const VALID_TABS: readonly Tab[] = ['scripts', 'preview', 'assets', 'generation', 'artifacts', 'review', 'export'] as const;
+const VALID_SECTIONS: readonly Section[] = ['shorts', 'long', 'mixed'] as const;
+
 export default function App() {
   const initialUi = loadUiState();
   const initialAccountId = initialUi?.channelId?.startsWith('acct_') ? initialUi.channelId : 'default';
   const restoredUi = loadAccountUiState(initialAccountId) ?? initialUi;
+  const initialTab: Tab = (restoredUi?.tab && (VALID_TABS as readonly string[]).includes(restoredUi.tab)) ? restoredUi.tab : 'scripts';
+  const initialSection: Section = (restoredUi?.section && (VALID_SECTIONS as readonly string[]).includes(restoredUi.section)) ? restoredUi.section : 'shorts';
+  const initialSidebar: SidebarId = (restoredUi?.section && ['shorts', 'long', 'mixed', 'dashboard', 'queue', 'library', 'settings', 'profile', 'templates', 'flow-music'].includes(restoredUi.section)) ? (restoredUi.section as SidebarId) : initialSection;
   const [activeChannel, setActiveChannel] = useState<Channel>({ ...DEFAULT_ACCOUNT, id: initialAccountId });
   const [accounts, setAccounts] = useState<Channel[]>([DEFAULT_ACCOUNT]);
   const [channelSwitcherOpen, setChannelSwitcherOpen] = useState(false);
-  const [sidebar, setSidebar] = useState<SidebarId>(restoredUi?.section ?? 'shorts');
-  const [section, setSection] = useState<Section>(restoredUi?.section ?? 'shorts');
-  const [tab, setTab] = useState<Tab>(restoredUi?.tab ?? 'scripts');
+  const [sidebar, setSidebar] = useState<SidebarId>(initialSidebar);
+  const [section, setSection] = useState<Section>(initialSection);
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [selectedScriptId, setSelectedScriptId] = useState<string | null>(restoredUi?.selectedScriptId ?? null);
   const [newScriptOpen, setNewScriptOpen] = useState(false);
   const [userScripts, setUserScripts] = useState<Script[]>([]);
@@ -259,6 +275,12 @@ export default function App() {
       selectedScriptId,
     });
   }, [activeChannel.id, section, tab, selectedScriptId]);
+
+  useEffect(() => {
+    if (!VALID_TABS.includes(tab)) {
+      setTab('scripts');
+    }
+  }, [tab]);
 
   const fetch = useMemo(() => createWorkspaceFetch(activeChannel.id, section), [activeChannel.id, section]);
   const scopeKey = `${activeChannel.id}:${section}`;
@@ -937,6 +959,19 @@ export default function App() {
         }
       }
 
+      const flowVideoActive = Boolean((runSettings.media.flowEnabled || runSettings.media.videoOnly) && !runSettings.media.allowImageFallback);
+      const hasPendingFlowVideos = flowVideoActive && (currentScript.scenePlan?.scenes || []).some((sc, idx) => {
+        const isVideo = runSettings.media.videoOnly || sc.mediaType === 'video' || Boolean(sc.videoPrompt);
+        if (!isVideo) return false;
+        const img = currentScript.generatedImages?.find(item => item.index === idx);
+        return !img || img.mediaType !== 'video' || !img.url;
+      });
+      if (hasPendingFlowVideos && startStage >= 4) {
+        startStage = 4;
+        addAutoPilotLog('generate_images', 'Google Flow video generation is enabled, but video scenes currently only have still keyframes. Generating Google Flow video clips...', 'info');
+        enterStage(AUTO_PILOT_STAGES[startStage].id);
+      }
+
       if (startStage === 0) {
         enterStage('plan_hooks');
         const memoryResponse = await fetch('/api/youtube/retention/sync', {
@@ -1162,13 +1197,13 @@ export default function App() {
           addAutoPilotLog('generate_images', `Rendering scene ${i + 1}/${scenesToRender.length}: "${scenePrompt.slice(0, 50)}..."`, 'info');
 
           const explicitMediaType = (scenesToRender[i] as any).mediaType;
-          const isPlannedVideo = videoOnly || (runSettings.media.flowEnabled && (
+          const isPlannedVideo = videoOnly || Boolean(runSettings.media.flowEnabled && (
             explicitMediaType === 'video' ||
             (explicitMediaType !== 'image' && Boolean((scenesToRender[i] as any).videoPrompt)) ||
             (explicitMediaType === undefined && section === 'shorts' && (currentScript.name?.toLowerCase().includes('mixed') || currentScript.topic?.toLowerCase().includes('mixed')) && i % 2 === 0)
           ));
           const savedAsset = currentScript.generatedImages?.find(asset => asset.index === i && asset.status === 'done' && asset.url
-            && asset.prompt === (asset.mediaType === 'video' ? (scenesToRender[i] as any).videoPrompt || scenePrompt : scenePrompt));
+            && (!asset.prompt || asset.prompt === scenePrompt || asset.prompt === (scenesToRender[i] as any).videoPrompt));
           const needsVideo = flowAvailableThisRun && isPlannedVideo;
           if (savedAsset && (!needsVideo || savedAsset.mediaType === 'video')) {
             addAutoPilotLog('generate_images', `Scene ${i + 1}: reusing the saved visual.`, 'info');
@@ -1508,6 +1543,42 @@ export default function App() {
           }
         }
 
+        // Google Flow Music synthesis for Ancient Dharma / Flow Music enabled scripts
+        if (runSettings.flowMusic?.enabled) {
+          addAutoPilotLog('generate_audio', '[FLOW MUSIC] Synthesizing Google Flow Music soundtrack with Playwright...', 'gemini');
+          setAutoPilotState((prev) => ({
+            ...prev,
+            statusMessage: 'Google Flow Music: Composing Vedic hybrid trailer soundtrack with Playwright...',
+          }));
+          try {
+            const flowMusicRes = await fetch('/api/flow-music/generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                scriptId,
+                settings: runSettings.flowMusic,
+              }),
+              signal: controller.signal,
+            });
+            if (flowMusicRes.ok) {
+              const jobData = await flowMusicRes.json();
+              let job = jobData;
+              for (let poll = 0; poll < 60 && (job.state === 'queued' || job.state === 'running'); poll++) {
+                await new Promise((r) => setTimeout(r, 2000));
+                await checkPauseOrAbort();
+                const pollRes = await fetch(`/api/flow-music/jobs/${job.id}`, { signal: controller.signal });
+                if (pollRes.ok) job = await pollRes.json();
+              }
+              if (job.state === 'done') {
+                addAutoPilotLog('generate_audio', 'Google Flow Music soundtrack generated and mapped to timeline.', 'success');
+                currentScript = await reloadCurrentScript(scriptId, controller.signal);
+              }
+            }
+          } catch (musicErr: any) {
+            addAutoPilotLog('generate_audio', `Google Flow Music notice: ${musicErr?.message || 'Proceeding with standard audio'}`, 'info');
+          }
+        }
+
         addAutoPilotLog('generate_audio', 'Voiceover audio rendered and mapped to timeline.', 'success');
         setAutoPilotState((prev) => ({
           ...prev,
@@ -1737,7 +1808,8 @@ export default function App() {
                 },
             enableSubtitles: runSettings.captions !== 'off',
             ...(runSettings.editing.mode === 'custom' ? { editing: { ...runSettings.editing.settings, enabled: true, captions: runSettings.captions === 'plain' } } : runSettings.editing.mode === 'off' ? { editing: { ...runSettings.editing.settings, enabled: false, captions: runSettings.captions === 'plain' } } : {}),
-            bgmTrack: runSettings.audio.music === 'auto' ? retention.plan.musicMood : runSettings.audio.music,
+            bgmTrack: currentScript.generatedMusic?.filename ? 'ai' : (runSettings.audio.music === 'auto' ? retention.plan.musicMood : runSettings.audio.music),
+            letterboxBanner: runSettings.flowMusic?.letterboxBanner || 'Goosebumps 🚩',
             bgmVolume: runSettings.audio.musicVolume,
             ttsVolume: runSettings.audio.voiceVolume,
             colorGrade: 'none',
@@ -1933,6 +2005,34 @@ export default function App() {
   const resumeCheckpoint = autoPilotState.scopeKey === scopeKey && autoPilotState.stage === 'error';
   const resumableScript = resumeCheckpoint ? autoPilotScript : selectedScript?.autoPilotSettings && selectedScript.retentionPlan
     && !selectedScript.youtubeExport?.uploadedVideoId ? selectedScript : null;
+
+  useEffect(() => {
+    (window as any).__autoPilotState = autoPilotState;
+    (window as any).__getScopeScripts = () => scopeScripts;
+    (window as any).__runAutoPilot = (targetScriptId?: string, targetTopic?: string, targetSchedule?: string) => {
+      const s = targetScriptId
+        ? scopeScripts.find(item => item.id === targetScriptId)
+        : (scopeScripts.find(item => item.id === selectedScriptId) || selectedScript);
+      if (!s) throw new Error(`Script not found in workspace: ${targetScriptId || selectedScriptId}`);
+      if (targetSchedule && s.autoPilotSettings?.youtube) {
+        s.autoPilotSettings.youtube.scheduledPublishAt = targetSchedule;
+        s.autoPilotSettings.youtube.publishMode = 'schedule';
+      }
+      return runAutoPilotPipeline(s, targetTopic || s.topicName || '', s.aiInstructions || '');
+    };
+    (window as any).__resumeAutoPilot = (targetScriptId?: string) => {
+      const target = (targetScriptId ? scopeScripts.find(s => s.id === targetScriptId) : null) || resumableScript;
+      if (target) {
+        return runAutoPilotPipeline(
+          target,
+          resumeCheckpoint ? autoPilotState.topic : target.topicName || target.retentionPlan?.topic || '',
+          resumeCheckpoint ? autoPilotState.instructions || '' : target.aiInstructions || '',
+          resumeCheckpoint ? autoPilotState.stageIndex : Math.min(6, savedProductionStage(target)),
+          resumeCheckpoint ? autoPilotState.renderedVideoUrl : null
+        );
+      }
+    };
+  }, [scopeScripts, selectedScriptId, selectedScript, resumableScript, resumeCheckpoint, autoPilotState]);
 
   function handleStopGeneration() {
     if (autoPilotState.isActive) {
@@ -2317,6 +2417,8 @@ export default function App() {
               />
             ) : sidebar === 'profile' ? (
               <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} />
+            ) : sidebar === 'flow-music' ? (
+              <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} initialTab="flow-music" />
             ) : sidebar === 'templates' ? (
               <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} initialTab="templates" />
             ) : sidebar === 'settings' ? (

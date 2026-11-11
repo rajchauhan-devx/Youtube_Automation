@@ -97,6 +97,31 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
   }
 
   // -------------------------------------------------------------------------
+  // HEALING RULE: Background Music Dependency Missing or Stale
+  // -------------------------------------------------------------------------
+  if (/Generate music|select a local track|missing music asset|music dependency/i.test(errMsg)) {
+    ctx.addLog(ctx.stage, '[SUPERVISOR] 🛠️ Healing Action: Reconciling background music. Falling back to automatic mood track...', 'gemini');
+    ctx.setStatus('Gemini Supervisor: Resolving background music track...');
+    try {
+      const freshRes = await ctx.fetch(`/api/scripts/${encodeURIComponent(ctx.scriptId)}`);
+      if (freshRes.ok) {
+        const script = await freshRes.json();
+        const timeline = script.timelineConfig || {};
+        ctx.patchScript(ctx.scriptId, {
+          timelineConfig: { ...timeline, bgmTrack: 'auto' },
+        });
+        await ctx.persistScript(ctx.scriptId, {
+          timelineConfig: { ...timeline, bgmTrack: 'auto' },
+        });
+        ctx.addLog(ctx.stage, '[SUPERVISOR] ✅ Background music reconciled with automatic mood track bed. Resuming render.', 'success');
+        return { healed: true, actionTaken: 'Reconciled background music track to automatic mood bed' };
+      }
+    } catch (musicHealErr) {
+      console.error('[Supervisor] Music reconciliation failed:', musicHealErr);
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // HEALING RULE 1: Synchronized Acoustic Narration Missing or Outdated
   // -------------------------------------------------------------------------
   if (/synchronized narration|sync\.json|scene plan or narration changed|narration audio changed|Select the latest synchronized narration|Hindi narration|Select a Hindi voice/i.test(errMsg)) {

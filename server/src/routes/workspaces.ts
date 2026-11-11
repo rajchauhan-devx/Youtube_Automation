@@ -16,6 +16,7 @@ import { presenterRouter } from './presenter.js';
 import { editingRouter } from './editing.js';
 
 import { flowRouter } from './flow.js';
+import { flowMusicRouter } from './flow-music.js';
 import { supervisorRouter } from './supervisor.js';
 import { retentionRouter } from './retention.js';
 import { recoveryRouter } from './recovery.js';
@@ -35,6 +36,7 @@ workspacesRouter.use('/scripts', scriptsRouter);
 workspacesRouter.use('/generate', generateRouter);
 workspacesRouter.use('/media-import', mediaImportRouter);
 workspacesRouter.use('/flow', flowRouter);
+workspacesRouter.use('/flow-music', flowMusicRouter);
 workspacesRouter.use('/render', renderRouter);
 workspacesRouter.use('/presenter', presenterRouter);
 workspacesRouter.use('/editing', editingRouter);

@@ -28,7 +28,12 @@ export const musicContextHash = (script: any) => createHash('sha256').update(JSO
 
 export function currentMusic(script: any): GeneratedMusic | undefined {
   const music = script?.generatedMusic;
-  if (!music || music.contextHash !== musicContextHash(script) || !safeSegment(music.filename) || !/^music_[\w-]+\.mp3$/.test(music.filename)) return;
+  if (!music || !safeSegment(music.filename)) return;
+  const isLocalMusic = /^music_[\w-]+\.mp3$/.test(music.filename);
+  const isFlowMusic = /^flow_music_[\w-]+\.mp3$/.test(music.filename);
+  if (!isLocalMusic && !isFlowMusic && !/^[\w-]+\.(mp3|wav|m4a)$/.test(music.filename)) return;
+  if (isLocalMusic && music.contextHash !== musicContextHash(script)) return;
+  if (isFlowMusic && !music.contextHash) return;
   if (!fs.existsSync(containedFile(generatedDir(), script.id, music.filename))) return;
   return music;
 }

@@ -36,6 +36,7 @@ import { supervisorRouter } from './routes/supervisor.js';
 import { retentionRouter } from './routes/retention.js';
 import { mediaImportRouter } from './routes/media-import.js';
 import { extraPopupsRouter } from './routes/extra-popups.js';
+import { flowMusicRouter } from './routes/flow-music.js';
 
 const app = express();
 try { initializeTopicNotes(); } catch (error) { if (error instanceof StoreCorruptionError) console.error(error.message); else throw error; }
@@ -73,6 +74,7 @@ app.use('/api/render', renderRouter);
 app.use('/api/presenter', presenterRouter);
 app.use('/api/setup', setupRouter);
 app.use('/api/flow', flowRouter);
+app.use('/api/flow-music', flowMusicRouter);
 app.use('/api/editing', editingRouter);
 app.use('/api/supervisor', supervisorRouter);
 app.use('/api/retention', retentionRouter);

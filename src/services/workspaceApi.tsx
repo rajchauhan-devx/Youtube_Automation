@@ -8,7 +8,7 @@ export function workspacePrefix(accountId: string, profile: Section): string {
 export function createWorkspaceFetch(accountId: string, profile: Section): typeof globalThis.fetch {
   const prefix = workspacePrefix(accountId, profile);
   return (input, init) => {
-    const url = typeof input === 'string' && input.startsWith('/api/') && !input.startsWith('/api/accounts/') && input !== '/api/accounts'
+    const url = typeof input === 'string' && input.startsWith('/api/') && !input.startsWith('/api/accounts/') && input !== '/api/accounts' && !input.startsWith('/api/flow-music')
       ? prefix + input.slice(4) : input;
     return globalThis.fetch(url, init);
   };

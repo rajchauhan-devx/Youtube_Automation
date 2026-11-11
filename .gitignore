@@ -59,6 +59,9 @@ server/data/editing-scheduler.lock
 services/alignment/.venv/
 server/data/cloudflare-image-config.json
 server/data/flow/
+server/data/flow-music/
+server/assets/music/fm_*.mp3
+server/data/.store-recovery/pipeline_*.json
 server/shots/
 
 server/data/*-test-*/

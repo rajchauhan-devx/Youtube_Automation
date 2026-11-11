@@ -41,6 +41,7 @@ export interface EditingSettings {
   grain: boolean;
   sharpen: boolean;
   letterbox: boolean;
+  letterboxBanner?: string;
   quality: 'standard' | 'high';
   overrides: Record<string, { motion?: typeof EDIT_MOTIONS[number]; transition?: typeof EDIT_TRANSITIONS[number] }>;
 }
