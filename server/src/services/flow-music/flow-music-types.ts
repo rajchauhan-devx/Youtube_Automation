@@ -30,6 +30,7 @@ export interface FlowMusicJob {
   settings: FlowMusicSettings;
   audioPath?: string;
   downloadUrl?: string;
+  transcription?: string;
   createdAt: string;
   updatedAt: string;
 }

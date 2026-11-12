@@ -16,6 +16,18 @@ import { isGoogleImageConfigured, generateGoogleImage } from '../google-image.js
 import { checkComfyStatus, generateImage, sanitizeSegment } from '../comfyui.js';
 import { clearFlowMusicJobs } from './flow-music-worker.js';
 import { chat as geminiChat, getGeminiApiKey } from '../gemini.js';
+import { analyzeBeats, type BeatAnalysis } from './beat-detector.js';
+import {
+  normalizeBeatEditOptions,
+  snapScenesToBeats,
+  computeSceneBeatEvents,
+  buildPunchZoomTerm,
+  buildFlashEnableExpr,
+  buildShakeRotateExpr,
+  buildBeatKaraokeAssSubtitles,
+  getBeatEditProfile,
+  type BeatEditOptions,
+} from './beat-edit.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +39,11 @@ export interface SongApprovalState {
   approvedAt?: string;
   songUrl: string;
   trackTitle: string;
+  /** Rejection loop: keeps feedback so the user can refine lyrics/settings and regenerate. */
+  rejected?: boolean;
+  rejectedAt?: string;
+  rejectNote?: string;
+  rejectCount?: number;
 }
 
 export interface FlowSceneDefinition {
@@ -36,6 +53,10 @@ export interface FlowSceneDefinition {
   duration: number;
   effect: 'zoom-in' | 'zoom-out' | 'pan-up' | 'pan-left';
   prompt: string;
+  /** AI-decided lyric section type (hook/dialogue/tension/drop/chant/triumph/finale). */
+  sectionType?: string;
+  /** AI-decided shot/image type (close-up/wide/aerial/cosmic/silhouette/monumental...). */
+  imageType?: string;
 }
 
 export interface FlowMusicStudioState {
@@ -61,6 +82,8 @@ export interface FlowMusicStudioState {
   updatedAt: string;
 }
 
+export type FlowVideoFormat = 'shorts' | 'long' | 'both';
+
 export interface FlowVideoJob {
   id: string;
   scriptId: string;
@@ -69,6 +92,7 @@ export interface FlowVideoJob {
   progress: number;
   approved: boolean;
   images: { line: string; prompt: string; filename: string; url: string }[];
+  videoFormat?: FlowVideoFormat;
   shortsVideoUrl?: string;
   longVideoUrl?: string;
   shortsPath?: string;
@@ -76,6 +100,17 @@ export interface FlowVideoJob {
   error?: string;
   createdAt: string;
   updatedAt: string;
+  /** Beat map summary from the approved audio (beat-synced editing). */
+  beats?: {
+    bpm: number;
+    beatCount: number;
+    downbeatCount: number;
+    dropCount: number;
+    duration: number;
+    reliable: boolean;
+  };
+  /** The beat-edit settings used for this render. */
+  editOptions?: BeatEditOptions;
 }
 
 const approvalMap = new Map<string, SongApprovalState>();
@@ -155,12 +190,54 @@ export function getSongApproval(scriptId: string): SongApprovalState {
 
 export function setSongApproval(scriptId: string, approved: boolean, songUrl = '', trackTitle = ''): SongApprovalState {
   const safeId = sanitizeSegment(scriptId) || 'flow_studio_custom';
+  const previous = getSongApproval(scriptId);
   const state: SongApprovalState = {
     scriptId: safeId,
     approved,
     approvedAt: approved ? new Date().toISOString() : undefined,
     songUrl: songUrl || '',
     trackTitle: trackTitle || (songUrl ? 'Approved Audio Track' : ''),
+  };
+  if (approved) {
+    // Approving clears any prior rejection
+    state.rejected = false;
+    state.rejectNote = undefined;
+    state.rejectedAt = undefined;
+    state.rejectCount = previous.rejectCount || 0;
+  } else {
+    // Revoking keeps the reject history intact
+    state.rejectCount = previous.rejectCount || 0;
+  }
+  approvalMap.set(safeId, state);
+
+  const approvalFile = path.join(flowMusicDataDir(), `approval_${safeId}.json`);
+  fs.mkdirSync(path.dirname(approvalFile), { recursive: true });
+  fs.writeFileSync(approvalFile, JSON.stringify(state, null, 2), 'utf8');
+
+  return state;
+}
+
+/**
+ * Explicitly rejects the current track with an optional refinement note.
+ * The note is surfaced to the UI ("Rejected — refine lyrics/settings and regenerate")
+ * and can be folded back into the next generation attempt as feedback.
+ */
+export function rejectSong(
+  scriptId: string,
+  opts: { note?: string; songUrl?: string; trackTitle?: string } = {}
+): SongApprovalState {
+  const safeId = sanitizeSegment(scriptId) || 'flow_studio_custom';
+  const previous = getSongApproval(scriptId);
+  const note = (opts.note || '').trim();
+  const state: SongApprovalState = {
+    scriptId: safeId,
+    approved: false,
+    songUrl: opts.songUrl || previous.songUrl || '',
+    trackTitle: opts.trackTitle || previous.trackTitle || '',
+    rejected: true,
+    rejectedAt: new Date().toISOString(),
+    rejectNote: note || undefined,
+    rejectCount: (previous.rejectCount || 0) + 1,
   };
   approvalMap.set(safeId, state);
 
@@ -509,29 +586,75 @@ export async function generateFlowMusicSceneImage(opts: {
   );
 }
 
+/** Optional per-scene beat events used to build the "cool edit" effects. */
+export interface SceneBeatFilterEvents {
+  punches: number[];
+  flashes: number[];
+  shakes: number[];
+  options: BeatEditOptions;
+}
+
+function appendBeatEffects(filters: string[], events?: SceneBeatFilterEvents): void {
+  if (!events || !events.options.enabled) return;
+  const profile = getBeatEditProfile(events.options.intensity);
+  if (events.options.shakeDrops && events.shakes.length > 0) {
+    const shake = buildShakeRotateExpr(events.shakes, profile);
+    if (shake) filters.push(`rotate=a='${shake}':ow=iw:oh=ih:c=black`);
+  }
+  if (events.options.flashes && events.flashes.length > 0) {
+    const enable = buildFlashEnableExpr(events.flashes);
+    if (enable) filters.push(`eq=brightness=${profile.flashBrightness}:saturation=1.18:enable='${enable}'`);
+  }
+}
+
 /** Builds an oversampled Lanczos Ken Burns filter for 9:16 letterboxed Shorts scenes. */
-export function buildShortsSceneFilter(dur: number, zoomIn: boolean): string {
+export function buildShortsSceneFilter(dur: number, zoomIn: boolean, beatEvents?: SceneBeatFilterEvents): string {
   const numFrames = dur * 30;
-  const zoomExpr = zoomIn ? `'min(zoom+0.00055,1.14)'` : `'max(1.14-0.00055*on,1.0)'`;
-  return [
+  const baseZoom = zoomIn ? `'min(zoom+0.00055,1.14)` : `'max(1.14-0.00055*on,1.0)`;
+  const profile = beatEvents && beatEvents.options.enabled ? getBeatEditProfile(beatEvents.options.intensity) : null;
+  const punchTerm =
+    profile && beatEvents && beatEvents.options.punchZoom && beatEvents.punches.length > 0
+      ? buildPunchZoomTerm(beatEvents.punches, profile)
+      : '';
+  const zoomExpr = `${baseZoom}${punchTerm}'`;
+
+  const fgFilters = [
+    `scale=2560:1440:flags=lanczos:force_original_aspect_ratio=increase`,
+    `zoompan=z=${zoomExpr}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${numFrames}:s=1080x608:fps=30`,
+  ];
+  appendBeatEffects(fgFilters, beatEvents);
+  fgFilters.push(`unsharp=5:5:0.45:3:3:0.2`, `eq=contrast=1.06:saturation=1.12:brightness=0.0`);
+  const filterParts = [
     `color=c=black:s=1080x1920:d=${dur}[bg]`,
-    `[0:v]scale=2560:1440:flags=lanczos:force_original_aspect_ratio=increase,zoompan=z=${zoomExpr}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${numFrames}:s=1080x608:fps=30,unsharp=5:5:0.45:3:3:0.2,eq=contrast=1.06:saturation=1.12:brightness=0.0[fg]`,
+    `[0:v]${fgFilters.join(',')}[fg]`,
     `[bg][fg]overlay=0:656[out]`,
-  ].join(';');
+  ];
+  return filterParts.join(';');
 }
 
 /** Builds a 4K-oversampled Lanczos Ken Burns filter for 16:9 widescreen scenes. */
-export function buildLongSceneFilter(dur: number, zoomIn: boolean, width = 1920, height = 1080): string {
+export function buildLongSceneFilter(dur: number, zoomIn: boolean, width = 1920, height = 1080, beatEvents?: SceneBeatFilterEvents): string {
   const numFrames = dur * 30;
-  const zoomExpr = zoomIn ? `'min(zoom+0.00055,1.14)'` : `'max(1.14-0.00055*on,1.0)'`;
-  return [
+  const baseZoom = zoomIn ? `'min(zoom+0.00055,1.14)` : `'max(1.14-0.00055*on,1.0)`;
+  const profile = beatEvents && beatEvents.options.enabled ? getBeatEditProfile(beatEvents.options.intensity) : null;
+  const punchTerm =
+    profile && beatEvents && beatEvents.options.punchZoom && beatEvents.punches.length > 0
+      ? buildPunchZoomTerm(beatEvents.punches, profile)
+      : '';
+  const zoomExpr = `${baseZoom}${punchTerm}'`;
+
+  const filters = [
     `scale=3840:2160:flags=lanczos:force_original_aspect_ratio=increase`,
     `zoompan=z=${zoomExpr}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${numFrames}:s=${width}x${height}:fps=30`,
+  ];
+  appendBeatEffects(filters, beatEvents);
+  filters.push(
     `unsharp=5:5:0.5:3:3:0.25`,
     `eq=contrast=1.06:saturation=1.12:brightness=0.0`,
     `colorbalance=rs=0.03:gs=0.0:bs=-0.02`,
-    `format=yuv420p`,
-  ].join(',');
+    `format=yuv420p`
+  );
+  return filters.join(',');
 }
 
 async function concatAndBurnVideo(opts: {
@@ -748,6 +871,24 @@ export function buildLongAssSubtitles(
 
 const EFFECTS: Array<FlowSceneDefinition['effect']> = ['zoom-in', 'pan-up', 'zoom-out', 'pan-left'];
 
+/**
+ * Heuristic section classifier used as the deterministic fallback: it decides
+ * what each lyric part "is" so the right image type & edit energy follow it.
+ */
+function classifyLyricSection(line: string): { sectionType: string; imageType: string; effect: FlowSceneDefinition['effect'] } {
+  const lower = line.toLowerCase();
+  const isChant = /[\u0900-\u097F]*(जय|राम|ॐ|om|jay|jai|chant|मंत्र|mantra)/.test(lower) || /\.\.\.|…/.test(line);
+  const isDrop = /मार दूंगा|रोअर|roar|तूफान|storm|war|युद्ध|लड़ा|attack|anger|क्रोध/.test(lower) || line.includes('!');
+  const isTriumph = /जय|victory|win|light|sunrise|प्रकाश|जीत/.test(lower);
+  const isQuestion = line.includes('?') || /अगर|क्या|कब|why|how/.test(lower);
+
+  if (isDrop) return { sectionType: 'drop', imageType: 'monumental low-angle hero shot with explosive energy', effect: 'zoom-in' };
+  if (isTriumph) return { sectionType: 'triumph', imageType: 'radiant wide sunrise shot with divine light rays', effect: 'zoom-out' };
+  if (isChant) return { sectionType: 'chant', imageType: 'cosmic wide devotional establishing shot', effect: 'pan-left' };
+  if (isQuestion) return { sectionType: 'hook', imageType: 'tense intimate close-up on worried faces', effect: 'zoom-in' };
+  return { sectionType: 'dialogue', imageType: 'cinematic medium shot with dramatic side lighting', effect: 'pan-up' };
+}
+
 function splitScriptLines(rawText: string, maxScenes = 10): string[] {
   const lines = rawText
     .split(/\r?\n/)
@@ -794,14 +935,19 @@ export async function buildScenesFromScript(opts: {
   const totalTarget = Math.max(16, Math.min(180, opts.targetDuration || Math.max(32, beats.length * 8)));
   const perScene = Math.max(4, Math.min(14, Math.round(totalTarget / beats.length)));
 
-  const fallbackScenes: FlowSceneDefinition[] = beats.map((line, i) => ({
-    line,
-    caption: line.replace(/^[^:]{1,24}:\s*/, '').replace(/^["“]|["”]$/g, ''),
-    tag: `[Scene ${i + 1}]`,
-    duration: perScene,
-    effect: EFFECTS[i % EFFECTS.length],
-    prompt: `Cinematic atmospheric frame illustrating "${line}" within theme "${topic}", mood "${mood}", dynamic composition, dramatic lighting, ${HD_MYTHOLOGY_STYLE}`,
-  }));
+  const fallbackScenes: FlowSceneDefinition[] = beats.map((line, i) => {
+    const classified = classifyLyricSection(line);
+    return {
+      line,
+      caption: line.replace(/^[^:]{1,24}:\s*/, '').replace(/^["“]|["”]$/g, ''),
+      tag: `[${classified.sectionType.charAt(0).toUpperCase()}${classified.sectionType.slice(1)} · Scene ${i + 1}]`,
+      duration: perScene,
+      effect: classified.effect,
+      sectionType: classified.sectionType,
+      imageType: classified.imageType,
+      prompt: `${classified.imageType} illustrating "${line}" within theme "${topic}", mood "${mood}", dynamic composition, dramatic lighting, ${HD_MYTHOLOGY_STYLE}`,
+    };
+  });
 
   const apiKey = !opts.offlineOnly ? getGeminiApiKey() : '';
   if (!apiKey || rawLines.length === 0) {
@@ -818,7 +964,7 @@ export async function buildScenesFromScript(opts: {
         {
           role: 'system',
           content:
-            'You are a film storyboard director. Output valid JSON array matching the input lines 1-to-1. Each item has: caption (concise overlay subtitle), visualPrompt (rich detailed scene visual description with lighting, camera framing, emotion, zero embedded text/watermarks, and NEVER use the words "graphic novel" or "cartoon").',
+            'You are a film storyboard director for a lyric-synced music short. For every input lyric line, decide what visual best fits that part of the song. Output a valid JSON array matching the input lines 1-to-1. Each item has: sectionType (one of hook, dialogue, tension, drop, chant, triumph, finale), imageType (the shot/framing this section deserves, e.g. "tense intimate close-up", "monumental low-angle hero shot", "aerial wide establishing shot", "cosmic divine wide shot", "silhouette against fire"), caption (concise overlay subtitle for the line), visualPrompt (rich detailed scene visual description starting with the chosen imageType, with lighting, camera framing, emotion, zero embedded text/watermarks, and NEVER use the words "graphic novel" or "cartoon").',
         },
         {
           role: 'user',
@@ -835,15 +981,20 @@ export async function buildScenesFromScript(opts: {
     if (Array.isArray(parsed) && parsed.length === beats.length) {
       return beats.map((line, i) => {
         const ai = parsed[i] || {};
-        const safePrompt = String(ai.visualPrompt || fallbackScenes[i].prompt)
+        const fallback = fallbackScenes[i];
+        const safePrompt = String(ai.visualPrompt || fallback.prompt)
           .replace(/graphic\s+novel/gi, 'cinematic artwork')
           .trim();
+        const sectionType = String(ai.sectionType || fallback.sectionType || 'dialogue').toLowerCase();
+        const imageType = String(ai.imageType || fallback.imageType || 'cinematic shot').trim();
         return {
           line,
-          caption: String(ai.caption || fallbackScenes[i].caption).trim(),
-          tag: `[Scene ${i + 1}]`,
+          caption: String(ai.caption || fallback.caption).trim(),
+          tag: `[${sectionType.charAt(0).toUpperCase()}${sectionType.slice(1)} · Scene ${i + 1}]`,
           duration: perScene,
           effect: EFFECTS[i % EFFECTS.length],
+          sectionType,
+          imageType,
           prompt: `${safePrompt}, ${HD_MYTHOLOGY_STYLE}`,
         };
       });
@@ -862,6 +1013,10 @@ export function resolveApprovedAudioPath(scriptId: string, explicitSongUrl = '')
   const downloadsDir = flowMusicDownloadsDir();
   const approval = getSongApproval(scriptId);
   const candidateUrl = explicitSongUrl || approval.songUrl || '';
+
+  if (candidateUrl && path.isAbsolute(candidateUrl) && fs.existsSync(candidateUrl) && fs.statSync(candidateUrl).isFile()) {
+    return candidateUrl;
+  }
 
   if (candidateUrl.includes('/api/flow-music/downloads/')) {
     const rawId = decodeURIComponent(candidateUrl.split('/api/flow-music/downloads/')[1].split('?')[0]);
@@ -990,6 +1145,16 @@ export interface StartFlowVideoPipelineOptions {
   duration?: number;
   letterboxBanner?: string;
   songUrl?: string;
+  /** Video format to produce: 'shorts' (9:16 portrait), 'long' (16:9 widescreen landscape), or 'both'. Defaults to 'shorts'. */
+  videoFormat?: FlowVideoFormat;
+  /** Beat-synced "cool edit" options (karaoke subtitles, punch zooms, flashes, shakes). */
+  beatEdit?: Partial<BeatEditOptions>;
+  /** BPM from the Flow Music settings, anchoring beat detection. */
+  bpmHint?: number;
+  /** Re-use existing scene keyframes when re-rendering for quick subtitle / beat-edit changes. */
+  reuseImages?: boolean;
+  /** Explicit list of existing keyframe filenames or URLs to reuse. */
+  existingImages?: Array<{ filename?: string; url?: string; line?: string; prompt?: string } | string>;
 }
 
 /**
@@ -1005,6 +1170,13 @@ export async function startFlowVideoPipeline(
     throw new Error('Song must be approved first! Please listen to the track and click "Approve Song" before starting video production.');
   }
 
+  const requestedFormat: FlowVideoFormat =
+    opts.videoFormat === 'long' || (opts.videoFormat as string) === 'landscape'
+      ? 'long'
+      : opts.videoFormat === 'both'
+        ? 'both'
+        : 'shorts';
+
   const jobId = `fv_${Date.now()}_${randomUUID().slice(0, 6)}`;
   const job: FlowVideoJob = {
     id: jobId,
@@ -1013,6 +1185,7 @@ export async function startFlowVideoPipeline(
     stage: 'Initializing 2K HD scene generation pipeline',
     progress: 5,
     approved: true,
+    videoFormat: requestedFormat,
     images: [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -1034,6 +1207,33 @@ export async function startFlowVideoPipeline(
     // 1. Locate approved audio track dynamically
     const audioPath = resolveApprovedAudioPath(scriptId, opts.songUrl);
     const audioDuration = await probeAudioDuration(audioPath);
+
+    // 1b. Beat-synced edit setup — analyze the approved track for beats & drops
+    const beatEditOptions = normalizeBeatEditOptions(opts.beatEdit);
+    let beatAnalysis: BeatAnalysis | null = null;
+    if (beatEditOptions.enabled) {
+      job.stage = 'Analyzing beats, downbeats & bass drops from the approved track...';
+      job.progress = 8;
+      job.updatedAt = new Date().toISOString();
+      try {
+        beatAnalysis = await analyzeBeats(audioPath, { hintBpm: opts.bpmHint, scriptId });
+        job.beats = {
+          bpm: beatAnalysis.bpm,
+          beatCount: beatAnalysis.beats.length,
+          downbeatCount: beatAnalysis.downbeats.length,
+          dropCount: beatAnalysis.drops.length,
+          duration: beatAnalysis.duration,
+          reliable: beatAnalysis.reliable,
+        };
+        console.log(
+          `[Flow Music Beat Edit] ${beatAnalysis.beats.length} beats @ ${beatAnalysis.bpm} BPM, ${beatAnalysis.downbeats.length} downbeats, ${beatAnalysis.drops.length} drops (${beatAnalysis.source})`
+        );
+      } catch (err: any) {
+        console.warn(`[Flow Music Beat Edit] Beat analysis failed, rendering without beat sync: ${err?.message || err}`);
+        beatAnalysis = null;
+      }
+    }
+    job.editOptions = beatEditOptions;
 
     // 2. Resolve scenes (explicit custom scenes -> script/lyrics builder -> persisted draft -> preset)
     const studioDraft = getFlowMusicStudioState();
@@ -1063,7 +1263,17 @@ export async function startFlowVideoPipeline(
       baseScenes = HANUMAN_SCENE_DEFINITIONS;
     }
 
-    const scenes = fitScenesToAudioDuration(baseScenes, audioDuration);
+    // Snap scene cut boundaries to the beat grid so visual changes land on the music
+    let scenes: FlowSceneDefinition[];
+    if (beatAnalysis && beatEditOptions.enabled && beatEditOptions.snapCuts && baseScenes.length > 0) {
+      const snap = snapScenesToBeats(baseScenes, beatAnalysis, audioDuration);
+      scenes = snap.scenes;
+      console.log(
+        `[Flow Music Beat Edit] Snapped ${snap.snappedBoundaries}/${Math.max(0, baseScenes.length - 1)} scene cuts to the beat grid`
+      );
+    } else {
+      scenes = fitScenesToAudioDuration(baseScenes, audioDuration);
+    }
     const useHanumanPreset = isHanumanPresetScenes(scenes);
     const bannerText =
       opts.letterboxBanner !== undefined
@@ -1072,7 +1282,7 @@ export async function startFlowVideoPipeline(
           ? 'Goosebumps 🚩'
           : studioDraft.letterboxBanner || '';
 
-    job.stage = `Generating ${scenes.length} HD 2K scene keyframes...`;
+    job.stage = `Generating ${scenes.length} HD 2K keyframes from your lyrics (AI-chosen shots)...`;
     job.progress = 15;
     job.updatedAt = new Date().toISOString();
 
@@ -1084,22 +1294,70 @@ export async function startFlowVideoPipeline(
       const imgFilename = `${jobId}_scene_${i}.png`;
       const imgPath = path.join(outDir, imgFilename);
 
-      job.stage = `Generating HD Scene ${i + 1}/${scenes.length}: ${scene.line.slice(0, 40)}...`;
-      job.progress = 15 + Math.round((i / scenes.length) * 35);
-      job.updatedAt = new Date().toISOString();
+      let reused = false;
+      if (opts.reuseImages) {
+        let candidatePath: string | null = null;
+        if (Array.isArray(opts.existingImages) && opts.existingImages[i]) {
+          const item = opts.existingImages[i];
+          const raw = typeof item === 'string' ? item : item.filename || item.url || '';
+          if (raw) {
+            const clean = path.basename(raw.split('?')[0]);
+            const p = path.join(outDir, clean);
+            if (fs.existsSync(p) && fs.statSync(p).size > 1000) {
+              candidatePath = p;
+            }
+          }
+        }
+        if (!candidatePath) {
+          // Look for any existing recent scene image ending with _scene_${i}.png
+          try {
+            const files = fs
+              .readdirSync(outDir)
+              .filter((f) => f.endsWith(`_scene_${i}.png`) && f !== imgFilename)
+              .map((f) => ({ name: f, path: path.join(outDir, f), mtime: fs.statSync(path.join(outDir, f)).mtimeMs }))
+              .sort((a, b) => b.mtime - a.mtime);
+            if (files.length > 0 && fs.statSync(files[0].path).size > 1000) {
+              candidatePath = files[0].path;
+            }
+          } catch {}
+        }
 
-      const seed = 1008 + i * 42;
-      const generated = await generateFlowMusicSceneImage({
-        prompt: scene.prompt,
-        outputPath: imgPath,
-        seed,
-        aspectRatio: '16:9',
-        index: i,
-        scriptId: `${jobId}_s${i}`,
-      });
-      console.log(
-        `[Flow Music Image] Scene ${i + 1}/${scenes.length} generated via ${generated.provider} (${generated.model}, ${Math.round(generated.bytes / 1024)} KB)`
-      );
+        if (candidatePath) {
+          try {
+            fs.copyFileSync(candidatePath, imgPath);
+            reused = true;
+            console.log(
+              `[Flow Music Re-Render] Reused keyframe for Scene ${i + 1}/${scenes.length} from ${path.basename(candidatePath)}`
+            );
+          } catch (err) {
+            console.warn(`[Flow Music Re-Render] Could not copy ${candidatePath}:`, err);
+          }
+        }
+      }
+
+      if (!reused) {
+        job.stage = `Generating HD Scene ${i + 1}/${scenes.length}: ${scene.line.slice(0, 40)}...`;
+        job.progress = 15 + Math.round((i / scenes.length) * 35);
+        job.updatedAt = new Date().toISOString();
+
+        const seed = 1008 + i * 42;
+        const generated = await generateFlowMusicSceneImage({
+          prompt: scene.prompt,
+          outputPath: imgPath,
+          seed,
+          aspectRatio: '16:9',
+          index: i,
+          scriptId: `${jobId}_s${i}`,
+        });
+        console.log(
+          `[Flow Music Image] Scene ${i + 1}/${scenes.length} generated via ${generated.provider} (${generated.model}, ${Math.round(generated.bytes / 1024)} KB)`
+        );
+      } else {
+        job.stage = `Re-using keyframe for Scene ${i + 1}/${scenes.length}...`;
+        job.progress = 15 + Math.round(((i + 1) / scenes.length) * 35);
+        job.updatedAt = new Date().toISOString();
+      }
+
       imageFiles.push(imgPath);
 
       job.images.push({
@@ -1113,105 +1371,155 @@ export async function startFlowVideoPipeline(
     checkCancelled();
     const totalDur = scenes.reduce((acc, s) => acc + (s.duration || 8), 0);
 
+    // Precompute scene time ranges for per-scene beat events
+    let rangeCursor = 0;
+    const sceneRanges = scenes.map((sc) => {
+      const start = rangeCursor;
+      rangeCursor += sc.duration || 8;
+      return { start, end: rangeCursor };
+    });
+    const sceneBeatEvents = (index: number): SceneBeatFilterEvents | undefined => {
+      if (!beatAnalysis || !beatEditOptions.enabled) return undefined;
+      const range = sceneRanges[index];
+      const events = computeSceneBeatEvents(range.start, range.end, beatAnalysis, beatEditOptions);
+      return { ...events, options: beatEditOptions };
+    };
+
+    const shouldRenderShorts = requestedFormat === 'shorts' || requestedFormat === 'both';
+    const shouldRenderLong = requestedFormat === 'long' || requestedFormat === 'both';
+
     // 3. Render Shorts Video (9:16 vertical - 1080x1920)
-    job.stage = 'Rendering 9:16 Shorts Video with Lanczos Ken Burns & synced captions';
-    job.progress = 55;
-    job.updatedAt = new Date().toISOString();
-
-    const shortsFilename = `${jobId}_shorts.mp4`;
-    const shortsPath = path.join(outDir, shortsFilename);
-    const shortsAssPath = path.join(outDir, `${jobId}_shorts.ass`);
-    buildShortsAssSubtitles(scenes, totalDur, shortsAssPath, bannerText);
-
-    const shortsClipList: string[] = [];
-
-    for (let i = 0; i < imageFiles.length; i++) {
+    if (shouldRenderShorts) {
       checkCancelled();
-      const sc = scenes[i];
-      const clipFile = path.join(outDir, `${jobId}_shorts_clip_${i}.mp4`);
-      const dur = sc.duration || 8;
-      const filter = buildShortsSceneFilter(dur, i % 2 === 0);
+      job.stage = beatAnalysis
+        ? 'Rendering 9:16 Shorts: Lanczos Ken Burns + beat-synced punch zooms, flashes & captions'
+        : 'Rendering 9:16 Shorts Video with Lanczos Ken Burns & synced captions';
+      job.progress = shouldRenderLong ? 55 : 60;
+      job.updatedAt = new Date().toISOString();
 
-      await runFFmpegCommand([
-        '-y',
-        '-loop', '1',
-        '-framerate', '30',
-        '-t', String(dur),
-        '-i', imageFiles[i],
-        '-filter_complex', filter,
-        '-map', '[out]',
-        '-c:v', 'libx264',
-        '-preset', 'medium',
-        '-crf', '14',
-        '-pix_fmt', 'yuv420p',
-        '-t', String(dur),
-        clipFile,
-      ]);
-      shortsClipList.push(clipFile);
+      const shortsFilename = `${jobId}_shorts.mp4`;
+      const shortsPath = path.join(outDir, shortsFilename);
+      const shortsAssPath = path.join(outDir, `${jobId}_shorts.ass`);
+      if (beatAnalysis && beatEditOptions.enabled) {
+        buildBeatKaraokeAssSubtitles({
+          scenes,
+          analysis: beatAnalysis,
+          options: beatEditOptions,
+          filePath: shortsAssPath,
+          format: 'shorts',
+          bannerText: bannerText,
+        });
+      } else {
+        buildShortsAssSubtitles(scenes, totalDur, shortsAssPath, bannerText);
+      }
+
+      const shortsClipList: string[] = [];
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        checkCancelled();
+        const sc = scenes[i];
+        const clipFile = path.join(outDir, `${jobId}_shorts_clip_${i}.mp4`);
+        const dur = sc.duration || 8;
+        const filter = buildShortsSceneFilter(dur, i % 2 === 0, sceneBeatEvents(i));
+
+        await runFFmpegCommand([
+          '-y',
+          '-loop', '1',
+          '-framerate', '30',
+          '-t', String(dur),
+          '-i', imageFiles[i],
+          '-filter_complex', filter,
+          '-map', '[out]',
+          '-c:v', 'libx264',
+          '-preset', 'medium',
+          '-crf', '14',
+          '-pix_fmt', 'yuv420p',
+          '-t', String(dur),
+          clipFile,
+        ]);
+        shortsClipList.push(clipFile);
+      }
+
+      checkCancelled();
+      await concatAndBurnVideo({
+        clipPaths: shortsClipList,
+        concatListPath: path.join(outDir, `${jobId}_concat_shorts.txt`),
+        rawOutputPath: path.join(outDir, `${jobId}_shorts_raw.mp4`),
+        assPath: shortsAssPath,
+        audioPath,
+        finalOutputPath: shortsPath,
+      });
+      job.shortsPath = shortsPath;
+      job.shortsVideoUrl = `/api/flow-music/videos/${shortsFilename}`;
+      try { fs.unlinkSync(shortsAssPath); } catch {}
+      for (const c of shortsClipList) { try { fs.unlinkSync(c); } catch {} }
     }
 
-    checkCancelled();
-    await concatAndBurnVideo({
-      clipPaths: shortsClipList,
-      concatListPath: path.join(outDir, `${jobId}_concat_shorts.txt`),
-      rawOutputPath: path.join(outDir, `${jobId}_shorts_raw.mp4`),
-      assPath: shortsAssPath,
-      audioPath,
-      finalOutputPath: shortsPath,
-    });
-    job.shortsPath = shortsPath;
-    job.shortsVideoUrl = `/api/flow-music/videos/${shortsFilename}`;
-    try { fs.unlinkSync(shortsAssPath); } catch {}
-
-    checkCancelled();
     // 4. Render Long Video (16:9 widescreen - 1920x1080)
-    job.stage = 'Rendering 16:9 Long Video in HD cinematic widescreen presentation';
-    job.progress = 80;
-    job.updatedAt = new Date().toISOString();
-
-    const longFilename = `${jobId}_long.mp4`;
-    const longPath = path.join(outDir, longFilename);
-    const longAssPath = path.join(outDir, `${jobId}_long.ass`);
-    buildLongAssSubtitles(scenes, totalDur, longAssPath);
-
-    const longClipList: string[] = [];
-
-    for (let i = 0; i < imageFiles.length; i++) {
+    if (shouldRenderLong) {
       checkCancelled();
-      const sc = scenes[i];
-      const clipFile = path.join(outDir, `${jobId}_long_clip_${i}.mp4`);
-      const dur = sc.duration || 8;
-      const filter = buildLongSceneFilter(dur, i % 2 === 0, 1920, 1080);
+      job.stage = beatAnalysis
+        ? 'Rendering 16:9 Long Video with beat-synced cinematic editing'
+        : 'Rendering 16:9 Long Video in HD cinematic widescreen presentation';
+      job.progress = shouldRenderShorts ? 80 : 60;
+      job.updatedAt = new Date().toISOString();
 
-      await runFFmpegCommand([
-        '-y',
-        '-loop', '1',
-        '-framerate', '30',
-        '-t', String(dur),
-        '-i', imageFiles[i],
-        '-vf', filter,
-        '-c:v', 'libx264',
-        '-preset', 'medium',
-        '-crf', '14',
-        '-pix_fmt', 'yuv420p',
-        '-t', String(dur),
-        clipFile,
-      ]);
-      longClipList.push(clipFile);
+      const longFilename = `${jobId}_long.mp4`;
+      const longPath = path.join(outDir, longFilename);
+      const longAssPath = path.join(outDir, `${jobId}_long.ass`);
+      if (beatAnalysis && beatEditOptions.enabled) {
+        buildBeatKaraokeAssSubtitles({
+          scenes,
+          analysis: beatAnalysis,
+          options: beatEditOptions,
+          filePath: longAssPath,
+          format: 'long',
+          bannerText: bannerText,
+        });
+      } else {
+        buildLongAssSubtitles(scenes, totalDur, longAssPath);
+      }
+
+      const longClipList: string[] = [];
+
+      for (let i = 0; i < imageFiles.length; i++) {
+        checkCancelled();
+        const sc = scenes[i];
+        const clipFile = path.join(outDir, `${jobId}_long_clip_${i}.mp4`);
+        const dur = sc.duration || 8;
+        const filter = buildLongSceneFilter(dur, i % 2 === 0, 1920, 1080, sceneBeatEvents(i));
+
+        await runFFmpegCommand([
+          '-y',
+          '-loop', '1',
+          '-framerate', '30',
+          '-t', String(dur),
+          '-i', imageFiles[i],
+          '-vf', filter,
+          '-c:v', 'libx264',
+          '-preset', 'medium',
+          '-crf', '14',
+          '-pix_fmt', 'yuv420p',
+          '-t', String(dur),
+          clipFile,
+        ]);
+        longClipList.push(clipFile);
+      }
+
+      checkCancelled();
+      await concatAndBurnVideo({
+        clipPaths: longClipList,
+        concatListPath: path.join(outDir, `${jobId}_concat_long.txt`),
+        rawOutputPath: path.join(outDir, `${jobId}_long_raw.mp4`),
+        assPath: longAssPath,
+        audioPath,
+        finalOutputPath: longPath,
+      });
+      job.longPath = longPath;
+      job.longVideoUrl = `/api/flow-music/videos/${longFilename}`;
+      try { fs.unlinkSync(longAssPath); } catch {}
+      for (const c of longClipList) { try { fs.unlinkSync(c); } catch {} }
     }
-
-    checkCancelled();
-    await concatAndBurnVideo({
-      clipPaths: longClipList,
-      concatListPath: path.join(outDir, `${jobId}_concat_long.txt`),
-      rawOutputPath: path.join(outDir, `${jobId}_long_raw.mp4`),
-      assPath: longAssPath,
-      audioPath,
-      finalOutputPath: longPath,
-    });
-    job.longPath = longPath;
-    job.longVideoUrl = `/api/flow-music/videos/${longFilename}`;
-    try { fs.unlinkSync(longAssPath); } catch {}
 
     // 5. Copy to script workspace output if script exists
     try {
@@ -1219,14 +1527,27 @@ export async function startFlowVideoPipeline(
       if (script) {
         const scriptOutDir = containedFile(workspaceOutputDir(), scriptId, '');
         fs.mkdirSync(scriptOutDir, { recursive: true });
-        fs.copyFileSync(shortsPath, path.join(scriptOutDir, 'flow_shorts_final.mp4'));
-        fs.copyFileSync(longPath, path.join(scriptOutDir, 'flow_long_final.mp4'));
+        if (job.shortsPath && fs.existsSync(job.shortsPath)) {
+          fs.copyFileSync(job.shortsPath, path.join(scriptOutDir, 'flow_shorts_final.mp4'));
+        }
+        if (job.longPath && fs.existsSync(job.longPath)) {
+          fs.copyFileSync(job.longPath, path.join(scriptOutDir, 'flow_long_final.mp4'));
+        }
       }
     } catch {}
 
     // Complete job
+    const formatTitle =
+      requestedFormat === 'shorts'
+        ? 'Portrait Short (9:16)'
+        : requestedFormat === 'long'
+          ? 'Landscape Video (16:9)'
+          : 'Shorts (9:16) & Long (16:9) videos';
+
     job.state = 'done';
-    job.stage = 'Final Shorts (9:16) & Long (16:9) videos created successfully!';
+    job.stage = beatAnalysis
+      ? `Beat-synced ${formatTitle} ready! ${beatAnalysis.beats.length} beats @ ${beatAnalysis.bpm} BPM synced captions, punch zooms & drop shakes.`
+      : `Final ${formatTitle} created successfully!`;
     job.progress = 100;
     job.updatedAt = new Date().toISOString();
   })().catch((err: any) => {

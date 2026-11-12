@@ -20,6 +20,18 @@ import {
   ChevronDown,
   ChevronUp,
   XCircle,
+  Activity,
+  Zap,
+  Type,
+  Maximize2,
+  Scissors,
+  Sliders,
+  Smartphone,
+  Monitor,
+  Eye,
+  Play,
+  Pause,
+  Mic,
 } from 'lucide-react';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import type { Script } from '../../data';
@@ -32,7 +44,113 @@ export interface FlowSceneDraft {
   duration: number;
   effect: 'zoom-in' | 'zoom-out' | 'pan-up' | 'pan-left';
   prompt: string;
+  sectionType?: string;
+  imageType?: string;
 }
+
+type BeatSubtitleStyleUi = 'motion' | 'karaoke' | 'pop' | 'glow';
+type BeatSubtitleSizeUi = 'small' | 'medium' | 'large' | 'huge' | number;
+type BeatIntensityUi = 'subtle' | 'balanced' | 'hype';
+
+export function getEffectiveSubtitlePx(
+  size: BeatSubtitleSizeUi | undefined,
+  style: BeatSubtitleStyleUi = 'motion'
+): number {
+  if (typeof size === 'number' && !isNaN(size) && size > 0) {
+    return Math.min(280, Math.max(50, Math.round(size)));
+  }
+  if (size === 'small') return style === 'motion' ? 77 : 48;
+  if (size === 'large') return style === 'motion' ? 120 : 73;
+  if (size === 'huge') return style === 'motion' ? 195 : 120;
+  return style === 'motion' ? 180 : 58;
+}
+
+export function getSubtitleSizeCategory(px: number): {
+  label: string;
+  color: string;
+  desc: string;
+  badgeGradient: string;
+} {
+  if (px < 85) {
+    return {
+      label: 'Compact',
+      color: 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10',
+      desc: 'Subtle clean captions',
+      badgeGradient: 'from-emerald-500 to-teal-500',
+    };
+  }
+  if (px < 125) {
+    return {
+      label: 'Standard',
+      color: 'text-sky-300 border-sky-500/30 bg-sky-500/10',
+      desc: 'Balanced bold subtitles',
+      badgeGradient: 'from-sky-500 to-cyan-500',
+    };
+  }
+  if (px < 170) {
+    return {
+      label: 'Large Reel',
+      color: 'text-amber-300 border-amber-500/30 bg-amber-500/10',
+      desc: 'High-impact reel subtitle',
+      badgeGradient: 'from-amber-500 to-yellow-500',
+    };
+  }
+  if (px < 225) {
+    return {
+      label: 'Huge Reel 🔥',
+      color: 'text-orange-400 border-orange-500/30 bg-orange-500/10',
+      desc: 'Massive screen-slamming bold words',
+      badgeGradient: 'from-orange-500 to-amber-500',
+    };
+  }
+  return {
+    label: 'Ultra Massive 🔥🔥',
+    color: 'text-rose-400 border-rose-500/30 bg-rose-500/10',
+    desc: 'Maximized screen-filling words',
+    badgeGradient: 'from-rose-500 to-pink-500',
+  };
+}
+
+interface BeatDropInfo {
+  start: number;
+  end: number;
+  strength: number;
+}
+
+interface BeatInfo {
+  duration: number;
+  bpm: number;
+  beatInterval: number;
+  beats: number[];
+  downbeats: number[];
+  onsets: Array<{ time: number; strength: number }>;
+  drops: BeatDropInfo[];
+  energy: number[];
+  reliable: boolean;
+  source: 'analysis' | 'fallback';
+}
+
+interface BeatEditUiOptions {
+  enabled: boolean;
+  subtitleStyle: BeatSubtitleStyleUi;
+  subtitleSize: BeatSubtitleSizeUi;
+  intensity: BeatIntensityUi;
+  snapCuts: boolean;
+  punchZoom: boolean;
+  flashes: boolean;
+  shakeDrops: boolean;
+}
+
+const DEFAULT_BEAT_EDIT: BeatEditUiOptions = {
+  enabled: true,
+  subtitleStyle: 'motion',
+  subtitleSize: 180,
+  intensity: 'balanced',
+  snapCuts: true,
+  punchZoom: true,
+  flashes: true,
+  shakeDrops: true,
+};
 
 const EMPTY_FLOW_SETTINGS: Partial<FlowMusicConfig> = {
   enabled: false,
@@ -96,10 +214,23 @@ export function GoogleFlowMusicContent({
 
   const [musicUrl, setMusicUrl] = useState<string | null>(script?.generatedMusic?.url || null);
   const [trackTitle, setTrackTitle] = useState<string>('');
+  const [transcription, setTranscription] = useState<string>('');
 
   const [songApproved, setSongApproved] = useState(false);
   const [approvedAt, setApprovedAt] = useState<string | null>(null);
   const [approving, setApproving] = useState(false);
+
+  // Rejection loop: reject → refine lyrics/settings → regenerate
+  const [songRejected, setSongRejected] = useState(false);
+  const [rejectedNote, setRejectedNote] = useState('');
+  const [rejectCount, setRejectCount] = useState(0);
+  const [showRejectInput, setShowRejectInput] = useState(false);
+
+  // Beat Edit Studio (beat-synced subtitles & editing)
+  const [beatEdit, setBeatEdit] = useState<BeatEditUiOptions>({ ...DEFAULT_BEAT_EDIT });
+  const [beatInfo, setBeatInfo] = useState<BeatInfo | null>(null);
+  const [analyzingBeats, setAnalyzingBeats] = useState(false);
+  const [beatError, setBeatError] = useState('');
 
   const [videoGenerating, setVideoGenerating] = useState(false);
   const [activeVideoJobId, setActiveVideoJobId] = useState<string | null>(null);
@@ -110,10 +241,48 @@ export function GoogleFlowMusicContent({
 
   const [shortsVideoUrl, setShortsVideoUrl] = useState<string | null>(null);
   const [longVideoUrl, setLongVideoUrl] = useState<string | null>(null);
+  const [videoFormat, setVideoFormat] = useState<'shorts' | 'long' | 'both'>('shorts');
   const [sceneImages, setSceneImages] = useState<
     Array<{ line: string; prompt: string; filename: string; url: string }>
   >([]);
   const [regeneratingScene, setRegeneratingScene] = useState<string | null>(null);
+
+  // Live Subtitle & Screen Preview state
+  const [previewFormat, setPreviewFormat] = useState<'shorts' | 'long'>('shorts');
+  const [previewText, setPreviewText] = useState('⚡ FEEL THE BEAT');
+  const [previewPulsing, setPreviewPulsing] = useState(false);
+  const [showSafeZones, setShowSafeZones] = useState(true);
+
+  // Sync preview format when videoFormat changes
+  useEffect(() => {
+    if (videoFormat === 'long') setPreviewFormat('long');
+    else if (videoFormat === 'shorts') setPreviewFormat('shorts');
+  }, [videoFormat]);
+
+  // Sync sample text from song lyrics
+  useEffect(() => {
+    if (flowSettings.lyrics?.trim()) {
+      const firstLine = flowSettings.lyrics
+        .split('\n')
+        .map((l) => l.trim())
+        .find((l) => l.length > 0 && !l.startsWith('[') && !l.startsWith('('));
+      if (firstLine) {
+        const words = firstLine.split(/\s+/).filter(Boolean);
+        setPreviewText(words.slice(0, 3).join(' '));
+      }
+    }
+  }, [flowSettings.lyrics]);
+
+  // Live heartbeat pulse preview at track BPM
+  useEffect(() => {
+    const bpm = Number(flowSettings.bpm) || 120;
+    const intervalMs = Math.max(350, Math.round((60 / bpm) * 1000));
+    const timer = setInterval(() => {
+      setPreviewPulsing(true);
+      setTimeout(() => setPreviewPulsing(false), 140);
+    }, intervalMs);
+    return () => clearInterval(timer);
+  }, [flowSettings.bpm]);
 
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -142,6 +311,9 @@ export function GoogleFlowMusicContent({
         const appData = await appRes.json();
         setSongApproved(Boolean(appData.approved));
         setApprovedAt(appData.approvedAt || null);
+        setSongRejected(Boolean(appData.rejected));
+        setRejectedNote(appData.rejectNote || '');
+        setRejectCount(Number(appData.rejectCount) || 0);
       }
 
       const vidRes = await fetch('/api/flow-music/latest-videos');
@@ -179,6 +351,9 @@ export function GoogleFlowMusicContent({
     if (script?.generatedMusic?.url) {
       setMusicUrl(script.generatedMusic.url);
       setTrackTitle(script.name || 'Attached Script Soundtrack');
+      if ((script.generatedMusic as any).transcription) {
+        setTranscription((script.generatedMusic as any).transcription);
+      }
       return;
     }
 
@@ -189,6 +364,9 @@ export function GoogleFlowMusicContent({
         if (data?.track?.url) {
           setMusicUrl(data.track.url);
           setTrackTitle(data.track.title || data.track.filename || 'Generated Track');
+          if (data.track.transcription) {
+            setTranscription(data.track.transcription);
+          }
         }
       }
     } catch {}
@@ -257,6 +435,9 @@ export function GoogleFlowMusicContent({
     if (chosen.generatedMusic?.url) {
       setMusicUrl(chosen.generatedMusic.url);
       setTrackTitle(chosen.name || 'Script Soundtrack');
+      if ((chosen.generatedMusic as any).transcription) {
+        setTranscription((chosen.generatedMusic as any).transcription);
+      }
     }
     setSuccess(`Loaded script "${chosen.name}". Click "Build Scenes from Script" to prepare keyframes.`);
   };
@@ -340,6 +521,13 @@ export function GoogleFlowMusicContent({
       setTrackTitle('');
       setSongApproved(false);
       setApprovedAt(null);
+      setSongRejected(false);
+      setRejectedNote('');
+      setRejectCount(0);
+      setShowRejectInput(false);
+      setBeatInfo(null);
+      setBeatEdit({ ...DEFAULT_BEAT_EDIT });
+      setVideoFormat('shorts');
       setSceneImages([]);
       setShortsVideoUrl(null);
       setLongVideoUrl(null);
@@ -405,8 +593,11 @@ export function GoogleFlowMusicContent({
 
       setMusicUrl(data.track.url);
       setTrackTitle(data.track.title || file.name);
+      setTranscription(data.track.transcription || '');
       setSongApproved(false);
       setApprovedAt(null);
+      setBeatInfo(null);
+      setBeatError('');
       setSuccess(`Uploaded audio "${data.track.title}". Preview it below and click Approve to unlock video render!`);
     } catch (e: any) {
       setError(e?.message || 'Audio upload failed');
@@ -416,7 +607,7 @@ export function GoogleFlowMusicContent({
     }
   };
 
-  const handleApproveSong = async (approve: boolean) => {
+  const handleApproveSong = async () => {
     setApproving(true);
     setError('');
     try {
@@ -425,27 +616,88 @@ export function GoogleFlowMusicContent({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scriptId: targetScriptId,
-          approved: approve,
+          approved: true,
           songUrl: musicUrl,
           trackTitle: trackTitle || flowSettings.title || 'Custom Track',
         }),
       });
-      if (res.ok) {
-        setSongApproved(approve);
-        setApprovedAt(approve ? new Date().toISOString() : null);
-        if (approve) {
-          setSuccess('Audio approved! You can now render HD Shorts (9:16) & Long (16:9) videos.');
-        } else {
-          setSuccess('Song approval revoked.');
-        }
-      } else {
+      if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         throw new Error(d.error || 'Failed to update approval');
       }
+      setSongApproved(true);
+      setSongRejected(false);
+      setRejectedNote('');
+      setApprovedAt(new Date().toISOString());
+      setSuccess('Song approved! Beat-synced short production is unlocked — check the Beat Edit Studio below.');
+      // Beat analysis runs automatically so the edit studio is ready
+      void handleAnalyzeBeats();
     } catch (e: any) {
       setError(e.message || 'Error updating approval');
     } finally {
       setApproving(false);
+    }
+  };
+
+  const handleRejectSong = async () => {
+    setApproving(true);
+    setError('');
+    try {
+      const res = await fetch('/api/flow-music/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId: targetScriptId,
+          approved: false,
+          action: 'reject',
+          songUrl: musicUrl,
+          trackTitle: trackTitle || flowSettings.title || 'Custom Track',
+          note: rejectedNote,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to reject track');
+
+      setSongApproved(false);
+      setApprovedAt(null);
+      setSongRejected(true);
+      setRejectCount((c) => c + 1);
+      setShowRejectInput(false);
+      setSuccess(
+        rejectedNote.trim()
+          ? 'Track rejected. Your note was saved — refine the lyrics & settings below, then regenerate.'
+          : 'Track rejected. Refine the lyrics & settings below, then regenerate.'
+      );
+      document.getElementById('flow-step-1')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e: any) {
+      setError(e.message || 'Error rejecting track');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleAnalyzeBeats = async (force = false) => {
+    if (!musicUrl) return;
+    setAnalyzingBeats(true);
+    setBeatError('');
+    try {
+      const res = await fetch('/api/flow-music/analyze-beats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId: targetScriptId,
+          songUrl: musicUrl || undefined,
+          bpmHint: Number(flowSettings.bpm) || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Beat analysis failed');
+      setBeatInfo(data as BeatInfo);
+      if (force) setSuccess(`Beat map ready: ${data.bpm} BPM · ${data.beats?.length || 0} beats · ${data.drops?.length || 0} bass drops.`);
+    } catch (e: any) {
+      setBeatError(e?.message || 'Beat analysis failed');
+    } finally {
+      setAnalyzingBeats(false);
     }
   };
 
@@ -476,6 +728,13 @@ export function GoogleFlowMusicContent({
     setSuccess('');
     setStage('Starting Google Flow Music generation...');
     setProgress(5);
+    setTranscription('');
+
+    // Fold rejection feedback into the next attempt so the generator adapts
+    const regenSettings = { ...flowSettings };
+    if (songRejected && rejectedNote.trim()) {
+      regenSettings.prompt = `${flowSettings.prompt || ''}\n\nRefinement feedback (previous version was rejected): ${rejectedNote.trim()}`.trim();
+    }
 
     try {
       const res = await fetch('/api/flow-music/generate', {
@@ -483,7 +742,7 @@ export function GoogleFlowMusicContent({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scriptId: targetScriptId,
-          settings: flowSettings,
+          settings: regenSettings,
         }),
       });
 
@@ -511,10 +770,17 @@ export function GoogleFlowMusicContent({
 
         if (currentJob.state === 'done') {
           done = true;
-          setSuccess('Audio track generated! Listen below and click Approve to continue.');
+          setSuccess('Audio track generated! Listen below, then Approve to continue or Reject to refine.');
           setTrackTitle(flowSettings.title?.trim() || 'Generated Flow Music Track');
           setSongApproved(false);
           setApprovedAt(null);
+          // A fresh track clears the previous rejection and any stale beat map
+          setSongRejected(false);
+          setRejectedNote('');
+          setBeatInfo(null);
+          if (currentJob.transcription) {
+            setTranscription(currentJob.transcription);
+          }
           if (currentJob.downloadUrl) {
             setMusicUrl(currentJob.downloadUrl);
             if (script && onUpdate) {
@@ -526,6 +792,7 @@ export function GoogleFlowMusicContent({
                   duration: flowSettings.duration || 60,
                   seed: 42,
                   contextHash: `flow_${jobId}`,
+                  transcription: currentJob.transcription || '',
                   createdAt: new Date().toISOString(),
                 },
               });
@@ -550,7 +817,7 @@ export function GoogleFlowMusicContent({
     }
   };
 
-  const handleGenerateVideos = async () => {
+  const handleGenerateVideos = async (options?: { reuseImages?: boolean }) => {
     if (!songApproved) {
       setError('Song approval required! Please listen to the track and click "Approve Song" before starting video production.');
       return;
@@ -560,8 +827,13 @@ export function GoogleFlowMusicContent({
     setVideoGenerating(true);
     setVideoError('');
     setVideoSuccess('');
-    setVideoStage('Initializing 2K HD scene generation pipeline...');
-    setVideoProgress(5);
+    const willReuse = Boolean(options?.reuseImages && sceneImages.length > 0);
+    setVideoStage(
+      willReuse
+        ? 'Re-rendering video with updated subtitles & beat settings (keeping visuals)...'
+        : 'Initializing 2K HD scene generation pipeline...'
+    );
+    setVideoProgress(willReuse ? 15 : 5);
 
     try {
       const res = await fetch('/api/flow-music/generate-full-video', {
@@ -578,6 +850,11 @@ export function GoogleFlowMusicContent({
           duration: flowSettings.duration || undefined,
           letterboxBanner: flowSettings.letterboxBanner ?? '',
           songUrl: musicUrl || undefined,
+          videoFormat,
+          beatEdit,
+          bpmHint: Number(flowSettings.bpm) || undefined,
+          reuseImages: willReuse,
+          existingImages: willReuse ? sceneImages : undefined,
         }),
       });
 
@@ -609,9 +886,29 @@ export function GoogleFlowMusicContent({
 
         if (currentJob.state === 'done') {
           done = true;
-          setVideoSuccess('Shorts (9:16) and Long (16:9) final HD videos created successfully!');
-          if (currentJob.shortsVideoUrl) setShortsVideoUrl(currentJob.shortsVideoUrl);
-          if (currentJob.longVideoUrl) setLongVideoUrl(currentJob.longVideoUrl);
+          const fmtLabel =
+            videoFormat === 'shorts'
+              ? '9:16 Portrait Short'
+              : videoFormat === 'long'
+                ? '16:9 Landscape Video'
+                : 'Shorts & Long videos';
+          setVideoSuccess(
+            willReuse
+              ? `Re-render complete! ${fmtLabel} updated with ${beatEdit.subtitleStyle.toUpperCase()} subtitles & settings.`
+              : currentJob.beats
+                ? `Beat-synced ${fmtLabel} ready! ${currentJob.beats.beatCount} beats @ ${currentJob.beats.bpm} BPM — captions, punch zooms & drop shakes synced to your track.`
+                : `${fmtLabel} created successfully!`
+          );
+          if (currentJob.shortsVideoUrl) {
+            setShortsVideoUrl(currentJob.shortsVideoUrl);
+          } else if (videoFormat === 'long') {
+            setShortsVideoUrl(null);
+          }
+          if (currentJob.longVideoUrl) {
+            setLongVideoUrl(currentJob.longVideoUrl);
+          } else if (videoFormat === 'shorts') {
+            setLongVideoUrl(null);
+          }
         } else if (currentJob.state === 'cancelled') {
           done = true;
         } else if (currentJob.state === 'error') {
@@ -663,6 +960,8 @@ export function GoogleFlowMusicContent({
     'flow_music_video'
   );
   const totalSceneDuration = scenes.reduce((acc, s) => acc + (Number(s.duration) || 8), 0);
+  const effectiveSubtitlePx = getEffectiveSubtitlePx(beatEdit.subtitleSize, beatEdit.subtitleStyle);
+  const subtitleSizeCategory = getSubtitleSizeCategory(effectiveSubtitlePx);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 sm:p-6 space-y-5">
@@ -737,6 +1036,118 @@ export function GoogleFlowMusicContent({
         )}
       </div>
 
+      {/* Pipeline Stage Tracker: Compose -> Approve -> Visuals -> Beat Edit -> Final Short */}
+      {(() => {
+        const composeDone = Boolean(musicUrl);
+        const approveDone = songApproved;
+        const visualsDone = sceneImages.length > 0;
+        const renderDone = Boolean(shortsVideoUrl || longVideoUrl);
+        const steps = [
+          {
+            key: 'compose',
+            label: '1 · Compose',
+            hint: 'Lyrics & style',
+            icon: Music,
+            state: composeDone ? 'done' : 'active',
+            anchor: 'flow-step-1',
+          },
+          {
+            key: 'approve',
+            label: '2 · Approve',
+            hint: songRejected ? 'Rejected — refine' : 'Listen & approve',
+            icon: songRejected ? XCircle : ShieldCheck,
+            state: songRejected ? 'rejected' : approveDone ? 'done' : composeDone ? 'active' : 'locked',
+            anchor: 'flow-step-2',
+          },
+          {
+            key: 'visuals',
+            label: '3 · Visuals',
+            hint: 'HD keyframes',
+            icon: ImageIcon,
+            state: visualsDone ? 'done' : approveDone ? 'active' : 'locked',
+            anchor: 'flow-step-3',
+          },
+          {
+            key: 'beatedit',
+            label: '4 · Beat Edit',
+            hint: 'Synced subtitles & cuts',
+            icon: Zap,
+            state: renderDone ? 'done' : approveDone ? 'active' : 'locked',
+            anchor: 'flow-step-3',
+          },
+          {
+            key: 'final',
+            label: 'Final Short',
+            hint: '9:16 + 16:9',
+            icon: Film,
+            state: renderDone ? 'done' : 'locked',
+            anchor: 'flow-final',
+          },
+        ] as const;
+        return (
+          <div className="rounded-xl border border-amber-500/20 bg-zinc-950/80 px-4 py-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              {steps.map((step, idx) => {
+                const Icon = step.icon;
+                const isDone = step.state === 'done';
+                const isRejected = step.state === 'rejected';
+                const isActive = step.state === 'active';
+                return (
+                  <div key={step.key} className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document.getElementById(step.anchor)?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 border text-xs font-bold whitespace-nowrap transition hover:brightness-125 cursor-pointer ${
+                        isRejected
+                          ? 'border-rose-500/50 bg-rose-500/10 text-rose-300'
+                          : isDone
+                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                            : isActive
+                              ? 'border-amber-400/50 bg-amber-500/15 text-amber-200'
+                              : 'border-white/10 bg-white/5 text-zinc-500'
+                      }`}
+                    >
+                      <Icon className={`h-3.5 w-3.5 ${isActive && (step.key === 'beatedit' || step.key === 'visuals') ? 'animate-pulse' : ''}`} />
+                      <span>{step.label}</span>
+                      <span className={`text-[9px] font-medium ${isRejected ? 'text-rose-400/80' : 'text-zinc-400'}`}>
+                        {step.hint}
+                      </span>
+                    </button>
+                    {idx < steps.length - 1 && <span className="text-zinc-600 text-xs">→</span>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Rejection Banner — refinement loop back into Step 1 */}
+      {songRejected && !songApproved && (
+        <div className="rounded-xl border border-rose-500/50 bg-rose-950/40 p-3.5 space-y-2">
+          <div className="flex items-start gap-2.5">
+            <XCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-1">
+              <h4 className="text-xs font-bold text-rose-200">
+                Track Rejected{rejectCount > 1 ? ` (${rejectCount} rejections so far)` : ''} — refine & regenerate
+              </h4>
+              <p className="text-[11px] text-rose-200/80">
+                Update the lyrics, style prompt, mood, vocal profile or BPM in Step 1, then click
+                &ldquo;Generate Flow Music Track&rdquo; again. Your feedback note is folded into the next generation.
+              </p>
+              {rejectedNote.trim() && (
+                <p className="text-[11px] text-rose-300/90 bg-rose-950/60 rounded-lg px-2.5 py-1.5 border border-rose-500/30">
+                  <span className="font-bold">Your note: </span>
+                  {rejectedNote}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Alert Banners */}
       {error && (
         <div className="rounded-xl border border-rose-500/50 bg-rose-950/50 p-3.5 text-xs text-rose-200 flex items-center gap-2.5">
@@ -753,13 +1164,13 @@ export function GoogleFlowMusicContent({
       )}
 
       {/* STEP 1: Script, Lyrics & Visual Settings */}
-      <div className="space-y-3">
+      <div className="space-y-3" id="flow-step-1">
         <button
           type="button"
           onClick={() => setSettingsExpanded((v) => !v)}
           className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-zinc-900/70 px-4 py-2.5 text-left text-xs font-bold text-zinc-200 hover:bg-zinc-900"
         >
-          <span>Step 1 · Script, Lyrics & Visual Direction</span>
+          <span>Step 1 · Compose — Script, Lyrics, Style & Visual Direction</span>
           {settingsExpanded ? <ChevronUp className="h-4 w-4 text-zinc-400" /> : <ChevronDown className="h-4 w-4 text-zinc-400" />}
         </button>
 
@@ -903,15 +1314,15 @@ export function GoogleFlowMusicContent({
       </div>
 
       {/* STEP 2: Soundtrack Generation / Upload & Approval */}
-      <div className="rounded-xl border border-amber-500/40 bg-zinc-900/70 p-4 space-y-4">
+      <div className="rounded-xl border border-amber-500/40 bg-zinc-900/70 p-4 space-y-4" id="flow-step-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
               <Volume2 className="h-4 w-4 text-amber-400" />
-              Step 2 · Audio Track & Approval Gate
+              Step 2 · Music Track & Approval Gate
             </h4>
             <p className="text-xs text-zinc-400">
-              Generate with Google Flow Music or upload your own MP3/WAV audio track
+              Generate with Google Flow Music (lyrics, style, mood, vocals, SFX) or upload your own MP3/WAV — then Approve or Reject
             </p>
           </div>
 
@@ -994,26 +1405,45 @@ export function GoogleFlowMusicContent({
             </div>
             <audio controls loop className="w-full h-11 rounded-lg bg-zinc-900" src={musicUrl} />
 
-            {/* Approval Gate */}
+            {transcription && (
+              <div className="rounded-lg border border-purple-500/30 bg-purple-950/30 p-3 space-y-1.5">
+                <div className="flex items-center gap-1.5 text-purple-300 font-bold uppercase tracking-wider text-[11px]">
+                  <Mic className="h-3.5 w-3.5 text-purple-400" />
+                  <span>AI Vocal Transcription (Verified by Whisper AI)</span>
+                  <span className="ml-auto text-[10px] text-emerald-400 font-mono font-normal flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Lyrics Active & Detected in Audio
+                  </span>
+                </div>
+                <p className="text-zinc-200 italic font-mono text-xs leading-relaxed select-text bg-black/40 rounded px-2.5 py-1.5 border border-purple-500/10">
+                  "{transcription}"
+                </p>
+              </div>
+            )}
+
+            {/* Approval Gate — Approve or Reject & Refine */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className={`h-5 w-5 ${songApproved ? 'text-emerald-400' : 'text-amber-400'}`} />
-                  <h4 className="text-sm font-bold text-white">Song Approval Gate & Video Production</h4>
+                  <ShieldCheck className={`h-5 w-5 ${songApproved ? 'text-emerald-400' : songRejected ? 'text-rose-400' : 'text-amber-400'}`} />
+                  <h4 className="text-sm font-bold text-white">Song Approval Gate</h4>
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                       songApproved
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                        : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                        : songRejected
+                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                     }`}
                   >
-                    {songApproved ? '✓ Approved' : '⏳ Awaiting Approval'}
+                    {songApproved ? '✓ Approved' : songRejected ? '✗ Rejected' : '⏳ Awaiting Approval'}
                   </span>
                 </div>
                 <p className="text-xs text-zinc-400 mt-1">
                   {songApproved
-                    ? 'Approved! Ready to generate multi-line 2K HD mythological paintings and both final videos (Shorts 9:16 + Long 16:9).'
-                    : 'Listen to your track and approve it to unlock multi-scene 2K HD video generation.'}
+                    ? 'Approved! Short production unlocked — set up your Beat Edit Studio in Step 3 below.'
+                    : songRejected
+                      ? 'Rejected. Refine lyrics & settings in Step 1, regenerate, then approve the new version.'
+                      : 'Listen to your track — Approve to unlock short production, or Reject to refine it first.'}
                 </p>
                 {approvedAt && songApproved && (
                   <p className="text-[10px] text-emerald-400/80 mt-0.5">
@@ -1022,51 +1452,817 @@ export function GoogleFlowMusicContent({
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-col items-end gap-2">
                 {!songApproved ? (
-                  <button
-                    type="button"
-                    disabled={approving || generating || videoGenerating}
-                    onClick={() => handleApproveSong(true)}
-                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2.5 text-xs font-bold text-white shadow-glow hover:brightness-110 disabled:opacity-50 transition"
-                  >
-                    {approving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    Approve Song & Unlock Video Production
-                  </button>
-                ) : (
                   <>
-                    <button
-                      type="button"
-                      disabled={videoGenerating}
-                      onClick={handleGenerateVideos}
-                      className="studio-btn-primary flex items-center gap-2 !py-2.5 !px-5 text-xs font-bold shadow-glow disabled:opacity-50"
-                    >
-                      {videoGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
-                      {videoGenerating ? 'Rendering Full Videos...' : 'Generate Full Video (Shorts 9:16 + Long 16:9)'}
-                    </button>
-                    {videoGenerating && (
+                    {showRejectInput && (
+                      <div className="flex w-full flex-col gap-1.5 items-end">
+                        <input
+                          type="text"
+                          value={rejectedNote}
+                          onChange={(e) => setRejectedNote(e.target.value)}
+                          placeholder="What should change? e.g. 'lyrics too soft, more bass drop at the end'"
+                          className="studio-input w-full !py-1.5 text-xs"
+                          maxLength={300}
+                        />
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={approving || generating || videoGenerating}
+                            onClick={handleRejectSong}
+                            className="flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-500 disabled:opacity-50 transition"
+                          >
+                            {approving ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                            Confirm Reject
+                          </button>
+                          <button
+                            type="button"
+                            disabled={approving}
+                            onClick={() => setShowRejectInput(false)}
+                            className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:bg-white/10"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
-                        onClick={handleCancelVideoJob}
-                        className="flex items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-200 hover:bg-rose-500/25"
+                        disabled={approving || generating || videoGenerating}
+                        onClick={handleApproveSong}
+                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-4 py-2.5 text-xs font-bold text-white shadow-glow hover:brightness-110 disabled:opacity-50 transition"
                       >
-                        <XCircle className="h-3.5 w-3.5" /> Cancel
+                        {approving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        Approve Song & Unlock Short Production
                       </button>
-                    )}
-                    <button
-                      type="button"
-                      disabled={approving || videoGenerating}
-                      onClick={() => handleApproveSong(false)}
-                      className="text-xs text-zinc-400 hover:text-rose-400 px-2 py-1 transition"
-                    >
-                      Revoke Approval
-                    </button>
+                      <button
+                        type="button"
+                        disabled={approving || generating || videoGenerating}
+                        onClick={() => setShowRejectInput((v) => !v)}
+                        className="flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-500/10 px-3.5 py-2 text-xs font-bold text-rose-200 hover:bg-rose-500/20 disabled:opacity-50 transition"
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                        Reject & Refine
+                      </button>
+                    </div>
                   </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={approving || videoGenerating}
+                    onClick={() => {
+                      setSongApproved(false);
+                      setApprovedAt(null);
+                      void fetch('/api/flow-music/approve', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ scriptId: targetScriptId, approved: false, songUrl: musicUrl }),
+                      }).catch(() => {});
+                    }}
+                    className="text-xs text-zinc-400 hover:text-rose-400 px-2 py-1 transition"
+                  >
+                    Revoke Approval
+                  </button>
                 )}
               </div>
             </div>
           </div>
         )}
+      </div>
+
+      {/* STEP 3: Beat Edit Studio & Short Production */}
+      <div className="rounded-xl border border-amber-500/40 bg-zinc-900/70 p-4 space-y-4" id="flow-step-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              <Zap className="h-4 w-4 text-amber-400" />
+              Step 3 · Beat Edit Studio — Cool Subtitles & Beat-Synced Editing
+            </h4>
+            <p className="text-xs text-zinc-400">
+              {songApproved
+                ? 'Subtitles synced word-by-word to the beat grid, punch zooms on beats, flashes on downbeats & shake on bass drops'
+                : 'Locked — approve the song first so beats can be analyzed'}
+            </p>
+          </div>
+          <span
+            className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider border ${
+              songApproved
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                : 'bg-zinc-800 text-zinc-500 border-white/10'
+            }`}
+          >
+            {songApproved ? '⚡ Studio Ready' : '🔒 Locked'}
+          </span>
+        </div>
+
+        {/* Beat map summary */}
+        {songApproved && (
+          <div className="rounded-xl border border-white/10 bg-zinc-950/90 p-3.5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h5 className="text-xs font-bold text-zinc-100 flex items-center gap-2">
+                <Activity className="h-3.5 w-3.5 text-amber-400" />
+                Beat Map
+              </h5>
+              <button
+                type="button"
+                disabled={analyzingBeats}
+                onClick={() => void handleAnalyzeBeats(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-semibold text-zinc-200 hover:bg-white/10 disabled:opacity-50"
+              >
+                {analyzingBeats ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                Re-analyze
+              </button>
+            </div>
+
+            {analyzingBeats && !beatInfo && (
+              <p className="text-[11px] text-amber-200 flex items-center gap-2">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Detecting beats, downbeats & bass drops from your track...
+              </p>
+            )}
+            {beatError && (
+              <p className="text-[11px] text-rose-300 flex items-center gap-2">
+                <AlertCircle className="h-3 w-3" /> {beatError}
+              </p>
+            )}
+
+            {beatInfo && (
+              <div className="space-y-2.5">
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-lg bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 text-[11px] font-bold text-amber-200">
+                    {beatInfo.bpm} BPM {beatInfo.source === 'fallback' ? '(settings hint)' : 'detected'}
+                  </span>
+                  <span className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-zinc-300">
+                    {beatInfo.beats.length} beats
+                  </span>
+                  <span className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-zinc-300">
+                    {beatInfo.downbeats.length} downbeats
+                  </span>
+                  <span className="rounded-lg bg-rose-500/15 border border-rose-500/30 px-2.5 py-1 text-[11px] font-semibold text-rose-300">
+                    {beatInfo.drops.length} bass drops
+                  </span>
+                  <span className="rounded-lg bg-white/5 border border-white/10 px-2.5 py-1 text-[11px] font-semibold text-zinc-400">
+                    {beatInfo.duration.toFixed(1)}s
+                  </span>
+                </div>
+                {/* Energy sparkline with drop markers */}
+                {beatInfo.energy.length > 1 && (
+                  <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-10 rounded-lg bg-black/50 border border-white/5">
+                    <polyline
+                      points={beatInfo.energy
+                        .map((v, i) => `${(i / (beatInfo.energy.length - 1)) * 100},${30 - (v * 27 + 1.5)}`)
+                        .join(' ')}
+                      fill="none"
+                      stroke="#fbbf24"
+                      strokeWidth="0.7"
+                      vectorEffect="non-scaling-stroke"
+                    />
+                    {beatInfo.drops.map((d, i) => (
+                      <line
+                        key={i}
+                        x1={(d.start / Math.max(0.001, beatInfo.duration)) * 100}
+                        x2={(d.start / Math.max(0.001, beatInfo.duration)) * 100}
+                        y1="0"
+                        y2="30"
+                        stroke="#fb7185"
+                        strokeWidth="0.6"
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                  </svg>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Beat Edit options */}
+        {songApproved && (
+          <div className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {/* Video Format */}
+              <div className="rounded-xl border border-white/10 bg-zinc-950/90 p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Video className="h-3.5 w-3.5 text-amber-400" />
+                    <h6 className="text-[11px] font-bold text-zinc-200 uppercase tracking-wide">Video Format</h6>
+                  </div>
+                  <span className="text-[10px] font-bold text-amber-300">
+                    {videoFormat === 'shorts' && '9:16 Portrait'}
+                    {videoFormat === 'long' && '16:9 Landscape'}
+                    {videoFormat === 'both' && 'Dual Format'}
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      { key: 'shorts', label: '📱 Portrait (9:16)', desc: 'Shorts, Reels & TikTok vertical format (renders faster)' },
+                      { key: 'long', label: '🖥️ Landscape (16:9)', desc: 'YouTube standard 1080p widescreen (renders faster)' },
+                      { key: 'both', label: '✨ Both', desc: 'Render both vertical Short and widescreen video together' },
+                    ] as const
+                  ).map((fmt) => (
+                    <button
+                      key={fmt.key}
+                      type="button"
+                      onClick={() => setVideoFormat(fmt.key)}
+                      title={fmt.desc}
+                      className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold border transition ${
+                        videoFormat === fmt.key
+                          ? 'border-amber-400/60 bg-amber-500/20 text-amber-200'
+                          : 'border-white/10 bg-white/5 text-zinc-400 hover:text-zinc-200 hover:bg-white/10'
+                      }`}
+                    >
+                      {fmt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Subtitle Style */}
+              <div className="rounded-xl border border-white/10 bg-zinc-950/90 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Type className="h-3.5 w-3.5 text-amber-400" />
+                  <h6 className="text-[11px] font-bold text-zinc-200 uppercase tracking-wide">Subtitle Style</h6>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      { key: 'motion', label: '⚡ Motion Bold', desc: 'huge reel-style bold words, vivid colors, heartbeat pulse on every beat' },
+                      { key: 'karaoke', label: 'Beat Karaoke', desc: 'amber sweep word-by-word' },
+                      { key: 'pop', label: 'Word Pop', desc: 'each word pops on its beat' },
+                      { key: 'glow', label: 'Glow Wave', desc: 'glowing color wave on beats' },
+                    ] as const
+                  ).map((style) => (
+                    <button
+                      key={style.key}
+                      type="button"
+                      onClick={() => setBeatEdit((prev) => ({ ...prev, subtitleStyle: style.key }))}
+                      title={style.desc}
+                      className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold border transition ${
+                        beatEdit.subtitleStyle === style.key
+                          ? 'border-amber-400/60 bg-amber-500/20 text-amber-200'
+                          : 'border-white/10 bg-white/5 text-zinc-400 hover:text-zinc-200 hover:bg-white/10'
+                      }`}
+                    >
+                      {style.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Edit Intensity */}
+              <div className="rounded-xl border border-white/10 bg-zinc-950/90 p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="h-3.5 w-3.5 text-amber-400" />
+                  <h6 className="text-[11px] font-bold text-zinc-200 uppercase tracking-wide">Edit Intensity</h6>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      { key: 'subtle', label: 'Subtle' },
+                      { key: 'balanced', label: 'Balanced' },
+                      { key: 'hype', label: 'Hype 🔥' },
+                    ] as const
+                  ).map((level) => (
+                    <button
+                      key={level.key}
+                      type="button"
+                      onClick={() => setBeatEdit((prev) => ({ ...prev, intensity: level.key }))}
+                      className={`rounded-lg px-2.5 py-1.5 text-[11px] font-bold border transition ${
+                        beatEdit.intensity === level.key
+                          ? 'border-amber-400/60 bg-amber-500/20 text-amber-200'
+                          : 'border-white/10 bg-white/5 text-zinc-400 hover:text-zinc-200 hover:bg-white/10'
+                      }`}
+                    >
+                      {level.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Beat-Synced Effects */}
+            <div className="rounded-xl border border-white/10 bg-zinc-950/90 p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <Scissors className="h-3.5 w-3.5 text-amber-400" />
+                <h6 className="text-[11px] font-bold text-zinc-200 uppercase tracking-wide">Beat-Synced Effects</h6>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(
+                  [
+                    { key: 'snapCuts', label: 'Cuts on beats', desc: 'scene changes land on the beat grid' },
+                    { key: 'punchZoom', label: 'Punch zoom', desc: 'camera punch on beats & downbeats' },
+                    { key: 'flashes', label: 'Flashes', desc: 'light flash on every downbeat' },
+                    { key: 'shakeDrops', label: 'Drop shake', desc: 'camera shake on bass drops' },
+                  ] as const
+                ).map((effect) => (
+                  <button
+                    key={effect.key}
+                    type="button"
+                    title={effect.desc}
+                    onClick={() => setBeatEdit((prev) => ({ ...prev, [effect.key]: !prev[effect.key] }))}
+                    className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-[11px] font-bold transition ${
+                      beatEdit[effect.key]
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                        : 'border-white/10 bg-white/5 text-zinc-500 hover:text-zinc-300'
+                    }`}
+                  >
+                    <span>{effect.label}</span>
+                    <span className={`h-2 w-2 rounded-full ${beatEdit[effect.key] ? 'bg-emerald-400' : 'bg-zinc-600'}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Subtitle Size Meter & Live Screen Preview Studio */}
+            <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-br from-zinc-950 via-zinc-900 to-black p-4 sm:p-5 space-y-5 shadow-2xl">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <Maximize2 className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-zinc-100 flex items-center gap-2">
+                      Subtitle Size Meter & Live Screen Preview
+                      <span className="rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-[9px] font-bold uppercase">
+                        Dynamic Scale
+                      </span>
+                    </h5>
+                    <p className="text-[11px] text-zinc-400">
+                      Continuously drag the size meter to dial in your exact subtitle size with a 1:1 proportional live screen preview
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold border ${subtitleSizeCategory.color}`}>
+                    {subtitleSizeCategory.label} · {effectiveSubtitlePx}px
+                  </span>
+
+                  <div className="flex rounded-lg border border-white/10 bg-zinc-900 p-0.5 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewFormat('shorts')}
+                      className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 font-bold transition ${
+                        previewFormat === 'shorts'
+                          ? 'bg-amber-500 text-black shadow'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                      title="Preview subtitle size on 9:16 vertical phone screen (Shorts, Reels, TikTok)"
+                    >
+                      <Smartphone className="h-3 w-3" /> 9:16 Shorts
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewFormat('long')}
+                      className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 font-bold transition ${
+                        previewFormat === 'long'
+                          ? 'bg-amber-500 text-black shadow'
+                          : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                      title="Preview subtitle size on 16:9 widescreen canvas (YouTube Long video)"
+                    >
+                      <Monitor className="h-3 w-3" /> 16:9 Long
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-12 items-center">
+                {/* Left Column: Continuous Subtitle Size Meter (7 cols) */}
+                <div className="space-y-4 lg:col-span-7">
+                  {/* Active Meter Display Card */}
+                  <div className="rounded-xl border border-white/10 bg-black/50 p-3.5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sliders className="h-3.5 w-3.5 text-amber-400" />
+                        <span className="text-xs font-bold text-zinc-200 uppercase tracking-wide">Continuous Size Meter</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setBeatEdit((prev) => ({ ...prev, subtitleSize: Math.max(50, effectiveSubtitlePx - 5) }))}
+                          className="h-6 w-6 rounded border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 font-bold text-xs flex items-center justify-center transition"
+                          title="Decrease 5px"
+                        >
+                          -5
+                        </button>
+                        <div className="flex items-center rounded-lg border border-amber-500/40 bg-zinc-900 px-2 py-0.5">
+                          <input
+                            type="number"
+                            min={50}
+                            max={280}
+                            step={2}
+                            value={effectiveSubtitlePx}
+                            onChange={(e) => {
+                              const val = Number(e.target.value);
+                              if (!isNaN(val)) setBeatEdit((prev) => ({ ...prev, subtitleSize: Math.min(280, Math.max(50, val)) }));
+                            }}
+                            className="w-12 bg-transparent text-center text-xs font-bold text-amber-300 focus:outline-none"
+                          />
+                          <span className="text-[11px] text-zinc-400 font-semibold">px</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setBeatEdit((prev) => ({ ...prev, subtitleSize: Math.min(280, effectiveSubtitlePx + 5) }))}
+                          className="h-6 w-6 rounded border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 font-bold text-xs flex items-center justify-center transition"
+                          title="Increase 5px"
+                        >
+                          +5
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Continuous Range Slider Meter */}
+                    <div className="space-y-1.5">
+                      <div className="relative flex items-center">
+                        <input
+                          type="range"
+                          min={50}
+                          max={280}
+                          step={2}
+                          value={effectiveSubtitlePx}
+                          onChange={(e) => setBeatEdit((prev) => ({ ...prev, subtitleSize: Number(e.target.value) }))}
+                          className="w-full h-3 rounded-lg appearance-none cursor-pointer focus:outline-none"
+                          style={{
+                            background: `linear-gradient(to right, #10b981 0%, #06b6d4 25%, #f59e0b 55%, #f97316 75%, #f43f5e 100%)`,
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400 font-semibold px-0.5">
+                        <span>50px (Minimal)</span>
+                        <span>100px</span>
+                        <span className="text-amber-400 font-bold">180px (Reel Slam)</span>
+                        <span>220px</span>
+                        <span className="text-rose-400 font-bold">280px (Ultra)</span>
+                      </div>
+                    </div>
+
+                    {/* Dual Format Readout */}
+                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
+                      <div className="rounded-lg bg-white/5 p-2 text-center">
+                        <div className="text-[10px] text-zinc-400">📱 9:16 Shorts (1080×1920)</div>
+                        <div className="text-xs font-bold text-amber-300">
+                          {effectiveSubtitlePx}px <span className="text-[10px] text-zinc-400 font-normal">({((effectiveSubtitlePx / 1920) * 100).toFixed(1)}% of height)</span>
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-white/5 p-2 text-center">
+                        <div className="text-[10px] text-zinc-400">🖥️ 16:9 Long (1920×1080)</div>
+                        <div className="text-xs font-bold text-amber-300">
+                          {Math.round(effectiveSubtitlePx * 0.75)}px <span className="text-[10px] text-zinc-400 font-normal">({((Math.round(effectiveSubtitlePx * 0.75) / 1080) * 100).toFixed(1)}% of height)</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick-Jump Snap Presets along the meter */}
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-zinc-300 uppercase tracking-wide">Quick Jump Meter Marks</label>
+                    <div className="grid grid-cols-5 gap-1.5">
+                      {[
+                        { px: 65, label: 'Compact', badge: '65px' },
+                        { px: 95, label: 'Standard', badge: '95px' },
+                        { px: 145, label: 'Large', badge: '145px' },
+                        { px: 195, label: 'Huge 🔥', badge: '195px' },
+                        { px: 250, label: 'Ultra 🔥🔥', badge: '250px' },
+                      ].map((preset) => (
+                        <button
+                          key={preset.px}
+                          type="button"
+                          onClick={() => setBeatEdit((prev) => ({ ...prev, subtitleSize: preset.px }))}
+                          className={`rounded-lg border px-2 py-1.5 text-center transition ${
+                            Math.abs(effectiveSubtitlePx - preset.px) < 12
+                              ? 'border-amber-400 bg-amber-500/20 text-amber-200 shadow-sm'
+                              : 'border-white/10 bg-white/5 text-zinc-400 hover:bg-white/10 hover:text-zinc-200'
+                          }`}
+                        >
+                          <div className="text-[11px] font-bold">{preset.label}</div>
+                          <div className="text-[9px] text-zinc-400">{preset.badge}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Sample Lyric & Heartbeat Preview Controls */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-zinc-300 uppercase tracking-wide">Preview Word / Lyric</label>
+                      <input
+                        type="text"
+                        value={previewText}
+                        onChange={(e) => setPreviewText(e.target.value)}
+                        placeholder="Type sample word (e.g. FEEL THE BEAT)"
+                        className="w-full rounded-lg border border-white/10 bg-black/60 px-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-amber-400 focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPreviewPulsing(true);
+                          setTimeout(() => setPreviewPulsing(false), 180);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/20 transition cursor-pointer"
+                      >
+                        <Zap className="h-3.5 w-3.5 text-amber-400" />
+                        Test Heartbeat Pulse
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowSafeZones((v) => !v)}
+                        className={`rounded-lg border px-2.5 py-2 text-xs font-semibold transition cursor-pointer ${
+                          showSafeZones
+                            ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200'
+                            : 'border-white/10 bg-white/5 text-zinc-400 hover:text-zinc-200'
+                        }`}
+                        title="Toggle Shorts & TikTok action safe zones overlay"
+                      >
+                        Safe Zones
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column: Live Screen Mockup (5 cols) */}
+                <div className="lg:col-span-5 flex flex-col items-center justify-center py-2">
+                  <div className="text-center mb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                      Live Screen Mockup ({previewFormat === 'shorts' ? '9:16 Vertical Phone' : '16:9 Widescreen'})
+                    </span>
+                  </div>
+
+                  {previewFormat === 'shorts' ? (
+                    /* 9:16 Portrait Phone Mockup */
+                    <div
+                      className="relative rounded-[26px] border-[3px] border-zinc-700/80 bg-black overflow-hidden shadow-2xl flex flex-col items-center justify-between select-none"
+                      style={{ width: '216px', height: '384px' }}
+                    >
+                      {/* Phone top notch */}
+                      <div className="absolute top-2 z-30 flex items-center justify-center w-full pointer-events-none">
+                        <div className="h-3 w-16 bg-zinc-900 rounded-full border border-white/5" />
+                      </div>
+
+                      {/* Background image or cinematic gradient */}
+                      {sceneImages.length > 0 && sceneImages[0]?.url ? (
+                        <img
+                          src={sceneImages[0].url}
+                          alt="Scene keyframe preview"
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-b from-indigo-950 via-zinc-950 to-purple-950 flex flex-col items-center justify-center">
+                          <div className="flex items-center gap-1 opacity-25">
+                            <span className="w-1 h-12 bg-amber-400 rounded-full animate-pulse" />
+                            <span className="w-1 h-20 bg-rose-400 rounded-full animate-pulse" />
+                            <span className="w-1 h-28 bg-cyan-400 rounded-full animate-pulse" />
+                            <span className="w-1 h-16 bg-purple-400 rounded-full animate-pulse" />
+                            <span className="w-1 h-8 bg-amber-400 rounded-full animate-pulse" />
+                          </div>
+                          <span className="absolute text-[8px] uppercase tracking-widest font-bold text-white/30 bottom-12">
+                            2K HD Visual Frame
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Subtle dark vignette overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/45 pointer-events-none" />
+
+                      {/* Subtle TikTok/Shorts UI overlay on right */}
+                      {showSafeZones && (
+                        <div className="absolute right-2 bottom-16 z-20 flex flex-col items-center gap-2.5 text-white/80 pointer-events-none">
+                          <div className="flex flex-col items-center">
+                            <div className="h-5 w-5 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-[9px]">❤️</div>
+                            <span className="text-[7px] font-bold">24k</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <div className="h-5 w-5 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-[9px]">💬</div>
+                            <span className="text-[7px] font-bold">342</span>
+                          </div>
+                          <div className="flex flex-col items-center">
+                            <div className="h-5 w-5 rounded-full bg-black/40 backdrop-blur flex items-center justify-center text-[9px]">↗️</div>
+                            <span className="text-[7px] font-bold">Share</span>
+                          </div>
+                          <div className="h-5 w-5 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-[8px] animate-spin">💿</div>
+                        </div>
+                      )}
+
+                      {/* Safe zone boundary guide */}
+                      {showSafeZones && (
+                        <div className="absolute inset-x-2 top-9 bottom-14 border border-dashed border-amber-400/30 pointer-events-none rounded-lg flex items-start justify-end p-1">
+                          <span className="text-[7px] text-amber-400/70 font-mono">Safe Zone</span>
+                        </div>
+                      )}
+
+                      {/* Subtitle Element - 100% Proportional Scale! */}
+                      <div
+                        className="absolute inset-x-3 text-center z-20 pointer-events-none transition-all duration-150 flex items-center justify-center"
+                        style={{
+                          bottom: '31%', // Corresponds to marginV 620 on 1920 canvas
+                        }}
+                      >
+                        <div
+                          className={`font-black uppercase tracking-tight transition-all duration-100 ${
+                            previewPulsing ? 'scale-115 brightness-125' : 'scale-100'
+                          }`}
+                          style={{
+                            fontSize: `${Math.max(12, Math.round(effectiveSubtitlePx * 0.2))}px`,
+                            lineHeight: 1.08,
+                            color:
+                              beatEdit.subtitleStyle === 'motion'
+                                ? '#FFD400'
+                                : beatEdit.subtitleStyle === 'karaoke'
+                                ? '#FFFFFF'
+                                : beatEdit.subtitleStyle === 'glow'
+                                ? '#4FE8FF'
+                                : '#FFFFFF',
+                            textShadow:
+                              beatEdit.subtitleStyle === 'glow'
+                                ? '0 0 16px #4FE8FF, 0 0 26px #06b6d4, 0 2px 4px #000000'
+                                : '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 4px 10px rgba(0,0,0,0.95)',
+                            WebkitTextStroke:
+                              beatEdit.subtitleStyle === 'motion'
+                                ? `${Math.max(1, Math.round(effectiveSubtitlePx * 0.2 * 0.085))}px #000`
+                                : undefined,
+                          }}
+                        >
+                          {previewText || '⚡ FEEL THE BEAT'}
+                        </div>
+                      </div>
+
+                      {/* Phone bottom bar */}
+                      <div className="absolute bottom-1.5 z-30 w-full flex justify-center pointer-events-none">
+                        <div className="h-1 w-24 bg-white/40 rounded-full" />
+                      </div>
+                    </div>
+                  ) : (
+                    /* 16:9 Widescreen Mockup */
+                    <div
+                      className="relative rounded-xl border-[3px] border-zinc-700/80 bg-black overflow-hidden shadow-2xl flex flex-col items-center justify-between select-none"
+                      style={{ width: '356px', height: '200px' }}
+                    >
+                      {/* Background image or cinematic gradient */}
+                      {sceneImages.length > 0 && sceneImages[0]?.url ? (
+                        <img
+                          src={sceneImages[0].url}
+                          alt="Scene keyframe preview"
+                          className="absolute inset-0 w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 bg-gradient-to-b from-indigo-950 via-zinc-950 to-purple-950 flex flex-col items-center justify-center">
+                          <div className="flex items-center gap-1 opacity-25">
+                            <span className="w-1 h-8 bg-amber-400 rounded-full animate-pulse" />
+                            <span className="w-1 h-14 bg-rose-400 rounded-full animate-pulse" />
+                            <span className="w-1 h-20 bg-cyan-400 rounded-full animate-pulse" />
+                            <span className="w-1 h-12 bg-purple-400 rounded-full animate-pulse" />
+                            <span className="w-1 h-6 bg-amber-400 rounded-full animate-pulse" />
+                          </div>
+                          <span className="absolute text-[8px] uppercase tracking-widest font-bold text-white/30 bottom-6">
+                            16:9 2K HD Canvas
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Subtle dark vignette overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/35 pointer-events-none" />
+
+                      {/* Safe zone boundary guide */}
+                      {showSafeZones && (
+                        <div className="absolute inset-x-3 top-2.5 bottom-7 border border-dashed border-amber-400/30 pointer-events-none rounded flex items-start justify-end p-1">
+                          <span className="text-[7px] text-amber-400/70 font-mono">Safe Zone (16:9)</span>
+                        </div>
+                      )}
+
+                      {/* Subtitle Element - 100% Proportional Scale! */}
+                      <div
+                        className="absolute inset-x-4 text-center z-20 pointer-events-none transition-all duration-150 flex items-center justify-center"
+                        style={{
+                          bottom: '15%', // Corresponds to marginV 150 on 1080 canvas
+                        }}
+                      >
+                        <div
+                          className={`font-black uppercase tracking-tight transition-all duration-100 ${
+                            previewPulsing ? 'scale-115 brightness-125' : 'scale-100'
+                          }`}
+                          style={{
+                            fontSize: `${Math.max(11, Math.round(effectiveSubtitlePx * 0.75 * 0.1852))}px`,
+                            lineHeight: 1.1,
+                            color:
+                              beatEdit.subtitleStyle === 'motion'
+                                ? '#FFD400'
+                                : beatEdit.subtitleStyle === 'karaoke'
+                                ? '#FFFFFF'
+                                : beatEdit.subtitleStyle === 'glow'
+                                ? '#4FE8FF'
+                                : '#FFFFFF',
+                            textShadow:
+                              beatEdit.subtitleStyle === 'glow'
+                                ? '0 0 16px #4FE8FF, 0 0 26px #06b6d4, 0 2px 4px #000000'
+                                : '-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 4px 10px rgba(0,0,0,0.95)',
+                            WebkitTextStroke:
+                              beatEdit.subtitleStyle === 'motion'
+                                ? `${Math.max(1, Math.round(effectiveSubtitlePx * 0.75 * 0.1852 * 0.085))}px #000`
+                                : undefined,
+                          }}
+                        >
+                          {previewText || '⚡ FEEL THE BEAT'}
+                        </div>
+                      </div>
+
+                      {/* YouTube player progress bar */}
+                      <div className="absolute bottom-1 inset-x-2 z-20 flex items-center gap-2 px-1 pointer-events-none">
+                        <div className="h-0.5 flex-1 bg-white/20 rounded-full overflow-hidden">
+                          <div className="h-full w-1/3 bg-red-600 rounded-full" />
+                        </div>
+                        <span className="text-[7px] text-white/70 font-mono">0:14 / 1:00</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Render buttons: Fast Re-render with New Subtitles VS Full Re-render */}
+        <div className="space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {shortsVideoUrl || longVideoUrl || sceneImages.length > 0 ? (
+              <>
+                <button
+                  type="button"
+                  disabled={!songApproved || videoGenerating || generating}
+                  onClick={() => handleGenerateVideos({ reuseImages: true })}
+                  className="studio-btn-primary flex items-center gap-2 !py-2.5 !px-5 text-xs font-bold shadow-glow disabled:opacity-50 cursor-pointer"
+                  title="Re-render video instantly with your newly selected format, Subtitle Style, intensity, and effects while keeping your 2K HD scene keyframes"
+                >
+                  {videoGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 text-amber-300" />}
+                  {videoGenerating
+                    ? 'Re-rendering Video...'
+                    : videoFormat === 'shorts'
+                      ? '⚡ Fast Re-render (9:16 Portrait Short)'
+                      : videoFormat === 'long'
+                        ? '⚡ Fast Re-render (16:9 Landscape Video)'
+                        : '⚡ Fast Re-render (Both Formats)'}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!songApproved || videoGenerating || generating}
+                  onClick={() => handleGenerateVideos({ reuseImages: false })}
+                  className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-zinc-200 hover:bg-white/15 transition disabled:opacity-50 cursor-pointer"
+                  title="Redraw all 2K HD scene keyframes from scratch with AI and re-render"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 text-amber-400" />
+                  {videoFormat === 'shorts'
+                    ? '🎨 Full Re-render (9:16 Portrait Short)'
+                    : videoFormat === 'long'
+                      ? '🎨 Full Re-render (16:9 Landscape Video)'
+                      : '🎨 Full Re-render (Both Formats)'}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                disabled={!songApproved || videoGenerating || generating}
+                onClick={() => handleGenerateVideos()}
+                className="studio-btn-primary flex items-center gap-2 !py-2.5 !px-5 text-xs font-bold shadow-glow disabled:opacity-50"
+              >
+                {videoGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" />}
+                {videoGenerating
+                  ? 'Rendering Beat-Synced Video...'
+                  : videoFormat === 'shorts'
+                    ? 'Generate Music Short (9:16 Portrait)'
+                    : videoFormat === 'long'
+                      ? 'Generate Long Video (16:9 Landscape)'
+                      : 'Generate Music Video (9:16 + 16:9)'}
+              </button>
+            )}
+
+            {videoGenerating && (
+              <button
+                type="button"
+                onClick={handleCancelVideoJob}
+                className="flex items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-500/15 px-3 py-2 text-xs font-semibold text-rose-200 hover:bg-rose-500/25"
+              >
+                <XCircle className="h-3.5 w-3.5" /> Cancel
+              </button>
+            )}
+
+            {!songApproved && (
+              <p className="text-[11px] text-zinc-500">Approve the song in Step 2 to unlock rendering.</p>
+            )}
+          </div>
+
+          {(shortsVideoUrl || longVideoUrl || sceneImages.length > 0) && (
+            <p className="text-[11px] text-zinc-400 flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+              <span>
+                <strong>Format & Subtitle Re-edit:</strong> Pick your format (<strong>Portrait 9:16</strong> or <strong>Landscape 16:9</strong>), Subtitle Style & Size, and hit <strong>Fast Re-render</strong> to produce your video in seconds!
+              </span>
+            </p>
+          )}
+        </div>
 
         {/* Video Generation Progress */}
         {videoGenerating && (
@@ -1084,7 +2280,7 @@ export function GoogleFlowMusicContent({
               />
             </div>
             <p className="text-[11px] text-zinc-400">
-              Generating 2K HD scene keyframes, assembling Lanczos Ken Burns zoompan, and burning synced captions.
+              Analyzing beats → generating HD lyrics-driven keyframes → beat-synced cutting, punch zooms, flashes, motion-graphics subtitles → final mux.
             </p>
           </div>
         )}
@@ -1104,34 +2300,61 @@ export function GoogleFlowMusicContent({
         )}
       </div>
 
-      {/* STEP 3: Completed Videos Showcase */}
+      {/* FINAL OUTPUT: Completed Videos Showcase */}
       {(shortsVideoUrl || longVideoUrl) && (
-        <div className="space-y-4 rounded-xl border border-amber-500/40 bg-zinc-950 p-5 shadow-2xl">
+        <div className="space-y-4 rounded-xl border border-amber-500/40 bg-zinc-950 p-5 shadow-2xl" id="flow-final">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
             <div>
               <h4 className="text-sm font-bold text-white flex items-center gap-2">
                 <Film className="h-4 w-4 text-amber-400" />
-                Final Output Videos · Both Formats Ready
+                Final Output · Beat-Synced Music Short Ready
               </h4>
               <p className="text-xs text-zinc-400">
-                Created with line-by-line 2K HD scenes, smooth Lanczos camera parallax, and approved audio
+                Lyrics-driven HD scenes, beat-synced motion-graphics subtitles, punch zooms on beats & drop shakes — approved audio muxed in
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  document.getElementById('flow-step-3')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-3 py-1.5 text-xs font-bold text-amber-200 hover:bg-amber-500/25 transition cursor-pointer"
+              >
+                <Zap className="h-3.5 w-3.5" /> Re-edit Subtitles in Step 3
+              </button>
+              <button
+                type="button"
+                disabled={videoGenerating}
+                onClick={() => handleGenerateVideos({ reuseImages: true })}
+                className="flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:bg-white/20 transition disabled:opacity-50 cursor-pointer"
+                title="Quick re-render with new subtitles while keeping your 2K HD scene keyframes"
+              >
+                {videoGenerating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5 text-amber-400" />}
+                Quick Re-render Video
+              </button>
               <button
                 type="button"
                 onClick={handleClearVideosOnly}
-                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-zinc-300 hover:bg-white/10"
+                className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-[11px] text-zinc-300 hover:bg-white/10"
               >
                 <Trash2 className="h-3 w-3" /> Clear Videos Only
               </button>
               <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-bold text-emerald-300 border border-emerald-500/30">
-                ✓ Production Complete
+                ✓ Ready
               </span>
             </div>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div
+            className={`grid gap-6 ${
+              shortsVideoUrl && longVideoUrl
+                ? 'lg:grid-cols-2'
+                : shortsVideoUrl
+                  ? 'max-w-md mx-auto w-full'
+                  : 'max-w-3xl mx-auto w-full'
+            }`}
+          >
             {shortsVideoUrl && (
               <div className="rounded-xl border border-amber-500/30 bg-black/50 p-4 space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">

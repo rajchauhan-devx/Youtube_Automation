@@ -15,6 +15,7 @@ import {
 import { store } from '../store.js';
 import { generatedDir, mediaUrl } from '../workspace.js';
 import { containedFile } from '../paths.js';
+import { synthesizeFullSongTrack, transcribeSongAudio } from './song-synthesizer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,74 +53,6 @@ export function clearFlowMusicJobs(): void {
     }
   }
   jobs.clear();
-}
-
-/**
- * Procedural Indian Epic Trailer Audio Synthesizer (Vedic Dhol, Sub-bass drop, Risers, Brass Swells)
- * High quality procedural fallback ensuring reliable offline/immediate synthesis.
- */
-async function generateVedicTrailerAudio(
-  settings: FlowMusicSettings,
-  outputPath: string,
-  durationSec: number
-): Promise<void> {
-  const dholFreq = 80; // deep Indian dhol drum fundamental
-  const brassFreq = 160;
-  const riserDur = Math.min(4, durationSec * 0.2);
-
-  // FFmpeg procedural sound design graph
-  const filterParts = [
-    // Sub-bass rumble and power impact
-    `sine=f=${dholFreq}:d=${durationSec}[dhol_sub]`,
-    `sine=f=${dholFreq * 2}:d=${durationSec}[dhol_mid]`,
-    `sine=f=${brassFreq}:d=${durationSec}[brass]`,
-    `sine=f=55:d=${durationSec}[sub_drop]`,
-    // Noise riser for epic swells
-    `anoisesrc=d=${durationSec}:c=pink:r=48000[noise]`,
-    `[noise]lowpass=f=1200,volume=0.15[riser]`,
-    // Mix and harmonics with reverb
-    `[dhol_sub][dhol_mid][brass][sub_drop][riser]amix=inputs=5:duration=longest:normalize=0[mix]`,
-    `[mix]volume=1.4,aecho=0.8:0.88:60:0.4[echo]`,
-    `[echo]highpass=f=35,lowpass=f=16000,alimiter=limit=0.92[out]`,
-  ];
-
-  await new Promise<void>((resolve, reject) => {
-    const args = [
-      '-y',
-      '-f', 'lavfi',
-      '-i', 'aevalsrc=0:d=' + durationSec + ':s=48000',
-      '-filter_complex', filterParts.join(';'),
-      '-map', '[out]',
-      '-t', String(durationSec),
-      '-c:a', 'libmp3lame',
-      '-b:a', '192k',
-      outputPath,
-    ];
-
-    const proc = spawn('ffmpeg', args);
-    let errOutput = '';
-    proc.stderr?.on('data', (d) => {
-      errOutput += d.toString();
-    });
-    proc.on('close', (code) => {
-      if (code === 0) resolve();
-      else {
-        // Fallback to simple tone if complex filter fails
-        const simpleArgs = [
-          '-y',
-          '-f', 'lavfi',
-          '-i', `sine=frequency=110:duration=${durationSec}`,
-          '-c:a', 'libmp3lame',
-          '-b:a', '128k',
-          outputPath,
-        ];
-        const simple = spawn('ffmpeg', simpleArgs);
-        simple.on('close', (c) => (c === 0 ? resolve() : reject(new Error(`FFmpeg failed (${c}): ${errOutput}`))));
-        simple.on('error', reject);
-      }
-    });
-    proc.on('error', reject);
-  });
 }
 
 /**
@@ -325,13 +258,21 @@ export async function startFlowMusicGeneration(
       }
     }
 
-    // High fidelity fallback synthesizer if live download was not completed
+    // High fidelity vocal song synthesizer if live download was not completed
     if ((job.state as string) === 'cancelled') return;
     if (!generatedWithPlaywright || !fs.existsSync(outputFile)) {
-      job.stage = 'Synthesizing hybrid soundtrack audio (Dhol, Brass, Sub-bass)';
+      job.stage = 'Synthesizing studio vocals & musical arrangement (Lyrics, Drums, Chords)';
       job.progress = 85;
       job.updatedAt = new Date().toISOString();
-      await generateVedicTrailerAudio(settings, outputFile, settings.duration || 60);
+      const songResult = await synthesizeFullSongTrack(settings, outputFile, settings.duration || 60);
+      job.transcription = songResult.transcription;
+    } else {
+      // Even if generated with Playwright, transcribe and verify
+      job.stage = 'Transcribing and verifying vocal lyrics with Whisper AI...';
+      job.progress = 92;
+      job.updatedAt = new Date().toISOString();
+      const transcription = await transcribeSongAudio(outputFile).catch(() => '');
+      job.transcription = transcription;
     }
     if ((job.state as string) === 'cancelled') {
       try { fs.unlinkSync(outputFile); } catch {}
@@ -356,6 +297,7 @@ export async function startFlowMusicGeneration(
       scriptId,
       title: settings.title?.trim() || 'Generated Flow Music Track',
       prompt: settings.prompt || '',
+      transcription: job.transcription || '',
       createdAt: new Date().toISOString(),
     };
     try {
@@ -379,6 +321,7 @@ export async function startFlowMusicGeneration(
         duration: settings.duration || 60,
         seed: Math.floor(Math.random() * 1000000),
         contextHash: `flow_music_${jobId}`,
+        transcription: job.transcription || '',
         createdAt: new Date().toISOString(),
         settings,
       };
@@ -387,8 +330,14 @@ export async function startFlowMusicGeneration(
       downloadUrl = scriptUrl;
     }
 
+    // A freshly generated track always requires a fresh listen & approval
+    try {
+      const { setSongApproval } = await import('./flow-music-video-service.js');
+      setSongApproval(scriptId, false, '', '');
+    } catch {}
+
     job.state = 'done';
-    job.stage = 'Google Flow Music generated successfully!';
+    job.stage = 'Google Flow Music generated successfully! Listen, then Approve or Reject.';
     job.progress = 100;
     job.audioPath = scriptDest;
     job.downloadUrl = downloadUrl;

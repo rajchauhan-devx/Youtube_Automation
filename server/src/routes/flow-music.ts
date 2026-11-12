@@ -21,6 +21,7 @@ import {
 import {
   getSongApproval,
   setSongApproval,
+  rejectSong,
   startFlowVideoPipeline,
   getFlowVideoJob,
   listFlowVideoJobs,
@@ -30,8 +31,10 @@ import {
   resetFlowMusicWorkspace,
   buildScenesFromScript,
   regenerateFlowMusicSceneKeyframe,
+  resolveApprovedAudioPath,
   HANUMAN_SCENE_DEFINITIONS,
 } from '../services/flow-music/flow-music-video-service.js';
+import { analyzeBeats } from '../services/flow-music/beat-detector.js';
 import { store } from '../services/store.js';
 import { containedFile } from '../services/paths.js';
 
@@ -454,11 +457,13 @@ flowMusicRouter.get('/latest-track', (_req, res) => {
     const latestFile = files[0].name;
     const latestId = latestFile.replace(/\.(mp3|wav|m4a|ogg|aac)$/i, '');
     let title = latestId;
+    let transcription = '';
     const metaPath = path.join(downloadDir, `${latestId}.json`);
     if (fs.existsSync(metaPath)) {
       try {
         const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
         if (meta?.title) title = meta.title;
+        if (meta?.transcription) transcription = meta.transcription;
       } catch {}
     } else if (latestId.includes('hanuman')) {
       title = 'Lord Hanuman Vow // Goosebumps 🚩 (Google Flow Lyria 3.5)';
@@ -470,6 +475,7 @@ flowMusicRouter.get('/latest-track', (_req, res) => {
         id: latestId,
         url: `/api/flow-music/downloads/${latestId}`,
         title,
+        transcription,
       },
     });
   } catch (error) {
@@ -513,18 +519,76 @@ flowMusicRouter.get('/approval/:scriptId', (req, res) => {
   res.json(approval);
 });
 
-// Approve or Reject Song
+// Approve or Reject Song (rejection records the refinement note for the next iteration)
 flowMusicRouter.post('/approve', (req, res) => {
   try {
-    const { scriptId, approved, songUrl, trackTitle } = req.body || {};
+    const { scriptId, approved, songUrl, trackTitle, note } = req.body || {};
     if (!scriptId) {
       res.status(400).json({ error: 'scriptId is required' });
+      return;
+    }
+    // Explicit rejection = action flag or approved:false with a refinement note.
+    // Plain approved:false without a note is a silent revoke (not a rejection).
+    const isExplicitReject = req.body?.action === 'reject' || (approved === false && typeof note === 'string' && note.trim().length > 0);
+    if (approved === false && isExplicitReject) {
+      const rejected = rejectSong(scriptId, {
+        note: typeof note === 'string' ? note : '',
+        songUrl: typeof songUrl === 'string' ? songUrl : '',
+        trackTitle: typeof trackTitle === 'string' ? trackTitle : '',
+      });
+      res.json({
+        success: true,
+        approval: rejected,
+        message: note
+          ? `Track rejected — refine your lyrics/settings and regenerate. (Note saved: "${note.slice(0, 120)}")`
+          : 'Track rejected — refine your lyrics/settings and regenerate.',
+      });
       return;
     }
     const updated = setSongApproval(scriptId, Boolean(approved), songUrl, trackTitle);
     res.json({ success: true, approval: updated });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to update approval status' });
+  }
+});
+
+// Analyze beats of the current (or explicit) track — powers the Beat Edit studio
+flowMusicRouter.post('/analyze-beats', async (req, res) => {
+  try {
+    const { scriptId, songUrl, bpmHint } = req.body || {};
+    const effectiveScriptId = typeof scriptId === 'string' && scriptId ? scriptId : 'flow_studio_custom';
+    let audioPath: string;
+    try {
+      audioPath = resolveApprovedAudioPath(effectiveScriptId, typeof songUrl === 'string' ? songUrl : '');
+    } catch {
+      res.status(404).json({ error: 'No audio track found. Generate or upload a track first.' });
+      return;
+    }
+    const analysis = await analyzeBeats(audioPath, {
+      hintBpm: typeof bpmHint === 'number' && bpmHint > 0 ? bpmHint : undefined,
+      scriptId: effectiveScriptId,
+    });
+    res.json(analysis);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Beat analysis failed' });
+  }
+});
+
+// Cached beat map for the currently approved/latest track of a script
+flowMusicRouter.get('/beat-map/:scriptId', async (req, res) => {
+  try {
+    const approval = getSongApproval(req.params.scriptId);
+    let audioPath: string;
+    try {
+      audioPath = resolveApprovedAudioPath(req.params.scriptId, approval.songUrl || '');
+    } catch {
+      res.status(404).json({ error: 'No audio track found for this script yet.' });
+      return;
+    }
+    const analysis = await analyzeBeats(audioPath, { scriptId: req.params.scriptId });
+    res.json(analysis);
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Beat map lookup failed' });
   }
 });
 
@@ -547,6 +611,11 @@ flowMusicRouter.post('/generate-full-video', async (req, res) => {
       duration,
       letterboxBanner,
       songUrl,
+      beatEdit,
+      bpmHint,
+      reuseImages,
+      existingImages,
+      videoFormat,
     } = req.body || {};
     if (!scriptId) {
       res.status(400).json({ error: 'scriptId is required' });
@@ -571,6 +640,11 @@ flowMusicRouter.post('/generate-full-video', async (req, res) => {
       duration: typeof duration === 'number' ? duration : undefined,
       letterboxBanner: typeof letterboxBanner === 'string' ? letterboxBanner : undefined,
       songUrl: typeof songUrl === 'string' ? songUrl : undefined,
+      videoFormat: typeof videoFormat === 'string' ? (videoFormat as any) : undefined,
+      beatEdit: beatEdit && typeof beatEdit === 'object' ? beatEdit : undefined,
+      bpmHint: typeof bpmHint === 'number' && bpmHint > 0 ? bpmHint : undefined,
+      reuseImages: Boolean(reuseImages),
+      existingImages: Array.isArray(existingImages) ? existingImages : undefined,
     });
     res.status(202).json(job);
   } catch (error) {
