@@ -88,7 +88,7 @@ export const AutoPilotSettingsSchema = z.strictObject({
     letterboxBanner: z.string().default('Goosebumps 🚩'),
     vfxParticles: z.boolean().default(true),
   }).default({
-    enabled: true,
+    enabled: false,
     prompt: 'Epic cinematic trailer sound track, heavy indian percussion, dhol drums, orchestral brass swells, deep sub-bass drops, emotional sad strings transitioning into aggressive action hybrid music, Sanskrit chants, high energy war theme',
     lyrics: '[Dramatic Dialogue Phase]\nराम जी: "हनुमान, अगर सूर्य निकल गया तो लक्ष्मण मर जाएगा।"\nहनुमान जी: "प्रभु, सूर्यदेव मेरा स्वभाव जानते हैं... जब तक जड़ी-बूटी लेकर नहीं आऊँगा, सूरज को उगने नहीं दूंगा।"\n\n[Epic Vocal Chorus / Sanskrit Chants]\nराम रामं जपती...\nहनुमान अतुलितबलधामम्...\nहनुमान महाकाल शंभोरावतारः...\nबजरंगबली... जय श्री राम!',
     lyricsMode: 'custom',
@@ -110,11 +110,12 @@ export const AutoPilotSettingsSchema = z.strictObject({
 });
 export type AutoPilotSettings = z.infer<typeof AutoPilotSettingsSchema>;
 
-export function defaultAutoPilotSettings(script: { section?: string; name?: string; prompts?: { content?: string }[]; videoImportsEnabled?: boolean; enableSubtitles?: boolean; editing?: EditingSettings; presenter?: PresenterSettings; generatedAudio?: { voice?: string; language?: string }[]; youtubeExport?: { privacyStatus?: 'private' | 'unlisted' | 'public'; publishMode?: 'now' | 'schedule'; scheduledPublishAt?: string }; ttsVolume?: number } = {}): AutoPilotSettings {
+export function defaultAutoPilotSettings(script: { section?: string; name?: string; conversational?: boolean; isConversational?: boolean; prompts?: { content?: string }[]; videoImportsEnabled?: boolean; enableSubtitles?: boolean; editing?: EditingSettings; presenter?: PresenterSettings; generatedAudio?: { voice?: string; language?: string }[]; youtubeExport?: { privacyStatus?: 'private' | 'unlisted' | 'public'; publishMode?: 'now' | 'schedule'; scheduledPublishAt?: string }; ttsVolume?: number } = {}): AutoPilotSettings {
   const imageOnly = isImageOnlyShorts(script, script.section || 'shorts');
+  const flowOptIn = Boolean(script.conversational || script.isConversational);
   return {
     version: 1,
-    media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: !imageOnly, flowResolution: '720p', flowDuration: 8, allowImageFallback: true, videoOnly: false },
+    media: { imageProvider: 'google', imageQuality: 'standard', seedMode: 'random', seed: 42, flowEnabled: flowOptIn, flowResolution: '720p', flowDuration: 8, allowImageFallback: true, videoOnly: false },
     voice: { provider: 'google', language: 'auto', voiceId: defaultGoogleVoice(script.generatedAudio?.[0]?.language === 'hi' ? 'hi' : 'en'), rate: 0, pitch: 0, speed: 1 },
     captions: script.enableSubtitles === true ? 'motion' : 'off',
     graphics: { enabled: imageOnly, mode: 'images', density: 'balanced', treatment: 'auto', style: SELECTIVE_MOTION_DIRECTION, model: '' },
@@ -128,7 +129,7 @@ export function defaultAutoPilotSettings(script: { section?: string; name?: stri
     },
     presenter: script.presenter ? { ...defaultPresenter(), ...script.presenter } : defaultPresenter(),
     flowMusic: {
-      enabled: true,
+      enabled: false,
       prompt: 'Epic cinematic trailer sound track, heavy indian percussion, dhol drums, orchestral brass swells, deep sub-bass drops, emotional sad strings transitioning into aggressive action hybrid music, Sanskrit chants, high energy war theme',
       lyrics: '[Dramatic Dialogue Phase]\nराम जी: "हनुमान, अगर सूर्य निकल गया तो लक्ष्मण मर जाएगा।"\nहनुमान जी: "प्रभु, सूर्यदेव मेरा स्वभाव जानते हैं... जब तक जड़ी-बूटी लेकर नहीं आऊँगा, सूरज को उगने नहीं दूंगा।"\n\n[Epic Vocal Chorus / Sanskrit Chants]\nराम रामं जपती...\nहनुमान अतुलितबलधामम्...\nहनुमान महाकाल शंभोरावतारः...\nबजरंगबली... जय श्री राम!',
       lyricsMode: 'custom',

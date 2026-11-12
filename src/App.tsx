@@ -109,7 +109,7 @@ function savedProductionStage(script: Script): number {
     const asset = script.generatedImages?.find(image => image.index === index && image.url && image.status === 'done');
     if (!asset) return true;
     const scene = script.scenePlan?.scenes?.[index];
-    if (flowVideoActive && (script.autoPilotSettings?.media?.videoOnly || scene?.mediaType === 'video' || Boolean(scene?.videoPrompt)) && asset.mediaType !== 'video') return true;
+    if (flowVideoActive && (script.autoPilotSettings?.media?.videoOnly || scene?.mediaType === 'video' || (scene?.mediaType !== 'image' && Boolean(scene?.videoPrompt))) && asset.mediaType !== 'video') return true;
     return false;
   })) return 4;
   if (!script.generatedAudio?.[0]?.url) return 5;
@@ -961,7 +961,7 @@ export default function App() {
 
       const flowVideoActive = Boolean((runSettings.media.flowEnabled || runSettings.media.videoOnly) && !runSettings.media.allowImageFallback);
       const hasPendingFlowVideos = flowVideoActive && (currentScript.scenePlan?.scenes || []).some((sc, idx) => {
-        const isVideo = runSettings.media.videoOnly || sc.mediaType === 'video' || Boolean(sc.videoPrompt);
+        const isVideo = runSettings.media.videoOnly || sc.mediaType === 'video' || (sc.mediaType !== 'image' && Boolean(sc.videoPrompt));
         if (!isVideo) return false;
         const img = currentScript.generatedImages?.find(item => item.index === idx);
         return !img || img.mediaType !== 'video' || !img.url;
@@ -1423,8 +1423,11 @@ export default function App() {
               const asset = latest.generatedImages.find((g: any) => g.index === idx);
               if (asset) {
                 const actual = asset.mediaType || (asset.url && asset.url.endsWith('.mp4') ? 'video' : 'image');
-                if (sc.mediaType !== actual && !sc.videoPrompt) {
+                if (sc.mediaType !== actual) {
                   sc.mediaType = actual;
+                  if (actual === 'image' && sc.videoPrompt) {
+                    delete (sc as any).videoPrompt;
+                  }
                   planChanged = true;
                 }
               }
@@ -1809,7 +1812,7 @@ export default function App() {
             enableSubtitles: runSettings.captions !== 'off',
             ...(runSettings.editing.mode === 'custom' ? { editing: { ...runSettings.editing.settings, enabled: true, captions: runSettings.captions === 'plain' } } : runSettings.editing.mode === 'off' ? { editing: { ...runSettings.editing.settings, enabled: false, captions: runSettings.captions === 'plain' } } : {}),
             bgmTrack: currentScript.generatedMusic?.filename ? 'ai' : (runSettings.audio.music === 'auto' ? retention.plan.musicMood : runSettings.audio.music),
-            letterboxBanner: runSettings.flowMusic?.letterboxBanner || 'Goosebumps 🚩',
+            ...(runSettings.flowMusic?.enabled ? { letterboxBanner: runSettings.flowMusic?.letterboxBanner || 'Goosebumps 🚩' } : {}),
             bgmVolume: runSettings.audio.musicVolume,
             ttsVolume: runSettings.audio.voiceVolume,
             colorGrade: 'none',

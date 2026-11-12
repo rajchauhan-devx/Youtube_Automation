@@ -41,10 +41,14 @@ const selectClass = 'studio-input mt-1 w-full';
 export function FlowMusicSettingsSection({
   value,
   onChange,
+  onClear,
+  onLoadPreset,
   topicName = '',
 }: {
   value?: Partial<FlowMusicConfig>;
   onChange: (patch: Partial<FlowMusicConfig>) => void;
+  onClear?: () => void;
+  onLoadPreset?: () => void;
   topicName?: string;
 }) {
   const { fetch } = useWorkspaceApi();
@@ -55,30 +59,14 @@ export function FlowMusicSettingsSection({
   const [switchError, setSwitchError] = useState('');
 
   const cfg: FlowMusicConfig = {
-    enabled: value?.enabled ?? true,
-    prompt:
-      value?.prompt ||
-      'Epic cinematic trailer sound track, heavy indian percussion, dhol drums, orchestral brass swells, deep sub-bass drops, emotional sad strings transitioning into aggressive action hybrid music, Sanskrit chants, high energy war theme',
-    lyrics:
-      value?.lyrics ||
-      `[Dramatic Dialogue Phase]
-राम जी: "हनुमान, अगर सूर्य निकल गया तो लक्ष्मण मर जाएगा।"
-हनुमान जी: "प्रभु, सूर्यदेव मेरा स्वभाव जानते हैं... जब तक जड़ी-बूटी लेकर नहीं आऊँगा, सूरज को उगने नहीं दूंगा।"
-राम जी: "हनुमान, मौत आगे बढ़ रही है..."
-हनुमान जी: "प्रभु, आप कहते हैं मौत लक्ष्मण को खा जाएगी? मैं आपकी कसम खा के कहता हूँ... आज मौत को ही मार दूंगा! दुनिया में कभी कोई मरेगा नहीं!"
-
-[Epic Vocal Chorus / Sanskrit Chants]
-राम रामं जपती...
-हनुमान अतुलितबलधामम्...
-हनुमान महाकाल शंभोरावतारः...
-बजरंगबली... जय श्री राम!`,
+    enabled: value?.enabled ?? false,
+    prompt: value?.prompt ?? '',
+    lyrics: value?.lyrics ?? '',
     lyricsMode: value?.lyricsMode || 'custom',
-    title: value?.title || (topicName ? `${topicName} // Goosebumps 🚩` : 'Lord Hanuman Vow // Goosebumps 🚩'),
-    mood: value?.mood || 'Heroic, Dramatic, High-Intensity, Emotionally Charged (Goosebumps 🚩)',
-    theme: value?.theme || 'Mythological retelling, Valmiki Ramayana, Lord Hanuman Vow to Lord Rama',
-    vocalProfile:
-      value?.vocalProfile ||
-      'Deep, resonant male voice with heavy chest resonance, strong bass, aggressive cadence, hall reverb',
+    title: value?.title ?? (topicName ? `${topicName}` : ''),
+    mood: value?.mood ?? '',
+    theme: value?.theme ?? '',
+    vocalProfile: value?.vocalProfile ?? '',
     sfxBooms: value?.sfxBooms ?? true,
     sfxRisers: value?.sfxRisers ?? true,
     dholPercussion: value?.dholPercussion ?? true,
@@ -86,8 +74,8 @@ export function FlowMusicSettingsSection({
     duration: value?.duration || 60,
     bpm: value?.bpm || 110,
     producerModel: value?.producerModel || 'Google Lyria / Flow Music',
-    imageOnlyReel: value?.imageOnlyReel ?? false,
-    letterboxBanner: value?.letterboxBanner || 'Goosebumps 🚩',
+    imageOnlyReel: value?.imageOnlyReel ?? true,
+    letterboxBanner: value?.letterboxBanner ?? '',
     vfxParticles: value?.vfxParticles ?? true,
   };
 
@@ -138,6 +126,8 @@ export function FlowMusicSettingsSection({
 
   const loadHanumanPreset = () => {
     onChange({
+      title: 'Lord Hanuman Vow // Goosebumps 🚩',
+      theme: 'Mythological retelling, Valmiki Ramayana, Lord Hanuman Vow to Lord Rama',
       prompt:
         'Epic cinematic trailer sound track, heavy indian percussion, dhol drums, orchestral brass swells, deep sub-bass drops, emotional sad strings transitioning into aggressive action hybrid music, Sanskrit chants, high energy war theme',
       lyrics: `[Dramatic Dialogue Phase]
@@ -159,9 +149,23 @@ export function FlowMusicSettingsSection({
       sfxRisers: true,
       dholPercussion: true,
       brassSwells: true,
-      imageOnlyReel: false,
+      imageOnlyReel: true,
       vfxParticles: true,
     });
+    onLoadPreset?.();
+  };
+
+  const clearFields = () => {
+    onChange({
+      prompt: '',
+      lyrics: '',
+      title: '',
+      mood: '',
+      theme: '',
+      vocalProfile: '',
+      letterboxBanner: '',
+    });
+    onClear?.();
   };
 
   return (
@@ -174,23 +178,32 @@ export function FlowMusicSettingsSection({
           </div>
           <div>
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              Google Flow Music & Reel Edits
+              Script, Lyrics & Music Direction
               <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300 border border-amber-500/30">
                 Playwright Automated
               </span>
             </h4>
             <p className="text-[11px] text-zinc-400">
-              Custom lyrics, Sanskrit war chants, trailer mix, and 9:16 letterbox edits
+              Write your script, lyrics or chants, set audio mood, and configure 9:16 letterbox styling
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={loadHanumanPreset}
-          className="flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors"
-        >
-          <Sparkles className="h-3.5 w-3.5 text-amber-300" /> Load Hanuman Reel Preset
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={clearFields}
+            className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/10 transition-colors"
+          >
+            Clear Fields
+          </button>
+          <button
+            type="button"
+            onClick={loadHanumanPreset}
+            className="flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-amber-300" /> Load Hanuman Demo
+          </button>
+        </div>
       </div>
 
       {/* Account Connection & Switch Account */}
@@ -308,13 +321,13 @@ export function FlowMusicSettingsSection({
       {/* 3. Details & Metadata */}
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <label className="block text-xs font-semibold text-zinc-300">Track Title / Name</label>
+          <label className="block text-xs font-semibold text-zinc-300">Track Title / Project Name</label>
           <input
             type="text"
             value={cfg.title}
             onChange={(e) => onChange({ title: e.target.value })}
             className={selectClass}
-            placeholder="Lord Hanuman Vow // Goosebumps 🚩"
+            placeholder="e.g. Ancient Warrior Awakening // Epic Reel"
           />
         </div>
         <div>
@@ -324,7 +337,7 @@ export function FlowMusicSettingsSection({
             value={cfg.mood}
             onChange={(e) => onChange({ mood: e.target.value })}
             className={selectClass}
-            placeholder="Heroic, Dramatic, High-Intensity (Goosebumps 🚩)"
+            placeholder="e.g. Heroic, Dramatic, Suspenseful, Emotional"
           />
         </div>
       </div>
@@ -414,12 +427,12 @@ export function FlowMusicSettingsSection({
         </div>
       </div>
 
-      {/* 5. Image-Only Graphic Novel Reel Styling */}
+      {/* 5. HD Reel Visual Styling */}
       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
             <Layers className="h-3.5 w-3.5 text-amber-400" />
-            Image-Only Reel Edits (No Plain Music, Music with Edits!)
+            9:16 & 16:9 Visual Edit Styling
           </div>
           <span className="rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase">
             9:16 Letterboxed
@@ -428,16 +441,16 @@ export function FlowMusicSettingsSection({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="block text-[11px] text-zinc-300 font-medium">Top Banner Headline</label>
+            <label className="block text-[11px] text-zinc-300 font-medium">Top Banner Headline (Optional)</label>
             <input
               type="text"
               value={cfg.letterboxBanner}
               onChange={(e) => onChange({ letterboxBanner: e.target.value })}
               className={selectClass}
-              placeholder="Goosebumps 🚩"
+              placeholder="Optional e.g. Goosebumps 🚩 (leave blank for none)"
             />
             <p className="mt-1 text-[10px] text-zinc-400">
-              Displayed in metallic gold at the top of the 9:16 vertical letterboxed reel canvas.
+              Displayed at the top of the 9:16 vertical letterbox frame when set.
             </p>
           </div>
           <div className="space-y-2 pt-2">
@@ -448,7 +461,7 @@ export function FlowMusicSettingsSection({
                 checked={cfg.imageOnlyReel}
                 onChange={(e) => onChange({ imageOnlyReel: e.target.checked })}
               />
-              <span className="font-semibold text-white">Image-Only Graphic Novel Mode</span>
+              <span className="font-semibold text-white">2K HD Multi-Scene Mode</span>
             </label>
             <label className="flex items-center gap-2 text-xs text-zinc-200 cursor-pointer">
               <input

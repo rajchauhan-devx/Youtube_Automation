@@ -6,6 +6,7 @@ import {
   sanitizeSegment,
   preparePromptForImageGeneration,
   resolveChannelLoraForAccount,
+  type QualityPreset,
 } from './comfyui.js';
 
 import { isAdcConfigured, getGoogleAuthToken } from './google-adc.js';
@@ -19,6 +20,8 @@ export interface GoogleImageOptions {
   filePrefix?: string;
   force2dStylized?: boolean;
   modelName?: string;
+  preset?: QualityPreset;
+  imageSize?: '1K' | '2K' | '4K';
   assetOnly?: boolean;
   aspectRatio?: '1:1' | '16:9' | '9:16';
   maxAttempts?: number;
@@ -125,6 +128,8 @@ export async function generateGoogleImage(opts: GoogleImageOptions): Promise<{
     }
   }
 
+  const requestedImageSize = opts.imageSize || (opts.preset === 'high' ? '2K' : undefined);
+
   for (const model of candidateModels) {
     const endpointsToTry: string[] = [];
     if (adcAuth && adcAuth.projectId) {
@@ -145,7 +150,8 @@ export async function generateGoogleImage(opts: GoogleImageOptions): Promise<{
       );
     }
 
-    const body = {
+    const supportsImageSize = Boolean(requestedImageSize && /^gemini-3/i.test(model));
+    const buildBody = (withImageSize: boolean) => ({
       contents: [
         {
           role: 'user',
@@ -160,9 +166,10 @@ export async function generateGoogleImage(opts: GoogleImageOptions): Promise<{
         responseModalities: ['IMAGE'],
         imageConfig: {
           aspectRatio,
+          ...(withImageSize ? { imageSize: requestedImageSize } : {}),
         },
       },
-    };
+    });
 
     let res: Response | undefined;
     for (const url of endpointsToTry) {
@@ -173,9 +180,17 @@ export async function generateGoogleImage(opts: GoogleImageOptions): Promise<{
         res = await fetch(url, {
           method: 'POST',
           headers,
-          body: JSON.stringify(body),
+          body: JSON.stringify(buildBody(supportsImageSize)),
           signal: opts.signal,
         });
+        if (supportsImageSize && res.status === 400) {
+          res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(buildBody(false)),
+            signal: opts.signal,
+          });
+        }
       } catch (err: any) {
         if (opts.signal?.aborted) throw new ComfyError('CANCELLED', 'Image generation was cancelled.');
         lastErrorText = err.message || 'fetch failed';

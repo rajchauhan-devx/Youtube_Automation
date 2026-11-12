@@ -26,7 +26,11 @@ test('new image-only templates use selective callouts while long-form media defa
   AutoPilotSettingsSchema.parse(settings);
   assert.equal(settings.media.flowEnabled,false);assert.equal(settings.graphics.mode,'images');assert.equal(settings.graphics.enabled,true);assert.equal(settings.graphics.density,'balanced');
   assert.match(settings.graphics.style,/allow zero graphics/);
-  assert.equal(defaultAutoPilotSettings({name:'Image-only history',section:'long'}).media.flowEnabled,true);
+  const longSettings=defaultAutoPilotSettings({name:'Image-only history',section:'long'});
+  assert.equal(longSettings.media.flowEnabled,false);
+  assert.equal(longSettings.graphics.enabled,false);
+  assert.equal(longSettings.flowMusic.enabled,false);
+  assert.equal(settings.flowMusic.enabled,false);
 });
 
 test('channel metadata selects distinct visual, language and sound directions',()=>{

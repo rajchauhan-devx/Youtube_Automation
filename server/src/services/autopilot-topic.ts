@@ -1,4 +1,4 @@
-import { isConversationalScript } from './conversational-tts.js';
+import { isConversationalVideoMode } from './channel-editorial.js';
 import { chat } from './gemini.js';
 import { isLocalModel } from './local-models.js';
 import { isOpenCodeModel } from './opencode-models.js';
@@ -20,11 +20,11 @@ export async function selectAutoPilotTopic(options: {
   const duplicate = requested && repeatedTopic(requested, notes.topics);
   if (duplicate) throw new Error(`This profile already exported “${duplicate}” to YouTube. Choose a new topic or leave Topic blank.`);
 
-  const isConv = options.isConversational ?? (isConversationalScript(options.script) || /conversational|dialogue|multi-character/i.test(options.template));
+  const isConv = options.isConversational ?? isConversationalVideoMode({ script: options.script, template: options.template, instructions: options.instructions });
 
   const prompt = [
     `Today is ${new Date().toISOString().slice(0, 10)}. Select the best video topic for this channel. Research facts for factual channels; create original fictional premises for fiction channels.`,
-    `Channel: ${notes.name}\nChannel guidance: ${notes.guidance}`,
+    `Channel: ${notes.name}\nChannel guidance (${isConv ? 'conversational dialogue' : 'subject & tone only — follow template for narration & media format'}): ${notes.guidance}`,
     `Video format: ${currentWorkspace().profile}; target duration: ${options.duration} seconds.`,
     isConv ? [
       'CRITICAL FORMAT REQUIREMENT — MULTI-CHARACTER CONVERSATIONAL STORY (NOT DOCUMENTARY):',

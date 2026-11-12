@@ -361,7 +361,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     enableVignette: enableVignette !== false,
     enableSfx: enableSfx !== false,
     editing: (useNativeVideoAudio || hasVisualArtifacts) && effectiveEditing ? { ...effectiveEditing, captions: false } : effectiveEditing,
-    letterboxBanner: req.body?.letterboxBanner || effectiveEditing?.letterboxBanner || scriptForPresenter?.autoPilotSettings?.flowMusic?.letterboxBanner || (scriptForPresenter?.autoPilotSettings?.flowMusic?.imageOnlyReel ? 'Goosebumps 🚩' : undefined),
+    letterboxBanner: req.body?.letterboxBanner || effectiveEditing?.letterboxBanner || (scriptForPresenter?.autoPilotSettings?.flowMusic?.enabled ? (scriptForPresenter.autoPilotSettings.flowMusic.letterboxBanner || (scriptForPresenter.autoPilotSettings.flowMusic.imageOnlyReel ? 'Goosebumps 🚩' : undefined)) : undefined),
     presenter,
     presenterSourceSize,
     onProgress: (percent) => {

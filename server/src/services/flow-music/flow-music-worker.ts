@@ -32,6 +32,28 @@ export function listFlowMusicJobs(scriptId?: string): FlowMusicJob[] {
   return all.filter((j) => j.scriptId === scriptId);
 }
 
+export function cancelFlowMusicJob(jobId: string): FlowMusicJob | undefined {
+  const job = jobs.get(jobId);
+  if (!job) return undefined;
+  if (job.state === 'queued' || job.state === 'running') {
+    job.state = 'cancelled';
+    job.stage = 'Cancelled by user';
+    job.updatedAt = new Date().toISOString();
+  }
+  return job;
+}
+
+export function clearFlowMusicJobs(): void {
+  for (const job of jobs.values()) {
+    if (job.state === 'queued' || job.state === 'running') {
+      job.state = 'cancelled';
+      job.stage = 'Reset by user';
+      job.updatedAt = new Date().toISOString();
+    }
+  }
+  jobs.clear();
+}
+
 /**
  * Procedural Indian Epic Trailer Audio Synthesizer (Vedic Dhol, Sub-bass drop, Risers, Brass Swells)
  * High quality procedural fallback ensuring reliable offline/immediate synthesis.
@@ -220,8 +242,8 @@ export async function startFlowMusicGeneration(
       await composer.waitFor({ state: 'visible', timeout: 20000 });
 
       const fullPrompt = [
-        settings.prompt,
-        settings.lyrics ? `\nDialogue & Chants:\n${settings.lyrics}` : '',
+        settings.prompt || 'Cinematic soundtrack music',
+        settings.lyrics ? `\nDialogue & Lyrics:\n${settings.lyrics}` : '',
         settings.mood ? `[Mood: ${settings.mood}]` : '',
         settings.vocalProfile ? `[Voice: ${settings.vocalProfile}]` : '',
       ].filter(Boolean).join('\n');
@@ -229,6 +251,7 @@ export async function startFlowMusicGeneration(
       await composer.click({ force: true }).catch(() => {});
       await composer.fill(fullPrompt).catch(() => {});
       await page.waitForTimeout(1000);
+      if ((job.state as string) === 'cancelled') return;
 
       // Submit prompt
       job.stage = 'Submitting prompt to Google Flow Music Lyria AI engine';
@@ -248,7 +271,9 @@ export async function startFlowMusicGeneration(
 
       // Monitor for completed track generation up to 75 seconds
       for (let attempt = 0; attempt < 15; attempt++) {
+        if ((job.state as string) === 'cancelled') return;
         await page.waitForTimeout(5000);
+        if ((job.state as string) === 'cancelled') return;
 
         if (fs.existsSync(outputFile) && fs.statSync(outputFile).size > 50000) {
           generatedWithPlaywright = true;
@@ -301,11 +326,16 @@ export async function startFlowMusicGeneration(
     }
 
     // High fidelity fallback synthesizer if live download was not completed
+    if ((job.state as string) === 'cancelled') return;
     if (!generatedWithPlaywright || !fs.existsSync(outputFile)) {
-      job.stage = 'Synthesizing epic Vedic hybrid trailer soundtrack (Dhol, Brass, Sub-bass)';
+      job.stage = 'Synthesizing hybrid soundtrack audio (Dhol, Brass, Sub-bass)';
       job.progress = 85;
       job.updatedAt = new Date().toISOString();
       await generateVedicTrailerAudio(settings, outputFile, settings.duration || 60);
+    }
+    if ((job.state as string) === 'cancelled') {
+      try { fs.unlinkSync(outputFile); } catch {}
+      return;
     }
 
     // Convert downloaded stream to clean MP3 if needed
@@ -321,22 +351,30 @@ export async function startFlowMusicGeneration(
       } catch {}
     }
 
-    // Copy to script's workspace
+    const trackMeta = {
+      id: jobId,
+      scriptId,
+      title: settings.title?.trim() || 'Generated Flow Music Track',
+      prompt: settings.prompt || '',
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      fs.writeFileSync(path.join(downloadsDir, `${jobId}.json`), JSON.stringify(trackMeta, null, 2), 'utf8');
+    } catch {}
+
+    // Copy to script's workspace only when scriptId belongs to a stored workspace script
     const destFilename = `flow_music_${jobId}.mp3`;
-    const scriptDest = containedFile(generatedDir(), scriptId, destFilename);
-    fs.mkdirSync(path.dirname(scriptDest), { recursive: true });
-    fs.copyFileSync(outputFile, scriptDest);
-
-    // Also copy to global assets music directory for reuse
-    const assetMusicDir = path.join(SERVER_ROOT, 'assets', 'music');
-    fs.mkdirSync(assetMusicDir, { recursive: true });
-    fs.copyFileSync(outputFile, path.join(assetMusicDir, `${jobId}.mp3`));
-
     const script = store.getById<any>('scripts', scriptId);
+    let downloadUrl = `/api/flow-music/downloads/${jobId}`;
+    let scriptDest = outputFile;
     if (script) {
+      scriptDest = containedFile(generatedDir(), scriptId, destFilename);
+      fs.mkdirSync(path.dirname(scriptDest), { recursive: true });
+      fs.copyFileSync(outputFile, scriptDest);
+      const scriptUrl = mediaUrl(`generate/file/${scriptId}/${destFilename}`);
       const musicEntry = {
         filename: destFilename,
-        url: mediaUrl(`generate/file/${scriptId}/${destFilename}`),
+        url: scriptUrl,
         prompt: settings.prompt,
         duration: settings.duration || 60,
         seed: Math.floor(Math.random() * 1000000),
@@ -346,15 +384,17 @@ export async function startFlowMusicGeneration(
       };
       script.generatedMusic = musicEntry;
       store.add('scripts', { ...script, generatedMusic: musicEntry });
+      downloadUrl = scriptUrl;
     }
 
     job.state = 'done';
     job.stage = 'Google Flow Music generated successfully!';
     job.progress = 100;
     job.audioPath = scriptDest;
-    job.downloadUrl = mediaUrl(`generate/file/${scriptId}/${destFilename}`);
+    job.downloadUrl = downloadUrl;
     job.updatedAt = new Date().toISOString();
   })().catch((fatal: any) => {
+    if ((job.state as string) === 'cancelled') return;
     job.state = 'error';
     job.stage = 'Generation failed';
     job.error = fatal?.message || 'Unknown error during Google Flow Music generation';

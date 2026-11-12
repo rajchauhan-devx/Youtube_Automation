@@ -1,6 +1,7 @@
 import { parseMotionScriptHint } from './script-motion.js';
 import type { NarrationScene, ScenePlan } from './scene-plan.js';
 import { hasSpeakerDialogueTags, parseDialogueTurns, extractSpeakerName, normalizeCharacterName, stripSpeakerTags } from './conversational-types.js';
+import { stripChannelEditorial } from './channel-editorial.js';
 
 /**
  * Clean spoken narration extracted from <script> or <narration> tags so TTS
@@ -380,12 +381,16 @@ function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number
 
 export function isImageOnlyTemplate(template: string): boolean {
   if (!template) return false;
-  if (/IMAGE[- ]ONLY/i.test(template)) return true;
-  if (/ALL STILL[- ]IMAGE/i.test(template)) return true;
-  if (/NO video(?:[,\s]+motion)?\s+prompts?/i.test(template)) return true;
-  if (/Zero video generation/i.test(template)) return true;
-  if (/Only TWO tag types are used/i.test(template)) return true;
-  if (!/<video_prompt/i.test(template) && /<image_prompt/i.test(template)) return true;
+  const cleaned = stripChannelEditorial(template);
+  const explicitStillMandate =
+    /ALL STILL[- ]IMAGE/i.test(cleaned) ||
+    /NO video(?:[,\s]+motion)?\s+prompts?/i.test(cleaned) ||
+    /Zero video generation/i.test(cleaned) ||
+    /Only TWO tag types are used/i.test(cleaned);
+  if (explicitStillMandate) return true;
+  if (/HYBRID|MIXED[- ]MEDIA/i.test(cleaned) || /<video_prompt/i.test(cleaned)) return false;
+  if (/IMAGE[- ]ONLY/i.test(cleaned)) return true;
+  if (!/<video_prompt/i.test(cleaned) && /<image_prompt/i.test(cleaned)) return true;
   return false;
 }
 
@@ -396,7 +401,10 @@ export function isImageOnlyTemplate(template: string): boolean {
  *  2. <image_prompt[N]>...</image_prompt[N]> (with N=0 for thumbnail, N>=1 for scenes)
  *  3. <video_prompt[N]>...</video_prompt[N]> (chronological index N for video scenes)
  */
-export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boolean }): ScenePlan {
+export function parseSimpleTagPackage(
+  raw: string,
+  options?: { isImageOnly?: boolean; forceAllVideo?: boolean }
+): ScenePlan {
   const text = raw.replace(/\r/g, '');
   const imageOnly = options?.isImageOnly === true;
 
@@ -591,14 +599,15 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
   }
 
   // 5. Distribute narration across all slots
-  const isConversational = hasSpeakerDialogueTags(rawNarration);
+  const hasSpeakerTags = hasSpeakerDialogueTags(rawNarration);
+  const forceAllVideo = options?.forceAllVideo === true && !imageOnly;
   const narrations = distributeNarrationToScenes(rawNarration, slots.length);
   const scenes: NarrationScene[] = slots.map((slot, index) => {
     const num = index + 1;
     const hint = sceneHints.get(num);
     const sceneNarration = narrations[index] || '';
-    const detectedSpeaker = isConversational ? extractSpeakerName(sceneNarration) : undefined;
-    const mediaType = (isConversational && !imageOnly) ? 'video' : slot.mediaType;
+    const detectedSpeaker = hasSpeakerTags ? extractSpeakerName(sceneNarration) : undefined;
+    const mediaType = forceAllVideo ? 'video' : slot.mediaType;
     return {
       id: `scene_${String(num).padStart(3, '0')}`,
       chapter: slot.sceneTitle || hint?.title || `Scene ${num}`,
@@ -612,8 +621,8 @@ export function parseSimpleTagPackage(raw: string, options?: { isImageOnly?: boo
     };
   });
 
-  // GUARANTEE: In conversational scripts, Scene 1 must always start with a character speaking line
-  if (hasSpeakerDialogueTags(rawNarration) && scenes.length >= 2) {
+  // GUARANTEE: In conversational full-video scripts, Scene 1 must always start with a character speaking line
+  if (forceAllVideo && hasSpeakerTags && scenes.length >= 2) {
     const sc0Speaker = normalizeCharacterName(scenes[0].speaker || extractSpeakerName(scenes[0].narration) || '');
     if (sc0Speaker === 'narrator' || sc0Speaker === 'सूत्रधार') {
       const charIdx = scenes.findIndex((sc, idx) => {

@@ -2,13 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { currentWorkspace, accountDir } from './workspace.js';
 import { containedFile } from './paths.js';
 import { TtsError, type VoiceInfo } from './tts-shared.js';
 
 const execFileAsync = promisify(execFile);
-const SERVER_ROOT = path.resolve(new URL('../../', import.meta.url).pathname);
+const SERVER_ROOT = path.resolve(fileURLToPath(new URL('../../', import.meta.url)));
 const SHARED_VOICE_DIR = path.resolve(process.env.CHATTERBOX_VOICE_DIR || path.join(SERVER_ROOT, 'data', 'voices'));
 const MAX_VOICE_UPLOAD_BYTES = 25 * 1024 * 1024;
 

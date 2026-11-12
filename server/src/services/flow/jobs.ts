@@ -3,8 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { flowProfileDir, flowStatus } from './profile.js';
 import { store } from '../store.js';
+import { isConversationalVideoMode } from '../channel-editorial.js';
 import {
-  isConversationalScript,
   hasSpeakerDialogueTags,
   extractSpeakerName,
   stripSpeakerTags,
@@ -120,13 +120,32 @@ const FLOW_TWO_D_PATTERN =
 const STICKMAN_PATTERN =
   /\b(stickman|stick\s+figure|stick-figure|minimalist\s+black-line\s+stick)\b/i;
 
-export function cleanFlowPrompt(rawPrompt: string): string {
+function stripAccidentalLipSync(text: string): string {
+  let out = text;
+  // Strip injected/standalone multi-word lip-sync and spoken dialogue directives
+  out = out.replace(/(?:^|\.\s*|\n\s*)(?:The character speaks clearly|Natural mouth and jaw movements|Clean vocal dialogue audio|Strict(?:ly)? (?:frame-by-frame )?lip-sync)[^.!?\n]*(?:["“”'][\s\S]*?["“”'])?[^.!?\n]*(?:[.!?]+|$)/gi, '. ');
+  // Strip participial/trailing clauses describing moving lips or speech articulation (with or without quoted line)
+  out = out.replace(/,?\s*(?:with\s+)?(?:his|her|their|its)?\s*lips?\s+moving\s+in\s+[^.!?\n]*?(?:["“”'][\s\S]*?["“”']|[.!?]|$)/gi, '');
+  out = out.replace(/,?\s*(?:articulates?|delivering|mouthing)\s+(?:the\s+)?(?:spoken\s+)?(?:Hindi|English)?\s*(?:words?|dialogue|lines?|speech)\s*[:\-]?\s*(?:["“”'‘’][^"“”'‘’]{1,400}["“”'‘’])?/gi, '');
+  out = out.replace(/,?\s*(?:with\s+)?(?:clear|natural|strict|frame-by-frame|expressive|subtle)?\s*lip[-\s]?sync(?:\s+articulation|\s+matching[^.!?\n]*)?/gi, '');
+  out = out.replace(/,\s*(?=[.,;!?]|$)/g, '');
+  out = out.replace(/\.\s*\./g, '.');
+  out = out.replace(/^\s*[.,;:]+\s*/, '');
+  out = out.replace(/\s{2,}/g, ' ').trim();
+  return out;
+}
+
+export function cleanFlowPrompt(rawPrompt: string, options: { stripLipSync?: boolean } = {}): string {
   let cleaned = (rawPrompt || '').trim();
   // Strip Negative Prompt section (Google Flow has no negative prompt box; text like "lip-sync or dialogue" causes audio synthesis failures)
   cleaned = cleaned.replace(/\n*\s*(?:Negative Prompt|Negative):\s*[\s\S]*$/i, '');
   // Strip Evidence / Disclosure metadata
   cleaned = cleaned.replace(/\n*\s*Evidence\s*\/\s*Disclosure:\s*[\s\S]*?(?=\n\n[A-Z][a-zA-Z\s]+:|$)/i, '');
   cleaned = cleaned.replace(/Disclosure label:[^\n]*/gi, '');
+
+  if (options.stripLipSync) {
+    cleaned = stripAccidentalLipSync(cleaned);
+  }
 
   // Strip bracketed speaker tags inside spoken dialogue quotes so Google Flow never hallucinates on-screen subtitle captions like "[सींहा]:"
   cleaned = cleaned.replace(/(delivering the spoken Hindi (?:dialogue|audio):\s*")\s*\[[^\]]+\]\s*[:—–-]?\s*/gi, '$1');
@@ -220,9 +239,10 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
   if (active) throw new Error('A Flow job is already running. Wait or cancel it first (one profile = one writer).');
   let prompt = (spec.prompt || '').trim();
 
-  // ONLY for conversational scripts (Ancient Dharma 'mychannel' and Talevora in Hindi):
+  // ONLY inject native Hindi lip-sync instructions when conversational/Flow-dialogue mode is explicitly active:
   const scriptDoc = findScriptForFlow(spec.scriptId);
-  if (scriptDoc && (isConversationalScript(scriptDoc) || hasSpeakerDialogueTags(scriptDoc.narration || ''))) {
+  const isConvFlow = Boolean(scriptDoc && isConversationalVideoMode({ script: scriptDoc }));
+  if (isConvFlow && scriptDoc) {
     const scene = scriptDoc.scenePlan?.scenes?.[spec.sceneIndex] || scriptDoc.scenes?.[spec.sceneIndex];
     if (scene) {
       const speaker = normalizeCharacterName(scene.speaker || extractSpeakerName(scene.narration || ''));
@@ -241,6 +261,10 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
         }
       }
     }
+  }
+  prompt = cleanFlowPrompt(prompt, { stripLipSync: !isConvFlow });
+  if (!isConvFlow && scriptDoc && prompt && !/no speaking|no talking|without speech|silent visual/i.test(prompt)) {
+    prompt = `${prompt.replace(/[.!?]+$/, '')}. Silent visual scene only, composed expressions with no speaking or mouth movement.`;
   }
   if (prompt.length < 10) throw new Error('Prompt is too short. Paste the full scene videoPrompt (80+ words ideal).');
   if (prompt.length > 8000) throw new Error('Prompt exceeds 8000 characters.');
@@ -267,6 +291,7 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
     const now = new Date().toISOString();
     const job: FlowJob = {
       ...spec,
+      prompt,
       id: `flow_${crypto.randomUUID()}`,
       state: 'done',
       model, aspect, duration, resolution, dryRun, cost, idempotencyKey,
@@ -296,7 +321,7 @@ export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
   const now = new Date().toISOString();
   const job: FlowJob = {
     ...spec,
-    prompt: cleanFlowPrompt(spec.prompt),
+    prompt,
     referenceImagePath: resolvedRef,
     id: `flow_${crypto.randomUUID()}`,
     state: 'queued',

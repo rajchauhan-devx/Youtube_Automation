@@ -2,6 +2,7 @@ import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import { spawn, execSync, type ChildProcess } from 'node:child_process';
 import {
   flowMusicProfileDir,
@@ -15,6 +16,7 @@ import {
   startFlowMusicGeneration,
   getFlowMusicJob,
   listFlowMusicJobs,
+  cancelFlowMusicJob,
 } from '../services/flow-music/flow-music-worker.js';
 import {
   getSongApproval,
@@ -22,9 +24,16 @@ import {
   startFlowVideoPipeline,
   getFlowVideoJob,
   listFlowVideoJobs,
+  cancelFlowVideoJob,
+  getFlowMusicStudioState,
+  saveFlowMusicStudioState,
+  resetFlowMusicWorkspace,
+  buildScenesFromScript,
+  regenerateFlowMusicSceneKeyframe,
   HANUMAN_SCENE_DEFINITIONS,
 } from '../services/flow-music/flow-music-video-service.js';
 import { store } from '../services/store.js';
+import { containedFile } from '../services/paths.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -233,7 +242,198 @@ flowMusicRouter.get('/jobs', (req, res) => {
   res.json({ jobs: listFlowMusicJobs(scriptId) });
 });
 
-// Get latest generated track
+// Read & persist Flow Music Studio draft state
+flowMusicRouter.get('/state', (_req, res) => {
+  try {
+    res.json(getFlowMusicStudioState());
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to load studio state' });
+  }
+});
+
+flowMusicRouter.put('/state', (req, res) => {
+  try {
+    const saved = saveFlowMusicStudioState(req.body || {});
+    res.json({ success: true, state: saved });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to save studio state' });
+  }
+});
+
+// Reset workspace files, approvals, scenes, and state (preserving browser sign-in)
+flowMusicRouter.post('/reset', (req, res) => {
+  try {
+    const { scriptId, scope } = req.body || {};
+    const cleared = resetFlowMusicWorkspace({
+      scriptId: typeof scriptId === 'string' ? scriptId : undefined,
+      scope: scope === 'videos' ? 'videos' : 'all',
+    });
+    res.json({
+      success: true,
+      cleared,
+      state: getFlowMusicStudioState(),
+      message:
+        scope === 'videos'
+          ? 'Rendered videos and scene keyframes cleared.'
+          : 'Flow Music workspace cleared cleanly. Ready to start a fresh script!',
+    });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Reset failed' });
+  }
+});
+
+// Build scene storyboard automatically from any script / lyrics / topic
+flowMusicRouter.post('/plan-scenes', async (req, res) => {
+  try {
+    const { scriptText, lyrics, topic, mood, theme, duration } = req.body || {};
+    const scenes = await buildScenesFromScript({
+      scriptText: typeof scriptText === 'string' ? scriptText : undefined,
+      lyrics: typeof lyrics === 'string' ? lyrics : undefined,
+      topic: typeof topic === 'string' ? topic : undefined,
+      mood: typeof mood === 'string' ? mood : undefined,
+      theme: typeof theme === 'string' ? theme : undefined,
+      targetDuration: typeof duration === 'number' ? duration : undefined,
+    });
+    res.json({ scenes });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to plan scenes' });
+  }
+});
+
+// Cancel running music job
+flowMusicRouter.post('/jobs/:id/cancel', (req, res) => {
+  const job = cancelFlowMusicJob(req.params.id);
+  if (!job) {
+    res.status(404).json({ error: 'Job not found' });
+    return;
+  }
+  res.json({ success: true, job });
+});
+
+// Cancel running video job
+flowMusicRouter.post('/video-job/:id/cancel', (req, res) => {
+  const job = cancelFlowVideoJob(req.params.id);
+  if (!job) {
+    res.status(404).json({ error: 'Video job not found' });
+    return;
+  }
+  res.json({ success: true, job });
+});
+
+// Upload user audio track (supports raw audio/* or application/octet-stream up to 25MB, or JSON dataBase64)
+flowMusicRouter.post(
+  '/upload-track',
+  async (req, res, next) => {
+    const ct = req.headers['content-type'] || '';
+    if (ct.includes('application/json')) return next();
+    const chunks: Buffer[] = [];
+    let total = 0;
+    const limit = 25 * 1024 * 1024;
+    req.on('data', (chunk: Buffer) => {
+      total += chunk.length;
+      if (total <= limit) chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (total > limit) {
+        res.status(413).json({ error: 'Audio file exceeds 25MB limit.' });
+        return;
+      }
+      (req as any).rawAudioBuffer = Buffer.concat(chunks);
+      next();
+    });
+    req.on('error', (err) => next(err));
+  },
+  (req, res) => {
+    try {
+      const rawBuf: Buffer | undefined = (req as any).rawAudioBuffer;
+      const headerName = String(req.headers['x-track-filename'] || '');
+      const headerTitle = String(req.headers['x-track-title'] || '');
+      const origFilename = req.body?.filename || headerName || 'uploaded_track.mp3';
+      const title =
+        decodeURIComponent(req.body?.title || headerTitle || '').trim() ||
+        path.basename(origFilename, path.extname(origFilename));
+
+      let buffer: Buffer;
+      if (rawBuf && rawBuf.length > 0) {
+        buffer = rawBuf;
+      } else if (typeof req.body?.dataBase64 === 'string' && req.body.dataBase64.trim()) {
+        const cleanB64 = req.body.dataBase64.replace(/^data:[^;]+;base64,/, '');
+        buffer = Buffer.from(cleanB64, 'base64');
+      } else {
+        res.status(400).json({ error: 'Audio file data is required.' });
+        return;
+      }
+
+      if (buffer.length < 128) {
+        res.status(400).json({ error: 'Audio file is too small or empty.' });
+        return;
+      }
+
+      const extMatch = origFilename.match(/\.(mp3|wav|m4a|ogg|aac)$/i);
+      const ext = extMatch ? extMatch[1].toLowerCase() : 'mp3';
+      const id = `upload_${Date.now()}_${randomUUID().slice(0, 6)}`;
+      const downloadsDir = flowMusicDownloadsDir();
+      const targetFilename = `${id}.${ext}`;
+      const targetPath = containedFile(downloadsDir, targetFilename);
+      if (!targetPath) {
+        res.status(400).json({ error: 'Invalid filename.' });
+        return;
+      }
+
+      fs.writeFileSync(targetPath, buffer);
+      fs.writeFileSync(
+        path.join(downloadsDir, `${id}.json`),
+        JSON.stringify(
+          {
+            id,
+            title,
+            filename: targetFilename,
+            scriptId: req.body?.scriptId || String(req.headers['x-script-id'] || ''),
+            uploaded: true,
+            createdAt: new Date().toISOString(),
+          },
+          null,
+          2
+        ),
+        'utf8'
+      );
+
+      res.json({
+        success: true,
+        track: {
+          id,
+          filename: targetFilename,
+          url: `/api/flow-music/downloads/${id}`,
+          title,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Audio upload failed' });
+    }
+  }
+);
+
+// Regenerate a single keyframe image in place
+flowMusicRouter.post('/regenerate-scene', async (req, res) => {
+  try {
+    const { filename, prompt, index, jobId } = req.body || {};
+    if (!filename || !prompt) {
+      res.status(400).json({ error: 'filename and prompt are required' });
+      return;
+    }
+    const updated = await regenerateFlowMusicSceneKeyframe({
+      filename: String(filename),
+      prompt: String(prompt),
+      index: typeof index === 'number' ? index : undefined,
+      jobId: typeof jobId === 'string' ? jobId : undefined,
+    });
+    res.json({ success: true, ...updated });
+  } catch (error) {
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Scene regeneration failed' });
+  }
+});
+
+// Get latest generated or uploaded track
 flowMusicRouter.get('/latest-track', (_req, res) => {
   try {
     const downloadDir = flowMusicDownloadsDir();
@@ -241,8 +441,9 @@ flowMusicRouter.get('/latest-track', (_req, res) => {
       res.json({ track: null });
       return;
     }
-    const files = fs.readdirSync(downloadDir)
-      .filter((f) => f.endsWith('.mp3'))
+    const files = fs
+      .readdirSync(downloadDir)
+      .filter((f) => /\.(mp3|wav|m4a|ogg|aac)$/i.test(f))
       .map((f) => ({ name: f, time: fs.statSync(path.join(downloadDir, f)).mtimeMs }))
       .sort((a, b) => b.time - a.time);
 
@@ -250,13 +451,25 @@ flowMusicRouter.get('/latest-track', (_req, res) => {
       res.json({ track: null });
       return;
     }
-    const latest = files[0].name.replace(/\.mp3$/, '');
+    const latestFile = files[0].name;
+    const latestId = latestFile.replace(/\.(mp3|wav|m4a|ogg|aac)$/i, '');
+    let title = latestId;
+    const metaPath = path.join(downloadDir, `${latestId}.json`);
+    if (fs.existsSync(metaPath)) {
+      try {
+        const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        if (meta?.title) title = meta.title;
+      } catch {}
+    } else if (latestId.includes('hanuman')) {
+      title = 'Lord Hanuman Vow // Goosebumps 🚩 (Google Flow Lyria 3.5)';
+    }
+
     res.json({
       track: {
-        filename: files[0].name,
-        id: latest,
-        url: `/api/flow-music/downloads/${latest}`,
-        title: 'Lord Hanuman Vow // Goosebumps 🚩 (Google Flow Lyria 3.5)',
+        filename: latestFile,
+        id: latestId,
+        url: `/api/flow-music/downloads/${latestId}`,
+        title,
       },
     });
   } catch (error) {
@@ -267,13 +480,31 @@ flowMusicRouter.get('/latest-track', (_req, res) => {
 // Download audio file
 flowMusicRouter.get('/downloads/:id', (req, res) => {
   const downloadDir = flowMusicDownloadsDir();
-  const file = path.join(downloadDir, `${req.params.id}.mp3`);
-  if (!fs.existsSync(file)) {
+  const safeId = path.basename(req.params.id).replace(/[^a-zA-Z0-9._-]/g, '');
+  if (!safeId) {
+    res.status(400).json({ error: 'Invalid track id' });
+    return;
+  }
+
+  let matchedFile: string | null = null;
+  for (const candidate of [safeId, `${safeId}.mp3`, `${safeId}.wav`, `${safeId}.m4a`, `${safeId}.ogg`]) {
+    const p = containedFile(downloadDir, candidate);
+    if (p && fs.existsSync(p) && fs.statSync(p).isFile()) {
+      matchedFile = p;
+      break;
+    }
+  }
+
+  if (!matchedFile) {
     res.status(404).json({ error: 'Audio file not found' });
     return;
   }
-  res.set('Content-Type', 'audio/mpeg');
-  res.sendFile(file);
+
+  if (matchedFile.endsWith('.wav')) res.set('Content-Type', 'audio/wav');
+  else if (matchedFile.endsWith('.m4a')) res.set('Content-Type', 'audio/mp4');
+  else if (matchedFile.endsWith('.ogg')) res.set('Content-Type', 'audio/ogg');
+  else res.set('Content-Type', 'audio/mpeg');
+  res.sendFile(matchedFile);
 });
 
 // Song Approval Status
@@ -297,7 +528,7 @@ flowMusicRouter.post('/approve', (req, res) => {
   }
 });
 
-// Get scene definitions for multi-line lyrics breakdown
+// Get preset scene definitions
 flowMusicRouter.get('/scenes', (_req, res) => {
   res.json({ scenes: HANUMAN_SCENE_DEFINITIONS });
 });
@@ -305,7 +536,18 @@ flowMusicRouter.get('/scenes', (_req, res) => {
 // Start Full Video Pipeline (Shorts 9:16 + Long 16:9) - Gated strictly by song approval
 flowMusicRouter.post('/generate-full-video', async (req, res) => {
   try {
-    const { scriptId } = req.body || {};
+    const {
+      scriptId,
+      scenes,
+      lyrics,
+      title,
+      prompt,
+      mood,
+      theme,
+      duration,
+      letterboxBanner,
+      songUrl,
+    } = req.body || {};
     if (!scriptId) {
       res.status(400).json({ error: 'scriptId is required' });
       return;
@@ -319,7 +561,17 @@ flowMusicRouter.post('/generate-full-video', async (req, res) => {
       return;
     }
 
-    const job = await startFlowVideoPipeline(scriptId);
+    const job = await startFlowVideoPipeline(scriptId, {
+      scenes: Array.isArray(scenes) ? scenes : undefined,
+      lyrics: typeof lyrics === 'string' ? lyrics : undefined,
+      title: typeof title === 'string' ? title : undefined,
+      prompt: typeof prompt === 'string' ? prompt : undefined,
+      mood: typeof mood === 'string' ? mood : undefined,
+      theme: typeof theme === 'string' ? theme : undefined,
+      duration: typeof duration === 'number' ? duration : undefined,
+      letterboxBanner: typeof letterboxBanner === 'string' ? letterboxBanner : undefined,
+      songUrl: typeof songUrl === 'string' ? songUrl : undefined,
+    });
     res.status(202).json(job);
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to start video generation' });
@@ -342,12 +594,12 @@ flowMusicRouter.get('/video-jobs', (req, res) => {
   res.json({ jobs: listFlowVideoJobs(scriptId) });
 });
 
-// Get latest rendered videos
+// Get latest rendered videos and matching scene keyframes
 flowMusicRouter.get('/latest-videos', (_req, res) => {
   try {
     const videoDir = path.join(flowMusicDownloadsDir(), 'videos');
     if (!fs.existsSync(videoDir)) {
-      res.json({ shorts: null, long: null });
+      res.json({ shorts: null, long: null, images: [] });
       return;
     }
     const files = fs.readdirSync(videoDir);
@@ -361,7 +613,37 @@ flowMusicRouter.get('/latest-videos', (_req, res) => {
       .map((f) => ({ filename: f, url: `/api/flow-music/videos/${f}`, time: fs.statSync(path.join(videoDir, f)).mtimeMs }))
       .sort((a, b) => b.time - a.time)[0] || null;
 
-    res.json({ shorts, long });
+    const latestJobPrefix =
+      shorts?.filename.match(/^(fv_[^_]+_[^_]+)_/)?.[1] ||
+      long?.filename.match(/^(fv_[^_]+_[^_]+)_/)?.[1] ||
+      '';
+    const draft = getFlowMusicStudioState();
+    const inMemoryImages = latestJobPrefix ? getFlowVideoJob(latestJobPrefix)?.images : undefined;
+
+    let images: Array<{ line: string; prompt: string; filename: string; url: string }> = [];
+    if (inMemoryImages && inMemoryImages.length > 0) {
+      images = inMemoryImages;
+    } else if (latestJobPrefix) {
+      images = files
+        .filter((f) => f.startsWith(`${latestJobPrefix}_scene_`) && /\.(png|jpg|jpeg)$/i.test(f))
+        .sort((a, b) => {
+          const idxA = Number(a.match(/_scene_(\d+)/)?.[1] ?? 0);
+          const idxB = Number(b.match(/_scene_(\d+)/)?.[1] ?? 0);
+          return idxA - idxB;
+        })
+        .map((f) => {
+          const idx = Number(f.match(/_scene_(\d+)/)?.[1] ?? 0);
+          const scene = draft.scenes?.[idx] || HANUMAN_SCENE_DEFINITIONS[idx];
+          return {
+            line: scene?.line || `Scene ${idx + 1}`,
+            prompt: scene?.prompt || '',
+            filename: f,
+            url: `/api/flow-music/videos/${f}`,
+          };
+        });
+    }
+
+    res.json({ shorts, long, images });
   } catch (error) {
     res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to fetch latest videos' });
   }
@@ -370,8 +652,8 @@ flowMusicRouter.get('/latest-videos', (_req, res) => {
 // Serve rendered videos and scene artwork
 flowMusicRouter.get('/videos/:filename', (req, res) => {
   const videoDir = path.join(flowMusicDownloadsDir(), 'videos');
-  const file = path.join(videoDir, path.basename(req.params.filename));
-  if (!fs.existsSync(file)) {
+  const file = containedFile(videoDir, path.basename(req.params.filename));
+  if (!file || !fs.existsSync(file)) {
     res.status(404).json({ error: 'File not found' });
     return;
   }

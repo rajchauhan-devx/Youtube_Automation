@@ -2,6 +2,7 @@ import { motionHintProviderSchema, motionInstructionsForTemplate } from './scrip
 import { withScenePlanFormat } from './scene-plan-format.js';
 import { isImageOnlyTemplate, parseScenePlan, spokenText } from './scene-plan.js';
 import { incompleteResponse } from './generation-status.js';
+import { hasExplicitConversationalDirective } from './channel-editorial.js';
 
 export const NARRATION_WORDS_PER_MINUTE = 145;
 export function generationSystemInstruction(profile: 'shorts' | 'long' | 'mixed', duration: number, structured = false) {
@@ -115,7 +116,7 @@ export function buildGenerationPrompt(template: string, topic: string, instructi
   const minimum = promptMinimumWords(template);
   const sceneCount = Math.min(160, Math.ceil(duration / 10));
   const cleanResearch = sanitizeResearchForPrompt(researchData);
-  const isConv = /conversational|multi-character|multi-voice/i.test(template) || /conversational|dialogue|multi-character/i.test(instructions);
+  const isConv = hasExplicitConversationalDirective(template, instructions);
   return `${withScenePlanFormat(template, profile)}
 
 ## Selected episode settings
@@ -165,7 +166,7 @@ export function buildFreePrompt(template: string, topic: string, instructions: s
     ...[motionInstructionsForTemplate(head)].filter(Boolean),
   ];
   if (instructions.trim()) tail.push(`Additional instructions: ${instructions.trim()}`);
-  const isConv = /conversational|multi-character|multi-voice/i.test(template) || /conversational|dialogue|multi-character/i.test(instructions);
+  const isConv = hasExplicitConversationalDirective(template, instructions);
   if (isConv) {
     tail.push(
       '\n🚨 MANDATORY MULTI-CHARACTER CONVERSATIONAL STORYTELLING RULES:' +

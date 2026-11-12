@@ -449,6 +449,7 @@ export interface WorkflowOptions {
   loraName?: string;
   loraStrengthModel?: number;
   loraStrengthClip?: number;
+  aspectRatio?: '1:1' | '16:9' | '9:16';
 }
 
 export function buildWorkflow(opts: WorkflowOptions): any {
@@ -464,6 +465,7 @@ export function buildWorkflow(opts: WorkflowOptions): any {
     loraName,
     loraStrengthModel,
     loraStrengthClip,
+    aspectRatio,
   } = opts;
   const wf = loadTemplate();
   const cfg = PRESET_CONFIG[preset] || PRESET_CONFIG.standard;
@@ -545,9 +547,9 @@ export function buildWorkflow(opts: WorkflowOptions): any {
   }
 
   if (wf['14']) {
-    const landscape = currentWorkspace().profile !== 'shorts';
-    wf['14'].inputs.width = landscape ? cfg.height : cfg.width;
-    wf['14'].inputs.height = landscape ? cfg.width : cfg.height;
+    const landscape = aspectRatio ? aspectRatio === '16:9' : currentWorkspace().profile !== 'shorts';
+    wf['14'].inputs.width = aspectRatio === '1:1' ? 1024 : landscape ? cfg.height : cfg.width;
+    wf['14'].inputs.height = aspectRatio === '1:1' ? 1024 : landscape ? cfg.width : cfg.height;
   }
 
   if (SEED_NODE_ID && wf[SEED_NODE_ID]) {
@@ -816,6 +818,7 @@ export interface GenerateOptions {
   modelName?: string;
   filePrefix?: 'image' | 'ref-frame';
   force2dStylized?: boolean;
+  aspectRatio?: '1:1' | '16:9' | '9:16';
 }
 
 export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl: string; fileName: string; seed: number; elapsedMs: number; loraFileName?: string }> {
@@ -841,6 +844,7 @@ export async function generateImage(opts: GenerateOptions): Promise<{ publicUrl:
     preset: opts.preset || 'standard',
     modelName: opts.modelName,
     channelAccountId: accountId,
+    aspectRatio: opts.aspectRatio,
   });
   const promptId = await queuePrompt(workflow, clientId);
   const historyEntry = await pollHistory(promptId, GEN_TIMEOUT_MS, opts.signal);

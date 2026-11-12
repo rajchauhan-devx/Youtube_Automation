@@ -93,7 +93,7 @@ export function validateScenePlan(value: unknown): ScenePlan {
   return p;
 }
 
-export function parseScenePlan(raw: string, useTimelineNarration = false, options?: { isImageOnly?: boolean }): ScenePlan {
+export function parseScenePlan(raw: string, useTimelineNarration = false, options?: { isImageOnly?: boolean; forceAllVideo?: boolean }): ScenePlan {
   if (raw.trimStart().startsWith('{')) {
     let value: unknown;
     try { value = JSON.parse(raw); }

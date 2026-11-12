@@ -5,7 +5,7 @@ import { isOpenCodeModel } from './opencode-models.js';
 import { streamOpenCode, streamReasoning } from './opencode.js';
 import { reasoningProvider } from './reasoning-models.js';
 import { extractAncientDharmaEditorial } from './ancient-dharma-editorial.js';
-import { extractChannelEditorial } from './channel-editorial.js';
+import { extractChannelEditorial, hasExplicitConversationalDirective } from './channel-editorial.js';
 import { extractAgainstTheOddsEditorial } from './against-the-odds-editorial.js';
 
 export interface ResearchSource {
@@ -128,9 +128,7 @@ export function buildResearchMessages(params: {
 }): ChatMessage[] {
   const targetDuration = Number.isFinite(params.duration) && (params.duration || 0) > 0 ? Math.round(params.duration!) : 30;
   const templateSummary = summarizeTemplateForResearch(params.template);
-  const templateWithoutEditorial = (params.template || '').replace(extractAncientDharmaEditorial(params.template || ''), '');
-  const isConv = /conversational|multi-character|multi-voice/i.test(templateWithoutEditorial) ||
-    /conversational|dialogue|multi-character/i.test(params.instructions || '');
+  const isConv = hasExplicitConversationalDirective(params.template, params.instructions);
   const ancientDharma = Boolean(extractAncientDharmaEditorial(params.template || ''));
   const againstTheOdds = Boolean(extractAgainstTheOddsEditorial(params.template || ''));
   const webBlock =

@@ -1058,6 +1058,7 @@ export interface CloudflareGenerateOptions {
   modelName?: string;
   filePrefix?: "image" | "ref-frame";
   force2dStylized?: boolean;
+  aspectRatio?: "1:1" | "16:9" | "9:16";
 }
 
 function orderEndpointsForAttempt(
@@ -1157,9 +1158,11 @@ export async function generateCloudflareImage(opts: CloudflareGenerateOptions): 
   const prefix = opts.filePrefix || "image";
   const preset: QualityPreset = opts.preset || "standard";
   const presetDims = PRESET_CONFIG[preset] || PRESET_CONFIG.standard;
-  const landscape = currentWorkspace().profile !== "shorts";
-  const targetWidth = landscape ? presetDims.height : presetDims.width;
-  const targetHeight = landscape ? presetDims.width : presetDims.height;
+  const landscape = opts.aspectRatio
+    ? opts.aspectRatio === "16:9"
+    : currentWorkspace().profile !== "shorts";
+  const targetWidth = opts.aspectRatio === "1:1" ? 1024 : landscape ? presetDims.height : presetDims.width;
+  const targetHeight = opts.aspectRatio === "1:1" ? 1024 : landscape ? presetDims.width : presetDims.height;
 
   const model =
     opts.modelName && ALLOWED_MODEL_IDS.has(opts.modelName) ? opts.modelName : cfg.model;

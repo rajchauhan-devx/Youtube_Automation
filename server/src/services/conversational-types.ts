@@ -494,9 +494,23 @@ export function clearScriptVoiceSession(scriptId: string): void {
 export function isConversationalScript(script: any): boolean {
   if (!script) return false;
   if (script.conversational === true || script.isConversational === true) return true;
-  if (script.name && /conversational|dialogue|discourse/i.test(script.name)) return true;
+  if (script.autoPilotSettings?.voice?.provider === 'flow') return true;
+  if (script.name && /\b(?:conversational|multi-?character|multi-?voice)\b/i.test(script.name)) return true;
 
-  const narrationText = script.narration || script.extractedScript || script.aiResponse || '';
+  if (Array.isArray(script.prompts) && script.prompts.length > 0) {
+    const rawTemplates = script.prompts
+      .map((p: any) => p?.content || '')
+      .join('\n')
+      .replace(/\[(?:ANCIENT DHARMA|AGAINST THE ODDS) EDITORIAL RULES\][\s\S]*?\[\/(?:ANCIENT DHARMA|AGAINST THE ODDS) EDITORIAL RULES\]/gi, '');
+    if (/\b(?:multi-?character|multi-?voice|100%\s*full\s*video|zero\s*narrator(?:\s*mandate)?|full\s*video\s*only|conversational\s+(?:dialogue|drama|episode|script|template|format|storytelling|mode|multi-character))\b/i.test(rawTemplates)) {
+      return true;
+    }
+  }
+
+  const aiScriptMatch = typeof script.aiResponse === 'string'
+    ? script.aiResponse.match(/<(?:script|narration)\b[^>]*>([\s\S]*?)<\/(?:script|narration)>/i)
+    : null;
+  const narrationText = script.narration || script.extractedScript || (aiScriptMatch?.[1] || '');
   return hasSpeakerDialogueTags(narrationText);
 }
 
@@ -505,18 +519,38 @@ const NON_SPEAKER_LABELS = new Set([
   'style', 'style tags', 'shot', 'behavior', 'constraints', 'duration', 'step', 'chapter', 'note',
   'title', 'format', 'section', 'version', 'description', 'visual', 'visuals', 'image', 'video',
   'audio', 'music', 'sfx', 'camera', 'lights', 'focus', 'action', 'cut', 'hook', 'resolution',
-  'fps', 'status', 'script', 'narration', 'break', 'purpose', 'continuity', 'coverage', 'manifest'
+  'fps', 'status', 'script', 'narration', 'break', 'purpose', 'continuity', 'coverage', 'manifest',
+  'content', 'emotion', 'text', 'tone', 'shorts', 'location', 'lighting', 'mood', 'topic', 'role',
+  'voice', 'language', 'angle', 'era', 'summary', 'warning', 'example', 'camera movement', 'transition',
+  'hook angle', 'payoff', 'uncertainties', 'core emotion', 'source', 'type', 'pause', 'beat',
+  'development', 'profile', 'opening', 'climax', 'ending', 'premise', 'setup', 'twist', 'conflict',
+  'structure', 'pacing', 'story', 'facts', 'fact', 'characters', 'setting', 'theme', 'dialogue',
+  'rule', 'rules', 'output', 'input', 'goal', 'checklist', 'important', 'reminder', 'requirement',
+  'requirements', 'template', 'overview', 'context', 'background', 'question', 'answer'
 ]);
 
 /**
- * Detects if a text block contains character dialogue attribution tags like [Ram]:, [लक्ष्मण]:, or Lakshman:
+ * Detects if a text block contains character dialogue attribution tags like [Ram]:, [लक्ष्मण]:, or लक्ष्मण:
+ * Bracketed tags MUST have an explicit dialogue separator (: — – -) so structural labels like
+ * [SCENE TITLE], [IMAGE or VIDEO], or [pause] never false-positive.
  */
 export function hasSpeakerDialogueTags(text: string): boolean {
   if (!text || typeof text !== 'string') return false;
-  const speakerTagRegex = /(?:^|\n)\s*(?:\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]|([A-Za-z\u0900-\u097F]{2,20}))\s*:\s*|(?:^|\n|\s)\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]\s*[:—–-]?\s*/gm;
+  const cleaned = text.replace(
+    /\[(?:ANCIENT DHARMA|AGAINST THE ODDS) EDITORIAL RULES\][\s\S]*?\[\/(?:ANCIENT DHARMA|AGAINST THE ODDS) EDITORIAL RULES\]/gi,
+    ''
+  );
+  const bracketedRegex = /(?:^|\n|\s)\[\s*([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s]{1,24})\s*\][ \t]*[:—–-]/gm;
   let match: RegExpExecArray | null;
-  while ((match = speakerTagRegex.exec(text)) !== null) {
-    const rawName = (match[1] || match[2] || match[3] || '').trim().toLowerCase();
+  while ((match = bracketedRegex.exec(cleaned)) !== null) {
+    const rawName = match[1].trim().toLowerCase();
+    if (rawName && !NON_SPEAKER_LABELS.has(rawName) && !/^(?:scene|part|step|section|chapter|optional)\b/i.test(rawName)) {
+      return true;
+    }
+  }
+  const lineStartRegex = /(?:^|\n)[ \t]*([A-Za-z\u0900-\u097F]{2,20})[ \t]*:[ \t]*\S/gm;
+  while ((match = lineStartRegex.exec(cleaned)) !== null) {
+    const rawName = match[1].trim().toLowerCase();
     if (rawName && !NON_SPEAKER_LABELS.has(rawName)) {
       return true;
     }
@@ -559,14 +593,15 @@ export function stripBracketCues(text: string): string {
  */
 export function extractSpeakerName(text: string): string | undefined {
   if (!text || typeof text !== 'string') return undefined;
-  // Bracketed tags: [Ram]: or [लक्ष्मण]: or [Sita] -
-  const bracketed = text.match(/(?:^|\n|\s)\[\s*([A-Za-z\u0900-\u097F\s]{2,25})\s*\]\s*[:—–-]?/m);
+  // Bracketed tags MUST include a dialogue separator: [Ram]: or [लक्ष्मण]: or [Sita] -
+  const bracketed = text.match(/(?:^|\n|\s)\[\s*([A-Za-z\u0900-\u097F][A-Za-z\u0900-\u097F\s]{1,24})\s*\][ \t]*[:—–-]/m);
   if (bracketed) {
     const name = bracketed[1].trim();
-    if (name && !NON_SPEAKER_LABELS.has(name.toLowerCase())) return name;
+    const lower = name.toLowerCase();
+    if (name && !NON_SPEAKER_LABELS.has(lower) && !/^(?:scene|part|step|section|chapter|optional)\b/i.test(lower)) return name;
   }
   // Line-start unbracketed tags: Ram: or लक्ष्मण: (must be at start of line followed by colon)
-  const lineStart = text.match(/(?:^|\n)\s*([A-Za-z\u0900-\u097F]{2,20})\s*:\s*/m);
+  const lineStart = text.match(/(?:^|\n)[ \t]*([A-Za-z\u0900-\u097F]{2,20})[ \t]*:[ \t]*\S/m);
   if (lineStart) {
     const name = lineStart[1].trim();
     if (name && !NON_SPEAKER_LABELS.has(name.toLowerCase())) return name;

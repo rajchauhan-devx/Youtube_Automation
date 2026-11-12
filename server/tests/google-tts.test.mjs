@@ -143,6 +143,13 @@ test('HTTP engine selection, real preview MIME, language validation and run sett
   const response = await fetch(`${base}/tts/preview`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: 'google', voice: 'en-IN-Chirp3-HD-Charon', language: 'en', text: 'Hello from the preview.' }) });
   assert.equal(response.status, 200); assert.equal(response.headers.get('content-type'), 'audio/wav');
   assert.equal(Buffer.from(await response.arrayBuffer()).toString('ascii', 0, 4), 'RIFF');
+  const hiVoicesRes = await fetch(`${base}/tts/voices?provider=google&language=hi`);
+  assert.equal(hiVoicesRes.status, 200);
+  const hiVoicesBody = await hiVoicesRes.json();
+  assert.ok(Array.isArray(hiVoicesBody.voices) && hiVoicesBody.voices.some(v => v.id === 'hi-IN-Chirp3-HD-Charon'));
+  const edgeVoicesRes = await fetch(`${base}/tts/voices?provider=edge&language=hi`);
+  assert.equal(edgeVoicesRes.status, 200);
+  assert.ok((await edgeVoicesRes.json()).voices.length > 0);
   assert.equal((await fetch(`${base}/tts/voices?provider=google&language=fr`)).status, 400);
   const settings = defaultAutoPilotSettings(); Object.assign(settings.voice, { provider: 'google', language: 'hi', voiceId: 'hi-IN-Chirp3-HD-Charon' });
   const saved = await fetch(`${base}/scripts`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'google-run', name: 'Google narration', status: 'draft', prompts: [], autoPilotSettings: settings }) });

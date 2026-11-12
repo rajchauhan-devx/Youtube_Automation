@@ -5,11 +5,11 @@ import { z } from 'zod';
 import { validatedModelJson } from './model-json.js';
 import { syncTopicNotes, type TopicNotes } from './topic-notes.js';
 import { currentWorkspace } from './workspace.js';
-import { parseScenePlan, validateScenePlan, spokenText, type ScenePlan } from './scene-plan.js';
+import { parseScenePlan, validateScenePlan, spokenText, isImageOnlyTemplate, type ScenePlan } from './scene-plan.js';
 import { hasSpeakerDialogueTags, extractSpeakerName, normalizeCharacterName } from './conversational-tts.js';
 import type { ProductionMemory, RetentionPlan, RetentionEdit } from './retention-types.js';
 import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
-import { channelEditorialContext } from './channel-editorial.js';
+import { channelEditorialContext, hasExplicitConversationalDirective } from './channel-editorial.js';
 
 const text = z.string().trim().min(1).max(2000);
 const PlanOutput = z.object({
@@ -89,15 +89,13 @@ export async function createRetentionPlan(options: {
 }): Promise<RetentionPlan> {
   const notes = syncTopicNotes();
   const memoryEvidence = retentionMemory(notes, options.duration);
-  const isConv = /conversational|multi-character|multi-voice/i.test(options.template)
-    || /conversational|dialogue|multi-character/i.test(options.instructions || '')
-    || hasSpeakerDialogueTags(options.template);
+  const isConv = hasExplicitConversationalDirective(options.template, options.instructions);
   const convHookMandate = isConv
     ? '\n🚨 MANDATORY MULTI-CHARACTER ZERO-NARRATOR & FULL-VIDEO MANDATE: This is a 100% video conversational script with strictly NO narrator (सूत्रधार). Every scene from Scene 1 to the final scene must be spoken directly by one of the characters ([Character]: "Spoken dialogue in Hindi..."). Every scene must be a full video clip (<video_prompt[N]>), never a still image. Scene 1 must open directly with a dramatic spoken line by a character. Every following scene must be another character speaking directly in response or confrontation. Never introduce a narrator or सूत्रधार voice.'
     : '';
   const result = await validatedModelJson({ ...options, messages: [
     { role: 'system', content: 'You are a meticulous story editor and YouTube packaging editor. Return only JSON. Quality judgments are editorial hypotheses, never predicted audience retention scores. Never invent historical facts, quotations, metrics or prior episode canon.' },
-    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${notes.guidance}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${channelEditorialContext(options.template, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\n${convHookMandate}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
+    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${isConv ? notes.guidance : `Channel niche/tone (follow the active template for narration format and image/video media mode): ${notes.guidance}`}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${channelEditorialContext(options.template, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\n${convHookMandate}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
   ] }, PlanOutput, 'Hook planning');
   if (new Set(result.hooks.map(hook => hook.openingLine.toLocaleLowerCase())).size !== 3) throw new Error('Hook planning returned duplicate openings. Generate three distinct hooks.');
 
@@ -124,11 +122,18 @@ export function retentionBrief(plan: RetentionPlan): string {
 export async function editForRetention(options: {
   raw: string; template: string; research: string; plan: RetentionPlan; model: string; apiKey: string; signal?: AbortSignal;
 }): Promise<RetentionEdit> {
-  const original = parseScenePlan(options.raw, false, { isImageOnly: /image.only|image only/i.test(options.template) && !/hybrid|mixed.media/i.test(options.template) });
-  const isConv = hasSpeakerDialogueTags(spokenText(original)) || hasSpeakerDialogueTags(options.raw);
+  const original = parseScenePlan(options.raw, false, {
+    isImageOnly: isImageOnlyTemplate(options.template),
+    forceAllVideo: hasExplicitConversationalDirective(options.template),
+  });
+  const isConvTemplate = hasExplicitConversationalDirective(options.template);
+  const isConv = isConvTemplate;
+  const preserveSpeakerTags = isConv || hasSpeakerDialogueTags(spokenText(original));
   const convPromptNote = isConv
     ? '\n🚨 CRITICAL MULTI-CHARACTER CONVERSATIONAL REQUIREMENT:\n1. STRICT ZERO NARRATOR MANDATE: Strictly NO [सूत्रधार] or [Narrator]. Every single scene must be spoken directly by a character ([राम], [लक्ष्मण], [नताशा], [विक्रम], etc.) in active dramatic dialogue.\n2. FULL VIDEO ONLY: Every scene must be a video scene (<video_prompt[N]>) with its full videoPrompt for Google Flow character speech and natural lip-sync.\n3. You MUST PRESERVE the exact [Character]: tag at the start of each scene\'s narration. NEVER remove, strip, or merge character tags.'
-    : '';
+    : preserveSpeakerTags
+      ? '\nPreserve any existing [Character]: tag at the start of each scene\'s narration, and strictly preserve each scene\'s original mediaType (never convert image scenes to FULL VIDEO, and never add Google Flow lip-sync or speech instructions when the template uses external voiceover narration).'
+      : '\nStrictly preserve each scene\'s original mediaType (image vs video) and never add Google Flow lip-sync or spoken-dialogue instructions unless explicitly requested by a conversational dialogue template.';
   const sceneIds = original.scenes.map(scene => scene.id) as [string, ...string[]];
   const editSchema = EditOutput.extend({
     scenes: z.array(EditOutput.shape.scenes.element.extend({ sceneId: z.enum(sceneIds) }))
@@ -155,7 +160,7 @@ export async function editForRetention(options: {
     if (scene.mediaType === 'video' && !edit.videoPrompt) throw new Error('The retention edit omitted a required video prompt.');
     
     let sceneNarration = edit.narration;
-    if (isConv) {
+    if (preserveSpeakerTags) {
       const origTag = scene.narration.match(/^\s*(\[\s*[A-Za-z\u0900-\u097F\s]{2,25}\s*\]\s*[:—–-])/);
       if (origTag && !sceneNarration.match(/^\s*\[\s*[A-Za-z\u0900-\u097F\s]{2,25}\s*\]\s*[:—–-]/)) {
         sceneNarration = `${origTag[1]} ${sceneNarration.trim()}`;
@@ -185,7 +190,7 @@ export async function editForRetention(options: {
           speaker: scChar.speaker,
           imagePrompt: scChar.imagePrompt,
           videoPrompt: scChar.videoPrompt,
-          mediaType: scChar.mediaType || 'video',
+          mediaType: scChar.mediaType || (scChar.videoPrompt ? 'video' : 'image'),
           motionGraphics: scChar.motionGraphics,
         };
         edited.scenes[charIdx] = {
@@ -194,7 +199,7 @@ export async function editForRetention(options: {
           speaker: sc0.speaker,
           imagePrompt: sc0.imagePrompt,
           videoPrompt: sc0.videoPrompt,
-          mediaType: sc0.mediaType || 'video',
+          mediaType: sc0.mediaType || (sc0.videoPrompt ? 'video' : 'image'),
           motionGraphics: sc0.motionGraphics,
         };
       }

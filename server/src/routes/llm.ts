@@ -16,7 +16,8 @@ import { isLocalModel, LOCAL_MODELS } from '../services/local-models.js';
 import { streamLocal } from '../services/ollama.js';
 import { conductScriptResearch } from '../services/script-research.js';
 import { selectAutoPilotTopic } from '../services/autopilot-topic.js';
-import { isConversationalScript, hasSpeakerDialogueTags } from '../services/conversational-tts.js';
+import { hasSpeakerDialogueTags } from '../services/conversational-tts.js';
+import { isConversationalVideoMode } from '../services/channel-editorial.js';
 import { syncTopicNotes } from '../services/topic-notes.js';
 import { responseHash } from '../services/retention.js';
 
@@ -45,7 +46,11 @@ llmRouter.post('/autopilot-topic', async (req, res) => {
       instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : '',
       duration: script.duration || 30, model, apiKey: apiKey || '', signal: controller.signal,
       script,
-      isConversational: isConversationalScript(script),
+      isConversational: isConversationalVideoMode({
+        script,
+        template: (script.prompts || []).map((prompt: { content: string }) => prompt.content).join('\n\n'),
+        instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : '',
+      }),
     });
     res.json(result);
   } catch (error) {
@@ -122,9 +127,10 @@ llmRouter.post('/extract', async (req, res) => {
       ? req.body.isImageOnly
       : (template ? isImageOnlyTemplate(template) : isImageOnlyTemplate(rawText));
     const saved = typeof req.body?.scriptId === 'string' ? store.getById<any>('scripts', req.body.scriptId) : undefined;
+    const forceAllVideo = !isImageOnly && isConversationalVideoMode({ script: saved, template });
     const edited = saved?.retentionEdit && saved.aiResponse === rawText && saved.retentionEdit.sourceHash === responseHash(rawText)
       ? saved.retentionEdit.plan : undefined;
-    const plan = edited ? validateScenePlan(edited) : parseScenePlan(rawText, req.body?.useTimelineNarration === true, { isImageOnly });
+    const plan = edited ? validateScenePlan(edited) : parseScenePlan(rawText, req.body?.useTimelineNarration === true, { isImageOnly, forceAllVideo });
     const profile = currentWorkspace().profile;
     if (profile === 'mixed' && plan.scenes.some(scene => !scene.mediaType)) throw new Error('Mixed Media requires an image or video mediaType on every scene. Use the shared scene-plan format.');
     res.json({ script: spokenText(plan), ttsText: spokenText(plan), imagePrompts: plan.scenes.map(scene => scene.imagePrompt), scenePlan: plan,
