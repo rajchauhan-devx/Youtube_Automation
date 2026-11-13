@@ -106,11 +106,77 @@ export async function probeAudioDuration(audioPath: string): Promise<number> {
   }
 }
 
+const HINDI_GENRE_RE = /\b(hindi|hinglish|bollywood|bhajan|kirtan|aarti|chalisa|shloka|mantra|sufi|qawwali|punjabi|desi|bhojpuri|ghazal|geet|deshbhakti|hindustani|indian classical|indian music)\b/i;
+const HINDI_DIRECTIVE_RE = /\b(sing in hindi|sing in hinglish|hindi song|hindi vocals|hindi lyrics|hindi singing|hindi track|hindi version|hindi melody)\b/i;
+const HINDI_PHRASES_RE = /\b(jai shri|jai shree|sita ram|hare krishna|hare rama|har har|tere bin|tu hi|kya baat|mera dil|meri jaan|nach le|ho gaya|ek baar|aisa kyu|dard e dil|ab to|kab tak|saath nibhana|dil diya|tod de|gyan gun sagar)\b/i;
+
+const HINDI_VOCAB_SET = new Set([
+  'hai', 'hain', 'ho', 'hoon', 'hun', 'tha', 'thi', 'the', 'kya', 'kyun', 'kyon', 'kaha', 'kahan', 'kaise', 'kaisa', 'kaisi',
+  'mera', 'meri', 'mere', 'tera', 'teri', 'tere', 'uska', 'uski', 'uske', 'hamara', 'hamari', 'humare', 'tumhara', 'tumhari', 'tumhare',
+  'apna', 'apni', 'apne', 'hum', 'tum', 'aap', 'woh', 'yeh', 'main', 'mujhe', 'tujhe', 'humein', 'dil', 'jaan', 'zindagi', 'ishq',
+  'pyaar', 'pyar', 'mohabbat', 'deewana', 'deewani', 'shayar', 'aankhein', 'aankhon', 'khushi', 'dard', 'yaad', 'yaadein', 'sanam',
+  'raat', 'subah', 'shaam', 'duniya', 'khuda', 'rab', 'rabb', 'bhagwan', 'ram', 'shri', 'shree', 'sita', 'hanuman', 'radha', 'krishna',
+  'shiva', 'karo', 'karna', 'karta', 'karti', 'karte', 'raha', 'rahi', 'rahe', 'gaya', 'gayi', 'gaye', 'aaya', 'aayi', 'aaye', 'dekh',
+  'dekha', 'dekho', 'suno', 'bolo', 'jaana', 'jaao', 'aao', 'baat', 'baatein', 'saath', 'paas', 'door', 'kabhi', 'abhi', 'phir',
+  'sirf', 'lekin', 'magar', 'nahi', 'nahin', 'naa', 'mat', 'bhi', 'toh', 'aur', 'pe', 'se', 'ko', 'ka', 'ki', 'ke', 'mein', 'chal',
+  'chale', 'naina', 'saajna', 'mahi', 'dholna', 'piya', 'rasiya', 'rehna', 'rehte', 'jeena', 'marna', 'tod', 'chhod', 'bajrangbali'
+]);
+
 /**
- * Detects whether text contains Hindi / Sanskrit (Devanagari) script.
+ * Robustly detects whether a song's lyrics, prompt, or settings require Hindi vocals.
+ * Handles Devanagari script, Romanized Hindi (Hinglish), and explicit language selections.
  */
-function isDevanagari(text: string): boolean {
-  return /[\u0900-\u097F]/.test(text);
+export function detectSongLanguage(settings?: Partial<FlowMusicSettings>, text?: string): 'hi' | 'en' | 'instrumental' {
+  if (settings?.lyricsMode === 'instrumental' || settings?.language === 'instrumental') {
+    return 'instrumental';
+  }
+  if (settings?.language === 'hi') {
+    return 'hi';
+  }
+  if (settings?.language === 'en') {
+    return 'en';
+  }
+
+  const full = [
+    text,
+    settings?.lyrics,
+    settings?.prompt,
+    settings?.title,
+    settings?.theme,
+  ].filter(Boolean).join(' ');
+
+  // 1. Explicit Devanagari script (Hindi, Sanskrit)
+  if (/[\u0900-\u097F]/.test(full)) {
+    return 'hi';
+  }
+
+  // 2. Direct genre or language indication in prompt, title, or theme
+  if (
+    HINDI_GENRE_RE.test(settings?.prompt || '') ||
+    HINDI_GENRE_RE.test(settings?.title || '') ||
+    HINDI_GENRE_RE.test(settings?.theme || '')
+  ) {
+    return 'hi';
+  }
+
+  // 3. Explicit singing directive (e.g. "sing in hindi", "hindi vocals")
+  if (HINDI_DIRECTIVE_RE.test(full)) {
+    return 'hi';
+  }
+
+  // 4. Characteristic Hindi / Hinglish phrases
+  if (HINDI_PHRASES_RE.test(full)) {
+    return 'hi';
+  }
+
+  // 5. Romanized Hindi (Hinglish) keyword density
+  const words = full.toLowerCase().match(/[a-z]+/g) || [];
+  const matches = new Set(words.filter((w) => HINDI_VOCAB_SET.has(w)));
+  if (matches.size >= 2) {
+    return 'hi';
+  }
+
+  return 'en';
 }
 
 /**
@@ -195,7 +261,7 @@ function formatLyricsForAceStep(settings: FlowMusicSettings): string {
 /**
  * Extracts speakable lyric text for TTS-based fallback synthesis.
  */
-function formatLyricsForTts(settings: FlowMusicSettings): string {
+function formatLyricsForTts(settings: FlowMusicSettings, isHindi: boolean): string {
   const rawLyrics = String(settings.lyrics || '').trim();
   const cleanLines = rawLyrics
     .split(/\r?\n/)
@@ -206,6 +272,23 @@ function formatLyricsForTts(settings: FlowMusicSettings): string {
 
   if (cleanLines.length > 0) {
     return cleanLines.join('. ');
+  }
+
+  // If lyrics box was empty, check if prompt contains embedded lyrics or spoken lines
+  const promptText = settings.prompt?.trim() || '';
+  if (promptText) {
+    const lyricsMatch = promptText.match(/(?:lyrics?|bol|lines?|words?)[:\s]+([""『「]?[\s\S]+?[""』」]?)(?:$|\n\n)/i);
+    if (lyricsMatch?.[1]) {
+      const extracted = lyricsMatch[1].replace(/^["'『「]+|["'』」]+$/g, '').trim();
+      if (extracted.length > 3) return extracted;
+    }
+  }
+
+  if (isHindi) {
+    return [
+      settings.title?.trim() || 'सुरों की धुन',
+      settings.prompt?.trim() || 'दिल की धड़कन, सुरमई शाम',
+    ].filter(Boolean).join('. ');
   }
 
   return [
@@ -247,18 +330,14 @@ export async function synthesizeSongWithAceStep(
   const bpm = Math.max(40, Math.min(240, Math.round(Number(settings.bpm) || 110)));
   const formattedLyrics = formatLyricsForAceStep(settings);
   const isInstrumental = formattedLyrics === '[Instrumental]';
-  const language = isDevanagari(formattedLyrics) ? 'hi' : 'en';
+  const songLang = detectSongLanguage(settings, formattedLyrics);
+  const language = songLang === 'hi' ? 'hi' : 'en';
 
-  const styleParts = [
-    settings.prompt?.trim() || 'Cinematic modern soundtrack with rich instrumentation',
-    settings.mood?.trim() ? `mood: ${settings.mood.trim()}` : '',
-    settings.dholPercussion ? 'heavy Indian dhol percussion, punchy drums' : '',
-    settings.brassSwells ? 'orchestral brass swells, dramatic strings' : '',
-    isInstrumental
-      ? 'instrumental only, no vocals'
-      : (settings.vocalProfile?.trim() || 'expressive clear singing vocals, studio vocal mix'),
-  ].filter(Boolean);
-  const tags = styleParts.join(', ').slice(0, 1000);
+  const promptText = settings.prompt?.trim() || '';
+  let tags = (promptText || (isInstrumental ? 'instrumental soundtrack' : 'song with vocals')).slice(0, 1000);
+  if (language === 'hi' && !/\b(hindi|indian|desi|bollywood|bhajan)\b/i.test(tags)) {
+    tags = `${tags}, hindi vocals, indian melodic singing`.slice(0, 1000);
+  }
   const seed = Math.floor(Math.random() * 2 ** 31);
 
   const workflow = {
@@ -412,9 +491,9 @@ export async function synthesizeFullSongTrack(
   const halfBeat = interval / 2;
 
   try {
-    const lyricsText = formatLyricsForTts(settings);
-    const isHindi = isDevanagari(lyricsText);
+    const isHindi = detectSongLanguage(settings, settings.lyrics) === 'hi';
     const lang: 'en' | 'hi' = isHindi ? 'hi' : 'en';
+    const lyricsText = formatLyricsForTts(settings, isHindi);
     const voices = resolveVocalVoices(settings.vocalProfile, isHindi);
 
     console.log(`[Song Synthesizer] Synthesizing lead vocals with ${voices.lead} (${lang})...`);

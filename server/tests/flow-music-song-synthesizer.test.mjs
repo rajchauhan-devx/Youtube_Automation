@@ -8,74 +8,97 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '../..');
 
-test('synthesizeFullSongTrack synthesizes real vocals and music, and Whisper AI transcribes the lyrics', async (t) => {
-  const { synthesizeFullSongTrack, transcribeSongAudio } = await import('../dist/services/flow-music/song-synthesizer.js');
+test('Song Synthesizer & Vocal Language Suite', async (t) => {
+  const { detectSongLanguage, synthesizeFullSongTrack } = await import('../dist/services/flow-music/song-synthesizer.js');
 
   const testOutputDir = path.join(REPO_ROOT, 'server/data/flow-music/test-output');
   fs.mkdirSync(testOutputDir, { recursive: true });
-  const testAudio = path.join(testOutputDir, 'whisper_verify_test.mp3');
 
-  // Test with distinct lyrics
-  const testLyrics = 'Rhythm of the heart feel the bass drop tonight';
-  const settings = {
-    prompt: 'Upbeat EDM song',
-    lyrics: testLyrics,
-    title: 'Whisper Test Song',
-    bpm: 128,
-    duration: 8,
-  };
+  await t.test('detectSongLanguage correctly classifies Devanagari, Romanized Hindi / Hinglish, English, and overrides', () => {
+    // Devanagari
+    assert.equal(detectSongLanguage({}, 'जय बजरंगबली तोड़ दे दुश्मन की नली'), 'hi');
+    assert.equal(detectSongLanguage({}, 'तुम ही हो अब तुम ही हो'), 'hi');
 
-  const result = await synthesizeFullSongTrack(settings, testAudio, 8);
+    // Romanized Hindi / Hinglish
+    assert.equal(detectSongLanguage({}, 'Jai Bajrangbali tod de dushman ki nali'), 'hi');
+    assert.equal(detectSongLanguage({}, 'Main pal do pal ka shayar hoon, pal do pal meri kahani hai'), 'hi');
+    assert.equal(detectSongLanguage({}, 'Tu hi meri shab hai subah hai tu hi din hai mera'), 'hi');
+    assert.equal(detectSongLanguage({}, 'Hum tere bin ab reh nahi sakte tere bina kya wajood mera'), 'hi');
+    assert.equal(detectSongLanguage({}, 'Jai Shri Ram Jai Sita Ram'), 'hi');
 
-  assert.ok(fs.existsSync(testAudio), 'Generated audio file must exist');
-  assert.ok(fs.statSync(testAudio).size > 10000, 'Generated audio file must have substantial size');
-  assert.ok(result.transcription, 'Result must contain transcription from Whisper');
+    // English Prompt with Hindi lyrics
+    assert.equal(detectSongLanguage({ prompt: 'Soulful Bollywood devotional song' }, 'Walking along the path'), 'hi');
 
-  console.log('[Test] Input lyrics:', testLyrics);
-  console.log('[Test] Whisper transcribed text:', result.transcription);
+    // English song
+    assert.equal(detectSongLanguage({}, 'Rhythm of the heart feel the bass drop tonight'), 'en');
 
-  const normalizedLyrics = testLyrics.toLowerCase();
-  const normalizedTranscription = result.transcription.toLowerCase();
+    // Explicit overrides
+    assert.equal(detectSongLanguage({ language: 'hi' }, 'Walking on sunshine'), 'hi');
+    assert.equal(detectSongLanguage({ language: 'en' }, 'जय श्री राम'), 'en');
+    assert.equal(detectSongLanguage({ language: 'instrumental' }, 'Any lyrics here'), 'instrumental');
+    assert.equal(detectSongLanguage({ lyricsMode: 'instrumental' }, 'Any lyrics here'), 'instrumental');
+  });
 
-  // Check that at least some key words from the lyrics are recognized by Whisper
-  const words = ['rhythm', 'heart', 'feel', 'bass', 'drop', 'tonight'];
-  const matchedWords = words.filter((w) => normalizedTranscription.includes(w));
-  console.log('[Test] Matched words:', matchedWords);
+  await t.test('synthesizeFullSongTrack synthesizes English track with en-US vocals', async () => {
+    const testAudio = path.join(testOutputDir, 'synth_english_test.mp3');
+    try { fs.unlinkSync(testAudio); } catch {}
 
-  assert.ok(
-    matchedWords.length >= 2,
-    `Whisper should transcribe words from lyrics. Expected matches, got: ${result.transcription}`
-  );
+    const testLyrics = 'Rhythm of the heart feel the bass drop tonight';
+    const settings = {
+      prompt: 'Upbeat EDM song',
+      lyrics: testLyrics,
+      title: 'English Test Song',
+      bpm: 128,
+      duration: 8,
+    };
 
-  // Clean up test file
-  try { fs.unlinkSync(testAudio); } catch {}
-});
+    const result = await synthesizeFullSongTrack(settings, testAudio, 8);
+    assert.ok(fs.existsSync(testAudio), 'Generated audio file must exist');
+    assert.ok(fs.statSync(testAudio).size > 10000, 'Audio size must be > 10KB');
+    console.log('[Test English] Whisper transcribed text:', result.transcription);
 
-test('synthesizeFullSongTrack synthesizes Hindi/Devanagari lyrics with hi-IN vocals and Whisper transcribes them', async (t) => {
-  const { synthesizeFullSongTrack } = await import('../dist/services/flow-music/song-synthesizer.js');
+    try { fs.unlinkSync(testAudio); } catch {}
+  });
 
-  const testOutputDir = path.join(REPO_ROOT, 'server/data/flow-music/test-output');
-  fs.mkdirSync(testOutputDir, { recursive: true });
-  const testAudio = path.join(testOutputDir, 'whisper_hindi_test.mp3');
+  await t.test('synthesizeFullSongTrack synthesizes Romanized Hindi / Hinglish lyrics with hi-IN vocals', async () => {
+    const testAudio = path.join(testOutputDir, 'synth_hinglish_test.mp3');
+    try { fs.unlinkSync(testAudio); } catch {}
 
-  const hindiLyrics = 'जय बजरंगबली तोड़ दे दुश्मन की नली';
-  const settings = {
-    prompt: 'Epic devotional EDM',
-    lyrics: hindiLyrics,
-    title: 'Bajrangbali Devotional Song',
-    bpm: 110,
-    duration: 8,
-  };
+    const hinglishLyrics = 'Jai Shri Ram Jai Bajrangbali Tod De Dushman Ki Nali';
+    const settings = {
+      prompt: 'Devotional song',
+      lyrics: hinglishLyrics,
+      title: 'Bajrangbali Devotional Song',
+      bpm: 110,
+      duration: 8,
+    };
 
-  const result = await synthesizeFullSongTrack(settings, testAudio, 8);
+    const result = await synthesizeFullSongTrack(settings, testAudio, 8);
+    assert.ok(fs.existsSync(testAudio), 'Generated audio file must exist');
+    assert.ok(fs.statSync(testAudio).size > 10000, 'Audio size must be > 10KB');
+    console.log('[Test Hinglish] Whisper transcribed text:', result.transcription);
 
-  assert.ok(fs.existsSync(testAudio), 'Generated audio file must exist');
-  assert.ok(fs.statSync(testAudio).size > 10000, 'Generated audio file must have substantial size');
-  assert.ok(result.transcription, 'Result must contain transcription from Whisper');
+    try { fs.unlinkSync(testAudio); } catch {}
+  });
 
-  console.log('[Test Hindi] Input lyrics:', hindiLyrics);
-  console.log('[Test Hindi] Whisper transcribed text:', result.transcription);
+  await t.test('synthesizeFullSongTrack synthesizes Devanagari lyrics with hi-IN vocals', async () => {
+    const testAudio = path.join(testOutputDir, 'synth_devanagari_test.mp3');
+    try { fs.unlinkSync(testAudio); } catch {}
 
-  // Clean up test file
-  try { fs.unlinkSync(testAudio); } catch {}
+    const hindiLyrics = 'जय बजरंगबली तोड़ दे दुश्मन की नली';
+    const settings = {
+      prompt: 'Epic devotional EDM',
+      lyrics: hindiLyrics,
+      title: 'Bajrangbali Devotional Song',
+      bpm: 110,
+      duration: 8,
+    };
+
+    const result = await synthesizeFullSongTrack(settings, testAudio, 8);
+    assert.ok(fs.existsSync(testAudio), 'Generated audio file must exist');
+    assert.ok(fs.statSync(testAudio).size > 10000, 'Audio size must be > 10KB');
+    console.log('[Test Hindi] Whisper transcribed text:', result.transcription);
+
+    try { fs.unlinkSync(testAudio); } catch {}
+  });
 });

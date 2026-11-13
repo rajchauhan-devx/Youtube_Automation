@@ -149,6 +149,7 @@ export interface Script {
   retentionPlan?: import('../server/src/services/retention-types').RetentionPlan;
   retentionEdit?: import('../server/src/services/retention-types').RetentionEdit;
   retentionReview?: import('../server/src/services/retention-types').RetentionReview;
+  vettedTopic?: import('../server/src/services/editorial/documentary-topic-vetter').VettedTopicResult;
   /** Legacy template setting. Media types now come from the extracted scene plan. */
   videoImportsEnabled?: boolean;
   editingProjectId?: string | null;
@@ -183,7 +184,7 @@ export interface Script {
   generatedImages?: GeneratedImage[];
   referenceFrames?: Record<number, ReferenceFrameAsset>;
     generatedAudio?: GeneratedAudio[];
-    generatedMusic?: { filename: string; url: string; prompt: string; duration: number; seed: number; contextHash: string; createdAt: string };
+    generatedMusic?: { filename: string; url: string; prompt: string; duration: number; seed: number; contextHash: string; createdAt: string; transcription?: string; lyrics?: string };
   pipeline?: PipelineStep[];
   timelineConfig?: TimelineConfig;
   renderedVideoUrl?: string | null;

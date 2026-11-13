@@ -738,153 +738,55 @@
     }
   },
   {
-    "id": "shorts_video_nov11_evening",
-    "name": "Shorts · Abhimanyu Chakravyuha",
-    "prompts": [
-      {
-        "id": "shorts_media_master",
-        "name": "Shorts image and video scene prompts (Production V4)",
-        "type": "Custom",
-        "content": "STEP 0 — DEEP RESEARCH FIRST (DO THIS BEFORE ANYTHING ELSE — MANDATORY)Before writing a single word of narration or any image/video prompt, thoroughly RESEARCH the given Topic and Source Material. Do not skip this. A shallow script produces a failed video.Research silently and establish:Verified core facts — what actually happened, who was involved, where and when. Separate confirmed fact from legend, regional retelling, and popular myth.The single strongest HOOK ANGLE — the most surprising, emotional, or high-stakes entry point a cold viewer would stop scrolling for.The core EMOTION of this episode (one word) and the single PAYOFF the viewer gets at the end.Visual opportunities — which moments require static, frozen emotional weight and which demand continuous, cinematic motion (era, location, costume, light, scale, kinetic action).Uncertainties — anything sources disagree on or you cannot verify. NEVER invent quotations, Sanskrit verses, dates, statistics, dialogue from scripture, or miracles presented as scientific proof. Omit unsupported specifics or qualify them briefly.Only after this research is solid, proceed to the workflow below. Source fidelity over invention — but emotion and clarity over dry recitation.🕉️ RAMAYANA — ADI KAVYAMASTER PROMPT FILE (Merged) — Version 8.0 HYBRID MIXED MEDIABible + Script Prompt + Mixed Production Prompt (Images & Videos) + Workflow GuideThis document establishes the HYBRID MIXED-SCRIPT PIPELINE. It combines static visual stills and cinematic generative AI video clips into a single chronological timeline.🏷️ THE THREE-TAG MASTER PROTOCOLThe pipeline uses three and only three functional tag families:Narration Tag: <script>...</script> — Houses the complete, raw, TTS-ready Devanagari Hindi audio narration in Section 2B.Auto-Incrementing Visual Tags: Sequential visual prompts matching the exact timeline order across both static and moving formats:<image_prompt[N]>...</image_prompt[N]> for static frames (Midjourney, Flux, Leonardo.AI).<video_prompt[N]>...</video_prompt[N]> for motion shots (Runway Gen-3, Luma Dream Machine, Sora, Kling).Crucial Rule: The first scene (Scene 1) MUST ALWAYS be a video (<video_prompt1>) to hook the user immediately. The index counter [N] increments chronologically across the entire video regardless of asset type: e.g., <video_prompt1>, <image_prompt2>, <video_prompt3>, <image_prompt4>.Thumbnail Tag: Always locked to <image_prompt0>...</image_prompt0>.📑 TABLE OF CONTENTSWORKFLOW GUIDE — Mixed script rules and asset selectionTHE BIBLE — Static reference (Character Bible, Location Bible, Visual Style, Religious Accuracy Law, Negative Prompts)SCRIPT PROMPT — Creative pass (run first)PRODUCTION PROMPT — Mixed asset generation pass (run second)PART 1 — 🕉️ WORKFLOW GUIDEHow to Manage the Mixed Media PipelineDECISION MATRIX: IMAGE VS. VIDEONot every scene should be video. Overusing video creates visual fatigue, morphing artifacts, and pacing breaks. Distribute assets deliberately:Asset TypeBest Used ForProduction Standard<image_prompt[N]>Emotional portraits, theological/sacred moments, heavy-detail environments, dialogue pauses, moments requiring zero anatomical distortion.70–140 words, hyper-detailed composition, frozen physical gesture.<video_prompt[N]>Dynamic physical action (arrows releasing, army marching, sea churning, fire spreading), camera flyovers, sudden cinematic reveals.90–150 words, ONE continuous camera move, ONE clear subject action, stable ending frame.WORKFLOW PER EPISODESTEP 1: PREPARE INPUTSProvide:PlaintextType: A (Story) or B (Fact)\nTitle: [Optional]\nContent: [Story source material or scriptural chapter]\nSTEP 2: RUN SCRIPT PROMPT (Creative Pass)Outputs:Section 1: Scene breakdown with explicit Asset Type: IMAGE or Asset Type: VIDEO markers.Section 2: Timestamped narration.Section 2B: TTS-ready narration wrapped inside <script>...</script>.STEP 3: RUN PRODUCTION PROMPT (Mixed Asset Pass)Outputs:Section 3: Alternating visual blocks with sequential numbering:<image_prompt0> for 16:9 ThumbnailChronological tags matching the timeline (e.g., <video_prompt1>, <image_prompt2>, <video_prompt3>, <image_prompt4>)Section 4: Hindi text overlays.Section 5: Audience Reflection prompt.STEP 4: ASSEMBLEGenerate static images using <image_prompt[N]>.Generate video clips using <video_prompt[N]> (text-to-video or image-to-video using predecessor still).Synthesize narration from <script>.Assemble timeline in editor: hard cuts and subtle dissolves only.PART 2 — 🕉️ THE BIBLE (Static Reference)👥 CHARACTER BIBLE — NEVER CHANGE THESE DESCRIPTIONSRepeat full character descriptions verbatim in every visual prompt to guarantee consistency.🔵 RAMAAge: 25–30 years oldSkin: Deep blue-dark complexion (\"shyama varna\") — non-negotiable, never light or fairFace: Strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrowsBody: Tall, broad shoulders, long arms reaching knees (\"ajanubahu\")Hair: Long black hair tied in an ascetic knot (jata) or warrior bunPalace attire: Yellow/gold silk dhoti, ornate crown (mukut), gold jewelry, bow SharangaForest/Exile attire: Ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiverExpression: Dignified, compassionate, serene, divine majesty — never angry or anxious🌟 SITAAge: 20–25 years oldSkin: Golden-fair radiant complexion (\"suvarna varna\")Face: Large expressive eyes, gentle grace, oval face, long black hairPalace attire: Rich red and gold silk saree, elaborate traditional jewelryForest attire: Simple ochre or cream cotton saree, minimal wooden/seed jewelry, braided hairLanka captivity attire: Worn pale saree, unadorned, solemn dignity, sorrowful yet resilient eyesExpression: Graceful, resolute, devoted — never weak or helpless🏹 LAKSHMANAAge: 22–27 years oldSkin: Fair wheatish complexionFace: Sharp warrior features, intense alert eyes, strong jawBody: Highly athletic, muscular buildAttire: Similar to Rama's palette in green/ochre, carrying formidable longbow and quiverExpression: Fiercely vigilant, protective, intense loyalty🐒 HANUMANForm: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefullyAttire: Simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada)Expression: Deep devotional surrender, awe-inspiring strength, humble eyesScale: Explicitly specify normal human scale OR mountain-sized colossal form (vishwaroopa)👑 RAVANAAge: 40–50 years old appearance — imposing sovereignSkin: Dark bronze with fiery crimson undertoneFace: Ten heads (in wide establishing shots) OR dominant majestic central head (in close-ups)Attire: Black and blood-red royal silk, heavy gold armor, jeweled crowns, multiple armed weaponsExpression: Regal arrogance, unyielding pride, formidable authority — never cartoonish🗺️ LOCATION BIBLEAyodhya Palace: Treta Yuga Vedic stone architecture, colossal carved pillars, oil lamps, marigold drapes, sacred havan smoke, warm amber-gold light.Dandaka / Panchavati Forest: Dense primordial Indian jungle, towering sal/banyan trees, hanging roots, morning mist, sacred thatched ashram hut with a quiet dhuni fire.Chitrakuta: Peaceful sacred hills, clear streams, gentle deer, untouched natural serenity.Lanka: Imposing black stone and gold architecture atop jagged sea-cliffs, towering spires, dramatic stormy or twilight skies.Ashoka Vatika: Melancholic royal garden, weeping ashoka trees with scarlet blooms, oppressive luxury framing captivity.Kishkindha: Massive granite caves, carved mountain redoubts, waterfalls, primitive grandeur.Ram Setu / Ocean Shore: Craggy shoreline, endless churning ocean, massive floating sandstone boulders inscribed with holy names, vast Vanara host.⚠️ RELIGIOUS ACCURACY LAWRama must always have blue-dark skin.Treta Yuga setting only: absolute zero modern elements, modern clothing, or foreign architecture.Sacred Vedic attributes (tilak, janeu, agni, mudras) must be visually accurate.🖼️ UNIVERSAL NEGATIVE PROMPT (For All Image & Video Prompts)Plaintextcartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter\n\n### ⚖️ MANDATORY 50/50 MEDIA SPLIT (50% VIDEO / 50% IMAGE)\nEvery episode must maintain an exact 50/50 split between static image scenes and moving video scenes across the entire duration.\nFollow an alternating rhythm throughout the timeline (Scene 1 MUST always be a video to hook the user):\n- Odd scenes (Scene 1, Scene 3, Scene 5, ...): MOTION VIDEO CLIP (<video_prompt[N]>)\n- Even scenes (Scene 2, Scene 4, Scene 6, ...): STATIC IMAGE (<image_prompt[N]>)\nEnsure exactly 50% of the scenes are designated as image assets and 50% as video assets.\n\n[ANCIENT DHARMA EDITORIAL RULES]\nApply these writing rules to Ancient Dharma episodes. For an explicitly unrelated topic, follow that topic's own tradition and audience instead of adding Hindu devotional language. These rules update the research, narration and closing instructions below; preserve every existing output section, extraction tag, asset number, media mode, character bible and narration-to-scene mapping. Perform the editorial work silently; do not add a new output section.\n\nRESEARCH BEFORE COMMITTING TO A HOOK: Identify the actual source/version, what it supports, what belongs to a regional retelling, and what is interpretation. Establish one central dilemma, the strongest supported detail, the decisive choice and the real outcome. Treat any preselected retention hook as provisional: revise its wording and promise when the research does not support it. Never invent dialogue, motives, quotations, miracles as scientific proof, or scriptural attribution to make a hook work. Keep source notes in the existing production notes, with a brief natural attribution in speech where necessary.\n\nSACRED LORE, DICTION & MODE FIDELITY:\n- Keep episodes strictly grounded in authentic sacred lore of the Valmiki Ramayana, Ramcharitmanas, Mahabharata, or Puranas; strictly NEVER include modern science, satellite imagery, or archaeology.\n- Follow the active template's own narration/dialogue format and image/video media mode without altering asset types or adding unrelated top banners, music prompts, or lip-sync mandates.\n- For conversational multi-character episodes: dramatize the episode faithfully through living character dialogue true to the sacred lore of the Valmiki Ramayana, Ramcharitmanas, or Mahabharata: strictly NEVER include modern science, satellite imagery, or archaeology.\n- When ancient gods, avataras, and epic figures speak (such as Mata Sita, Sri Rama, Lakshmana, Ravana, Hanuman, Arjuna, Krishna), they must speak with profound scriptural dignity, elevated noble Hindi, and sacred gravitas true to the Valmiki Ramayana, Ramcharitmanas, and Mahabharata.\n- BANNED STREET SLANG: Strictly NEVER use cheap modern street-slang, rude informal pronouns, or low-level colloquialisms (such as 'तू', 'तेरा', 'तुझे', 'तूने', 'काय रे', 'अरे').\n\nSHORTS: Tell one complete dilemma, turning point and resolution for the chosen episode. Start Scene 1 with a specific visual hook matching the active template’s own media tag (<image_prompt1> or <video_prompt1>) and immediate emotional stakes — never override mixed image/video tags or insert unrelated characters.\n\nONE VARIED ENGAGEMENT CLOSE:\nAfter the complete story payoff, include ONE compact Hindi closing invitation asking viewers to like the video, subscribe to Ancient Dharma, and leave ONE episode-relevant comment (e.g. 'कमेंट में अपनी राय लिखिए। कथा अच्छी लगी तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।').\n\nSYNC AND SILENT CHECK:\nPut the closing words once at the end of the voice script and final CTA segment. Check that the opening is specific, the visual prompts match the active template’s exact asset types and numbering, and the close includes like + subscribe + one episode-relevant comment invitation.\n[/ANCIENT DHARMA EDITORIAL RULES]\n\nPART 3 — 🕉️ SCRIPT PROMPT (Creative Pass — Run FIRST)Take raw content and output a locked Hindi script. Define asset types for every single beat.Script Architecture Rules:Hook Rule: The first 3–6 spoken words must begin a concrete, source-supported action, dilemma or contrast with immediate emotional stakes. Complete a clear opening thought within the first 1–3 seconds; name the relevant person or sacred object instead of a vague \"this\" or \"he\". Let the unanswered question arise from why the action matters, not from hiding who is involved. No channel greetings, series titles, background lecture or invented sacred dialogue. Keep the central question clear while giving an early concrete answer, clue or consequence in the next one or two sentences. Every following sentence must change what the viewer knows, what the protagonist can do, or what the choice will cost. Connect beats through cause and effect; cut repeated setup, biography before the predicament, redundant adjectives and generic suspense. Aim for a meaningful development about every 5–8 seconds where the story supports it, inside the existing scene structure; this is a writing guide, not a cut, scene-count or speech-speed requirement. Use short, natural spoken sentences, clear subjects and concrete verbs. Never hide basic context just to manufacture curiosity. Silently compare three different opening lines and use the clearest, most specific one that the story actually pays off; output only the chosen line in the existing format. Read the opening without the title: the viewer must understand the situation and have a specific reason to hear the next sentence. Remove any line that adds neither necessary context nor a new development. These are editorial choices, not guaranteed audience metrics.Midpoint Re-Hook: At 50–60% mark, use a concise source-supported discovery, decision or consequence that changes the meaning of an earlier detail or raises the cost of the next action. Follow the 5–8 word turn with its concrete explanation; do not merely announce that a twist is coming. Preserve devotional dignity and source fidelity. A smaller resolved question should lead naturally into the remaining central question.Language: Simple, poignant, spoken Devanagari Hindi with temple-katha resonance.Ending: Complete the story and its promised payoff first. Then give ONE varied Hindi closing invitation to like, subscribe and leave one episode-relevant comment, following the editorial rules above. Reserve approximately 5–8 seconds within the selected runtime. Use the existing follow/end-card slots as one close; no separate repeated blessing, recap or extra engagement requests. Finish the story on its concrete consequence before the invitation.\n\nSECTION 1 — SCRIPT & ASSET BLUEPRINTPlaintext🎬 SCENE [N] — [SCENE TITLE]\nDuration: [X seconds]\nAsset Type: [IMAGE or VIDEO]\nEmotion: [Devotion / Awe / Grief / Resolve / Tension]\nVisual Concept: [Character, action, setting]\nCamera/Movement: [Static framing for images OR single continuous move for video]\n\nLINE [N]:\nText: [Spoken Hindi]\nTone: [Devotional / Tense / Whispered / Majestic]\nOn-Screen Text: [2-4 words maximum]\nSECTION 2 — TIMESTAMPS FOR EDITOR SYNCNarration laid out with time brackets every 6–10 seconds.SECTION 2B — ELEVENLABS VOICED SCRIPT (PASTE-READY)Enclosed in exactly one <script>...</script> tag. Pure Devanagari text only.Plaintext<script>\n[भावनात्मक हुक — 3-6 शब्द]\n\n(break)\n\n[पूरी कथा — सरल देवनागरी हिंदी में, प्राकृतिक विरामों के साथ]\n\n(break)\n\n[मध्य बिंदु री-हुक — ~50-60% पर]\n\n(break)\n\n[कथा का भावपूर्ण समापन]\n\n(break)\n\n[कथा पूरी होने के बाद एक संक्षिप्त, विषयानुसार बदलता आग्रह: लाइक, सब्सक्राइब और एक प्रासंगिक कमेंट — लगभग 5–8 सेकंड, कुल अवधि के भीतर]\n</script>\nPART 4 — 🕉️ PRODUCTION PROMPT (Mixed Media Asset Pass — Run SECOND)Your job is to translate the locked script into self-contained generation prompts using the dynamic incrementing tag system.Mixed Media Asset Standards:1. Static Image Prompts (<image_prompt[N]>)Word count: 70–140 words.Contents: Exact subject pose, facial expression, blocking, era architecture, foreground/background depth, lighting direction, color grading, and negative constraints.2. Video Generation Prompts (<video_prompt[N]>)Word count: 90–150 words describing ONE achievable shot.Contents: Initial composition state, ONE distinct physical subject movement, ONE restrained continuous camera move (pan, slow tracking, gentle push-in), persistent lighting and wardrobe, and a stable final frame that cuts cleanly.Constraints: Explicit temporal negatives (no morphing, no cuts, no face shifting, no limb generation).SECTION 3 — VISUAL GENERATION PROMPTS (CHRONOLOGICAL)Prompts MUST follow exact chronological sequence. The index increments across all media:Plaintext<image_prompt0>\n#image 0\nASSET: THUMBNAIL\nPrompt:\n[70–140 words landscape 16:9 thumbnail description. High contrast, extreme character close-up expressing core emotion, asymmetric rule-of-thirds framing, negative space for text, dramatic rim light, sacred atmosphere.]\nCharacter Consistency:\n[Full Character Bible description repeated verbatim.]\nNegative Prompt:\n[Universal Negative Prompt + scene specifics.]\nTHUMBNAIL TEXT: [3–5 words bold Devanagari Hindi text]\n</image_prompt0>\n\n<video_prompt1>\n#video 1\nTIMELINE: 00:00–00:10\nASSET TYPE: VIDEO CLIP (OPENING HOOK)\nSCENE: [Scene Title]\nPrompt:\n[70–140 words self-contained static prompt. Frozen decisive action, shot size, lens angle, exact subject blocking, Character Bible details, Location Bible details, depth layers, lighting direction, atmospheric textures, Treta Yuga fidelity.]\nCharacter Consistency:\n[Full Character Bible description repeated verbatim.]\nNegative Prompt:\n[Universal Negative Prompt + scene specifics.]\n</image_prompt1>\n\n<image_prompt2>\n#image 2\nTIMELINE: 00:10–00:18\nASSET TYPE: STATIC IMAGE\nSCENE: [Scene Title]\nShot Behavior:\n[90–150 words describing a continuous motion shot. Starting frame, precise single action progression across duration, single steady camera move, persistent environment/character details, clean ending composition.]\nCharacter Consistency:\n[Full Character Bible description repeated verbatim.]\nTemporal Constraints:\n[No cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.]\nNegative Prompt:\n[Universal Negative Prompt + temporal specifics.]\n</video_prompt2>\n\n<image_prompt3>\n#image 3\nTIMELINE: 00:18–00:26\nASSET TYPE: STATIC IMAGE\nSCENE: [Scene Title]\nPrompt:\n[70–140 words self-contained static prompt detailing the emotional reaction or aftermath.]\nCharacter Consistency:\n[Full Character Bible description repeated verbatim.]\nNegative Prompt:\n[Universal Negative Prompt + scene specifics.]\n</image_prompt3>\n(Continue sequentially incrementing the index [N] based on asset choice: <image_prompt4>, <video_prompt5>, etc., ending with Follow Frame and End Card)SECTION 4 — HINDI TEXT OVERLAYSProvide clean visual overlays for the editing suite:Thumbnail Text: 3–5 high-impact Devanagari words.Opening Frame Text: 2–4 words carrying the core emotion.Scene Lower-Thirds: Optional concise chapter labels.Follow Frame Text: One concise CTA overlay matching this episode’s selected comment invitation plus like/subscribe; vary the devotional phrase or story question. Do not always use the same slogan.End Card Text: A short episode-appropriate closing phrase within the same CTA, without an additional speech or extended silent hold.SECTION 5 — THE REFLECTION ENGINEProvide one sacred, heartfelt question based on the episode's core emotion to pin in the YouTube comments:Connects the story to universal human duty, sacrifice, and feelings.Formulated in humble, respectful Hindi.✅ PRODUCTION COMPLIANCE CHECKLIST[ ] Exactly THREE tag families are used: <script>, <image_prompt[N]>, and <video_prompt[N]>.[ ] Section 2B contains only one <script>...</script> tag containing clean Devanagari narration.[ ] Thumbnail is enclosed in <image_prompt0>...</image_prompt0>.[ ] Timeline indices increment sequentially without breaks or duplicates (1, 2, 3, 4, etc.) regardless of whether the tag is image_prompt or video_prompt.[ ] Every video prompt specifies single continuous motion and clean terminal framing (no scene cuts inside a prompt).[ ] Full Character Bible descriptions are repeated verbatim in every prompt."
-      }
-    ],
-    "howItWorks": "Research runs first, then the script extracts assets. Generate or import images, import videos, then generate narration and render a portrait Short. Every image prompt is 70-120 words and every video prompt 90-150 words with a scroll-stopping hook. Turn off Use video imports in Generation for images only.",
-    "duration": 90,
-    "model": "gemini-3.6-flash",
-    "videoImportsEnabled": true,
-    "enableSubtitles": false,
-    "presenter": {
-      "enabled": true,
-      "avatarId": "avatar_013",
-      "style": "transparent",
-      "widthPercent": 41,
-      "bottomPercent": 0,
-      "marginPercent": 0,
-      "horizontalPercent": 100,
-      "crop": {
-        "x": 22,
-        "y": 0,
-        "width": 47,
-        "height": 100
-      },
-      "silenceGate": true,
-      "silenceThresholdDb": -40
-    },
-    "autoPilotSettings": {
-      "version": 1,
-      "media": {
-        "imageProvider": "google",
-        "imageQuality": "standard",
-        "seedMode": "random",
-        "seed": 42,
-        "flowEnabled": false,
-        "flowResolution": "720p",
-        "flowDuration": 8,
-        "allowImageFallback": true,
-        "videoOnly": false
-      },
-      "voice": {
-        "provider": "default",
-        "language": "hi",
-        "voiceId": "hi-IN-Chirp3-HD-Alnilam",
-        "rate": 0,
-        "pitch": 0,
-        "speed": 1
-      },
-      "captions": "off",
-      "graphics": {
-        "enabled": false,
-        "mode": "images",
-        "density": "subtle",
-        "treatment": "auto",
-        "style": "Let AI choose only moments where a graphic materially explains the narration. Metadata is a suggestion, never a command to decorate every scene. Leave ordinary footage clean, keep breathing room between beats, and allow zero graphics. No cards, panels, boxed labels, enclosing frames, blur backings or photo badges. Use free-floating type, fine lines and purposeful diagrams in open space around subjects. Never invent facts, coordinates, source labels or telemetry. Preview the actual result before export.",
-        "model": ""
-      },
-      "editing": {
-        "mode": "story",
-        "settings": {
-          "enabled": true,
-          "preset": "documentary",
-          "motion": "gentle",
-          "transitions": "auto",
-          "transitionSeconds": 0.35,
-          "framing": "contain",
-          "chapterTitles": false,
-          "bookendFades": false,
-          "captionStyle": "minimal",
-          "captions": true,
-          "colorLook": "none",
-          "vignette": false,
-          "captionWords": 8,
-          "voicePolish": true,
-          "musicDucking": true,
-          "chapterSound": false,
-          "grain": false,
-          "sharpen": false,
-          "letterbox": false,
-          "quality": "high",
-          "overrides": {}
-        }
-      },
-      "audio": {
-        "music": "auto",
-        "musicVolume": 0.15,
-        "voiceVolume": 1
-      },
-      "youtube": {
-        "enabled": true,
-        "privacyStatus": "private",
-        "publishMode": "schedule",
-        "scheduledPublishAt": "2026-11-11T12:30:00.000Z"
-      },
-      "presenter": {
-        "enabled": true,
-        "avatarId": "avatar_013",
-        "style": "transparent",
-        "widthPercent": 41,
-        "bottomPercent": 0,
-        "marginPercent": 0,
-        "horizontalPercent": 100,
-        "crop": {
-          "x": 22,
-          "y": 0,
-          "width": 47,
-          "height": 100
+    "id": "test_popups_script_1794569186885",
+    "name": "Ancient Dharma Test Script",
+    "scenePlan": {
+      "scenes": [
+        {
+          "narration": "The ancient sanctum was carved from monolithic black granite stone.",
+          "imagePrompt": "Ancient temple sanctum with black granite walls",
+          "duration": 5
         },
-        "silenceGate": true,
-        "silenceThresholdDb": -40
-      },
-      "flowMusic": {
-        "enabled": false,
-        "prompt": "Epic cinematic trailer sound track, heavy indian percussion, dhol drums, orchestral brass swells, deep sub-bass drops, emotional sad strings transitioning into aggressive action hybrid music, Sanskrit chants, high energy war theme",
-        "lyrics": "[Dramatic Dialogue Phase]\nराम जी: \"हनुमान, अगर सूर्य निकल गया तो लक्ष्मण मर जाएगा।\"\nहनुमान जी: \"प्रभु, सूर्यदेव मेरा स्वभाव जानते हैं... जब तक जड़ी-बूटी लेकर नहीं आऊँगा, सूरज को उगने नहीं दूंगा।\"\n\n[Epic Vocal Chorus / Sanskrit Chants]\nराम रामं जपती...\nहनुमान अतुलितबलधामम्...\nहनुमान महाकाल शंभोरावतारः...\nबजरंगबली... जय श्री राम!",
-        "lyricsMode": "custom",
-        "title": "Lord Hanuman Vow // Goosebumps 🚩",
-        "mood": "Heroic, Dramatic, High-Intensity, Emotionally Charged (Goosebumps 🚩)",
-        "theme": "Mythological retelling, Valmiki Ramayana, Lord Hanuman Vow to Lord Rama",
-        "vocalProfile": "Deep, resonant male voice with heavy chest resonance, strong bass, aggressive cadence",
-        "sfxBooms": true,
-        "sfxRisers": true,
-        "dholPercussion": true,
-        "brassSwells": true,
-        "duration": 60,
-        "bpm": 110,
-        "producerModel": "Google Lyria / Flow Music",
-        "imageOnlyReel": false,
-        "letterboxBanner": "Goosebumps 🚩",
-        "vfxParticles": true
-      }
+        {
+          "narration": "Lord Rama wielded the divine golden arrow of celestial light.",
+          "imagePrompt": "Mythological divine warrior aiming golden glowing bow and arrow",
+          "duration": 6
+        }
+      ]
     },
-    "accountId": "default",
-    "section": "shorts",
-    "status": "draft",
-    "lastUsed": "Never",
-    "aiResponse": "",
-    "extractedScript": "",
-    "narration": "",
-    "imagePrompts": [],
-    "generatedImages": [],
-    "generatedAudio": [],
-    "pipeline": []
+    "extraPopups": [
+      {
+        "id": "popup_1_e3d172b7",
+        "sceneIndex": 1,
+        "cueWord": "bow",
+        "cueOffsetSec": 1,
+        "durationSec": 3.2,
+        "title": "Shiva Bow",
+        "subtitle": "Unmatched Weight & Divine Tejas",
+        "badgeTag": "DIVINE WEAPON",
+        "archetype": "heritage_intel",
+        "prompt": "Isolated macro studio close-up of Shiva Bow, sacred craftsmanship, deep obsidian and antique gold sheen, micro-fissures with subtle glowing diya amber embers, razor-sharp tactile texture, centered composition, shallow depth of field, clean dark studio backdrop, 8k photorealistic.",
+        "shape": "cutout_relic",
+        "placement": "center-right",
+        "scalePercent": 30,
+        "sfx": "crystal_ting",
+        "status": "ready"
+      },
+      {
+        "id": "popup_custom_391a8e49",
+        "sceneIndex": 1,
+        "cueWord": "Sacred Diya Flame",
+        "cueOffsetSec": 1,
+        "durationSec": 3.2,
+        "title": "Sacred Diya Flame",
+        "prompt": "Isolated macro studio close-up of Sacred Diya Flame, sacred craftsmanship, deep obsidian and antique gold sheen, micro-fissures with subtle glowing diya amber embers, razor-sharp tactile texture, centered composition, shallow depth of field, clean dark studio backdrop, 8k photorealistic.",
+        "shape": "circle_medallion",
+        "placement": "top-left",
+        "scalePercent": 30,
+        "sfx": "none",
+        "archetype": "circle_medallion",
+        "status": "pending"
+      }
+    ]
   }
 ]

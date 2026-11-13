@@ -18,6 +18,7 @@ import {
   synthesizeFullSongTrack,
   transcribeSongAudio,
   probeAudioDuration,
+  detectSongLanguage,
 } from './song-synthesizer.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -210,12 +211,28 @@ export async function startFlowMusicGeneration(
         const composer = page.locator('textarea[aria-label="Chat message"], textarea[placeholder*="create" i], textarea').first();
         await composer.waitFor({ state: 'visible', timeout: 20000 });
 
-        const fullPrompt = [
-          settings.prompt || 'Cinematic soundtrack music',
-          settings.lyrics ? `\nDialogue & Lyrics:\n${settings.lyrics}` : '',
-          settings.mood ? `[Mood: ${settings.mood}]` : '',
-          settings.vocalProfile ? `[Voice: ${settings.vocalProfile}]` : '',
-        ].filter(Boolean).join('\n');
+        const songLang = detectSongLanguage(settings, [settings.lyrics, settings.prompt, settings.title].join(' '));
+        const isHindi = songLang === 'hi';
+        const isInstrumental = songLang === 'instrumental' || settings.lyricsMode === 'instrumental';
+
+        const promptParts: string[] = [];
+        if (isInstrumental) {
+          promptParts.push('[Track: Instrumental only, no sung or spoken vocals]');
+        } else if (isHindi) {
+          promptParts.push('[Language: Hindi singing vocals, authentic Indian vocal melodies and pronunciation]');
+        }
+
+        if (settings.prompt?.trim()) {
+          promptParts.push(settings.prompt.trim());
+        }
+        if (settings.lyrics?.trim() && !isInstrumental) {
+          promptParts.push(`[Lyrics${isHindi ? ' (Hindi)' : ''}]:\n${settings.lyrics.trim()}`);
+        }
+        const fullPrompt = promptParts.join('\n\n').trim();
+
+        if (!fullPrompt) {
+          throw new Error('Please enter a music prompt before generating.');
+        }
 
         await composer.click({ force: true }).catch(() => {});
         await composer.fill(fullPrompt).catch(() => {});

@@ -157,20 +157,21 @@ const EMPTY_FLOW_SETTINGS: Partial<FlowMusicConfig> = {
   prompt: '',
   lyrics: '',
   lyricsMode: 'custom',
+  language: 'auto',
   title: '',
   mood: '',
   theme: '',
-  vocalProfile: '',
-  sfxBooms: true,
-  sfxRisers: true,
-  dholPercussion: true,
-  brassSwells: true,
+  vocalProfile: 'male',
+  sfxBooms: false,
+  sfxRisers: false,
+  dholPercussion: false,
+  brassSwells: false,
   duration: 60,
   bpm: 110,
   producerModel: 'Google Lyria / Flow Music',
   imageOnlyReel: true,
   letterboxBanner: '',
-  vfxParticles: true,
+  vfxParticles: false,
 };
 
 function slugifyFilename(value: string, fallback: string): string {
@@ -442,19 +443,6 @@ export function GoogleFlowMusicContent({
     setSuccess(`Loaded script "${chosen.name}". Click "Build Scenes from Script" to prepare keyframes.`);
   };
 
-  const handleLoadHanumanPresetScenes = async () => {
-    try {
-      const res = await fetch('/api/flow-music/scenes');
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data.scenes)) {
-          setScenes(data.scenes);
-          setStoryboardExpanded(true);
-          setSuccess('Loaded Hanuman Demo Preset (script, mix & 8 HD scenes).');
-        }
-      }
-    } catch {}
-  };
 
   const handlePlanScenes = async () => {
     setPlanningScenes(true);
@@ -582,9 +570,9 @@ export function GoogleFlowMusicContent({
         method: 'POST',
         headers: {
           'Content-Type': file.type || 'application/octet-stream',
-          'x-track-filename': file.name,
+          'x-track-filename': encodeURIComponent(file.name),
           'x-track-title': encodeURIComponent(flowSettings.title || file.name.replace(/\.[^.]+$/, '')),
-          'x-script-id': targetScriptId,
+          'x-script-id': encodeURIComponent(targetScriptId),
         },
         body: file,
       });
@@ -594,11 +582,31 @@ export function GoogleFlowMusicContent({
       setMusicUrl(data.track.url);
       setTrackTitle(data.track.title || file.name);
       setTranscription(data.track.transcription || '');
-      setSongApproved(false);
-      setApprovedAt(null);
+      setSongApproved(true);
+      setApprovedAt(new Date().toISOString());
+      setSongRejected(false);
+      setRejectedNote('');
       setBeatInfo(null);
       setBeatError('');
-      setSuccess(`Uploaded audio "${data.track.title}". Preview it below and click Approve to unlock video render!`);
+      setSuccess(`Uploaded "${data.track.title || file.name}". Track is approved & ready for video production!`);
+
+      if (script && onUpdate) {
+        onUpdate({
+          generatedMusic: {
+            filename: data.track.filename,
+            url: data.track.url,
+            prompt: flowSettings.prompt || '',
+            duration: flowSettings.duration || 60,
+            seed: 42,
+            contextHash: `upload_${Date.now()}`,
+            transcription: data.track.transcription || '',
+            createdAt: new Date().toISOString(),
+          },
+        });
+      }
+
+      // Automatically analyze beats so Step 3 is ready immediately
+      void handleAnalyzeBeats();
     } catch (e: any) {
       setError(e?.message || 'Audio upload failed');
     } finally {
@@ -730,11 +738,8 @@ export function GoogleFlowMusicContent({
     setProgress(5);
     setTranscription('');
 
-    // Fold rejection feedback into the next attempt so the generator adapts
+    // Keep user settings raw
     const regenSettings = { ...flowSettings };
-    if (songRejected && rejectedNote.trim()) {
-      regenSettings.prompt = `${flowSettings.prompt || ''}\n\nRefinement feedback (previous version was rejected): ${rejectedNote.trim()}`.trim();
-    }
 
     try {
       const res = await fetch('/api/flow-music/generate', {
@@ -819,8 +824,13 @@ export function GoogleFlowMusicContent({
 
   const handleGenerateVideos = async (options?: { reuseImages?: boolean }) => {
     if (!songApproved) {
-      setError('Song approval required! Please listen to the track and click "Approve Song" before starting video production.');
-      return;
+      if (musicUrl) {
+        // Automatically approve and proceed
+        await handleApproveSong();
+      } else {
+        setError('Please generate or upload an audio track first before starting video production.');
+        return;
+      }
     }
 
     const token = ++sessionTokenRef.current;
@@ -1178,7 +1188,6 @@ export function GoogleFlowMusicContent({
           <FlowMusicSettingsSection
             value={flowSettings}
             onChange={updateSettings}
-            onLoadPreset={() => void handleLoadHanumanPresetScenes()}
             onClear={() => setScenes([])}
             topicName={script?.topicName || script?.name || ''}
           />
@@ -1330,7 +1339,7 @@ export function GoogleFlowMusicContent({
             <input
               ref={fileInputRef}
               type="file"
-              accept="audio/*"
+              accept="audio/*,.mp3,.wav,.m4a,.ogg,.aac"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -1346,6 +1355,26 @@ export function GoogleFlowMusicContent({
               {uploadingAudio ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
               Upload MP3 / WAV
             </button>
+
+            {musicUrl && (
+              songApproved ? (
+                <span className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-2 text-xs font-bold text-emerald-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                  Track Approved
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={approving || generating || videoGenerating}
+                  onClick={handleApproveSong}
+                  className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 px-3.5 py-2 text-xs font-bold text-white shadow-glow hover:brightness-110 disabled:opacity-50 transition"
+                  title="Approve this track to unlock beat analysis and video rendering"
+                >
+                  {approving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  Approve Track
+                </button>
+              )
+            )}
 
             <button
               type="button"
@@ -1545,15 +1574,28 @@ export function GoogleFlowMusicContent({
                 : 'Locked — approve the song first so beats can be analyzed'}
             </p>
           </div>
-          <span
-            className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider border ${
-              songApproved
-                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                : 'bg-zinc-800 text-zinc-500 border-white/10'
-            }`}
-          >
-            {songApproved ? '⚡ Studio Ready' : '🔒 Locked'}
-          </span>
+          <div className="flex items-center gap-2">
+            {!songApproved && musicUrl && (
+              <button
+                type="button"
+                disabled={approving || generating || videoGenerating}
+                onClick={handleApproveSong}
+                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-500 shadow-glow transition"
+              >
+                {approving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                Approve Track to Unlock
+              </button>
+            )}
+            <span
+              className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider border ${
+                songApproved
+                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                  : 'bg-zinc-800 text-zinc-500 border-white/10'
+              }`}
+            >
+              {songApproved ? '⚡ Studio Ready' : '🔒 Locked'}
+            </span>
+          </div>
         </div>
 
         {/* Beat map summary */}
@@ -2191,7 +2233,7 @@ export function GoogleFlowMusicContent({
               <>
                 <button
                   type="button"
-                  disabled={!songApproved || videoGenerating || generating}
+                  disabled={(!songApproved && !musicUrl) || videoGenerating || generating}
                   onClick={() => handleGenerateVideos({ reuseImages: true })}
                   className="studio-btn-primary flex items-center gap-2 !py-2.5 !px-5 text-xs font-bold shadow-glow disabled:opacity-50 cursor-pointer"
                   title="Re-render video instantly with your newly selected format, Subtitle Style, intensity, and effects while keeping your 2K HD scene keyframes"
@@ -2208,7 +2250,7 @@ export function GoogleFlowMusicContent({
 
                 <button
                   type="button"
-                  disabled={!songApproved || videoGenerating || generating}
+                  disabled={(!songApproved && !musicUrl) || videoGenerating || generating}
                   onClick={() => handleGenerateVideos({ reuseImages: false })}
                   className="flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-xs font-bold text-zinc-200 hover:bg-white/15 transition disabled:opacity-50 cursor-pointer"
                   title="Redraw all 2K HD scene keyframes from scratch with AI and re-render"
@@ -2224,7 +2266,7 @@ export function GoogleFlowMusicContent({
             ) : (
               <button
                 type="button"
-                disabled={!songApproved || videoGenerating || generating}
+                disabled={(!songApproved && !musicUrl) || videoGenerating || generating}
                 onClick={() => handleGenerateVideos()}
                 className="studio-btn-primary flex items-center gap-2 !py-2.5 !px-5 text-xs font-bold shadow-glow disabled:opacity-50"
               >

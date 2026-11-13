@@ -1,17 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Music,
   UserCheck,
   RefreshCw,
-  Sparkles,
-  Volume2,
-  Sliders,
-  FileText,
-  Flame,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
-  Layers,
+  FileText,
+  Clock,
+  Activity,
+  Globe,
+  Mic,
 } from 'lucide-react';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 
@@ -19,21 +17,22 @@ export interface FlowMusicConfig {
   enabled: boolean;
   prompt: string;
   lyrics: string;
-  lyricsMode: 'custom' | 'instrumental' | 'ai';
-  title: string;
-  mood: string;
-  theme: string;
-  vocalProfile: string;
-  sfxBooms: boolean;
-  sfxRisers: boolean;
-  dholPercussion: boolean;
-  brassSwells: boolean;
-  duration: number;
-  bpm: number;
-  producerModel: string;
-  imageOnlyReel: boolean;
-  letterboxBanner: string;
-  vfxParticles: boolean;
+  lyricsMode?: 'custom' | 'instrumental' | 'ai';
+  language?: 'auto' | 'hi' | 'en' | 'instrumental';
+  title?: string;
+  mood?: string;
+  theme?: string;
+  vocalProfile?: string;
+  sfxBooms?: boolean;
+  sfxRisers?: boolean;
+  dholPercussion?: boolean;
+  brassSwells?: boolean;
+  duration?: number;
+  bpm?: number;
+  producerModel?: string;
+  imageOnlyReel?: boolean;
+  letterboxBanner?: string;
+  vfxParticles?: boolean;
 }
 
 const selectClass = 'studio-input mt-1 w-full';
@@ -42,7 +41,6 @@ export function FlowMusicSettingsSection({
   value,
   onChange,
   onClear,
-  onLoadPreset,
   topicName = '',
 }: {
   value?: Partial<FlowMusicConfig>;
@@ -63,21 +61,55 @@ export function FlowMusicSettingsSection({
     prompt: value?.prompt ?? '',
     lyrics: value?.lyrics ?? '',
     lyricsMode: value?.lyricsMode || 'custom',
+    language: value?.language || 'auto',
     title: value?.title ?? (topicName ? `${topicName}` : ''),
     mood: value?.mood ?? '',
     theme: value?.theme ?? '',
-    vocalProfile: value?.vocalProfile ?? '',
-    sfxBooms: value?.sfxBooms ?? true,
-    sfxRisers: value?.sfxRisers ?? true,
-    dholPercussion: value?.dholPercussion ?? true,
-    brassSwells: value?.brassSwells ?? true,
+    vocalProfile: value?.vocalProfile || 'male',
+    sfxBooms: value?.sfxBooms ?? false,
+    sfxRisers: value?.sfxRisers ?? false,
+    dholPercussion: value?.dholPercussion ?? false,
+    brassSwells: value?.brassSwells ?? false,
     duration: value?.duration || 60,
     bpm: value?.bpm || 110,
     producerModel: value?.producerModel || 'Google Lyria / Flow Music',
     imageOnlyReel: value?.imageOnlyReel ?? true,
     letterboxBanner: value?.letterboxBanner ?? '',
-    vfxParticles: value?.vfxParticles ?? true,
+    vfxParticles: value?.vfxParticles ?? false,
   };
+
+  const detectedLanguage = useMemo<'hi' | 'en' | 'instrumental'>(() => {
+    if (cfg.lyricsMode === 'instrumental' || cfg.language === 'instrumental') return 'instrumental';
+    if (cfg.language === 'hi') return 'hi';
+    if (cfg.language === 'en') return 'en';
+
+    const full = [cfg.lyrics, cfg.prompt, cfg.title].filter(Boolean).join(' ');
+    if (/[\u0900-\u097F]/.test(full)) return 'hi';
+
+    if (/\b(hindi|hinglish|bollywood|bhajan|kirtan|aarti|chalisa|shloka|mantra|sufi|qawwali|punjabi|desi|bhojpuri|ghazal|geet|deshbhakti|hindustani|indian)\b/i.test(full)) {
+      return 'hi';
+    }
+    if (/\b(sing in hindi|sing in hinglish|hindi song|hindi vocals|hindi lyrics|hindi singing)\b/i.test(full)) {
+      return 'hi';
+    }
+    if (/\b(jai shri|jai shree|sita ram|hare krishna|hare rama|har har|tere bin|tu hi|kya baat|mera dil|meri jaan|nach le|ho gaya|ek baar|aisa kyu|dard e dil|ab to|dil diya|tod de)\b/i.test(full)) {
+      return 'hi';
+    }
+    const HINDI_WORDS = new Set([
+      'hai', 'hain', 'ho', 'hoon', 'hun', 'tha', 'thi', 'the', 'kya', 'kyun', 'kyon',
+      'mera', 'meri', 'mere', 'tera', 'teri', 'tere', 'hum', 'tum', 'aap', 'woh', 'yeh',
+      'main', 'mujhe', 'tujhe', 'humein', 'dil', 'jaan', 'zindagi', 'ishq', 'pyaar', 'pyar',
+      'mohabbat', 'shayar', 'aankhein', 'sanam', 'raat', 'subah', 'shaam', 'duniya', 'ram',
+      'shri', 'sita', 'hanuman', 'radha', 'krishna', 'karo', 'karna', 'raha', 'rahi', 'rahe',
+      'gaya', 'gayi', 'gaye', 'dekh', 'dekho', 'suno', 'bolo', 'jaana', 'baat', 'baatein',
+      'saath', 'paas', 'door', 'kabhi', 'abhi', 'phir', 'nahi', 'nahin', 'chal', 'chale',
+      'naina', 'saajna', 'mahi', 'dholna', 'piya', 'jeena', 'marna', 'tod', 'bajrangbali'
+    ]);
+    const words = full.toLowerCase().match(/[a-z]+/g) || [];
+    const matches = new Set(words.filter((w) => HINDI_WORDS.has(w)));
+    if (matches.size >= 2) return 'hi';
+    return 'en';
+  }, [cfg.language, cfg.lyricsMode, cfg.lyrics, cfg.prompt, cfg.title]);
 
   const loadStatus = async () => {
     try {
@@ -124,67 +156,42 @@ export function FlowMusicSettingsSection({
     }
   };
 
-  const loadHanumanPreset = () => {
-    onChange({
-      title: 'Lord Hanuman Vow // Goosebumps 🚩',
-      theme: 'Mythological retelling, Valmiki Ramayana, Lord Hanuman Vow to Lord Rama',
-      prompt:
-        'Epic cinematic trailer sound track, heavy indian percussion, dhol drums, orchestral brass swells, deep sub-bass drops, emotional sad strings transitioning into aggressive action hybrid music, Sanskrit chants, high energy war theme',
-      lyrics: `[Dramatic Dialogue Phase]
-राम जी: "हनुमान, अगर सूर्य निकल गया तो लक्ष्मण मर जाएगा।"
-हनुमान जी: "प्रभु, सूर्यदेव मेरा स्वभाव जानते हैं... जब तक जड़ी-बूटी लेकर नहीं आऊँगा, सूरज को उगने नहीं दूंगा।"
-राम जी: "हनुमान, मौत आगे बढ़ रही है..."
-हनुमान जी: "प्रभु, आप कहते हैं मौत लक्ष्मण को खा जाएगी? मैं आपकी कसम खा के कहता हूँ... आज मौत को ही मार दूंगा! दुनिया में कभी कोई मरेगा नहीं!"
-
-[Epic Vocal Chorus / Sanskrit Chants]
-राम रामं जपती...
-हनुमान अतुलितबलधामम्...
-हनुमान महाकाल शंभोरावतारः...
-बजरंगबली... जय श्री राम!`,
-      mood: 'Heroic, Dramatic, High-Intensity, Emotionally Charged (Goosebumps 🚩)',
-      vocalProfile:
-        'Deep resonant male voice with heavy chest resonance, strong bass, aggressive cadence suited for epic trailers',
-      letterboxBanner: 'Goosebumps 🚩',
-      sfxBooms: true,
-      sfxRisers: true,
-      dholPercussion: true,
-      brassSwells: true,
-      imageOnlyReel: true,
-      vfxParticles: true,
-    });
-    onLoadPreset?.();
-  };
-
   const clearFields = () => {
     onChange({
       prompt: '',
       lyrics: '',
       title: '',
+      language: 'auto',
+      vocalProfile: 'male',
       mood: '',
       theme: '',
-      vocalProfile: '',
       letterboxBanner: '',
+      sfxBooms: false,
+      sfxRisers: false,
+      dholPercussion: false,
+      brassSwells: false,
+      vfxParticles: false,
     });
     onClear?.();
   };
 
   return (
-    <div className="space-y-4 rounded-xl border border-amber-500/40 bg-gradient-to-b from-amber-500/10 via-zinc-950/80 to-zinc-950 p-4 shadow-xl">
-      {/* Title & Badge */}
+    <div className="space-y-4 rounded-xl border border-white/10 bg-zinc-950 p-4 shadow-xl">
+      {/* Title & Connection Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/20 text-sky-300">
             <Music className="h-4 w-4" />
           </div>
           <div>
             <h4 className="text-sm font-bold text-white flex items-center gap-2">
-              Script, Lyrics & Music Direction
-              <span className="rounded-md bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-300 border border-amber-500/30">
-                Playwright Automated
+              Google Flow Music
+              <span className="rounded-md bg-sky-500/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-sky-300 border border-sky-500/30">
+                Raw Input
               </span>
             </h4>
             <p className="text-[11px] text-zinc-400">
-              Write your script, lyrics or chants, set audio mood, and configure 9:16 letterbox styling
+              Submit raw prompts directly to Google Flow Music without modified data or forced styles
             </p>
           </div>
         </div>
@@ -195,13 +202,6 @@ export function FlowMusicSettingsSection({
             className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-white/10 transition-colors"
           >
             Clear Fields
-          </button>
-          <button
-            type="button"
-            onClick={loadHanumanPreset}
-            className="flex items-center gap-1.5 rounded-lg border border-amber-400/40 bg-amber-500/15 px-2.5 py-1 text-xs font-semibold text-amber-200 hover:bg-amber-500/25 transition-colors"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-amber-300" /> Load Hanuman Demo
           </button>
         </div>
       </div>
@@ -259,220 +259,133 @@ export function FlowMusicSettingsSection({
         </div>
       )}
 
-      {/* 1. Prompt & Musical Direction */}
+      {/* 1. Prompt (Raw Google Flow Music Composer Input) */}
       <div>
         <label className="block text-xs font-semibold text-zinc-300 mb-1 flex items-center justify-between">
-          <span>Musical Style & Prompt (Google Flow Music Engine)</span>
-          <span className="text-[10px] text-zinc-500">Instruments, Mood & Cadence</span>
+          <span className="flex items-center gap-1.5">
+            <Music className="h-3.5 w-3.5 text-sky-400" />
+            Music Prompt (Google Flow Music Composer)
+          </span>
+          <span className="text-[10px] text-zinc-500">Sent directly to Google Flow Music</span>
         </label>
         <textarea
-          rows={3}
+          rows={4}
           value={cfg.prompt}
           onChange={(e) => onChange({ prompt: e.target.value })}
-          placeholder="Describe soundtrack style, percussion, orchestral brass, bass drops, Sanskrit chants..."
+          placeholder="Describe the track you want to create (style, genre, tempo, instruments, mood, vocals, lyrics)... e.g. 'Chill lo-fi hip hop beat with warm rhodes piano and rain sounds' or 'High energy 80s synthwave with punchy drums and driving bassline'"
           className="studio-input w-full font-sans text-xs leading-relaxed"
         />
       </div>
 
-      {/* 2. Lyrics & Chants */}
+      {/* 2. Lyrics (Optional) */}
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <label className="text-xs font-semibold text-zinc-300 flex items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5 text-amber-400" />
-            Song Lyrics & Sacred Chants (Devanagari / Sanskrit)
-          </label>
-          <div className="flex items-center gap-1.5 text-[10px]">
-            <span className="text-zinc-400">Mode:</span>
-            <select
-              value={cfg.lyricsMode}
-              onChange={(e) => onChange({ lyricsMode: e.target.value as any })}
-              className="rounded border border-white/10 bg-zinc-900 px-2 py-0.5 text-zinc-200 text-[10px]"
-            >
-              <option value="custom">Custom Lyrics & Chants</option>
-              <option value="instrumental">Instrumental Only</option>
-              <option value="ai">AI Auto-Compose</option>
-            </select>
+        <label className="block text-xs font-semibold text-zinc-300 mb-1 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5 text-zinc-400" />
+            Lyrics (Optional)
+          </span>
+          <div className="flex items-center gap-2">
+            {detectedLanguage === 'hi' && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-500/30">
+                <Globe className="h-3 w-3" />
+                🇮🇳 Hindi Singing Active
+              </span>
+            )}
+            {detectedLanguage === 'en' && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/20 px-2 py-0.5 text-[10px] font-semibold text-sky-300 border border-sky-500/30">
+                <Globe className="h-3 w-3" />
+                🇺🇸 English Singing
+              </span>
+            )}
+            {detectedLanguage === 'instrumental' && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-purple-500/20 px-2 py-0.5 text-[10px] font-semibold text-purple-300 border border-purple-500/30">
+                <Music className="h-3 w-3" />
+                Instrumental
+              </span>
+            )}
+            <span className="text-[10px] text-zinc-500 hidden sm:inline">Hindi (हिंदी/Hinglish) or English</span>
           </div>
-        </div>
+        </label>
         <textarea
-          rows={6}
+          rows={4}
           value={cfg.lyrics}
           onChange={(e) => onChange({ lyrics: e.target.value })}
-          placeholder="Enter dialogue script and Sanskrit chanting verses (e.g. राम रामं जपती... हनुमान अतुलितबलधामम्...)..."
-          className="studio-input w-full font-mono text-xs leading-relaxed text-amber-100/90"
+          placeholder="Enter lyrics or spoken dialogue in Hindi (हिंदी or Hinglish) or English (leave blank for instrumental)..."
+          className="studio-input w-full font-mono text-xs leading-relaxed text-zinc-200"
         />
-        <div className="mt-1 flex flex-wrap gap-1.5 text-[10px] text-zinc-400">
-          <span className="text-zinc-500">Insert tags:</span>
-          {['[Dialogue Phase]', '[Epic Vocal Chorus]', '[Sanskrit Chant]', '[Bass Drop]', '[Outro]'].map(
-            (tag) => (
-              <button
-                key={tag}
-                type="button"
-                onClick={() => onChange({ lyrics: `${cfg.lyrics}\n${tag}\n` })}
-                className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 hover:bg-white/10 text-zinc-300"
-              >
-                {tag}
-              </button>
-            )
-          )}
-        </div>
       </div>
 
-      {/* 3. Details & Metadata */}
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* 3. Track Details, Vocal Language & Duration */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
-          <label className="block text-xs font-semibold text-zinc-300">Track Title / Project Name</label>
+          <label className="block text-xs font-semibold text-zinc-300">Track Title (Optional)</label>
           <input
             type="text"
             value={cfg.title}
             onChange={(e) => onChange({ title: e.target.value })}
             className={selectClass}
-            placeholder="e.g. Ancient Warrior Awakening // Epic Reel"
+            placeholder="e.g. Midnight Drive"
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-zinc-300">Mood & Tone</label>
-          <input
-            type="text"
-            value={cfg.mood}
-            onChange={(e) => onChange({ mood: e.target.value })}
+          <label className="block text-xs font-semibold text-zinc-300 flex items-center gap-1">
+            <Globe className="h-3.5 w-3.5 text-zinc-400" /> Vocal Language
+          </label>
+          <select
+            value={cfg.language || 'auto'}
+            onChange={(e) => onChange({ language: e.target.value as any })}
             className={selectClass}
-            placeholder="e.g. Heroic, Dramatic, Suspenseful, Emotional"
-          />
+          >
+            <option value="auto">Auto-Detect (Hindi / English)</option>
+            <option value="hi">🇮🇳 Hindi (हिंदी / Hinglish)</option>
+            <option value="en">🇺🇸 English</option>
+            <option value="instrumental">🎵 Instrumental (No Vocals)</option>
+          </select>
         </div>
-      </div>
-
-      {/* 4. Sound & Mix Settings */}
-      <div className="rounded-lg border border-white/10 bg-black/30 p-3 space-y-3">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-200">
-          <Sliders className="h-3.5 w-3.5 text-amber-400" /> Sound & Audio Mix Controls
-        </div>
-
         <div>
-          <label className="block text-[11px] text-zinc-400 mb-0.5">Vocal Profile & Delivery</label>
-          <input
-            type="text"
-            value={cfg.vocalProfile}
+          <label className="block text-xs font-semibold text-zinc-300 flex items-center gap-1">
+            <Mic className="h-3.5 w-3.5 text-zinc-400" /> Vocalist Style
+          </label>
+          <select
+            value={cfg.vocalProfile || 'male'}
             onChange={(e) => onChange({ vocalProfile: e.target.value })}
             className={selectClass}
-            placeholder="Deep, resonant male voice with heavy chest resonance, strong bass, aggressive cadence"
-          />
+          >
+            <option value="male">Male Lead Singer</option>
+            <option value="female">Female Lead Singer</option>
+            <option value="duet">Duet / Harmonies</option>
+            <option value="choir">Devotional Choir</option>
+          </select>
         </div>
-
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          <label className="flex items-center gap-2 text-zinc-300 cursor-pointer">
-            <input
-              type="checkbox"
-              className="accent-amber-500 rounded"
-              checked={cfg.sfxBooms}
-              onChange={(e) => onChange({ sfxBooms: e.target.checked })}
-            />
-            <span>Sub-bass Impacts & Booms</span>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 flex items-center gap-1">
+            <Clock className="h-3.5 w-3.5 text-zinc-400" /> Duration
           </label>
-          <label className="flex items-center gap-2 text-zinc-300 cursor-pointer">
-            <input
-              type="checkbox"
-              className="accent-amber-500 rounded"
-              checked={cfg.sfxRisers}
-              onChange={(e) => onChange({ sfxRisers: e.target.checked })}
-            />
-            <span>Cinematic Riser Sweeps</span>
-          </label>
-          <label className="flex items-center gap-2 text-zinc-300 cursor-pointer">
-            <input
-              type="checkbox"
-              className="accent-amber-500 rounded"
-              checked={cfg.dholPercussion}
-              onChange={(e) => onChange({ dholPercussion: e.target.checked })}
-            />
-            <span>Dhol Drums Percussion</span>
-          </label>
-          <label className="flex items-center gap-2 text-zinc-300 cursor-pointer">
-            <input
-              type="checkbox"
-              className="accent-amber-500 rounded"
-              checked={cfg.brassSwells}
-              onChange={(e) => onChange({ brassSwells: e.target.checked })}
-            />
-            <span>Orchestral Brass Swells</span>
-          </label>
+          <select
+            value={cfg.duration}
+            onChange={(e) => onChange({ duration: Number(e.target.value) })}
+            className={selectClass}
+          >
+            <option value={30}>30 seconds (Shorts hook)</option>
+            <option value={45}>45 seconds</option>
+            <option value={60}>60 seconds (Full Track)</option>
+            <option value={90}>90 seconds</option>
+          </select>
         </div>
-
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <div>
-            <label className="block text-[11px] text-zinc-400">Duration</label>
-            <select
-              value={cfg.duration}
-              onChange={(e) => onChange({ duration: Number(e.target.value) })}
-              className={selectClass}
-            >
-              <option value={30}>30 seconds (Shorts hook)</option>
-              <option value={45}>45 seconds</option>
-              <option value={60}>60 seconds (Full Reel)</option>
-              <option value={90}>90 seconds</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] text-zinc-400">Tempo / Cadence</label>
-            <select
-              value={cfg.bpm}
-              onChange={(e) => onChange({ bpm: Number(e.target.value) })}
-              className={selectClass}
-            >
-              <option value={90}>90 BPM (Slow Dramatic)</option>
-              <option value={110}>110 BPM (High-Intensity Trailer)</option>
-              <option value={128}>128 BPM (Aggressive War Beat)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* 5. HD Reel Visual Styling */}
-      <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
-            <Layers className="h-3.5 w-3.5 text-amber-400" />
-            9:16 & 16:9 Visual Edit Styling
-          </div>
-          <span className="rounded bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 uppercase">
-            9:16 Letterboxed
-          </span>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="block text-[11px] text-zinc-300 font-medium">Top Banner Headline (Optional)</label>
-            <input
-              type="text"
-              value={cfg.letterboxBanner}
-              onChange={(e) => onChange({ letterboxBanner: e.target.value })}
-              className={selectClass}
-              placeholder="Optional e.g. Goosebumps 🚩 (leave blank for none)"
-            />
-            <p className="mt-1 text-[10px] text-zinc-400">
-              Displayed at the top of the 9:16 vertical letterbox frame when set.
-            </p>
-          </div>
-          <div className="space-y-2 pt-2">
-            <label className="flex items-center gap-2 text-xs text-zinc-200 cursor-pointer">
-              <input
-                type="checkbox"
-                className="accent-amber-500 rounded"
-                checked={cfg.imageOnlyReel}
-                onChange={(e) => onChange({ imageOnlyReel: e.target.checked })}
-              />
-              <span className="font-semibold text-white">2K HD Multi-Scene Mode</span>
-            </label>
-            <label className="flex items-center gap-2 text-xs text-zinc-200 cursor-pointer">
-              <input
-                type="checkbox"
-                className="accent-amber-500 rounded"
-                checked={cfg.vfxParticles}
-                onChange={(e) => onChange({ vfxParticles: e.target.checked })}
-              />
-              <span>Floating Fire Embers & VFX Particles</span>
-            </label>
-          </div>
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 flex items-center gap-1">
+            <Activity className="h-3.5 w-3.5 text-zinc-400" /> Tempo / BPM
+          </label>
+          <select
+            value={cfg.bpm}
+            onChange={(e) => onChange({ bpm: Number(e.target.value) })}
+            className={selectClass}
+          >
+            <option value={90}>90 BPM (Relaxed / Lofi)</option>
+            <option value={110}>110 BPM (Mid-tempo)</option>
+            <option value={120}>120 BPM (Standard Dance / Pop)</option>
+            <option value={128}>128 BPM (Upbeat / Driving)</option>
+          </select>
         </div>
       </div>
     </div>

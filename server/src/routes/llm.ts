@@ -52,6 +52,13 @@ llmRouter.post('/autopilot-topic', async (req, res) => {
         instructions: typeof req.body?.instructions === 'string' ? req.body.instructions : '',
       }),
     });
+    if (result.vettedTopic) {
+      store.add('scripts', {
+        ...script,
+        topicName: result.topic,
+        vettedTopic: result.vettedTopic,
+      });
+    }
     res.json(result);
   } catch (error) {
     if (!controller.signal.aborted) res.status(422).json({ error: error instanceof Error ? error.message : 'Could not select a fresh topic' });

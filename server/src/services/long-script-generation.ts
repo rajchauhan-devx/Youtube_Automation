@@ -4,6 +4,7 @@ import { generationResponseSchema, generationIssue, narrationWordBudget, require
 import { SCENE_PLAN_FORMAT_MARKER } from './scene-plan-format.js';
 import { repairVisualPrompts } from './visual-prompt-repair.js';
 import { repairNarrationBudget } from './narration-budget-repair.js';
+import { identifyDocumentaryChannel } from './editorial/documentary-topic-vetter.js';
 
 export function episodeParts(duration: number) {
   const sceneCount = Math.min(160, Math.ceil(duration / 10));
@@ -43,9 +44,30 @@ export async function generateLongScenePlan(apiKey: string, request: ChatRequest
     const ids = Array.from({ length: part.scenes }, (_, i) => `scene_${String(scenes.length + i + 1).padStart(3, '0')}`);
     const continuity = first ? JSON.stringify({ title: first.title, establishedVisuals: scenes.slice(0, 2).map(scene => scene.imagePrompt),
       previousChapters: [...new Set(scenes.map(scene => scene.chapter))], previousNarration: scenes.slice(-3).map(scene => scene.narration) }) : 'Begin the episode with the requested hook.';
+    const channel = identifyDocumentaryChannel(originalSystem, template);
+    const startPct = Math.round(index / parts.length * 100);
+    const endPct = Math.round((index + 1) / parts.length * 100);
+    const actGuidance = index === 0
+      ? 'ACT 1 (HOOK & IMMEDIATE CRISIS, ~0:00-1:30): Hook the viewer within the first 15 seconds. Establish the urgent predicament, anomaly, or sacred dilemma immediately. Zero slow backstory or generic greetings.'
+      : endPct <= 45
+      ? 'ACT 2 (ESCALATION & FAILING OPTIONS, ~1:30-4:30): Deepen the conflict and constraints. Each scene must advance cause-and-effect with new complications, obstacles, or failed attempts.'
+      : endPct <= 70
+      ? 'ACT 3 (MIDPOINT REVERSAL, ~4:30-7:00): Deliver a pivotal turning point, catastrophic complication, or startling revelation that prevents mid-video drop-off.'
+      : endPct <= 90
+      ? 'ACT 4 (CLIMAX ESCALATION, ~7:00-9:15): The highest-stakes confrontation, desperate survival maneuver, or divine vow fulfillment. Tension reaches its absolute peak.'
+      : 'ACT 5 (PAYOFF & SEAMLESS OUTRO, ~9:15-End): Deliver the earned resolution and profound truth. Then transition smoothly into one concise channel CTA.';
+
+    const channelRules = channel === 'against-the-odds'
+      ? '\nCHANNEL MANDATE (Against the Odds): Factual true survival/disaster documentary. Present-tense clinical suspense, verifiable telemetry/geography/timeline. ZERO fabricated quotes or artificial melodrama.'
+      : channel === 'ancient-dharma'
+      ? '\nCHANNEL MANDATE (Ancient Dharma): Authentic Sanatana sacred lore (Valmiki Ramayana / Vyasa Mahabharata / Puranas). Elevated noble Hindi diction (Devanagari). STRICTLY BAN colloquial street slang ("तू", "तेरा", "तुझे", "अरे यार"). Sentences must be 8-14 words with natural danda (।) breath pauses.'
+      : '';
+
     const instruction = `SEGMENTED EPISODE MODE: This call produces ONLY part ${index + 1} of ${parts.length} of the ${duration}-second episode. This per-part allocation overrides the whole-episode duration and word budget above for this call.
 Return one complete schema object for this part, with exactly ${part.scenes} scenes and ${budget.minimum}–${budget.maximum} spoken words in total. Use these exact scene IDs in order: ${ids.join(', ')}. Aim for approximately ${Math.round(part.seconds * 3.5 / part.scenes)} spoken words per scene. Planning durations must sum to ${part.seconds} seconds. Do not return the whole episode or a synopsis. Every visual prompt must be standalone, with continuity spelled out rather than asset-ID references.
-Progress the story through this part of the full arc: ${Math.round(index / parts.length * 100)}%–${Math.round((index + 1) / parts.length * 100)}%. ${index ? 'Continue the established episode without another opening hook or recapping previous narration.' : 'Establish the story and characters.'} ${last ? 'Complete the payoff and any requested spoken CTA.' : 'Continue toward the next part; do not conclude or add a CTA yet.'} Supporting editorial notes will be generated once after the entire episode, so supportingNotes must be empty for this call.
+Progress the story through this part of the full arc: ${startPct}%–${endPct}%.
+${actGuidance}${channelRules}
+${index ? 'Continue the established episode without another opening hook or recapping previous narration.' : 'Establish the story and characters.'} ${last ? 'Complete the payoff and any requested spoken CTA.' : 'Continue toward the next part; do not conclude or add a CTA yet.'} Supporting editorial notes will be generated once after the entire episode, so supportingNotes must be empty for this call.
 ${videos !== undefined ? `This part needs exactly ${videos} video scenes; all other scenes use images.` : both ? 'Include at least one image scene and one video scene in this part.' : 'Preserve the template media choice.'} Image prompts need at least ${minimum.image} words and video prompts at least ${minimum.video} words when present.
 Preserve the exact established character identities, wardrobe, locations, factual constraints, language and requested visual prompt detail. Previous continuity: ${continuity}`;
     let candidate: ScenePlan | undefined;

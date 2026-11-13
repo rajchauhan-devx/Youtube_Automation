@@ -1546,12 +1546,12 @@ export default function App() {
           }
         }
 
-        // Google Flow Music synthesis for Ancient Dharma / Flow Music enabled scripts
+        // Google Flow Music synthesis for Flow Music enabled scripts
         if (runSettings.flowMusic?.enabled) {
           addAutoPilotLog('generate_audio', '[FLOW MUSIC] Synthesizing Google Flow Music soundtrack with Playwright...', 'gemini');
           setAutoPilotState((prev) => ({
             ...prev,
-            statusMessage: 'Google Flow Music: Composing Vedic hybrid trailer soundtrack with Playwright...',
+            statusMessage: 'Google Flow Music: Composing soundtrack with Playwright...',
           }));
           try {
             const flowMusicRes = await fetch('/api/flow-music/generate', {
@@ -1812,7 +1812,7 @@ export default function App() {
             enableSubtitles: runSettings.captions !== 'off',
             ...(runSettings.editing.mode === 'custom' ? { editing: { ...runSettings.editing.settings, enabled: true, captions: runSettings.captions === 'plain' } } : runSettings.editing.mode === 'off' ? { editing: { ...runSettings.editing.settings, enabled: false, captions: runSettings.captions === 'plain' } } : {}),
             bgmTrack: currentScript.generatedMusic?.filename ? 'ai' : (runSettings.audio.music === 'auto' ? retention.plan.musicMood : runSettings.audio.music),
-            ...(runSettings.flowMusic?.enabled ? { letterboxBanner: runSettings.flowMusic?.letterboxBanner || 'Goosebumps 🚩' } : {}),
+            ...(runSettings.flowMusic?.enabled && runSettings.flowMusic?.letterboxBanner ? { letterboxBanner: runSettings.flowMusic.letterboxBanner } : {}),
             bgmVolume: runSettings.audio.musicVolume,
             ttsVolume: runSettings.audio.voiceVolume,
             colorGrade: 'none',

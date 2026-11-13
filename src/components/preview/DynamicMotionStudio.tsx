@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Sparkles,
   Play,
@@ -18,9 +18,17 @@ import {
   Check,
   Eye,
   AlertCircle,
+  Search,
+  BookOpen,
+  Plus,
 } from 'lucide-react';
 import type { Script } from '../../data';
-import type { DynamicMotionGraphicData, ExtraPopupAsset } from '@tubeflow/editing-contracts';
+import {
+  type DynamicMotionGraphicData,
+  type ExtraPopupAsset,
+  SIMPLE_MOTION_GRAPHICS_CATALOG,
+  type MotionGraphicCategory,
+} from '@tubeflow/editing-contracts';
 import { DynamicMotionPlayer, playSynthesizedSfx } from './DynamicMotionPlayer';
 
 interface DynamicMotionStudioProps {
@@ -35,6 +43,20 @@ const STYLE_PRESETS = [
   { id: 'celestial-cyan', label: 'Celestial Cyan', desc: 'Cosmic Blue & Starlight', icon: '🌌' },
   { id: 'rudra-fire', label: 'Rudra Fire', desc: 'Shiva Tandava & Blazing Embers', icon: '🔥' },
   { id: 'mystic-amethyst', label: 'Mystic Amethyst', desc: 'Deep Violet & Ethereal Resonance', icon: '🔮' },
+];
+
+const CATEGORY_TABS: Array<{ id: 'all' | MotionGraphicCategory; label: string; icon: string }> = [
+  { id: 'all', label: 'All (100)', icon: '✨' },
+  { id: 'questions', label: 'Questions (10)', icon: '❓' },
+  { id: 'arrows', label: 'Arrows (10)', icon: '🏹' },
+  { id: 'highlighters', label: 'Highlights (10)', icon: '🖊️' },
+  { id: 'targets', label: 'Targets & Circles (10)', icon: '🎯' },
+  { id: 'alerts', label: 'Alerts & Hazards (10)', icon: '⚠️' },
+  { id: 'reactions', label: 'Reactions & Icons (10)', icon: '💡' },
+  { id: 'metrics', label: 'Metrics & Gauges (10)', icon: '📊' },
+  { id: 'archival', label: 'Archival & Maps (10)', icon: '📜' },
+  { id: 'dharma', label: 'Ancient Dharma (10)', icon: '🕉️' },
+  { id: 'cinematic', label: 'Cinematic & Layouts (10)', icon: '🎬' },
 ];
 
 export function DynamicMotionStudio({
@@ -53,6 +75,12 @@ export function DynamicMotionStudio({
   const [selectedPopupIndex, setSelectedPopupIndex] = useState<number>(0);
   const [showVerificationReport, setShowVerificationReport] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // 100+ Motion Graphics Library Drawer State
+  const [showCatalogDrawer, setShowCatalogDrawer] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<'all' | MotionGraphicCategory>('all');
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [isApplyingTemplate, setIsApplyingTemplate] = useState(false);
 
   // Dynamic motion graphics and extra popups stored on script
   const graphics: DynamicMotionGraphicData[] = (script as any).dynamicMotionGraphics || [];
@@ -315,6 +343,84 @@ export function DynamicMotionStudio({
     onUpdateScript({ ...(script as any), dynamicMotionGraphics: newGraphics });
   }
 
+  // Filtered 100+ Motion Graphics Catalog
+  const filteredCatalog = useMemo(() => {
+    let items = SIMPLE_MOTION_GRAPHICS_CATALOG;
+    if (selectedCategory !== 'all') {
+      items = items.filter((item) => item.category === selectedCategory);
+    }
+    if (catalogSearch.trim()) {
+      const q = catalogSearch.toLowerCase().trim();
+      items = items.filter(
+        (item) =>
+          item.name.toLowerCase().includes(q) ||
+          item.description.toLowerCase().includes(q) ||
+          item.id.toLowerCase().includes(q) ||
+          item.tags?.some((t) => t.toLowerCase().includes(q))
+      );
+    }
+    return items;
+  }, [selectedCategory, catalogSearch]);
+
+  async function handleApplyCatalogItem(template: (typeof SIMPLE_MOTION_GRAPHICS_CATALOG)[0]) {
+    setIsApplyingTemplate(true);
+    setError(null);
+    try {
+      const activePreset = STYLE_PRESETS.find((p) => p.id === selectedTheme);
+      const targetSceneIdx = activeSceneIdx;
+
+      const plan = {
+        templateId: template.id,
+        sceneIndex: targetSceneIdx,
+        title: activeGraphic?.title || template.name,
+        detail: activeGraphic?.detail || template.description,
+        badge: template.category ? template.category.toUpperCase() : 'CALLOUT',
+        placement: template.defaultPlacement || 'center',
+        size: template.defaultSize || 'standard',
+        startSec: 1.0,
+        durationSec: 4.5,
+        channelIdentity: activePreset?.channel || (script as any).channelName || 'Ancient Dharma',
+      };
+
+      const res = await fetch('/api/editing/dynamic-motion/compile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to compile motion graphic: HTTP ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (!data.graphic) {
+        throw new Error('No graphic returned by server compiler');
+      }
+
+      const compiledGraphic: DynamicMotionGraphicData = data.graphic;
+      const merged = [...graphics];
+      const existingIdx = merged.findIndex((g) => g.sceneIndex === targetSceneIdx);
+      if (existingIdx !== -1) {
+        merged[existingIdx] = compiledGraphic;
+        setSelectedGraphicIndex(existingIdx);
+      } else {
+        merged.push(compiledGraphic);
+        setSelectedGraphicIndex(merged.length - 1);
+      }
+
+      if (onUpdateScript) {
+        onUpdateScript({
+          ...(script as any),
+          dynamicMotionGraphics: merged,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not apply motion graphic');
+    } finally {
+      setIsApplyingTemplate(false);
+    }
+  }
+
   // Active items for playback
   const activeGraphic = graphics[selectedGraphicIndex] || graphics[0];
   const activePopup = popups[selectedPopupIndex] || popups.find(p => p.sceneIndex === activeGraphic?.sceneIndex);
@@ -352,6 +458,24 @@ export function DynamicMotionStudio({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* 100+ Motion Graphics Library Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowCatalogDrawer(!showCatalogDrawer)}
+            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition border ${
+              showCatalogDrawer
+                ? 'border-amber-400 bg-amber-500/25 text-amber-200 shadow-md shadow-amber-500/20'
+                : 'border-amber-500/30 bg-black/50 text-amber-300 hover:bg-amber-500/15 hover:border-amber-400'
+            }`}
+            title="Browse all 100 YouTube retention motion graphics: question marks, arrows, highlighters, targets, reactions..."
+          >
+            <BookOpen className="h-3.5 w-3.5 text-amber-400" />
+            <span>100+ Library</span>
+            <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300 font-mono">
+              100
+            </span>
+          </button>
+
           {/* Main 2-Step Verification & Orchestration Trigger */}
           <button
             type="button"
@@ -512,6 +636,113 @@ export function DynamicMotionStudio({
             </div>
           </div>
 
+          {/* 100+ MOTION GRAPHICS LIBRARY DRAWER */}
+          {showCatalogDrawer && (
+            <div className="mb-5 overflow-hidden rounded-2xl border border-amber-500/40 bg-gradient-to-b from-[#18130c] to-[#0c0906] p-4 shadow-2xl">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/20 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 text-amber-300">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-amber-100 flex items-center gap-2">
+                      <span>100+ Simple Motion Graphics Library</span>
+                      <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-mono text-amber-300">
+                        {filteredCatalog.length} Elements
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-amber-200/60">
+                      Target: <strong className="text-amber-300">Scene {activeSceneIdx + 1}</strong> · 1-click applies question mark above head, bouncing arrows, box highlights, red circles, eureka bulbs &amp; more.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Search Box */}
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-amber-400/70" />
+                  <input
+                    type="text"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                    placeholder="Search 100 items (e.g. question, arrow, highlight)..."
+                    className="w-full rounded-xl border border-amber-500/30 bg-black/60 pl-8 pr-3 py-1.5 text-xs text-white placeholder-amber-200/40 outline-none focus:border-amber-400"
+                  />
+                  {catalogSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setCatalogSearch('')}
+                      className="absolute right-2.5 top-2 text-xs text-gray-400 hover:text-white"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Category Pills */}
+              <div className="my-3 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+                {CATEGORY_TABS.map((tab) => {
+                  const isActive = selectedCategory === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(tab.id)}
+                      className={`flex items-center gap-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                        isActive
+                          ? 'border border-amber-400 bg-amber-500/30 text-amber-100 shadow-sm'
+                          : 'border border-white/5 bg-black/40 text-gray-400 hover:border-amber-500/30 hover:text-amber-200'
+                      }`}
+                    >
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Catalog Items Grid */}
+              <div className="grid max-h-[380px] grid-cols-1 gap-2.5 overflow-y-auto pr-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+                {filteredCatalog.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group relative flex flex-col justify-between rounded-xl border border-amber-500/20 bg-black/50 p-3 hover:border-amber-400 hover:bg-black/70 transition shadow-sm"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1.5">
+                        <span className="text-base">{item.icon || '✨'}</span>
+                        <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 uppercase tracking-wider">
+                          {item.category}
+                        </span>
+                      </div>
+                      <h5 className="text-xs font-bold text-white group-hover:text-amber-200 transition">
+                        {item.name}
+                      </h5>
+                      <p className="mt-1 text-[11px] leading-relaxed text-gray-400 line-clamp-2">
+                        {item.description}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-2">
+                      <span className="text-[10px] font-mono text-gray-400 capitalize">
+                        {item.defaultPlacement || 'center'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleApplyCatalogItem(item)}
+                        disabled={isApplyingTemplate}
+                        className="flex items-center gap-1 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 px-2 py-1 text-[11px] font-bold text-black hover:brightness-110 active:scale-95 disabled:opacity-50 transition"
+                      >
+                        <Plus className="h-3 w-3" />
+                        <span>Apply Scene {activeSceneIdx + 1}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {graphics.length === 0 && popups.length === 0 ? (
             /* Empty State */
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-amber-500/20 bg-amber-500/5 p-8 text-center">
@@ -525,14 +756,19 @@ export function DynamicMotionStudio({
                 Click <strong>"AI 2-Step Verify &amp; Orchestrate"</strong> above. The AI will inspect your entire script right here in the Preview page, determine where and how to trigger <strong>motion graphics &amp; popups</strong>, and then run a second verification pass to catch script mistakes and optimize viewer retention.
               </p>
               <div className="mt-4 flex flex-wrap justify-center gap-2 text-[11px] text-amber-300/80">
-                <span className="rounded-md border border-amber-500/30 bg-black/40 px-2 py-1">
-                  ✦ Step 1: Real Animated SVGs &amp; Retention Callouts
+                <button
+                  type="button"
+                  onClick={() => setShowCatalogDrawer(true)}
+                  className="rounded-lg border border-amber-400 bg-amber-500/20 px-3 py-1.5 font-bold text-amber-200 hover:bg-amber-500/30 transition flex items-center gap-1.5"
+                >
+                  <BookOpen className="h-3.5 w-3.5 text-amber-400" />
+                  <span>Browse 100+ Motion Graphics Library</span>
+                </button>
+                <span className="rounded-md border border-amber-500/30 bg-black/40 px-2 py-1 flex items-center">
+                  ✦ Questions, Arrows, Highlighters, Circles
                 </span>
-                <span className="rounded-md border border-amber-500/30 bg-black/40 px-2 py-1">
-                  ✦ Step 2: Proofreading, Pacing &amp; Retention Audit
-                </span>
-                <span className="rounded-md border border-amber-500/30 bg-black/40 px-2 py-1">
-                  ✦ Zero Outside Configuration Needed
+                <span className="rounded-md border border-amber-500/30 bg-black/40 px-2 py-1 flex items-center">
+                  ✦ Proofreading &amp; Pacing Audit
                 </span>
               </div>
             </div>

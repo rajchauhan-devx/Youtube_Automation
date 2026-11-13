@@ -173,39 +173,28 @@ flowMusicRouter.post('/prepare-ancient-dharma', (req, res) => {
   try {
     const { scriptId, topic } = req.body || {};
     const script = scriptId ? store.getById<any>('scripts', scriptId) : null;
-    const activeTopic = topic || script?.topicName || script?.name || 'Lord Hanuman Vow';
+    const activeTopic = topic || script?.topicName || script?.name || 'Flow Music Track';
 
-    const defaultLyrics = `[Dramatic Dialogue Phase]
-राम जी: "हनुमान, अगर सूर्य निकल गया तो लक्ष्मण मर जाएगा।"
-हनुमान जी: "प्रभु, सूर्यदेव मेरा स्वभाव जानते हैं... जब तक जड़ी-बूटी लेकर नहीं आऊँगा, सूरज को उगने नहीं दूंगा।"
-राम जी: "हनुमान, मौत आगे बढ़ रही है..."
-हनुमान जी: "प्रभु, आप कहते हैं मौत लक्ष्मण को खा जाएगी? मैं आपकी कसम खा के कहता हूँ... आज मौत को ही मार दूंगा! दुनिया में कभी कोई मरेगा नहीं!"
-
-[Epic Vocal Chorus / Sanskrit Chants]
-राम रामं जपती...
-हनुमान अतुलितबलधामम्...
-हनुमान महाकाल शंभोरावतारः...
-बजरंगबली... जय श्री राम!`;
 
     const config = {
       enabled: true,
-      prompt: `Epic cinematic trailer sound track, heavy indian percussion, dhol drums, orchestral brass swells, deep sub-bass drops, emotional sad strings transitioning into aggressive action hybrid music, Sanskrit chants, high energy war theme`,
-      lyrics: defaultLyrics,
+      prompt: '',
+      lyrics: '',
       lyricsMode: 'custom',
-      title: `${activeTopic} // Goosebumps 🚩`,
-      mood: 'Heroic, Dramatic, High-Intensity, Emotionally Charged (Goosebumps 🚩)',
-      theme: 'Mythological retelling, Valmiki Ramayana, Lord Hanuman Vow to Lord Rama',
-      vocalProfile: 'Deep, resonant male voice with heavy chest resonance, strong bass, aggressive cadence, hall reverb',
-      sfxBooms: true,
-      sfxRisers: true,
-      dholPercussion: true,
-      brassSwells: true,
+      title: activeTopic,
+      mood: '',
+      theme: '',
+      vocalProfile: '',
+      sfxBooms: false,
+      sfxRisers: false,
+      dholPercussion: false,
+      brassSwells: false,
       duration: 60,
       bpm: 110,
       producerModel: 'Google Lyria / Flow Music',
       imageOnlyReel: true,
-      letterboxBanner: 'Goosebumps 🚩',
-      vfxParticles: true,
+      letterboxBanner: '',
+      vfxParticles: false,
     };
 
     res.json(config);
@@ -349,11 +338,15 @@ flowMusicRouter.post(
   (req, res) => {
     try {
       const rawBuf: Buffer | undefined = (req as any).rawAudioBuffer;
-      const headerName = String(req.headers['x-track-filename'] || '');
-      const headerTitle = String(req.headers['x-track-title'] || '');
+      const safeDecode = (v: string | undefined): string => {
+        if (!v) return '';
+        try { return decodeURIComponent(v); } catch { return v; }
+      };
+      const headerName = safeDecode(String(req.headers['x-track-filename'] || ''));
+      const headerTitle = safeDecode(String(req.headers['x-track-title'] || ''));
       const origFilename = req.body?.filename || headerName || 'uploaded_track.mp3';
       const title =
-        decodeURIComponent(req.body?.title || headerTitle || '').trim() ||
+        safeDecode(String(req.body?.title || headerTitle || '')).trim() ||
         path.basename(origFilename, path.extname(origFilename));
 
       let buffer: Buffer;
@@ -383,6 +376,12 @@ flowMusicRouter.post(
         return;
       }
 
+      const scriptId =
+        String(req.body?.scriptId || '').trim() ||
+        safeDecode(String(req.headers['x-script-id'] || '')).trim() ||
+        'flow_studio_custom';
+      const downloadUrl = `/api/flow-music/downloads/${id}`;
+
       fs.writeFileSync(targetPath, buffer);
       fs.writeFileSync(
         path.join(downloadsDir, `${id}.json`),
@@ -391,7 +390,7 @@ flowMusicRouter.post(
             id,
             title,
             filename: targetFilename,
-            scriptId: req.body?.scriptId || String(req.headers['x-script-id'] || ''),
+            scriptId,
             uploaded: true,
             createdAt: new Date().toISOString(),
           },
@@ -401,12 +400,16 @@ flowMusicRouter.post(
         'utf8'
       );
 
+      // User-uploaded audio is automatically approved and ready for short video production
+      setSongApproval(scriptId, true, downloadUrl, title);
+
       res.json({
         success: true,
+        approved: true,
         track: {
           id,
           filename: targetFilename,
-          url: `/api/flow-music/downloads/${id}`,
+          url: downloadUrl,
           title,
         },
       });
@@ -465,8 +468,6 @@ flowMusicRouter.get('/latest-track', (_req, res) => {
         if (meta?.title) title = meta.title;
         if (meta?.transcription) transcription = meta.transcription;
       } catch {}
-    } else if (latestId.includes('hanuman')) {
-      title = 'Lord Hanuman Vow // Goosebumps 🚩 (Google Flow Lyria 3.5)';
     }
 
     res.json({
@@ -592,9 +593,10 @@ flowMusicRouter.get('/beat-map/:scriptId', async (req, res) => {
   }
 });
 
-// Get preset scene definitions
+// Get current studio scenes
 flowMusicRouter.get('/scenes', (_req, res) => {
-  res.json({ scenes: HANUMAN_SCENE_DEFINITIONS });
+  const draft = getFlowMusicStudioState();
+  res.json({ scenes: draft.scenes || [] });
 });
 
 // Start Full Video Pipeline (Shorts 9:16 + Long 16:9) - Gated strictly by song approval
@@ -707,7 +709,7 @@ flowMusicRouter.get('/latest-videos', (_req, res) => {
         })
         .map((f) => {
           const idx = Number(f.match(/_scene_(\d+)/)?.[1] ?? 0);
-          const scene = draft.scenes?.[idx] || HANUMAN_SCENE_DEFINITIONS[idx];
+          const scene = draft.scenes?.[idx];
           return {
             line: scene?.line || `Scene ${idx + 1}`,
             prompt: scene?.prompt || '',

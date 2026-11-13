@@ -972,6 +972,653 @@ function renderShockwavePulse(params: ProfileTemplateParams, kit: StyleKit, cont
   return { html, css, js };
 }
 
+/**
+ * Utility Motion Graphic: Question Mark Above Head / Mystery Callout
+ * Floating bouncy 3D ? mark over subject/head with curiosity glow, curiosity badge, and question caption.
+ */
+function renderQuestionMark(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'top', scale);
+  const qColor = kit.popup.accent || kit.theme.primary || '#FFD700';
+  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'रहस्य' : 'MYSTERY');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template question-mark-callout dm-3d-scene">
+      <div class="dm-3d-card">
+        <div class="dm-qmark-wrapper">
+          <div class="dm-qmark-icon-wrap">
+            <svg viewBox="0 0 160 160" width="130" height="130" class="dm-qmark-svg">
+              <defs>
+                <filter id="${containerId}-qGlow" x="-50%" y="-50%" width="200%" height="200%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+                <linearGradient id="${containerId}-qGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#FFFFFF"/>
+                  <stop offset="40%" stop-color="${qColor}"/>
+                  <stop offset="100%" stop-color="#E11D48"/>
+                </linearGradient>
+              </defs>
+              <circle cx="80" cy="80" r="54" fill="none" stroke="${qColor}" stroke-width="2" opacity="0.6" stroke-dasharray="4 6" class="dm-q-ring"/>
+              <circle cx="80" cy="80" r="42" fill="rgba(15,15,22,0.85)" stroke="${qColor}" stroke-width="3" filter="url(#${containerId}-qGlow)"/>
+              <path d="M 64,56 C 64,44 72,36 84,36 C 96,36 104,44 104,54 C 104,64 96,70 88,76 C 82,80 80,86 80,94" fill="none" stroke="url(#${containerId}-qGrad)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" filter="url(#${containerId}-qGlow)" class="dm-q-curve"/>
+              <circle cx="80" cy="116" r="6.5" fill="url(#${containerId}-qGrad)" filter="url(#${containerId}-qGlow)" class="dm-q-dot"/>
+            </svg>
+          </div>
+          <div class="dm-qmark-label">
+            <div class="dm-qmark-badge">
+              <span class="dm-pulse-dot"></span>
+              <span>❓ ${escapeHtml(badgeText)}</span>
+            </div>
+            <div class="dm-qmark-title">${escapeHtml(params.title)}</div>
+            ${params.detail ? `<div class="dm-qmark-detail">${escapeHtml(params.detail)}</div>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; }
+    #${containerId} .dm-qmark-wrapper { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    #${containerId} .dm-qmark-icon-wrap { filter: drop-shadow(0 10px 30px rgba(0,0,0,0.9)) drop-shadow(0 0 20px ${qColor}88); }
+    #${containerId} .dm-qmark-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #FFFFFF; background: rgba(12, 14, 20, 0.88); backdrop-filter: blur(14px); border: 1.2px solid ${qColor}; padding: 3px 14px; border-radius: 999px; margin-top: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.8), 0 0 12px ${qColor}44; }
+    #${containerId} .dm-pulse-dot { width: 6px; height: 6px; border-radius: 999px; background: ${qColor}; box-shadow: 0 0 8px ${qColor}; display: inline-block; }
+    #${containerId} .dm-qmark-title { font-size: 24px; font-weight: 900; color: #FFFFFF; margin-top: 5px; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 14px ${qColor}; }
+    #${containerId} .dm-qmark-detail { font-size: 13px; font-weight: 600; color: #E4E4E7; margin-top: 2px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.3, y: -25 }, { opacity: 1, scale: 1.15, y: 0, duration: 0.38, ease: "back.out(2.8)" });
+    tl.to(el, { scale: 1, duration: 0.2, ease: "power2.out" });
+    const ring = el.querySelector(".dm-q-ring");
+    if (ring) {
+      tl.to(ring, { rotation: 360, transformOrigin: "80px 80px", duration: 8, ease: "none", repeat: -1 }, 0);
+    }
+    const card = el.querySelector(".dm-3d-card");
+    if (card) {
+      tl.to(card, { y: "-=9", rotation: 3, duration: 0.75, yoyo: true, repeat: 4, ease: "sine.inOut" }, 0.4);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Utility Motion Graphic: Bouncing Down / Target Arrow Callout
+ * Dynamic pointing arrow with energetic spring bounce, chevron shaft, and target point ping.
+ */
+function renderBouncingArrow(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const arrColor = kit.popup.accent || kit.theme.primary || '#EF4444';
+  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'यहाँ देखें' : 'LOOK HERE');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template bouncing-arrow-callout dm-3d-scene">
+      <div class="dm-3d-card">
+        <div class="dm-bounce-arrow-wrap">
+          <div class="dm-arrow-pill">
+            <span class="dm-arrow-pill-icon">👇</span>
+            <span>${escapeHtml(badgeText)}</span>
+          </div>
+          <svg viewBox="0 0 140 180" width="110" height="150" class="dm-barr-svg">
+            <defs>
+              <filter id="${containerId}-barrGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <line x1="70" y1="20" x2="70" y2="120" stroke="${arrColor}" stroke-width="12" stroke-linecap="round" filter="url(#${containerId}-barrGlow)" class="dm-barr-shaft"/>
+            <line x1="70" y1="20" x2="70" y2="120" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+            <polygon points="70,148 35,98 105,98" fill="${arrColor}" filter="url(#${containerId}-barrGlow)" class="dm-barr-head"/>
+            <polygon points="70,140 45,102 95,102" fill="#FFFFFF"/>
+            <circle cx="70" cy="156" r="16" fill="none" stroke="${arrColor}" stroke-width="3" class="dm-barr-ping"/>
+            <circle cx="70" cy="156" r="5" fill="#FFFFFF"/>
+          </svg>
+          <div class="dm-barr-caption">
+            <div class="dm-barr-title">${escapeHtml(params.title)}</div>
+            ${params.detail ? `<div class="dm-barr-detail">${escapeHtml(params.detail)}</div>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; }
+    #${containerId} .dm-bounce-arrow-wrap { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    #${containerId} .dm-arrow-pill { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #FFFFFF; background: rgba(12, 14, 20, 0.88); backdrop-filter: blur(14px); border: 1.2px solid ${arrColor}; padding: 3px 14px; border-radius: 999px; margin-bottom: 2px; box-shadow: 0 4px 16px rgba(0,0,0,0.8), 0 0 14px ${arrColor}66; }
+    #${containerId} .dm-barr-svg { filter: drop-shadow(0 6px 20px ${arrColor}88); overflow: visible; }
+    #${containerId} .dm-barr-title { font-size: 24px; font-weight: 900; color: #FFFFFF; margin-top: 4px; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 14px ${arrColor}; }
+    #${containerId} .dm-barr-detail { font-size: 13px; font-weight: 600; color: #E4E4E7; margin-top: 2px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, y: -35 }, { opacity: 1, y: 0, duration: 0.35, ease: "back.out(2)" });
+    const arrowSvg = el.querySelector(".dm-barr-svg");
+    if (arrowSvg) {
+      tl.to(arrowSvg, { y: "+=16", duration: 0.45, ease: "power2.inOut", yoyo: true, repeat: 7 }, 0.2);
+    }
+    const ping = el.querySelector(".dm-barr-ping");
+    if (ping) {
+      tl.fromTo(ping, { scale: 0.4, opacity: 1, transformOrigin: "70px 156px" }, { scale: 2.2, opacity: 0, duration: 0.75, repeat: 4, ease: "power2.out" }, 0.3);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Utility Motion Graphic: Glowing Box Frame Draw
+ * Animated border drawing a neon rectangle around crucial documents, faces, or numbers.
+ */
+function renderBoxHighlight(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const boxColor = kit.popup.accent || kit.theme.primary || '#00F0FF';
+  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'प्रमाणित तथ्य' : 'KEY EVIDENCE');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template box-highlight-callout dm-3d-scene">
+      <div class="dm-3d-card">
+        <div class="dm-box-hl-container">
+          <div class="dm-box-badge">
+            <span class="dm-pulse-dot"></span>
+            <span>🔲 ${escapeHtml(badgeText)}</span>
+          </div>
+          <div class="dm-box-frame">
+            <svg viewBox="0 0 320 180" width="280" height="155" class="dm-box-svg">
+              <defs>
+                <filter id="${containerId}-boxGlow" x="-30%" y="-30%" width="160%" height="160%">
+                  <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+                  <feMerge>
+                    <feMergeNode in="blur"/>
+                    <feMergeNode in="SourceGraphic"/>
+                  </feMerge>
+                </filter>
+              </defs>
+              <rect x="10" y="10" width="300" height="160" rx="12" fill="rgba(10,14,24,0.6)" stroke="${boxColor}" stroke-width="3" filter="url(#${containerId}-boxGlow)" class="dm-box-rect"/>
+              <rect x="10" y="10" width="300" height="160" rx="12" fill="none" stroke="#FFFFFF" stroke-width="1.2" opacity="0.6"/>
+              <path d="M 6,24 L 6,6 L 24,6" fill="none" stroke="${boxColor}" stroke-width="4"/>
+              <path d="M 314,24 L 314,6 L 296,6" fill="none" stroke="${boxColor}" stroke-width="4"/>
+              <path d="M 6,156 L 6,174 L 24,174" fill="none" stroke="${boxColor}" stroke-width="4"/>
+              <path d="M 314,156 L 314,174 L 296,174" fill="none" stroke="${boxColor}" stroke-width="4"/>
+            </svg>
+            <div class="dm-box-content">
+              <div class="dm-box-title">${escapeHtml(params.title)}</div>
+              ${params.detail ? `<div class="dm-box-detail">${escapeHtml(params.detail)}</div>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; }
+    #${containerId} .dm-box-hl-container { display: flex; flex-direction: column; align-items: center; }
+    #${containerId} .dm-box-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #FFFFFF; background: rgba(12, 14, 20, 0.9); backdrop-filter: blur(14px); border: 1.2px solid ${boxColor}; padding: 3px 14px; border-radius: 999px; margin-bottom: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.8), 0 0 12px ${boxColor}66; }
+    #${containerId} .dm-box-frame { position: relative; display: flex; align-items: center; justify-content: center; }
+    #${containerId} .dm-box-svg { filter: drop-shadow(0 8px 24px ${boxColor}66); overflow: visible; }
+    #${containerId} .dm-box-content { position: absolute; inset: 18px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; pointer-events: none; }
+    #${containerId} .dm-box-title { font-size: 24px; font-weight: 900; color: #FFFFFF; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 12px ${boxColor}; }
+    #${containerId} .dm-box-detail { font-size: 13px; font-weight: 600; color: #E4E4E7; margin-top: 4px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.35, ease: "power2.out" });
+    const rect = el.querySelector(".dm-box-rect");
+    if (rect) {
+      tl.fromTo(rect, { strokeDasharray: 920, strokeDashoffset: 920 }, { strokeDashoffset: 0, duration: 0.7, ease: "power2.inOut" }, 0.05);
+    }
+    const content = el.querySelector(".dm-box-content");
+    if (content) {
+      tl.fromTo(content, { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 0.3);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Utility Motion Graphic: Viral YouTube Hand-Drawn Red Circle
+ * The iconic double-loop sketchy red circle encircling a detail or face twice.
+ */
+function renderRedCircle(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const redColor = '#EF4444';
+  const badgeText = params.badge || 'LOOK HERE';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template red-circle-callout dm-3d-scene">
+      <div class="dm-3d-card">
+        <svg viewBox="0 0 260 220" width="220" height="185" class="dm-rcirc-svg">
+          <defs>
+            <filter id="${containerId}-redGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <path d="M 130,22 C 190,18 240,65 240,118 C 240,172 192,204 130,204 C 65,204 20,165 20,116 C 20,60 70,26 135,24 C 188,22 234,58 236,114 C 238,168 196,200 138,202 C 86,204 32,174 26,128" fill="none" stroke="${redColor}" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#${containerId}-redGlow)" class="dm-rcirc-path"/>
+          <path d="M 130,22 C 190,18 240,65 240,118 C 240,172 192,204 130,204 C 65,204 20,165 20,116 C 20,60 70,26 135,24 C 188,22 234,58 236,114 C 238,168 196,200 138,202 C 86,204 32,174 26,128" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="dm-rcirc-label">
+          <div class="dm-rcirc-badge">
+            <span class="dm-pulse-dot"></span>
+            <span>⭕ ${escapeHtml(badgeText)}</span>
+          </div>
+          <div class="dm-rcirc-title">${escapeHtml(params.title)}</div>
+          ${params.detail ? `<div class="dm-rcirc-detail">${escapeHtml(params.detail)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; }
+    #${containerId} .dm-rcirc-svg { filter: drop-shadow(0 0 24px rgba(239,68,68,0.85)); overflow: visible; }
+    #${containerId} .dm-rcirc-label { margin-top: 6px; text-align: center; }
+    #${containerId} .dm-rcirc-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #FFFFFF; background: rgba(12, 14, 20, 0.88); backdrop-filter: blur(14px); border: 1.2px solid ${redColor}; padding: 3px 14px; border-radius: 999px; margin-bottom: 2px; box-shadow: 0 4px 16px rgba(0,0,0,0.8), 0 0 14px ${redColor}66; }
+    #${containerId} .dm-rcirc-title { font-size: 24px; font-weight: 900; color: #FFFFFF; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 14px ${redColor}; }
+    #${containerId} .dm-rcirc-detail { font-size: 13px; font-weight: 600; color: #E4E4E7; margin-top: 2px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.25 });
+    const path = el.querySelector(".dm-rcirc-path");
+    if (path) {
+      tl.fromTo(path, { strokeDasharray: 1100, strokeDashoffset: 1100 }, { strokeDashoffset: 0, duration: 0.55, ease: "power2.inOut" }, 0.05);
+    }
+    const lbl = el.querySelector(".dm-rcirc-label");
+    if (lbl) {
+      tl.fromTo(lbl, { scale: 0.7, opacity: 0, y: 12 }, { scale: 1, opacity: 1, y: 0, duration: 0.35, ease: "back.out(2)" }, 0.28);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Utility Motion Graphic: High Voltage Alert Exclamation (!)
+ */
+function renderAlertExclamation(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const warnColor = '#F59E0B';
+  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'सावधान' : 'ALERT');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template alert-exclamation dm-3d-scene">
+      <div class="dm-3d-card">
+        <svg viewBox="0 0 180 180" width="130" height="130" class="dm-alert-svg">
+          <defs>
+            <filter id="${containerId}-alertGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <circle cx="90" cy="90" r="68" fill="none" stroke="${warnColor}" stroke-width="2.5" class="dm-alert-ring"/>
+          <polygon points="90,20 150,54 150,126 90,160 30,126 30,54" fill="rgba(18,14,10,0.92)" stroke="${warnColor}" stroke-width="4" filter="url(#${containerId}-alertGlow)"/>
+          <line x1="90" y1="52" x2="90" y2="104" stroke="${warnColor}" stroke-width="12" stroke-linecap="round"/>
+          <line x1="90" y1="52" x2="90" y2="104" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="90" cy="126" r="6.5" fill="#FFFFFF" filter="url(#${containerId}-alertGlow)"/>
+        </svg>
+        <div class="dm-alert-label">
+          <div class="dm-alert-badge">
+            <span class="dm-pulse-dot"></span>
+            <span>⚠️ ${escapeHtml(badgeText)}</span>
+          </div>
+          <div class="dm-alert-title">${escapeHtml(params.title)}</div>
+          ${params.detail ? `<div class="dm-alert-detail">${escapeHtml(params.detail)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; }
+    #${containerId} .dm-alert-svg { filter: drop-shadow(0 0 24px rgba(245,158,11,0.85)); overflow: visible; }
+    #${containerId} .dm-alert-label { margin-top: 6px; text-align: center; }
+    #${containerId} .dm-alert-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #FFFFFF; background: rgba(12, 14, 20, 0.88); backdrop-filter: blur(14px); border: 1.2px solid ${warnColor}; padding: 3px 14px; border-radius: 999px; margin-bottom: 2px; box-shadow: 0 4px 16px rgba(0,0,0,0.8), 0 0 14px ${warnColor}66; }
+    #${containerId} .dm-alert-title { font-size: 24px; font-weight: 900; color: #FFFFFF; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 14px ${warnColor}; }
+    #${containerId} .dm-alert-detail { font-size: 13px; font-weight: 600; color: #E4E4E7; margin-top: 2px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.2 }, { opacity: 1, scale: 1.18, duration: 0.32, ease: "back.out(3)" });
+    tl.to(el, { scale: 1, duration: 0.18, ease: "power2.out" });
+    const ring = el.querySelector(".dm-alert-ring");
+    if (ring) {
+      tl.fromTo(ring, { scale: 0.5, opacity: 1, transformOrigin: "90px 90px" }, { scale: 2.4, opacity: 0, duration: 0.85, repeat: 3, ease: "power2.out" }, 0.2);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Utility Motion Graphic: Eureka Discovery Lightbulb (💡)
+ */
+function renderIdeaLightbulb(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'top', scale);
+  const bulbColor = '#FBBF24';
+  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'आत्मज्ञान' : 'EUREKA');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template idea-lightbulb dm-3d-scene">
+      <div class="dm-3d-card">
+        <svg viewBox="0 0 180 180" width="130" height="130" class="dm-bulb-svg">
+          <defs>
+            <filter id="${containerId}-bulbGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <line x1="90" y1="15" x2="90" y2="30" stroke="${bulbColor}" stroke-width="4" stroke-linecap="round" class="dm-bulb-ray"/>
+          <line x1="140" y1="35" x2="130" y2="48" stroke="${bulbColor}" stroke-width="4" stroke-linecap="round" class="dm-bulb-ray"/>
+          <line x1="165" y1="85" x2="150" y2="85" stroke="${bulbColor}" stroke-width="4" stroke-linecap="round" class="dm-bulb-ray"/>
+          <line x1="40" y1="35" x2="50" y2="48" stroke="${bulbColor}" stroke-width="4" stroke-linecap="round" class="dm-bulb-ray"/>
+          <line x1="15" y1="85" x2="30" y2="85" stroke="${bulbColor}" stroke-width="4" stroke-linecap="round" class="dm-bulb-ray"/>
+          <path d="M 62,110 C 50,96 46,78 52,60 C 60,38 80,30 98,34 C 116,38 128,54 128,74 C 128,90 120,102 110,110 Z" fill="rgba(251,191,36,0.22)" stroke="${bulbColor}" stroke-width="4.5" filter="url(#${containerId}-bulbGlow)"/>
+          <path d="M 76,95 L 82,65 L 90,75 L 98,65 L 104,95" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" filter="url(#${containerId}-bulbGlow)"/>
+          <rect x="74" y="116" width="32" height="6" rx="2" fill="#E4E4E7"/>
+          <rect x="76" y="125" width="28" height="6" rx="2" fill="#A1A1AA"/>
+        </svg>
+        <div class="dm-bulb-label">
+          <div class="dm-bulb-badge">
+            <span class="dm-pulse-dot"></span>
+            <span>💡 ${escapeHtml(badgeText)}</span>
+          </div>
+          <div class="dm-bulb-title">${escapeHtml(params.title)}</div>
+          ${params.detail ? `<div class="dm-bulb-detail">${escapeHtml(params.detail)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; }
+    #${containerId} .dm-bulb-svg { filter: drop-shadow(0 0 26px rgba(251,191,36,0.95)); overflow: visible; }
+    #${containerId} .dm-bulb-label { margin-top: 4px; text-align: center; }
+    #${containerId} .dm-bulb-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #FFFFFF; background: rgba(12, 14, 20, 0.88); backdrop-filter: blur(14px); border: 1.2px solid ${bulbColor}; padding: 3px 14px; border-radius: 999px; margin-bottom: 2px; box-shadow: 0 4px 16px rgba(0,0,0,0.8), 0 0 14px ${bulbColor}66; }
+    #${containerId} .dm-bulb-title { font-size: 24px; font-weight: 900; color: #FFFFFF; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 14px ${bulbColor}; }
+    #${containerId} .dm-bulb-detail { font-size: 13px; font-weight: 600; color: #E4E4E7; margin-top: 2px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.2, y: -20 }, { opacity: 1, scale: 1.15, y: 0, duration: 0.35, ease: "back.out(2.5)" });
+    tl.to(el, { scale: 1, duration: 0.18, ease: "power2.out" });
+    const rays = el.querySelectorAll(".dm-bulb-ray");
+    if (rays.length) {
+      tl.fromTo(rays, { scale: 0.4, opacity: 0, transformOrigin: "90px 85px" }, { scale: 1.3, opacity: 1, duration: 0.4, stagger: 0.05, ease: "back.out(2)" }, 0.2);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Utility Motion Graphic: Verified Checkmark (✓) or Rejection Cross (✗)
+ */
+function renderStampCheckCross(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const isCross = (params.templateId || '').includes('cross') || (params.templateId || '').includes('failed');
+  const stampColor = isCross ? '#EF4444' : '#10B981';
+  const badgeText = params.badge || (isCross ? 'REJECTED' : 'VERIFIED');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template stamp-check-cross dm-3d-scene">
+      <div class="dm-3d-card">
+        <svg viewBox="0 0 180 180" width="130" height="130" class="dm-stamp-svg">
+          <defs>
+            <filter id="${containerId}-stmpGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <circle cx="90" cy="90" r="70" fill="rgba(12,16,22,0.9)" stroke="${stampColor}" stroke-width="6" stroke-dasharray="14 8" filter="url(#${containerId}-stmpGlow)"/>
+          <circle cx="90" cy="90" r="58" fill="none" stroke="${stampColor}" stroke-width="2"/>
+          ${
+            isCross
+              ? `<line x1="56" y1="56" x2="124" y2="124" stroke="${stampColor}" stroke-width="12" stroke-linecap="round"/>
+                 <line x1="124" y1="56" x2="56" y2="124" stroke="${stampColor}" stroke-width="12" stroke-linecap="round"/>
+                 <line x1="56" y1="56" x2="124" y2="124" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>
+                 <line x1="124" y1="56" x2="56" y2="124" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"/>`
+              : `<path d="M 48,94 L 78,124 L 134,62" fill="none" stroke="${stampColor}" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+                 <path d="M 48,94 L 78,124 L 134,62" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`
+          }
+        </svg>
+        <div class="dm-stamp-label">
+          <div class="dm-stamp-badge">
+            <span>${isCross ? '✗' : '✓'} ${escapeHtml(badgeText)}</span>
+          </div>
+          <div class="dm-stamp-title">${escapeHtml(params.title)}</div>
+          ${params.detail ? `<div class="dm-stamp-detail">${escapeHtml(params.detail)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; }
+    #${containerId} .dm-stamp-svg { filter: drop-shadow(0 10px 28px ${stampColor}88); overflow: visible; }
+    #${containerId} .dm-stamp-label { margin-top: 6px; text-align: center; }
+    #${containerId} .dm-stamp-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; color: #FFFFFF; background: rgba(12, 14, 20, 0.9); backdrop-filter: blur(14px); border: 1.5px solid ${stampColor}; padding: 3px 16px; border-radius: 999px; margin-bottom: 2px; box-shadow: 0 4px 16px rgba(0,0,0,0.8), 0 0 14px ${stampColor}66; }
+    #${containerId} .dm-stamp-title { font-size: 24px; font-weight: 900; color: #FFFFFF; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 14px ${stampColor}; }
+    #${containerId} .dm-stamp-detail { font-size: 13px; font-weight: 600; color: #E4E4E7; margin-top: 2px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 2.2, rotation: -12 }, { opacity: 1, scale: 1, rotation: -4, duration: 0.32, ease: "power4.in" });
+    tl.fromTo(el, { scale: 1 }, { scale: 1.05, duration: 0.1, yoyo: true, repeat: 1 });
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Utility Motion Graphic: Speech / Quote Dialogue Bubble
+ */
+function renderSpeechBubble(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const bColor = kit.popup.accent || kit.theme.primary || '#38BDF8';
+  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'संवाद' : 'DIALOGUE');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template speech-bubble-callout dm-3d-scene">
+      <div class="dm-3d-card">
+        <div class="dm-bubble-wrap">
+          <div class="dm-bubble-box">
+            <div class="dm-bubble-badge">
+              <span class="dm-pulse-dot"></span>
+              <span>💬 ${escapeHtml(badgeText)}</span>
+            </div>
+            <div class="dm-bubble-text">"${escapeHtml(params.title)}"</div>
+            ${params.detail ? `<div class="dm-bubble-author">— ${escapeHtml(params.detail)}</div>` : ''}
+          </div>
+          <svg viewBox="0 0 40 24" width="32" height="20" class="dm-bubble-tail">
+            <polygon points="4,0 36,0 12,24" fill="rgba(12, 16, 26, 0.92)"/>
+            <path d="M 4,0 L 12,24 L 36,0" fill="none" stroke="${bColor}" stroke-width="2"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; }
+    #${containerId} .dm-bubble-wrap { display: flex; flex-direction: column; align-items: center; filter: drop-shadow(0 12px 28px rgba(0,0,0,0.85)) drop-shadow(0 0 16px ${bColor}55); }
+    #${containerId} .dm-bubble-box { max-width: 340px; background: rgba(12, 16, 26, 0.92); backdrop-filter: blur(16px); border: 1.5px solid ${bColor}; border-radius: 18px; padding: 12px 20px; text-align: center; }
+    #${containerId} .dm-bubble-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #FFFFFF; background: ${bColor}22; border: 1px solid ${bColor}; padding: 2px 10px; border-radius: 999px; margin-bottom: 6px; }
+    #${containerId} .dm-pulse-dot { width: 5px; height: 5px; border-radius: 999px; background: ${bColor}; }
+    #${containerId} .dm-bubble-text { font-size: 20px; font-weight: 800; color: #FFFFFF; line-height: 1.3; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.9); }
+    #${containerId} .dm-bubble-author { font-size: 12px; font-weight: 600; color: #94A3B8; margin-top: 4px; font-style: italic; }
+    #${containerId} .dm-bubble-tail { margin-top: -1px; margin-left: -40px; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.4, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: 0.35, ease: "back.out(2.2)" });
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Utility Motion Graphic: Map Location Drop Pin
+ */
+function renderLocationPin(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const pColor = kit.popup.accent || kit.theme.primary || '#EF4444';
+  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'तीर्थ स्थल' : 'COORDINATES');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template location-pin-callout dm-3d-scene">
+      <div class="dm-3d-card">
+        <svg viewBox="0 0 160 180" width="120" height="135" class="dm-pin-svg">
+          <defs>
+            <filter id="${containerId}-pinGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <ellipse cx="80" cy="155" rx="34" ry="12" fill="none" stroke="${pColor}" stroke-width="3" class="dm-pin-ripple"/>
+          <ellipse cx="80" cy="155" rx="14" ry="5" fill="${pColor}" opacity="0.6"/>
+          <path d="M 80,145 C 50,105 40,85 40,60 C 40,36 58,18 80,18 C 102,18 120,36 120,60 C 120,85 110,105 80,145 Z" fill="${pColor}" filter="url(#${containerId}-pinGlow)" class="dm-pin-body"/>
+          <circle cx="80" cy="60" r="16" fill="#FFFFFF"/>
+          <circle cx="80" cy="60" r="8" fill="rgba(15,15,22,0.9)"/>
+        </svg>
+        <div class="dm-pin-label">
+          <div class="dm-pin-badge">
+            <span>📍 ${escapeHtml(badgeText)}</span>
+          </div>
+          <div class="dm-pin-title">${escapeHtml(params.title)}</div>
+          ${params.detail ? `<div class="dm-pin-detail">${escapeHtml(params.detail)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; }
+    #${containerId} .dm-pin-svg { filter: drop-shadow(0 10px 24px rgba(0,0,0,0.8)); overflow: visible; }
+    #${containerId} .dm-pin-label { margin-top: 2px; text-align: center; }
+    #${containerId} .dm-pin-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: #FFFFFF; background: rgba(12, 14, 20, 0.9); backdrop-filter: blur(14px); border: 1.2px solid ${pColor}; padding: 3px 14px; border-radius: 999px; margin-bottom: 2px; }
+    #${containerId} .dm-pin-title { font-size: 24px; font-weight: 900; color: #FFFFFF; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 14px ${pColor}; }
+    #${containerId} .dm-pin-detail { font-size: 13px; font-weight: 600; color: #E4E4E7; margin-top: 2px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, y: -50 }, { opacity: 1, y: 0, duration: 0.45, ease: "bounce.out" });
+    const ripple = el.querySelector(".dm-pin-ripple");
+    if (ripple) {
+      tl.fromTo(ripple, { scale: 0.3, opacity: 1, transformOrigin: "80px 155px" }, { scale: 2.2, opacity: 0, duration: 0.85, repeat: 3, ease: "power2.out" }, 0.45);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Utility Motion Graphic: Speedometer / Hazard Gauge Needle
+ */
+function renderGaugeNeedle(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'top-right', scale);
+  const gColor = kit.popup.accent || kit.theme.primary || '#F59E0B';
+  const badgeText = params.badge || (kit.key === 'against_the_odds' ? 'HAZARD METER' : 'METRIC GAUGE');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template gauge-needle-callout dm-3d-scene">
+      <div class="dm-3d-card">
+        <svg viewBox="0 0 220 140" width="180" height="115" class="dm-gauge-svg">
+          <defs>
+            <filter id="${containerId}-gaugeGlow" x="-30%" y="-30%" width="160%" height="160%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <path d="M 30,120 A 80,80 0 0,1 190,120" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="14" stroke-linecap="round"/>
+          <path d="M 30,120 A 80,80 0 0,1 190,120" fill="none" stroke="${gColor}" stroke-width="14" stroke-linecap="round" stroke-dasharray="200 60" filter="url(#${containerId}-gaugeGlow)"/>
+          <line x1="30" y1="120" x2="42" y2="120" stroke="#FFFFFF" stroke-width="3"/>
+          <line x1="110" y1="40" x2="110" y2="52" stroke="#FFFFFF" stroke-width="3"/>
+          <line x1="190" y1="120" x2="178" y2="120" stroke="#EF4444" stroke-width="3"/>
+          <polygon points="110,120 106,120 108,46 112,46 114,120" fill="#EF4444" filter="url(#${containerId}-gaugeGlow)" class="dm-gauge-needle"/>
+          <circle cx="110" cy="120" r="10" fill="#FFFFFF"/>
+          <circle cx="110" cy="120" r="5" fill="#141418"/>
+        </svg>
+        <div class="dm-gauge-label">
+          <div class="dm-gauge-badge">
+            <span class="dm-pulse-dot"></span>
+            <span>🎛️ ${escapeHtml(badgeText)}</span>
+          </div>
+          <div class="dm-gauge-title">${escapeHtml(params.title)}</div>
+          ${params.detail ? `<div class="dm-gauge-detail">${escapeHtml(params.detail)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-3d-card { position: relative; display: flex; flex-direction: column; align-items: center; }
+    #${containerId} .dm-gauge-svg { filter: drop-shadow(0 6px 18px rgba(0,0,0,0.85)); overflow: visible; }
+    #${containerId} .dm-gauge-label { margin-top: 2px; text-align: center; }
+    #${containerId} .dm-gauge-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #FFFFFF; background: rgba(12, 14, 20, 0.9); backdrop-filter: blur(14px); border: 1.2px solid ${gColor}; padding: 2px 12px; border-radius: 999px; margin-bottom: 2px; }
+    #${containerId} .dm-gauge-title { font-size: 22px; font-weight: 900; color: #FFFFFF; font-family: ${kit.theme.fontFamily}; text-shadow: 0 2px 4px rgba(0,0,0,0.95), 0 0 12px ${gColor}; }
+    #${containerId} .dm-gauge-detail { font-size: 13px; font-weight: 600; color: #E4E4E7; margin-top: 2px; text-shadow: 0 1px 4px rgba(0,0,0,0.9); }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.3, ease: "power2.out" });
+    const needle = el.querySelector(".dm-gauge-needle");
+    if (needle) {
+      tl.fromTo(needle, { rotation: -60, transformOrigin: "110px 120px" }, { rotation: 55, duration: 0.85, ease: "elastic.out(1, 0.4)" }, 0.15);
+      tl.to(needle, { rotation: 40, duration: 0.4, ease: "sine.inOut" }, 1.0);
+    }
+  `;
+
+  return { html, css, js };
+}
+
 // ============================================================================
 // ANCIENT DHARMA DOCUMENTARY MOTION GRAPHICS LIBRARY
 // (Epic Indian Mythology, Ancient Manuscripts, Sacred Maps & Temple Architecture)
@@ -2143,17 +2790,124 @@ export function compileMotionTemplate(
     // 2. Marker Highlighter Pen
     case 'highlighter':
     case 'marker_highlight':
+    case 'marker_strike':
+    case 'gold_shimmer_highlight':
+    case 'hazard_yellow_highlight':
+    case 'scribble_highlight':
     case 'archival_intel_card':
     case 'sacred_mandala_card':
       rendered = renderHighlighter(params, kit, containerId);
       break;
 
-    // 3. Curved Pointer Arrow Callout
+    // 3. Curved Pointer Arrow Callout & Bouncing Arrows
     case 'arrow_callout':
     case 'arrow':
     case 'flow_vector':
     case 'end_prompt':
       rendered = renderArrowCallout(params, kit, containerId);
+      break;
+
+    // --- Simple YouTube Retention Motion Graphics (100 Elements) ---
+    // Simple 1: Floating Question Mark / Confused Head
+    case 'question_mark':
+    case 'question_head':
+    case 'triple_question':
+    case 'thought_cloud':
+    case 'confused_wobble':
+    case 'unsolved_case':
+    case 'contradiction_dilemma':
+    case 'divine_inquiry':
+    case 'curiosity_hook_mark':
+    case 'who_is_it':
+    case 'why_question':
+      rendered = renderQuestionMark(params, kit, containerId);
+      break;
+
+    // Simple 2: Energetic Bouncing Arrow & Directional Pointers
+    case 'bouncing_arrow':
+    case 'sketch_arrow':
+    case 'arrow_target':
+    case 'double_pointer_arrow':
+    case 'diagonal_strike_arrow':
+    case 'pulsing_beacon_arrow':
+    case 'danger_warning_arrow':
+    case 'finger_pointer':
+    case 'curved_loop_arrow':
+    case 'down_arrow':
+    case 'pointer':
+      rendered = renderBouncingArrow(params, kit, containerId);
+      break;
+
+    // Simple 3: Box Highlight & Neon Focus Frame
+    case 'box_highlight':
+    case 'neon_box':
+    case 'frame_highlight':
+    case 'bracket_callout':
+    case 'spotlight_oval':
+      rendered = renderBoxHighlight(params, kit, containerId);
+      break;
+
+    // Simple 4: Hand-Drawn Red Circle (Viral YouTube Encircle Detail)
+    case 'red_circle':
+    case 'sketch_circle':
+    case 'viral_circle':
+      rendered = renderRedCircle(params, kit, containerId);
+      break;
+
+    // Simple 5: Alert Badge & Exclamation Warning
+    case 'alert_exclamation':
+    case 'danger_hazard':
+    case 'red_siren_strobe':
+    case 'caution_tape':
+    case 'critical_alert_badge':
+    case 'system_failure':
+    case 'countdown_warning':
+    case 'breach_alarm':
+      rendered = renderAlertExclamation(params, kit, containerId);
+      break;
+
+    // Simple 6: Eureka Discovery Lightbulb & Breakthrough Sparks
+    case 'idea_lightbulb':
+    case 'eureka_bulb':
+    case 'star_breakthrough':
+    case 'fire_streak':
+    case 'lightning_spark':
+      rendered = renderIdeaLightbulb(params, kit, containerId);
+      break;
+
+    // Simple 7: Checkmark & Rejection Cross Stamps
+    case 'check_verified':
+    case 'check_stamp':
+    case 'thumbs_up_seal':
+    case 'lock_secured':
+    case 'cross_failed':
+    case 'cross_stamp':
+    case 'skull_danger':
+    case 'key_unlocked':
+      rendered = renderStampCheckCross(params, kit, containerId);
+      break;
+
+    // Simple 8: Speech Dialogue Bubble & Quotes
+    case 'speech_bubble':
+    case 'thought_bubble':
+      rendered = renderSpeechBubble(params, kit, containerId);
+      break;
+
+    // Simple 9: Map Location Drop Pin & Coordinates
+    case 'location_pin':
+    case 'flight_path':
+    case 'map_pointer':
+      rendered = renderLocationPin(params, kit, containerId);
+      break;
+
+    // Simple 10: Speedometer / Hazard Gauge Needle
+    case 'gauge_needle':
+    case 'altitude_meter':
+    case 'vital_heartbeat':
+    case 'thermometer_temp':
+    case 'battery_depleting':
+    case 'hazard_gauge_meter':
+      rendered = renderGaugeNeedle(params, kit, containerId);
       break;
 
     // 4. Target / Focus Circle Callout
@@ -2162,6 +2916,9 @@ export function compileMotionTemplate(
     case 'divine_astra_focus':
     case 'quantum_telemetry_dial':
     case 'tactical_waypoint_radar':
+    case 'sonar_ping':
+    case 'focus_frame':
+    case 'orbital_ring':
       rendered = renderCircleCallout(params, kit, containerId);
       break;
 
@@ -2170,6 +2927,8 @@ export function compileMotionTemplate(
     case 'hud_lock':
     case 'reticle':
     case 'tactical_lock':
+    case 'crosshair_pinpoint':
+    case 'reticle_scan':
       rendered = renderSniperLock(params, kit, containerId);
       break;
 
@@ -2178,6 +2937,7 @@ export function compileMotionTemplate(
     case 'loupe':
     case 'lens_zoom':
     case 'inspect_lens':
+    case 'microscope_lens':
       rendered = renderMagnifyingGlass(params, kit, containerId);
       break;
 
@@ -2186,6 +2946,8 @@ export function compileMotionTemplate(
     case 'stamp':
     case 'classified_stamp':
     case 'seal_stamp':
+    case 'date_stamp':
+    case 'evidence_tag':
       rendered = renderRedactedStamp(params, kit, containerId);
       break;
 
@@ -2194,12 +2956,17 @@ export function compileMotionTemplate(
     case 'ticker':
     case 'counter_bar':
     case 'stat_counter':
+    case 'percentage_surge':
+    case 'bar_stat_compare':
+    case 'timeline_scrubber':
+    case 'clock_timer':
       rendered = renderMetricTicker(params, kit, containerId);
       break;
 
     // 9. Kinetic Brush Underline
     case 'kinetic_underline':
     case 'underline':
+    case 'double_underline':
     case 'keyword_underline':
     case 'laser_dimension_caliper':
     case 'vedic_chronicle_pillar':
@@ -2208,10 +2975,11 @@ export function compileMotionTemplate(
 
     // 10. Shockwave Impact Pulse
     case 'shockwave_pulse':
-    case 'hazard_gauge_meter':
     case 'vital_stat_odometer':
     case 'split_metric_odometer':
     case 'cyber_matrix_dossier':
+    case 'impact_blast':
+    case 'sacred_bell_ring':
     default:
       rendered = renderShockwavePulse(params, kit, containerId);
       break;
@@ -2378,11 +3146,51 @@ export function decideTemplateMotionGraphics(
     let chosenTemplateId = selectedTemplate.id;
 
     if (scene.title || plannedMotion?.title) {
-      if (plannedMotion?.type && templates.some((t) => t.id === plannedMotion.type)) {
+      if (plannedMotion?.type) {
         chosenTemplateId = plannedMotion.type;
       }
     } else {
-      if (hasWord(/(?:जय श्री राम|कमेंट)/)) {
+      if (hasWord(/(?:\?|क्यों|क्या|कहाँ|कैसे|किसने|किसलिए|कौन|who|why|what|where|how|when|mystery|unsolved)/i)) {
+        title = isHindi ? 'अनुत्तरित प्रश्न' : 'THE UNANSWERED QUESTION';
+        detail = isHindi ? 'गूढ़ रहस्य की खोज' : 'Exploring The Core Mystery';
+        badge = isHindi ? 'गंभीर प्रश्न' : 'QUESTION';
+        chosenTemplateId = 'question_head';
+      } else if (hasWord(/(?:इधर|उधर|यहाँ|वहाँ|ध्यान\s*दें|look\s*here|notice|see\s*this|arrow|point\s*to|pointer)/i)) {
+        title = isHindi ? 'यहाँ ध्यान दें' : 'LOOK HERE';
+        detail = isHindi ? 'मुख्य विवरण पर दृष्टि' : 'Key Visual Evidence';
+        badge = isHindi ? 'संकेत' : 'POINTER';
+        chosenTemplateId = 'bouncing_arrow';
+      } else if (hasWord(/(?:खतरा|सावधान|चेतावनी|danger|hazard|alert|warning|critical|emergency)/i)) {
+        title = isHindi ? 'गंभीर चेतावनी' : 'CRITICAL WARNING';
+        detail = isHindi ? 'उच्च जोखिम बिंदु' : 'High Threat Detected';
+        badge = isHindi ? 'सावधानी' : 'ALERT';
+        chosenTemplateId = 'alert_exclamation';
+      } else if (hasWord(/(?:विचार|उपाय|युक्ति|समाधान|idea|eureka|discovery|solution|lightbulb)/i)) {
+        title = isHindi ? 'अचानक विचार' : 'EUREKA BREAKTHROUGH';
+        detail = isHindi ? 'रहस्य का समाधान' : 'Key Revelation Discovered';
+        badge = isHindi ? 'नया विचार' : 'DISCOVERY';
+        chosenTemplateId = 'idea_lightbulb';
+      } else if (hasWord(/(?:सत्यापित|प्रमाणित|पास|स्वीकृत|verified|confirmed|approved|success)/i)) {
+        title = isHindi ? 'प्रमाणित सत्य' : 'VERIFIED FACT';
+        detail = isHindi ? 'साक्ष्यों से पूर्णतः सिद्ध' : 'Indisputable Evidence';
+        badge = isHindi ? 'सत्यापित' : 'VERIFIED';
+        chosenTemplateId = 'check_verified';
+      } else if (hasWord(/(?:असफल|खारिज|रद्द|विफल|rejected|failed|denied|wrong|false)/i)) {
+        title = isHindi ? 'विफल प्रयास' : 'VERIFICATION FAILED';
+        detail = isHindi ? 'दावा असत्य प्रमाणित' : 'Debunked by Archival Data';
+        badge = isHindi ? 'खारिज' : 'REJECTED';
+        chosenTemplateId = 'cross_failed';
+      } else if (hasWord(/(?:संवाद|कहा|बोले|कथन|quote|said|dialogue|speech)/i)) {
+        title = isHindi ? 'ऐतिहासिक कथन' : 'HISTORIC QUOTE';
+        detail = isHindi ? 'प्रत्यक्षदर्शी साक्ष्य' : 'Key Statement Recorded';
+        badge = isHindi ? 'संवाद' : 'QUOTE';
+        chosenTemplateId = 'speech_bubble';
+      } else if (hasWord(/(?:स्थान|भूभाग|नक्शा|किला|पहाड़|location|coordinates|pincode|site)/i)) {
+        title = isHindi ? 'भौगोलिक स्थल' : 'COORDINATES';
+        detail = isHindi ? 'रहस्यमयी भू-स्थान' : 'Target Geographic Pin';
+        badge = isHindi ? 'स्थल' : 'LOCATION';
+        chosenTemplateId = 'location_pin';
+      } else if (hasWord(/(?:जय श्री राम|कमेंट)/)) {
         title = isHindi ? 'जय श्री राम' : 'JAI SHRI RAM';
         detail = isHindi ? 'समर्पण और त्याग की अमर गाथा' : 'Eternal Saga of Devotion';
         badge = isHindi ? 'सनातन धर्म' : 'SANATANA DHARMA';

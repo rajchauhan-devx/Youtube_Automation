@@ -3,6 +3,7 @@ export interface FlowMusicSettings {
   prompt: string;
   lyrics: string;
   lyricsMode: 'custom' | 'instrumental' | 'ai';
+  language?: 'auto' | 'hi' | 'en' | 'instrumental';
   title: string;
   mood: string;
   theme: string;

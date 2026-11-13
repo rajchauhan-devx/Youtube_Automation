@@ -156,7 +156,7 @@ export const EDGE_HINDI_VOICES: VoiceInfo[] = [
   },
 ];
 
-const EDGE_PYTHON = process.env.EDGE_TTS_PYTHON || 'python';
+const EDGE_PYTHON = process.env.EDGE_TTS_PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
 const EDGE_TIMEOUT_MS = 60000;
 
 // In-memory cache for ultra-fast instant preview playback

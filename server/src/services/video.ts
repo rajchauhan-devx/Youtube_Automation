@@ -508,7 +508,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         if ((i === 0 && editing.bookendFades) || decisions[i].transition === 'dip-black') post.push(`fade=t=in:st=0:d=${transitionLength}`);
         if ((i === scenePlan.scenes.length - 1 && editing.bookendFades) || decisions[i + 1]?.transition === 'dip-black') post.push(`fade=t=out:st=${length - transitionLength}:d=${transitionLength}`);
         if (opts.letterboxBanner || editing.letterboxBanner) {
-          const bannerText = (opts.letterboxBanner || editing.letterboxBanner || 'Goosebumps 🚩').replace(/:/g, '\\:').replace(/'/g, '');
+          const bannerText = (opts.letterboxBanner || editing.letterboxBanner || '').replace(/:/g, '\\:').replace(/'/g, '');
           const bar = Math.round(height * 0.12);
           post.push(
             `drawbox=x=0:y=0:w=iw:h=${bar}:color=black@0.95:t=fill`,

@@ -21,6 +21,8 @@ export interface RetentionPlan {
   tags: string[];
   musicMood: 'calm' | 'cinematic' | 'epic' | 'upbeat' | 'none';
   memoryEvidence: string;
+  storyMap?: import('./editorial/documentary-topic-vetter.js').FiveActRetentionStoryMap;
+  vettedScorecard?: import('./editorial/documentary-topic-vetter.js').RetentionScorecard;
 }
 export interface RetentionEdit {
   sourceHash: string;
@@ -28,6 +30,14 @@ export interface RetentionEdit {
   notes: string[];
   sceneDirections: { sceneId: string; purpose: string; motion: 'hold' | 'slow-zoom-in' | 'drift-left' | 'drift-right' | 'push-in' | 'pull-out' | 'pan-left' | 'pan-right' | 'rise' | 'drift-in' | 'drift-out'; transition: 'cut' | 'dissolve' }[];
   editedAt: string;
+  auditReport?: import('./editorial/professional-script-doctor.js').ScriptDoctorAuditReport;
+  scriptDoctorSummary?: {
+    iterationsCount: number;
+    initialScore: number;
+    finalScore: number;
+    scoreProgression: { pass: number; score: number }[];
+    editorialNotes: string[];
+  };
 }
 export interface RetentionReview {
   status: 'passed' | 'blocked';

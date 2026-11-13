@@ -10,6 +10,8 @@ import { hasSpeakerDialogueTags, extractSpeakerName, normalizeCharacterName } fr
 import type { ProductionMemory, RetentionPlan, RetentionEdit } from './retention-types.js';
 import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
 import { channelEditorialContext, hasExplicitConversationalDirective } from './channel-editorial.js';
+import { identifyDocumentaryChannel, type FiveActRetentionStoryMap } from './editorial/documentary-topic-vetter.js';
+import { runIterativeScriptDoctor, type ScriptDoctorResult } from './editorial/professional-script-doctor.js';
 
 const text = z.string().trim().min(1).max(2000);
 const PlanOutput = z.object({
@@ -86,6 +88,7 @@ export function retentionMemory(notes: TopicNotes, duration: number): string {
 
 export async function createRetentionPlan(options: {
   topic: string; template: string; instructions: string; duration: number; model: string; apiKey: string; signal?: AbortSignal;
+  storyMap?: FiveActRetentionStoryMap;
 }): Promise<RetentionPlan> {
   const notes = syncTopicNotes();
   const memoryEvidence = retentionMemory(notes, options.duration);
@@ -93,9 +96,12 @@ export async function createRetentionPlan(options: {
   const convHookMandate = isConv
     ? '\n🚨 MANDATORY MULTI-CHARACTER ZERO-NARRATOR & FULL-VIDEO MANDATE: This is a 100% video conversational script with strictly NO narrator (सूत्रधार). Every scene from Scene 1 to the final scene must be spoken directly by one of the characters ([Character]: "Spoken dialogue in Hindi..."). Every scene must be a full video clip (<video_prompt[N]>), never a still image. Scene 1 must open directly with a dramatic spoken line by a character. Every following scene must be another character speaking directly in response or confrontation. Never introduce a narrator or सूत्रधार voice.'
     : '';
+  const storyMapPrompt = options.storyMap
+    ? `\n5-ACT RETENTION STORY MAP (Core Promise: ${options.storyMap.coreViewerPromise}):\n${JSON.stringify(options.storyMap, null, 2)}\nAlign all 3 opening hooks directly with Act 1 Hook and the core viewer promise.`
+    : '';
   const result = await validatedModelJson({ ...options, messages: [
     { role: 'system', content: 'You are a meticulous story editor and YouTube packaging editor. Return only JSON. Quality judgments are editorial hypotheses, never predicted audience retention scores. Never invent historical facts, quotations, metrics or prior episode canon.' },
-    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${isConv ? notes.guidance : `Channel niche/tone (follow the active template for narration format and image/video media mode): ${notes.guidance}`}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${channelEditorialContext(options.template, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\n${convHookMandate}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
+    { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${isConv ? notes.guidance : `Channel niche/tone (follow the active template for narration format and image/video media mode): ${notes.guidance}`}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${channelEditorialContext(options.template, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\n${convHookMandate}${storyMapPrompt}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
   ] }, PlanOutput, 'Hook planning');
   if (new Set(result.hooks.map(hook => hook.openingLine.toLocaleLowerCase())).size !== 3) throw new Error('Hook planning returned duplicate openings. Generate three distinct hooks.');
 
@@ -111,7 +117,8 @@ export async function createRetentionPlan(options: {
     : result.tags;
 
   return { ...result, titles, description, tags, hooks: result.hooks.map(hook => ({ ...hook, reason: hook.reason || '' })),
-    version: 1, topic: options.topic, createdAt: new Date().toISOString(), memoryEvidence };
+    version: 1, topic: options.topic, createdAt: new Date().toISOString(), memoryEvidence,
+    ...(options.storyMap ? { storyMap: options.storyMap } : {}) };
 }
 
 export function retentionBrief(plan: RetentionPlan): string {
@@ -121,6 +128,7 @@ export function retentionBrief(plan: RetentionPlan): string {
 
 export async function editForRetention(options: {
   raw: string; template: string; research: string; plan: RetentionPlan; model: string; apiKey: string; signal?: AbortSignal;
+  duration?: number; storyMap?: FiveActRetentionStoryMap;
 }): Promise<RetentionEdit> {
   const original = parseScenePlan(options.raw, false, {
     isImageOnly: isImageOnlyTemplate(options.template),
@@ -155,7 +163,7 @@ export async function editForRetention(options: {
     { role: 'user', content: `Scene identity contract: return EXACTLY ${original.scenes.length} scenes. Copy each original scene's id into sceneId using this exact ordered list: ${JSON.stringify(sceneIds)}. Never rename, renumber, merge, omit, duplicate or reorder scenes. A thumbnail is not an additional scene. Each video scene must keep its full videoPrompt.` },
   ] }, editSchema, 'Story editing');
   if (result.scenes.length !== original.scenes.length || result.scenes.some((scene, i) => scene.sceneId !== original.scenes[i].id)) throw new Error('The retention edit changed or omitted scene identities. The original script was preserved.');
-  const edited: ScenePlan = { ...original, thumbnailPrompt: options.plan.thumbnailConcept, scenes: original.scenes.map((scene, i) => {
+  let edited: ScenePlan = { ...original, thumbnailPrompt: options.plan.thumbnailConcept, scenes: original.scenes.map((scene, i) => {
     const edit = result.scenes[i];
     if (scene.mediaType === 'video' && !edit.videoPrompt) throw new Error('The retention edit omitted a required video prompt.');
     
@@ -207,9 +215,63 @@ export async function editForRetention(options: {
   }
 
   validateScenePlan(edited);
+
+  const notes = syncTopicNotes();
+  const channel = identifyDocumentaryChannel(notes.name, notes.guidance);
+  const isShorts = options.duration !== undefined
+    ? options.duration < 180
+    : currentWorkspace().profile === 'shorts';
+  const isDocumentaryLongVideo = !isShorts && ((options.duration && options.duration >= 180) || channel !== 'general-documentary');
+  let doctorResult: ScriptDoctorResult | undefined;
+
+  if (isDocumentaryLongVideo && options.apiKey) {
+    try {
+      doctorResult = await runIterativeScriptDoctor({
+        scenePlan: edited,
+        channelName: notes.name,
+        channelGuidance: notes.guidance,
+        storyMap: options.storyMap || options.plan.storyMap,
+        maxIterations: 3,
+        model: options.model,
+        apiKey: options.apiKey,
+        signal: options.signal,
+      });
+      edited = doctorResult.finalScenePlan;
+      validateScenePlan(edited);
+    } catch (err) {
+      console.warn('Script Doctor iterative refinement failed, keeping initial edit:', err);
+    }
+  }
+
   if (!spokenText(edited).trim()) throw new Error('The retention edit returned empty narration.');
-  return { sourceHash: responseHash(options.raw), plan: edited, notes: result.notes,
-    sceneDirections: result.scenes.map(({ sceneId, purpose, motion, transition }) => ({ sceneId, purpose, motion, transition })), editedAt: new Date().toISOString() };
+
+  const finalNotes = doctorResult
+    ? [
+        `[Script Doctor] Retention Score: ${doctorResult.finalScore}/100 (${doctorResult.iterationsCount} pass${doctorResult.iterationsCount > 1 ? 'es' : ''}) [${doctorResult.scoreProgression.map(p => `Pass #${p.pass}: ${p.score}/100`).join(' → ')}]`,
+        ...doctorResult.editorialNotes,
+        ...result.notes,
+      ]
+    : result.notes;
+
+  return {
+    sourceHash: responseHash(options.raw),
+    plan: edited,
+    notes: finalNotes,
+    sceneDirections: result.scenes.map(({ sceneId, purpose, motion, transition }) => ({ sceneId, purpose, motion, transition })),
+    editedAt: new Date().toISOString(),
+    ...(doctorResult
+      ? {
+          auditReport: doctorResult.auditReport,
+          scriptDoctorSummary: {
+            iterationsCount: doctorResult.iterationsCount,
+            initialScore: doctorResult.initialScore,
+            finalScore: doctorResult.finalScore,
+            scoreProgression: doctorResult.scoreProgression,
+            editorialNotes: doctorResult.editorialNotes,
+          },
+        }
+      : {}),
+  };
 }
 
 export function productionMemory(script: { retentionPlan?: RetentionPlan; retentionEdit?: RetentionEdit; scenePlan?: ScenePlan; generatedAudio?: { sync?: { sampleRate: number; scenes: { sceneId: string; startSample: number; endSample: number }[] } }[] }, duration: number): ProductionMemory | undefined {

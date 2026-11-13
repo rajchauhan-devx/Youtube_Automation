@@ -66,6 +66,7 @@ export interface FlowMusicStudioState {
   prompt: string;
   lyrics: string;
   lyricsMode: 'custom' | 'instrumental' | 'ai';
+  language?: 'auto' | 'hi' | 'en' | 'instrumental';
   mood: string;
   theme: string;
   vocalProfile: string;
@@ -126,19 +127,20 @@ export function createEmptyFlowMusicStudioState(scriptId = 'flow_studio_custom')
     prompt: '',
     lyrics: '',
     lyricsMode: 'custom',
+    language: 'auto',
     mood: '',
     theme: '',
     vocalProfile: '',
-    sfxBooms: true,
-    sfxRisers: true,
-    dholPercussion: true,
-    brassSwells: true,
+    sfxBooms: false,
+    sfxRisers: false,
+    dholPercussion: false,
+    brassSwells: false,
     duration: 60,
     bpm: 110,
     producerModel: 'Google Lyria / Flow Music',
     imageOnlyReel: true,
     letterboxBanner: '',
-    vfxParticles: true,
+    vfxParticles: false,
     scenes: [],
     updatedAt: new Date().toISOString(),
   };
@@ -374,8 +376,9 @@ export function resetFlowMusicWorkspace(opts: {
   };
 }
 
-const HD_MYTHOLOGY_STYLE =
-  'Ultra-detailed cinematic mythological concept painting, razor-sharp 8K focus, intricate sacred gold jewelry and woven silk textures, dramatic volumetric golden-hour and ember rim lighting, rich shadow detail, crisp 2K clarity, zero text, zero watermarks';
+const HD_CINEMATIC_STYLE =
+  'Cinematic high-definition visual, dramatic composition, rich lighting, 2K clarity, highly detailed, zero text, zero watermarks';
+const HD_MYTHOLOGY_STYLE = HD_CINEMATIC_STYLE;
 
 // 8 Epic HD Mythological Scenes corresponding to each line of dialogue & sacred Sanskrit war chants
 export const HANUMAN_SCENE_DEFINITIONS: FlowSceneDefinition[] = [
@@ -830,9 +833,7 @@ export function buildShortsAssSubtitles(
     const endTime = currentTime + dur;
     currentTime = endTime;
 
-    const text = useHanumanHighlights
-      ? HANUMAN_SHORTS_HIGHLIGHTS[i]
-      : wrapAssCaption(sc.caption || sc.line, 34);
+    const text = wrapAssCaption(sc.caption || sc.line, 34);
     if (text) {
       lines.push(`Dialogue: 1,${formatAssTime(startTime)},${formatAssTime(endTime)},Caption,,0,0,0,,${text}`);
     }
@@ -1284,7 +1285,12 @@ export async function startFlowVideoPipeline(
     } else if (Array.isArray(studioDraft.scenes) && studioDraft.scenes.length > 0) {
       baseScenes = studioDraft.scenes;
     } else {
-      baseScenes = HANUMAN_SCENE_DEFINITIONS;
+      baseScenes = await buildScenesFromScript({
+        scriptText: opts.prompt || studioDraft.prompt,
+        lyrics: opts.lyrics || studioDraft.lyrics,
+        topic: opts.title || studioDraft.title || 'Cinematic Story',
+        targetDuration: opts.duration || audioDuration || 60,
+      });
     }
 
     // Snap scene cut boundaries to the beat grid so visual changes land on the music
@@ -1322,13 +1328,10 @@ export async function startFlowVideoPipeline(
         alignedLyrics = null;
       }
     }
-    const useHanumanPreset = isHanumanPresetScenes(scenes);
     const bannerText =
       opts.letterboxBanner !== undefined
         ? opts.letterboxBanner
-        : useHanumanPreset
-          ? 'Goosebumps 🚩'
-          : studioDraft.letterboxBanner || '';
+        : studioDraft.letterboxBanner || '';
 
     job.stage = `Generating ${scenes.length} HD 2K keyframes from your lyrics (AI-chosen shots)...`;
     job.progress = 15;

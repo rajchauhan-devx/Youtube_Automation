@@ -9,12 +9,13 @@ import { runGeminiGroundedResearch, summarizeTemplateForResearch } from './scrip
 import { repeatedTopic, syncTopicNotes } from './topic-notes.js';
 import { currentWorkspace } from './workspace.js';
 import { retentionMemory } from './retention.js';
+import { vetHighRetentionTopic, identifyDocumentaryChannel, type VettedTopicResult } from './editorial/documentary-topic-vetter.js';
 
 export async function selectAutoPilotTopic(options: {
   topic?: string; template: string; instructions: string; duration: number;
   model: string; apiKey: string; signal?: AbortSignal;
   script?: any; isConversational?: boolean;
-}): Promise<{ topic: string; reason: string; historyCount: number }> {
+}): Promise<{ topic: string; reason: string; historyCount: number; vettedTopic?: VettedTopicResult }> {
   const notes = syncTopicNotes();
   const requested = options.topic?.trim();
   const duplicate = requested && repeatedTopic(requested, notes.topics);
@@ -73,16 +74,78 @@ export async function selectAutoPilotTopic(options: {
   catch { throw new Error('Topic research returned invalid data. Run Auto-Pilot again.'); }
   // Re-read after research so another completed export is also excluded.
   const latest = syncTopicNotes();
+  const channel = identifyDocumentaryChannel(notes.name, notes.guidance);
+  const isShorts = options.duration !== undefined
+    ? options.duration < 180
+    : currentWorkspace().profile === 'shorts';
+  const isDocumentaryLongVideo = !isShorts && (options.duration >= 180 || channel !== 'general-documentary');
+
   for (const candidate of Array.isArray(parsed.candidates) ? parsed.candidates : []) {
     if (typeof candidate.topic !== 'string' || !candidate.topic.trim() || candidate.topic.length > 300) continue;
     if (requested && candidate.topic.trim() !== requested) continue;
     if (!requested && candidate.duplicateOf !== null) continue;
     const topic = candidate.topic.trim();
     if (!requested && repeatedTopic(topic, latest.topics)) continue;
-    return { topic, reason: typeof candidate.reason === 'string' ? candidate.reason : '', historyCount: latest.topics.length };
+
+    let vettedTopic: VettedTopicResult | undefined;
+    if (isDocumentaryLongVideo && options.apiKey) {
+      try {
+        vettedTopic = await vetHighRetentionTopic({
+          topic,
+          channelName: notes.name,
+          channelGuidance: notes.guidance,
+          instructions: options.instructions,
+          duration: options.duration,
+          model: options.model,
+          apiKey: options.apiKey,
+          signal: options.signal,
+        });
+      } catch (e) {
+        console.warn('Documentary topic vetting fallback:', e);
+      }
+    }
+    const finalTopic = vettedTopic?.topic || topic;
+    const finalReason = vettedTopic
+      ? `${typeof candidate.reason === 'string' ? candidate.reason + '\n\n' : ''}[Editorial Retention Score: ${vettedTopic.scorecard.totalScore}/100 - ${vettedTopic.scorecard.verdict.toUpperCase()}]\nAngle: ${vettedTopic.angle}\nCore Promise: ${vettedTopic.storyMap.coreViewerPromise}`
+      : typeof candidate.reason === 'string' ? candidate.reason : '';
+
+    return {
+      topic: finalTopic,
+      reason: finalReason,
+      historyCount: latest.topics.length,
+      ...(vettedTopic ? { vettedTopic } : {}),
+    };
   }
+
   if (requested) {
-    return { topic: requested, reason: 'Requested specifically by user', historyCount: latest.topics.length };
+    let vettedTopic: VettedTopicResult | undefined;
+    if (isDocumentaryLongVideo && options.apiKey) {
+      try {
+        vettedTopic = await vetHighRetentionTopic({
+          topic: requested,
+          channelName: notes.name,
+          channelGuidance: notes.guidance,
+          instructions: options.instructions,
+          duration: options.duration,
+          model: options.model,
+          apiKey: options.apiKey,
+          signal: options.signal,
+        });
+      } catch (e) {
+        console.warn('Documentary topic vetting fallback for requested topic:', e);
+      }
+    }
+    const finalTopic = vettedTopic?.topic || requested;
+    const finalReason = vettedTopic
+      ? `Requested by user.\n[Editorial Retention Score: ${vettedTopic.scorecard.totalScore}/100 - ${vettedTopic.scorecard.verdict.toUpperCase()}]\nAngle: ${vettedTopic.angle}\nCore Promise: ${vettedTopic.storyMap.coreViewerPromise}`
+      : 'Requested specifically by user';
+
+    return {
+      topic: finalTopic,
+      reason: finalReason,
+      historyCount: latest.topics.length,
+      ...(vettedTopic ? { vettedTopic } : {}),
+    };
   }
   throw new Error(requested
     ? 'This topic repeats a subject already exported by this profile. Choose another topic or leave Topic blank.'
