@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { FlowSceneDefinition } from './flow-music-video-service.js';
 import type { BeatAnalysis } from './beat-detector.js';
+import type { LyricAlignmentResult } from './lyric-aligner.js';
 
 /**
  * Flow Music Beat Edit
@@ -373,6 +374,144 @@ function timeWordsToBeats(
   return timings;
 }
 
+const HINDI_PARTICLES = new Set([
+  'में', 'का', 'के', 'की', 'को', 'ने', 'से', 'ही', 'है', 'हैं', 'हो',
+  'पर', 'भी', 'न', 'ना', 'एक', 'था', 'थी', 'थे', 'गई', 'गया', 'पड़े',
+  'कर', 'तो', 'अब', 'ये', 'वो', 'जो', 'दवा', 'कम', 'रहा', 'रही', 'रहे',
+]);
+
+const ENGLISH_PARTICLES = new Set([
+  'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from',
+  'the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'it', 'its',
+]);
+
+export function isGrammarParticle(rawWord: string): boolean {
+  const clean = rawWord.replace(/[^\p{L}\p{N}]/gu, '').toLowerCase();
+  return HINDI_PARTICLES.has(clean) || ENGLISH_PARTICLES.has(clean);
+}
+
+/**
+ * Groups rapid single words into natural, readable display chunks (1 to 3 words, 0.45s - 1.55s),
+ * preventing strobe-like single-word flashing in mobile vertical video while preserving
+ * accurate beat sync, downbeat gold pulses, and punctuation pauses.
+ */
+export function groupWordsIntoDisplayChunks(
+  words: WordTiming[],
+  format: 'shorts' | 'long',
+  analysis?: BeatAnalysis
+): WordTiming[] {
+  if (words.length === 0) return [];
+
+  const isShorts = format === 'shorts';
+  const maxWordsPerChunk = isShorts ? 3 : 4;
+  const maxCharsPerChunk = isShorts ? 22 : 36;
+  const minChunkDur = 0.42;
+  const maxChunkDur = 1.55;
+
+  const chunks: WordTiming[] = [];
+  let currentGroup: WordTiming[] = [];
+
+  const flush = () => {
+    if (currentGroup.length === 0) return;
+    const first = currentGroup[0];
+    const last = currentGroup[currentGroup.length - 1];
+    const text = currentGroup.map((w) => w.word).join(' ');
+
+    const hasDownbeat = currentGroup.some((w) => w.onDownbeat);
+    const hasBeat = currentGroup.some((w) => w.onBeat);
+    const downbeatItem = currentGroup.find((w) => w.onDownbeat && w.beatIndex >= 0);
+    const beatItem = currentGroup.find((w) => w.onBeat && w.beatIndex >= 0);
+    const beatIndex = downbeatItem ? downbeatItem.beatIndex : beatItem ? beatItem.beatIndex : first.beatIndex;
+
+    chunks.push({
+      word: text,
+      start: first.start,
+      end: last.end,
+      onBeat: hasBeat,
+      onDownbeat: hasDownbeat,
+      beatIndex,
+    });
+    currentGroup = [];
+  };
+
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const prev = currentGroup[currentGroup.length - 1];
+
+    if (currentGroup.length === 0) {
+      currentGroup.push(w);
+    } else {
+      const gapFromPrev = w.start - prev.end;
+      const proposedChars = currentGroup.map((x) => x.word).join(' ').length + 1 + w.word.length;
+      const proposedDur = w.end - currentGroup[0].start;
+      const prevEndsWithPunct = /[,;।.!?]$/.test(prev.word.trim());
+
+      const mustBreak =
+        prevEndsWithPunct ||
+        gapFromPrev > 0.28 ||
+        currentGroup.length >= maxWordsPerChunk ||
+        proposedChars > maxCharsPerChunk ||
+        proposedDur > maxChunkDur;
+
+      if (mustBreak) {
+        const canExtend =
+          !prevEndsWithPunct &&
+          gapFromPrev <= 0.25 &&
+          (w.end - currentGroup[0].start < minChunkDur || isGrammarParticle(w.word)) &&
+          proposedChars <= maxCharsPerChunk + 4;
+
+        if (canExtend) {
+          currentGroup.push(w);
+        } else {
+          flush();
+          currentGroup.push(w);
+        }
+      } else {
+        currentGroup.push(w);
+      }
+    }
+
+    if (/[,;।.!?]$/.test(w.word.trim()) && (w.end - currentGroup[0].start >= minChunkDur || currentGroup.length >= 2)) {
+      flush();
+    }
+  }
+
+  flush();
+
+  // Second pass: if any single-word chunk is tiny (< 0.38s) and adjacent to a short chunk with small gap, merge them
+  const merged: WordTiming[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    const curr = chunks[i];
+    const next = chunks[i + 1];
+    const dur = curr.end - curr.start;
+    const currWords = curr.word.split(' ').length;
+    const nextWords = next ? next.word.split(' ').length : 0;
+
+    if (
+      dur < 0.38 &&
+      next &&
+      next.start - curr.end <= 0.25 &&
+      currWords + nextWords <= maxWordsPerChunk &&
+      curr.word.length + 1 + next.word.length <= maxCharsPerChunk &&
+      !/[,;।.!?]$/.test(curr.word.trim())
+    ) {
+      merged.push({
+        word: `${curr.word} ${next.word}`,
+        start: curr.start,
+        end: next.end,
+        onBeat: curr.onBeat || next.onBeat,
+        onDownbeat: curr.onDownbeat || next.onDownbeat,
+        beatIndex: curr.onDownbeat ? curr.beatIndex : next.onDownbeat ? next.beatIndex : curr.beatIndex,
+      });
+      i++;
+    } else {
+      merged.push(curr);
+    }
+  }
+
+  return merged;
+}
+
 function buildStyleHeader(
   playResX: number,
   playResY: number,
@@ -432,17 +571,167 @@ export function resolveSubtitleFontSize(
   return Math.round(baseFontSize * mult);
 }
 
+function classifyBeatForTime(start: number, analysis: BeatAnalysis): {
+  beatIndex: number;
+  onBeat: boolean;
+  onDownbeat: boolean;
+} {
+  const snapTolerance = Math.min(0.15, (analysis.beatInterval || 0.55) * 0.25);
+  const beatTimes = analysis.beats;
+  let beatIndex = -1;
+  let onBeat = false;
+  let onDownbeat = false;
+  for (let bi = 0; bi < beatTimes.length; bi++) {
+    if (Math.abs(beatTimes[bi] - start) <= snapTolerance + 0.02) {
+      beatIndex = bi;
+      onBeat = true;
+      onDownbeat = analysis.downbeats.some((d) => Math.abs(d - start) <= snapTolerance + 0.02);
+      break;
+    }
+    if (beatTimes[bi] > start) break;
+  }
+  return { beatIndex, onBeat, onDownbeat };
+}
+
+function appendPhraseWordsToAss(opts: {
+  lines: string[];
+  words: WordTiming[];
+  windowStart: number;
+  windowEnd: number;
+  maxDur: number;
+  sceneIdx: number;
+  styleName: string;
+  fontSize: number;
+  format: 'shorts' | 'long';
+  editOptions: BeatEditOptions;
+  analysis: BeatAnalysis;
+  profile: BeatEditProfile;
+}): number {
+  const { lines, words, windowStart, windowEnd, maxDur, sceneIdx, styleName, fontSize, format, editOptions, analysis, profile } = opts;
+  if (words.length === 0) return 0;
+
+  const fadeIn = '\\fad(70,50)';
+  let added = 0;
+
+  if (editOptions.subtitleStyle === 'motion') {
+    for (let wIdx = 0; wIdx < words.length; wIdx++) {
+      const w = words[wIdx];
+      const next = words[wIdx + 1];
+      const gapToNext = next ? next.start - w.end : 1;
+      const end = next
+        ? gapToNext <= 0.32
+          ? Math.max(w.end, next.start)
+          : Math.min(windowEnd, w.end + 0.14)
+        : Math.min(maxDur, windowEnd, w.end + 0.22);
+      if (end <= w.start + 0.03) continue;
+
+      const paletteIdx = w.beatIndex >= 0 ? w.beatIndex : wIdx;
+      const color = MOTION_PALETTE[paletteIdx % MOTION_PALETTE.length];
+
+      const chars = [...w.word].length;
+      const effSize =
+        chars >= 18
+          ? Math.round(fontSize * 0.70)
+          : chars >= 14
+          ? Math.round(fontSize * 0.80)
+          : chars >= 10
+          ? Math.round(fontSize * 0.90)
+          : fontSize;
+      const sizeTag = effSize !== fontSize ? `\\fs${effSize}` : '';
+
+      const entrance = Math.round(100 + profile.wordPop * (w.onDownbeat ? 1.9 : 1.2));
+      let tags = `${fadeIn}${sizeTag}\\1c${color}\\blur3\\fscx${entrance}\\fscy${entrance}\\t(0,80,\\fscx100\\fscy100\\blur0)`;
+
+      const beatsInWord = analysis.beats.filter((b) => b > w.start + 0.09 && b < end - 0.03);
+      for (const b of beatsInWord.slice(0, 12)) {
+        const rel = Math.round((b - w.start) * 1000);
+        if (rel < 120) continue;
+        const isDown = analysis.downbeats.some((d) => Math.abs(d - b) < 0.03);
+        const amp = Math.round(profile.wordPop * (isDown ? 0.9 : 0.55));
+        if (amp <= 0) continue;
+        tags += `\\t(${rel - 30},${rel},\\fscx${100 + amp}\\fscy${100 + amp})\\t(${rel},${rel + 110},\\fscx100\\fscy100)`;
+      }
+
+      if (w.onDownbeat) {
+        tags += `\\3c${ASS_GOLD}\\t(0,160,\\3c&H000000&)`;
+      }
+
+      lines.push(
+        `Dialogue: 1,${formatAssTime(w.start)},${formatAssTime(end)},${styleName},,0,0,0,,{${tags}}${escapeAssText(w.word)}`
+      );
+      added++;
+    }
+  } else if (editOptions.subtitleStyle === 'karaoke') {
+    const maxLineChars = format === 'shorts' ? 28 : 54;
+    const parts: string[] = [];
+    let prev = windowStart;
+    let lineLen = 0;
+
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      const lead = Math.max(0, Math.round((w.start - prev) * 100));
+      if (lead > 0) parts.push(`{\\k${lead}}`);
+      const durCs = Math.max(1, Math.round((w.end - w.start) * 100));
+      const pop = w.onDownbeat
+        ? `{\\1c${ASS_GOLD}\\fscx${100 + profile.wordPop}\\fscy${100 + profile.wordPop}\\t(0,140,\\fscx100\\fscy100)}`
+        : '';
+
+      const wChars = [...w.word].length;
+      if (i > 0 && lineLen + 1 + wChars > maxLineChars) {
+        parts.push('\\N');
+        lineLen = 0;
+      } else if (i > 0) {
+        lineLen += 1;
+      }
+      const sep = i > 0 && lineLen > 0 ? ' ' : '';
+      parts.push(`${sep}${pop}{\\k${durCs}}${escapeAssText(w.word)}`);
+      lineLen += wChars;
+      prev = w.end;
+    }
+    lines.push(
+      `Dialogue: 1,${formatAssTime(windowStart)},${formatAssTime(windowEnd)},${styleName},,0,0,0,,{${fadeIn}}${parts.join('')}`
+    );
+    added++;
+  } else {
+    for (let wIdx = 0; wIdx < words.length; wIdx++) {
+      const w = words[wIdx];
+      const next = words[wIdx + 1];
+      const gapToNext = next ? next.start - w.end : 1;
+      const end = next
+        ? gapToNext <= 0.32
+          ? Math.max(w.end, next.start)
+          : Math.min(windowEnd, w.end + 0.14)
+        : Math.min(maxDur, windowEnd, w.end + 0.22);
+      if (end <= w.start + 0.03) continue;
+
+      const text = escapeAssText(w.word);
+      let tags = '';
+
+      if (editOptions.subtitleStyle === 'pop') {
+        const popScale = w.onDownbeat ? 100 + profile.wordPop * 1.6 : 100 + profile.wordPop;
+        const color = w.onDownbeat ? ASS_GOLD : w.onBeat ? ASS_WHITE : '&HB4FFFF&';
+        tags += `\\1c${color}\\fscx${Math.round(popScale)}\\fscy${Math.round(popScale)}\\t(0,110,\\fscx100\\fscy100)`;
+      } else {
+        const color = w.onBeat
+          ? ASS_HIGHLIGHT_PALETTE[(w.beatIndex >= 0 ? w.beatIndex : sceneIdx) % ASS_HIGHLIGHT_PALETTE.length]
+          : ASS_WHITE;
+        tags += `\\1c${color}\\blur3\\bord2\\t(0,260,\\blur0\\bord3)`;
+      }
+
+      lines.push(
+        `Dialogue: 1,${formatAssTime(w.start)},${formatAssTime(end)},${styleName},,0,0,0,,{${fadeIn}${tags}}${text}`
+      );
+      added++;
+    }
+  }
+  return added;
+}
+
 /**
  * Builds the beat-synced ASS subtitle file.
- *
- * Styles:
- *  - motion:  reel-style motion graphics — one huge bold word at a time, vivid
- *             colour cycle per beat, entrance thump + heartbeat pulse on every
- *             beat that passes while the word is on screen, gold outline flash
- *             on downbeats
- *  - karaoke: classic amber sweep using per-word \k tags + pop-in entrance
- *  - pop:     each word pops (scale punch) on its beat; downbeat words flash gold
- *  - glow:    glowing word wave cycling a beat palette
+ * When `alignedLyrics` (derived from actual audio vocal analysis) is provided,
+ * subtitles track the real sung/spoken timing and pauses instead of evenly
+ * packing unaligned scene text across fixed intervals.
  */
 export function buildBeatKaraokeAssSubtitles(opts: {
   scenes: FlowSceneDefinition[];
@@ -451,6 +740,7 @@ export function buildBeatKaraokeAssSubtitles(opts: {
   filePath: string;
   format: 'shorts' | 'long';
   bannerText?: string;
+  alignedLyrics?: LyricAlignmentResult | null;
 }): void {
   const isShorts = opts.format === 'shorts';
   const playResX = isShorts ? 1080 : 1920;
@@ -470,115 +760,91 @@ export function buildBeatKaraokeAssSubtitles(opts: {
     );
   }
 
-  let cursor = 0;
   let eventCount = 0;
+  const alignedPhrases = opts.alignedLyrics?.phrases;
 
-  for (let i = 0; i < opts.scenes.length; i++) {
-    const sc = opts.scenes[i];
-    const dur = Math.max(1.5, Number(sc.duration) || 8);
-    const sceneStart = cursor;
-    const sceneEnd = cursor + dur;
-    cursor = sceneEnd;
-
-    const caption = String(sc.caption || sc.line || '').trim();
-    if (!caption) continue;
-
-    const words = timeWordsToBeats(caption, sceneStart, sceneEnd, opts.analysis);
-    if (words.length === 0) continue;
-
-    const fadeIn = '\\fad(70,50)';
-
-    if (opts.options.subtitleStyle === 'motion') {
-      // Reel-style: one huge word per event, colour cycling per beat, heartbeat pulses
-      for (let wIdx = 0; wIdx < words.length; wIdx++) {
-        const w = words[wIdx];
-        const next = words[wIdx + 1];
-        const end = Math.min(sceneEnd, next ? Math.min(next.start, w.end + 0.12) : w.end + 0.18);
-        const paletteIdx = w.beatIndex >= 0 ? w.beatIndex : wIdx;
-        const color = MOTION_PALETTE[paletteIdx % MOTION_PALETTE.length];
-
-        // Shrink long words so a single word never overflows the frame
-        const chars = [...w.word].length;
-        const effSize =
-          chars >= 13
-            ? Math.round(fontSize * 0.65)
-            : chars >= 9
-            ? Math.round(fontSize * 0.82)
-            : fontSize;
-        const sizeTag = effSize !== fontSize ? `\\fs${effSize}` : '';
-
-        // Entrance thump: the word lands big on its beat, then settles
-        const entrance = Math.round(100 + profile.wordPop * (w.onDownbeat ? 1.9 : 1.2));
-        let tags = `${fadeIn}${sizeTag}\\1c${color}\\blur3\\fscx${entrance}\\fscy${entrance}\\t(0,80,\\fscx100\\fscy100\\blur0)`;
-
-        // Heartbeat: a pulse on every beat that passes while the word is on screen
-        const beatsInWord = opts.analysis.beats.filter((b) => b > w.start + 0.09 && b < end - 0.03);
-        for (const b of beatsInWord.slice(0, 12)) {
-          const rel = Math.round((b - w.start) * 1000);
-          if (rel < 120) continue;
-          const isDown = opts.analysis.downbeats.some((d) => Math.abs(d - b) < 0.03);
-          const amp = Math.round(profile.wordPop * (isDown ? 0.9 : 0.55));
-          if (amp <= 0) continue;
-          tags += `\\t(${rel - 30},${rel},\\fscx${100 + amp}\\fscy${100 + amp})\\t(${rel},${rel + 110},\\fscx100\\fscy100)`;
-        }
-
-        if (w.onDownbeat) {
-          // gold outline flash that fades back to black on downbeat words
-          tags += `\\3c${ASS_GOLD}\\t(0,160,\\3c&H000000&)`;
-        }
-
-        lines.push(
-          `Dialogue: 1,${formatAssTime(w.start)},${formatAssTime(end)},${styleName},,0,0,0,,{${tags}}${escapeAssText(w.word)}`
-        );
-        eventCount++;
+  if (Array.isArray(alignedPhrases) && alignedPhrases.length > 0) {
+    const allAlignedWords: Array<{ w: WordTiming; phraseIdx: number }> = [];
+    for (let pIdx = 0; pIdx < alignedPhrases.length; pIdx++) {
+      const phrase = alignedPhrases[pIdx];
+      const mappedWords: WordTiming[] = phrase.words.map((aw) => {
+        const beat = classifyBeatForTime(aw.start, opts.analysis);
+        return {
+          word: aw.word,
+          start: aw.start,
+          end: aw.end,
+          ...beat,
+        };
+      });
+      if (opts.options.subtitleStyle === 'karaoke') {
+        eventCount += appendPhraseWordsToAss({
+          lines,
+          words: mappedWords,
+          windowStart: phrase.start,
+          windowEnd: phrase.end,
+          maxDur: opts.analysis.duration,
+          sceneIdx: pIdx,
+          styleName,
+          fontSize,
+          format: opts.format,
+          editOptions: opts.options,
+          analysis: opts.analysis,
+          profile,
+        });
+      } else {
+        for (const w of mappedWords) allAlignedWords.push({ w, phraseIdx: pIdx });
       }
-    } else if (opts.options.subtitleStyle === 'karaoke') {
-      // One dialogue per scene with per-word karaoke \k timing (centiseconds)
-      const parts: string[] = [];
-      let prev = sceneStart;
-      for (const w of words) {
-        const lead = Math.max(0, Math.round((w.start - prev) * 100));
-        if (lead > 0) parts.push(`{\\k${lead}}`);
-        const durCs = Math.max(1, Math.round((w.end - w.start) * 100));
-        const pop = w.onDownbeat
-          ? `{\\1c${ASS_GOLD}\\fscx${100 + profile.wordPop}\\fscy${100 + profile.wordPop}\\t(0,140,\\fscx100\\fscy100)}`
-          : '';
-        parts.push(`${pop}{\\k${durCs}}${escapeAssText(w.word)}`);
-        prev = w.end;
-      }
-      lines.push(
-        `Dialogue: 1,${formatAssTime(sceneStart)},${formatAssTime(sceneEnd)},${styleName},,0,0,0,,{${fadeIn}}${parts.join('')}`
-      );
-      eventCount++;
-    } else {
-      // pop / glow: one dialogue per word so each word lands exactly on its beat
-      for (let wIdx = 0; wIdx < words.length; wIdx++) {
-        const w = words[wIdx];
-        const next = words[wIdx + 1];
-        const end = Math.min(sceneEnd, next ? Math.min(next.start, w.end + 0.12) : w.end + 0.18);
-        const text = escapeAssText(w.word);
-        let tags = '';
+    }
 
-        if (opts.options.subtitleStyle === 'pop') {
-          const popScale = w.onDownbeat ? 100 + profile.wordPop * 1.6 : 100 + profile.wordPop;
-          const color = w.onDownbeat ? ASS_GOLD : w.onBeat ? ASS_WHITE : '&HB4FFFF&';
-          tags += `\\1c${color}\\fscx${Math.round(popScale)}\\fscy${Math.round(popScale)}\\t(0,110,\\fscx100\\fscy100)`;
-        } else {
-          // glow: palette cycles on beats, gentle breathing scale
-          const color = w.onBeat ? ASS_HIGHLIGHT_PALETTE[(w.beatIndex >= 0 ? w.beatIndex : i) % ASS_HIGHLIGHT_PALETTE.length] : ASS_WHITE;
-          tags += `\\1c${color}\\blur3\\bord2\\t(0,260,\\blur0\\bord3)`;
-        }
+    if (opts.options.subtitleStyle !== 'karaoke' && allAlignedWords.length > 0) {
+      const rawWords = allAlignedWords.map((item) => item.w);
+      const displayWords = groupWordsIntoDisplayChunks(rawWords, opts.format, opts.analysis);
+      eventCount += appendPhraseWordsToAss({
+        lines,
+        words: displayWords,
+        windowStart: displayWords[0].start,
+        windowEnd: opts.analysis.duration,
+        maxDur: opts.analysis.duration,
+        sceneIdx: 0,
+        styleName,
+        fontSize,
+        format: opts.format,
+        editOptions: opts.options,
+        analysis: opts.analysis,
+        profile,
+      });
+    }
+  } else {
+    let cursor = 0;
+    for (let i = 0; i < opts.scenes.length; i++) {
+      const sc = opts.scenes[i];
+      const dur = Math.max(1.5, Number(sc.duration) || 8);
+      const sceneStart = cursor;
+      const sceneEnd = cursor + dur;
+      cursor = sceneEnd;
 
-        lines.push(
-          `Dialogue: 1,${formatAssTime(w.start)},${formatAssTime(end)},${styleName},,0,0,0,,{${fadeIn}${tags}}${text}`
-        );
-        eventCount++;
-      }
+      const caption = String(sc.caption || sc.line || '').trim();
+      if (!caption) continue;
+
+      const words = timeWordsToBeats(caption, sceneStart, sceneEnd, opts.analysis);
+      eventCount += appendPhraseWordsToAss({
+        lines,
+        words,
+        windowStart: sceneStart,
+        windowEnd: sceneEnd,
+        maxDur: opts.analysis.duration || sceneEnd,
+        sceneIdx: i,
+        styleName,
+        fontSize,
+        format: opts.format,
+        editOptions: opts.options,
+        analysis: opts.analysis,
+        profile,
+      });
     }
   }
 
   if (eventCount === 0) {
-    // Guarantee at least one event so libass never errors on an empty event list
     lines.push(`Dialogue: 1,0:00:00.00,0:00:02.00,${styleName},,0,0,0,,${escapeAssText('♪')}`);
   }
 

@@ -17,11 +17,6 @@ export function flowMusicDataDir(): string {
 }
 
 export function flowMusicProfileDir(): string {
-  // Use the established authenticated flow profile if available
-  const flowDefault = path.join(SERVER_ROOT, 'data', 'flow', 'profile-default');
-  if (fs.existsSync(flowDefault)) {
-    return flowDefault;
-  }
   const dir = path.join(flowMusicDataDir(), 'profile-default');
   fs.mkdirSync(dir, { recursive: true });
   return dir;

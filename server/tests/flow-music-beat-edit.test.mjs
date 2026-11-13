@@ -24,6 +24,8 @@ const {
   buildShakeRotateExpr,
   normalizeBeatEditOptions,
   computeSceneBeatEvents,
+  groupWordsIntoDisplayChunks,
+  isGrammarParticle,
 } = await import('../dist/services/flow-music/beat-edit.js');
 const {
   buildShortsSceneFilter,
@@ -540,3 +542,29 @@ test('videoFormat: "shorts" renders only portrait 9:16 video and skips long vide
   assert.equal(status.longVideoUrl, undefined, 'long video url is omitted');
   assert.equal(status.longPath, undefined, 'long path is omitted');
 });
+
+test('groupWordsIntoDisplayChunks groups rapid single words into readable, comfortable chunks without strobe flashing', () => {
+  const sampleWords = [
+    { word: 'रणभूमि', start: 0.32, end: 1.02, onBeat: true, onDownbeat: false, beatIndex: 0 },
+    { word: 'में', start: 1.02, end: 1.26, onBeat: false, onDownbeat: false, beatIndex: -1 },
+    { word: 'सन्नाटा,', start: 1.26, end: 1.94, onBeat: true, onDownbeat: true, beatIndex: 1 },
+    { word: 'लंका', start: 2.02, end: 2.56, onBeat: false, onDownbeat: false, beatIndex: -1 },
+    { word: 'का', start: 2.56, end: 2.98, onBeat: true, onDownbeat: false, beatIndex: 2 },
+    { word: 'मैदान,', start: 2.98, end: 3.92, onBeat: false, onDownbeat: false, beatIndex: -1 },
+  ];
+
+  const chunks = groupWordsIntoDisplayChunks(sampleWords, 'shorts');
+  assert.ok(chunks.length >= 2 && chunks.length <= 4, `expected 2-4 chunks, got ${chunks.length}`);
+
+  // First chunk must combine "रणभूमि में" so particle "में" does not flash alone for 240ms
+  assert.ok(chunks[0].word.includes('रणभूमि में'), `expected particle combined with root word, got "${chunks[0].word}"`);
+  assert.ok(chunks[0].end - chunks[0].start >= 0.5, `chunk must stay visible at least 0.5s, got ${chunks[0].end - chunks[0].start}`);
+
+  // No chunk should be an isolated functional particle
+  for (const c of chunks) {
+    assert.equal(isGrammarParticle(c.word), false, `isolated particle found: "${c.word}"`);
+    const dur = c.end - c.start;
+    assert.ok(dur >= 0.40, `chunk "${c.word}" duration ${dur}s is too fast (< 0.40s)`);
+  }
+});
+

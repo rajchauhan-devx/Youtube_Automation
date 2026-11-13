@@ -17,6 +17,7 @@ import { checkComfyStatus, generateImage, sanitizeSegment } from '../comfyui.js'
 import { clearFlowMusicJobs } from './flow-music-worker.js';
 import { chat as geminiChat, getGeminiApiKey } from '../gemini.js';
 import { analyzeBeats, type BeatAnalysis } from './beat-detector.js';
+import { alignLyricsToAudio, type LyricAlignmentResult } from './lyric-aligner.js';
 import {
   normalizeBeatEditOptions,
   snapScenesToBeats,
@@ -620,10 +621,11 @@ export function buildShortsSceneFilter(dur: number, zoomIn: boolean, beatEvents?
 
   const fgFilters = [
     `scale=2560:1440:flags=lanczos:force_original_aspect_ratio=increase`,
+    `unsharp=5:5:0.45:3:3:0.2`,
+    `eq=contrast=1.06:saturation=1.12:brightness=0.0`,
     `zoompan=z=${zoomExpr}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${numFrames}:s=1080x608:fps=30`,
   ];
   appendBeatEffects(fgFilters, beatEvents);
-  fgFilters.push(`unsharp=5:5:0.45:3:3:0.2`, `eq=contrast=1.06:saturation=1.12:brightness=0.0`);
   const filterParts = [
     `color=c=black:s=1080x1920:d=${dur}[bg]`,
     `[0:v]${fgFilters.join(',')}[fg]`,
@@ -645,15 +647,13 @@ export function buildLongSceneFilter(dur: number, zoomIn: boolean, width = 1920,
 
   const filters = [
     `scale=3840:2160:flags=lanczos:force_original_aspect_ratio=increase`,
-    `zoompan=z=${zoomExpr}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${numFrames}:s=${width}x${height}:fps=30`,
-  ];
-  appendBeatEffects(filters, beatEvents);
-  filters.push(
     `unsharp=5:5:0.5:3:3:0.25`,
     `eq=contrast=1.06:saturation=1.12:brightness=0.0`,
     `colorbalance=rs=0.03:gs=0.0:bs=-0.02`,
-    `format=yuv420p`
-  );
+    `zoompan=z=${zoomExpr}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${numFrames}:s=${width}x${height}:fps=30`,
+  ];
+  appendBeatEffects(filters, beatEvents);
+  filters.push(`format=yuv420p`);
   return filters.join(',');
 }
 
@@ -685,7 +685,7 @@ async function concatAndBurnVideo(opts: {
     '-i', opts.audioPath,
     '-vf', `ass='${escapedAss}'`,
     '-c:v', 'libx264',
-    '-preset', 'medium',
+    '-preset', 'fast',
     '-crf', '16',
     '-pix_fmt', 'yuv420p',
     '-c:a', 'aac',
@@ -786,7 +786,8 @@ export function buildShortsAssSubtitles(
   scenes: FlowSceneDefinition[],
   totalDur: number,
   filePath: string,
-  bannerText?: string
+  bannerText?: string,
+  alignedLyrics?: LyricAlignmentResult | null
 ): void {
   const lines: string[] = [
     '[Script Info]',
@@ -807,6 +808,17 @@ export function buildShortsAssSubtitles(
   const cleanBanner = typeof bannerText === 'string' ? bannerText.trim() : '';
   if (cleanBanner) {
     lines.push(`Dialogue: 0,0:00:00.00,${formatAssTime(totalDur)},Banner,,0,0,0,,${escapeAssText(cleanBanner)}`);
+  }
+
+  if (alignedLyrics && alignedLyrics.phrases.length > 0) {
+    for (const phrase of alignedLyrics.phrases) {
+      const wrapped = wrapAssCaption(phrase.text, 34);
+      if (wrapped) {
+        lines.push(`Dialogue: 1,${formatAssTime(phrase.start)},${formatAssTime(phrase.end)},Caption,,0,0,0,,${wrapped}`);
+      }
+    }
+    fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
+    return;
   }
 
   const useHanumanHighlights = isHanumanPresetScenes(scenes);
@@ -832,7 +844,8 @@ export function buildShortsAssSubtitles(
 export function buildLongAssSubtitles(
   scenes: FlowSceneDefinition[],
   _totalDur: number,
-  filePath: string
+  filePath: string,
+  alignedLyrics?: LyricAlignmentResult | null
 ): void {
   const lines: string[] = [
     '[Script Info]',
@@ -848,6 +861,17 @@ export function buildLongAssSubtitles(
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
   ];
+
+  if (alignedLyrics && alignedLyrics.phrases.length > 0) {
+    for (const phrase of alignedLyrics.phrases) {
+      const wrapped = wrapAssCaption(phrase.text, 64);
+      if (wrapped) {
+        lines.push(`Dialogue: 1,${formatAssTime(phrase.start)},${formatAssTime(phrase.end)},LongCaption,,0,0,0,,${wrapped}`);
+      }
+    }
+    fs.writeFileSync(filePath, lines.join('\n'), 'utf8');
+    return;
+  }
 
   const useHanumanHighlights = isHanumanPresetScenes(scenes);
   let currentTime = 0;
@@ -1274,6 +1298,30 @@ export async function startFlowVideoPipeline(
     } else {
       scenes = fitScenesToAudioDuration(baseScenes, audioDuration);
     }
+
+    // Align subtitles to actual vocal timings & pacing inside the approved audio track
+    let alignedLyrics: LyricAlignmentResult | null = null;
+    const isMatchingStudioDraft = studioDraft.scriptId === scriptId;
+    const referenceLyrics = (opts.lyrics || (isMatchingStudioDraft ? studioDraft.lyrics : '') || '').trim() ||
+      scenes.map((s) => s.caption || s.line).filter(Boolean).join('\n');
+    if (referenceLyrics) {
+      job.stage = 'Syncing subtitle speed & word timings to actual vocal audio...';
+      job.progress = 12;
+      job.updatedAt = new Date().toISOString();
+      try {
+        alignedLyrics = await alignLyricsToAudio({
+          audioPath,
+          lyrics: referenceLyrics,
+          scriptId,
+        });
+        console.log(
+          `[Flow Music Subtitle Sync] ${alignedLyrics.phrases.length} phrases, ${alignedLyrics.words.length} words aligned (${alignedLyrics.source})`
+        );
+      } catch (err: any) {
+        console.warn(`[Flow Music Subtitle Sync] Alignment failed, using scene fallback: ${err?.message || err}`);
+        alignedLyrics = null;
+      }
+    }
     const useHanumanPreset = isHanumanPresetScenes(scenes);
     const bannerText =
       opts.letterboxBanner !== undefined
@@ -1408,47 +1456,70 @@ export async function startFlowVideoPipeline(
           filePath: shortsAssPath,
           format: 'shorts',
           bannerText: bannerText,
+          alignedLyrics,
         });
       } else {
-        buildShortsAssSubtitles(scenes, totalDur, shortsAssPath, bannerText);
+        buildShortsAssSubtitles(scenes, totalDur, shortsAssPath, bannerText, alignedLyrics);
       }
 
       const shortsClipList: string[] = [];
 
-      for (let i = 0; i < imageFiles.length; i++) {
+      if (imageFiles.length === 1) {
         checkCancelled();
-        const sc = scenes[i];
-        const clipFile = path.join(outDir, `${jobId}_shorts_clip_${i}.mp4`);
+        const sc = scenes[0];
         const dur = sc.duration || 8;
-        const filter = buildShortsSceneFilter(dur, i % 2 === 0, sceneBeatEvents(i));
-
+        const filter = buildShortsSceneFilter(dur, true, sceneBeatEvents(0));
+        const escapedAss = shortsAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
         await runFFmpegCommand([
           '-y',
-          '-loop', '1',
-          '-framerate', '30',
-          '-t', String(dur),
-          '-i', imageFiles[i],
-          '-filter_complex', filter,
-          '-map', '[out]',
+          '-i', imageFiles[0],
+          '-i', audioPath,
+          '-filter_complex', `${filter};[out]ass='${escapedAss}'[vout]`,
+          '-map', '[vout]',
+          '-map', '1:a:0',
           '-c:v', 'libx264',
-          '-preset', 'medium',
-          '-crf', '14',
+          '-preset', 'fast',
+          '-crf', '16',
           '-pix_fmt', 'yuv420p',
-          '-t', String(dur),
-          clipFile,
+          '-c:a', 'aac',
+          '-b:a', '192k',
+          '-movflags', '+faststart',
+          '-shortest',
+          shortsPath,
         ]);
-        shortsClipList.push(clipFile);
-      }
+      } else {
+        for (let i = 0; i < imageFiles.length; i++) {
+          checkCancelled();
+          const sc = scenes[i];
+          const clipFile = path.join(outDir, `${jobId}_shorts_clip_${i}.mp4`);
+          const dur = sc.duration || 8;
+          const filter = buildShortsSceneFilter(dur, i % 2 === 0, sceneBeatEvents(i));
 
-      checkCancelled();
-      await concatAndBurnVideo({
-        clipPaths: shortsClipList,
-        concatListPath: path.join(outDir, `${jobId}_concat_shorts.txt`),
-        rawOutputPath: path.join(outDir, `${jobId}_shorts_raw.mp4`),
-        assPath: shortsAssPath,
-        audioPath,
-        finalOutputPath: shortsPath,
-      });
+          await runFFmpegCommand([
+            '-y',
+            '-i', imageFiles[i],
+            '-filter_complex', filter,
+            '-map', '[out]',
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-crf', '12',
+            '-pix_fmt', 'yuv420p',
+            '-t', String(dur),
+            clipFile,
+          ]);
+          shortsClipList.push(clipFile);
+        }
+
+        checkCancelled();
+        await concatAndBurnVideo({
+          clipPaths: shortsClipList,
+          concatListPath: path.join(outDir, `${jobId}_concat_shorts.txt`),
+          rawOutputPath: path.join(outDir, `${jobId}_shorts_raw.mp4`),
+          assPath: shortsAssPath,
+          audioPath,
+          finalOutputPath: shortsPath,
+        });
+      }
       job.shortsPath = shortsPath;
       job.shortsVideoUrl = `/api/flow-music/videos/${shortsFilename}`;
       try { fs.unlinkSync(shortsAssPath); } catch {}
@@ -1475,46 +1546,69 @@ export async function startFlowVideoPipeline(
           filePath: longAssPath,
           format: 'long',
           bannerText: bannerText,
+          alignedLyrics,
         });
       } else {
-        buildLongAssSubtitles(scenes, totalDur, longAssPath);
+        buildLongAssSubtitles(scenes, totalDur, longAssPath, alignedLyrics);
       }
 
       const longClipList: string[] = [];
 
-      for (let i = 0; i < imageFiles.length; i++) {
+      if (imageFiles.length === 1) {
         checkCancelled();
-        const sc = scenes[i];
-        const clipFile = path.join(outDir, `${jobId}_long_clip_${i}.mp4`);
+        const sc = scenes[0];
         const dur = sc.duration || 8;
-        const filter = buildLongSceneFilter(dur, i % 2 === 0, 1920, 1080, sceneBeatEvents(i));
-
+        const filter = buildLongSceneFilter(dur, true, 1920, 1080, sceneBeatEvents(0));
+        const escapedAss = longAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
         await runFFmpegCommand([
           '-y',
-          '-loop', '1',
-          '-framerate', '30',
-          '-t', String(dur),
-          '-i', imageFiles[i],
-          '-vf', filter,
+          '-i', imageFiles[0],
+          '-i', audioPath,
+          '-vf', `${filter},ass='${escapedAss}'`,
+          '-map', '0:v:0',
+          '-map', '1:a:0',
           '-c:v', 'libx264',
-          '-preset', 'medium',
-          '-crf', '14',
+          '-preset', 'fast',
+          '-crf', '16',
           '-pix_fmt', 'yuv420p',
-          '-t', String(dur),
-          clipFile,
+          '-c:a', 'aac',
+          '-b:a', '192k',
+          '-movflags', '+faststart',
+          '-shortest',
+          longPath,
         ]);
-        longClipList.push(clipFile);
-      }
+      } else {
+        for (let i = 0; i < imageFiles.length; i++) {
+          checkCancelled();
+          const sc = scenes[i];
+          const clipFile = path.join(outDir, `${jobId}_long_clip_${i}.mp4`);
+          const dur = sc.duration || 8;
+          const filter = buildLongSceneFilter(dur, i % 2 === 0, 1920, 1080, sceneBeatEvents(i));
 
-      checkCancelled();
-      await concatAndBurnVideo({
-        clipPaths: longClipList,
-        concatListPath: path.join(outDir, `${jobId}_concat_long.txt`),
-        rawOutputPath: path.join(outDir, `${jobId}_long_raw.mp4`),
-        assPath: longAssPath,
-        audioPath,
-        finalOutputPath: longPath,
-      });
+          await runFFmpegCommand([
+            '-y',
+            '-i', imageFiles[i],
+            '-vf', filter,
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-crf', '12',
+            '-pix_fmt', 'yuv420p',
+            '-t', String(dur),
+            clipFile,
+          ]);
+          longClipList.push(clipFile);
+        }
+
+        checkCancelled();
+        await concatAndBurnVideo({
+          clipPaths: longClipList,
+          concatListPath: path.join(outDir, `${jobId}_concat_long.txt`),
+          rawOutputPath: path.join(outDir, `${jobId}_long_raw.mp4`),
+          assPath: longAssPath,
+          audioPath,
+          finalOutputPath: longPath,
+        });
+      }
       job.longPath = longPath;
       job.longVideoUrl = `/api/flow-music/videos/${longFilename}`;
       try { fs.unlinkSync(longAssPath); } catch {}

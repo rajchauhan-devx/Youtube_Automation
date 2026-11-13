@@ -161,10 +161,10 @@ async function main() {
   } catch {}
 
   const targetUrl = isFresh
-    ? 'https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fflow.google.com%2F'
+    ? 'https://www.flowmusic.app/'
     : (activeAccount
-        ? `https://flow.google.com/?authuser=${encodeURIComponent(activeAccount)}`
-        : 'https://flow.google.com/');
+        ? `https://www.flowmusic.app/?authuser=${encodeURIComponent(activeAccount)}`
+        : 'https://www.flowmusic.app/');
 
   console.log(`Navigating to ${targetUrl}...`);
   try {
