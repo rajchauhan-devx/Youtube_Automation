@@ -85,7 +85,16 @@ export function validateScenePlan(value: unknown): ScenePlan {
     }
     if(scene.motionGraphics !== undefined) {
       if(!Array.isArray(scene.motionGraphics)||scene.motionGraphics.length>1)throw new Error('Use at most one motion plan per scene');
-      scene.motionGraphics=scene.motionGraphics.map(hint=>hint?.intent ? {...hint,...parseMotionScriptHint(hint,scene.narration)} : hint);
+      const refreshed = refreshMotionHints(scene.motionGraphics, scene.narration) || [];
+      scene.motionGraphics = refreshed.map(hint => {
+        const h = hint as Record<string, unknown>;
+        if (!h?.intent) return hint;
+        try {
+          return { ...h, ...parseMotionScriptHint(h, scene.narration) };
+        } catch {
+          return hint;
+        }
+      });
     }
     ids.add(scene.id);
   }

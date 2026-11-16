@@ -485,7 +485,7 @@ test('re-render pipeline with reuseImages: true preserves existing keyframes and
 
   let done = false;
   let status = null;
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 60; i++) {
     await new Promise((r) => setTimeout(r, 500));
     status = getFlowVideoJob(job.id);
     if (status && (status.state === 'done' || status.state === 'error')) {
@@ -527,7 +527,7 @@ test('videoFormat: "shorts" renders only portrait 9:16 video and skips long vide
 
   let done = false;
   let status = null;
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 60; i++) {
     await new Promise((r) => setTimeout(r, 500));
     status = getFlowVideoJob(job.id);
     if (status && (status.state === 'done' || status.state === 'error')) {

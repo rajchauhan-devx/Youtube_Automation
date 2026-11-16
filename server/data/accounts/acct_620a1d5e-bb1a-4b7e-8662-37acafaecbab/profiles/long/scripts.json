@@ -40,9 +40,132 @@
     ],
     "howItWorks": "",
     "duration": 1200,
-    "model": "xkiro/qwen/qwen3.5-flash:free",
+    "model": "gemini-3.7-flash",
     "locked": false,
     "videoImportsEnabled": false,
+    "enableSubtitles": true,
+    "presenter": {
+      "enabled": false,
+      "avatarId": "avatar_013",
+      "style": "transparent",
+      "widthPercent": 35,
+      "bottomPercent": 2,
+      "marginPercent": 0,
+      "horizontalPercent": 100,
+      "crop": {
+        "x": 32,
+        "y": 2,
+        "width": 40,
+        "height": 67
+      },
+      "silenceGate": false,
+      "silenceThresholdDb": -40
+    },
+    "autoPilotSettings": {
+      "version": 1,
+      "media": {
+        "imageProvider": "google",
+        "imageQuality": "standard",
+        "seedMode": "random",
+        "seed": 42,
+        "flowEnabled": true,
+        "flowResolution": "720p",
+        "flowDuration": 8,
+        "allowImageFallback": true,
+        "videoOnly": false
+      },
+      "voice": {
+        "provider": "google",
+        "language": "en",
+        "voiceId": "en-US-Chirp3-HD-Iapetus",
+        "rate": 0,
+        "pitch": 0,
+        "speed": 1
+      },
+      "captions": "motion",
+      "graphics": {
+        "enabled": false,
+        "mode": "images",
+        "density": "balanced",
+        "treatment": "auto",
+        "style": "Let AI choose only moments where a graphic materially explains the narration. Metadata is a suggestion, never a command to decorate every scene. Leave ordinary footage clean, keep breathing room between beats, and allow zero graphics. Use purposeful typography, fine lines and explanatory diagrams in open space around subjects. Never invent facts, coordinates, source labels or telemetry. Preview the actual result before export.",
+        "model": ""
+      },
+      "editing": {
+        "mode": "story",
+        "settings": {
+          "enabled": true,
+          "preset": "cinematic",
+          "motion": "balanced",
+          "transitions": "auto",
+          "transitionSeconds": 0.35,
+          "framing": "contain",
+          "chapterTitles": false,
+          "bookendFades": false,
+          "captionStyle": "gold",
+          "captions": true,
+          "colorLook": "none",
+          "vignette": true,
+          "captionWords": 8,
+          "voicePolish": true,
+          "musicDucking": true,
+          "chapterSound": false,
+          "grain": false,
+          "sharpen": false,
+          "letterbox": false,
+          "quality": "high",
+          "overrides": {}
+        }
+      },
+      "audio": {
+        "music": "auto",
+        "musicVolume": 0.1,
+        "voiceVolume": 1
+      },
+      "youtube": {
+        "enabled": false,
+        "privacyStatus": "private",
+        "publishMode": "now",
+        "scheduledPublishAt": ""
+      },
+      "presenter": {
+        "enabled": false,
+        "avatarId": "avatar_013",
+        "style": "transparent",
+        "widthPercent": 35,
+        "bottomPercent": 2,
+        "marginPercent": 0,
+        "horizontalPercent": 100,
+        "crop": {
+          "x": 32,
+          "y": 2,
+          "width": 40,
+          "height": 67
+        },
+        "silenceGate": false,
+        "silenceThresholdDb": -40
+      },
+      "flowMusic": {
+        "enabled": false,
+        "prompt": "",
+        "lyrics": "",
+        "lyricsMode": "custom",
+        "title": "Long - Stickman Survival",
+        "mood": "",
+        "theme": "",
+        "vocalProfile": "",
+        "sfxBooms": false,
+        "sfxRisers": false,
+        "dholPercussion": false,
+        "brassSwells": false,
+        "duration": 60,
+        "bpm": 110,
+        "producerModel": "Google Lyria / Flow Music",
+        "imageOnlyReel": false,
+        "letterboxBanner": "",
+        "vfxParticles": false
+      }
+    },
     "accountId": "acct_620a1d5e-bb1a-4b7e-8662-37acafaecbab",
     "section": "long",
     "status": "draft",

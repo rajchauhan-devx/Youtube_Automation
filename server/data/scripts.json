@@ -162,26 +162,26 @@
       }
     ],
     "howItWorks": "Research runs first, then the script extracts assets. Generate or import images, import videos, then generate narration and render a portrait Short. Every image prompt is 70-120 words and every video prompt 90-150 words with a scroll-stopping hook. Turn off Use video imports in Generation for images only.",
-    "duration": 90,
-    "model": "gemini-3.6-flash",
+    "duration": 60,
+    "model": "gemini-3.7-flash",
     "locked": false,
     "videoImportsEnabled": true,
     "enableSubtitles": false,
     "presenter": {
-      "enabled": true,
+      "enabled": false,
       "avatarId": "avatar_013",
       "style": "transparent",
-      "widthPercent": 41,
-      "bottomPercent": 0,
+      "widthPercent": 35,
+      "bottomPercent": 2,
       "marginPercent": 0,
       "horizontalPercent": 100,
       "crop": {
-        "x": 22,
-        "y": 0,
-        "width": 47,
-        "height": 100
+        "x": 32,
+        "y": 2,
+        "width": 40,
+        "height": 67
       },
-      "silenceGate": true,
+      "silenceGate": false,
       "silenceThresholdDb": -40
     },
     "autoPilotSettings": {
@@ -191,11 +191,11 @@
         "imageQuality": "standard",
         "seedMode": "random",
         "seed": 42,
-        "flowEnabled": false,
+        "flowEnabled": true,
         "flowResolution": "720p",
         "flowDuration": 8,
-        "allowImageFallback": true,
-        "videoOnly": false
+        "allowImageFallback": false,
+        "videoOnly": true
       },
       "voice": {
         "provider": "default",
@@ -247,12 +247,12 @@
       },
       "youtube": {
         "enabled": true,
-        "privacyStatus": "private",
-        "publishMode": "schedule",
-        "scheduledPublishAt": "2026-11-11T03:30:00.000Z"
+        "privacyStatus": "public",
+        "publishMode": "now",
+        "scheduledPublishAt": "2026-11-15T12:30:00.000Z"
       },
       "presenter": {
-        "enabled": true,
+        "enabled": false,
         "avatarId": "avatar_013",
         "style": "transparent",
         "widthPercent": 41,

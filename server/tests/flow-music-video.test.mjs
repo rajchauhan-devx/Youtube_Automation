@@ -297,7 +297,10 @@ test('generateFlowMusicSceneImage fails over from Google to Cloudflare (keeping 
 
 test('HD FFmpeg Lanczos filters build cleanly and render valid 1080x1920 Shorts & 1920x1080 Long clips', async () => {
   const shortsFilter = buildShortsSceneFilter(1, true);
-  assert.ok(shortsFilter.includes('scale=2560:1440:flags=lanczos'));
+  assert.ok(shortsFilter.includes('scale=2160:3840:flags=lanczos'));
+  assert.ok(shortsFilter.includes('s=1080x1920:fps=30'));
+  assert.ok(!shortsFilter.includes('1080x608'));
+  assert.ok(!shortsFilter.includes('overlay=0:656'));
   assert.ok(shortsFilter.includes('unsharp='));
   assert.ok(!shortsFilter.includes('1280:720'));
 

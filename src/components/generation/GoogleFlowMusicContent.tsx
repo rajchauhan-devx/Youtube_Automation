@@ -861,6 +861,7 @@ export function GoogleFlowMusicContent({
           letterboxBanner: flowSettings.letterboxBanner ?? '',
           songUrl: musicUrl || undefined,
           videoFormat,
+          aspectRatio: videoFormat === 'shorts' ? '9:16' : videoFormat === 'long' ? '16:9' : undefined,
           beatEdit,
           bpmHint: Number(flowSettings.bpm) || undefined,
           reuseImages: willReuse,
@@ -950,6 +951,7 @@ export function GoogleFlowMusicContent({
           prompt: scenes[idx]?.prompt || img.prompt || `Cinematic HD frame for ${scenes[idx]?.line || 'scene'}`,
           index: idx,
           jobId: activeVideoJobId || undefined,
+          aspectRatio: videoFormat === 'shorts' ? '9:16' : '16:9',
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -2407,7 +2409,7 @@ export function GoogleFlowMusicContent({
                     <span className="rounded bg-yellow-400/20 px-2 py-0.5 text-[10px] font-bold text-yellow-300">
                       {flowSettings.letterboxBanner?.trim()
                         ? `Banner: ${flowSettings.letterboxBanner.trim()}`
-                        : 'Clean 9:16 Letterbox'}
+                        : 'Full-Screen 9:16 Portrait'}
                     </span>
                   </div>
                   <div className="relative mx-auto flex justify-center overflow-hidden rounded-lg bg-black border border-white/10 max-h-[460px]">
@@ -2476,13 +2478,28 @@ export function GoogleFlowMusicContent({
               <ImageIcon className="h-4 w-4 text-amber-400" />
               Generated Keyframes ({sceneImages.length} Scenes)
             </h4>
-            <span className="text-[10px] text-zinc-400">2K HD Cinematic Visuals</span>
+            <div className="flex items-center gap-2">
+              <span className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                {videoFormat === 'shorts' ? '📱 9:16 Portrait' : videoFormat === 'long' ? '🖥️ 16:9 Landscape' : '✨ Dual Format'}
+              </span>
+              <span className="text-[10px] text-zinc-400">2K HD Cinematic Visuals</span>
+            </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div
+            className={`grid gap-3 ${
+              videoFormat === 'shorts'
+                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6'
+                : 'grid-cols-2 sm:grid-cols-4'
+            }`}
+          >
             {sceneImages.map((img, idx) => (
               <div key={img.filename || idx} className="space-y-1.5 rounded-lg border border-white/10 bg-black/40 p-2">
-                <div className="group relative aspect-video w-full overflow-hidden rounded bg-zinc-900">
+                <div
+                  className={`group relative ${
+                    videoFormat === 'shorts' ? 'aspect-[9/16]' : 'aspect-video'
+                  } w-full overflow-hidden rounded bg-zinc-900`}
+                >
                   <img
                     src={img.url}
                     alt={`Scene ${idx + 1}`}

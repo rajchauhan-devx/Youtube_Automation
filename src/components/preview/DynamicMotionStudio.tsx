@@ -376,7 +376,7 @@ export function DynamicMotionStudio({
         detail: activeGraphic?.detail || template.description,
         badge: template.category ? template.category.toUpperCase() : 'CALLOUT',
         placement: template.defaultPlacement || 'center',
-        size: template.defaultSize || 'standard',
+        size: (template as any).defaultSize || 'standard',
         startSec: 1.0,
         durationSec: 4.5,
         channelIdentity: activePreset?.channel || (script as any).channelName || 'Ancient Dharma',

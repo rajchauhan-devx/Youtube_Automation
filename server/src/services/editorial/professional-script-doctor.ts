@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { validatedModelJson } from '../model-json.js';
 import type { ScenePlan, NarrationScene } from '../scene-plan.js';
+import { refreshMotionHints } from '../script-motion.js';
 import { identifyDocumentaryChannel, type DocumentaryChannel, type FiveActRetentionStoryMap } from './documentary-topic-vetter.js';
 
 export interface GateAuditResult {
@@ -240,10 +241,12 @@ async function repairFlawedScenes(options: {
   const updatedScenes: NarrationScene[] = options.scenePlan.scenes.map((s) => {
     const fix = repairMap.get(s.id);
     if (!fix) return s;
+    const newNarration = fix.narration;
     return {
       ...s,
-      narration: fix.narration,
+      narration: newNarration,
       imagePrompt: fix.imagePrompt || s.imagePrompt,
+      ...(s.motionGraphics ? { motionGraphics: refreshMotionHints(s.motionGraphics, newNarration) } : {}),
       ...(s.mediaType === 'video' && fix.videoPrompt ? { videoPrompt: fix.videoPrompt } : {}),
     };
   });

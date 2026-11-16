@@ -162,26 +162,26 @@
       }
     ],
     "howItWorks": "Research runs first, then the script extracts assets. Generate or import images, import videos, then generate narration and render a portrait Short. Every image prompt is 70-120 words and every video prompt 90-150 words with a scroll-stopping hook. Turn off Use video imports in Generation for images only.",
-    "duration": 90,
-    "model": "gemini-3.6-flash",
+    "duration": 60,
+    "model": "gemini-3.7-flash",
     "locked": false,
     "videoImportsEnabled": true,
     "enableSubtitles": false,
     "presenter": {
-      "enabled": true,
+      "enabled": false,
       "avatarId": "avatar_013",
       "style": "transparent",
-      "widthPercent": 41,
-      "bottomPercent": 0,
+      "widthPercent": 35,
+      "bottomPercent": 2,
       "marginPercent": 0,
       "horizontalPercent": 100,
       "crop": {
-        "x": 22,
-        "y": 0,
-        "width": 47,
-        "height": 100
+        "x": 32,
+        "y": 2,
+        "width": 40,
+        "height": 67
       },
-      "silenceGate": true,
+      "silenceGate": false,
       "silenceThresholdDb": -40
     },
     "autoPilotSettings": {
@@ -191,11 +191,11 @@
         "imageQuality": "standard",
         "seedMode": "random",
         "seed": 42,
-        "flowEnabled": false,
+        "flowEnabled": true,
         "flowResolution": "720p",
         "flowDuration": 8,
-        "allowImageFallback": true,
-        "videoOnly": false
+        "allowImageFallback": false,
+        "videoOnly": true
       },
       "voice": {
         "provider": "default",
@@ -247,12 +247,12 @@
       },
       "youtube": {
         "enabled": true,
-        "privacyStatus": "private",
-        "publishMode": "schedule",
-        "scheduledPublishAt": "2026-11-11T03:30:00.000Z"
+        "privacyStatus": "public",
+        "publishMode": "now",
+        "scheduledPublishAt": "2026-11-15T12:30:00.000Z"
       },
       "presenter": {
-        "enabled": true,
+        "enabled": false,
         "avatarId": "avatar_013",
         "style": "transparent",
         "widthPercent": 41,
@@ -291,15 +291,876 @@
     },
     "accountId": "default",
     "section": "shorts",
-    "status": "draft",
-    "lastUsed": "Never",
-    "aiResponse": "",
-    "extractedScript": "",
-    "narration": "",
-    "imagePrompts": [],
-    "generatedImages": [],
-    "generatedAudio": [],
-    "pipeline": []
+    "status": "active",
+    "lastUsed": "2026-11-15T10:10:16.755Z",
+    "aiResponse": "### SECTION 1 — SCRIPT & ASSET BLUEPRINT\n\n🎬 **SCENE 1 — THE ARRIVAL OF VIBHISHANA**  \n**Duration:** 00:00–00:06 (6s)  \n**Asset Type:** VIDEO  \n**Emotion:** Tension / Awe  \n**Visual Concept:** Vibhishana descends onto the windswept Rameshwaram shoreline before Sri Rama and the alarmed Vanara army.  \n**Camera/Movement:** Wide slow forward tracking shot skimming over ocean waves toward the dramatic standoff on the beach.  \n**LINE 1:**  \n*Text:* जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।  \n*Tone:* Epic / Intense  \n*On-Screen Text:* विभीषण की शरणागति  \n\n🎬 **SCENE 2 — SUGRIVA'S GRAVE WARNING**  \n**Duration:** 00:06–00:12 (6s)  \n**Asset Type:** IMAGE  \n**Emotion:** Suspicion / Alertness  \n**Visual Concept:** King Sugriva stands beside Sri Rama, gesturing with urgent caution toward the kneeling Vibhishana.  \n**Camera/Movement:** Static medium framing with deep perspective of the roaring ocean backdrop.  \n**LINE 2:**  \n*Text:* सुग्रीव ने तुरंत चेतावनी दी कि शत्रु का भाई कभी मित्र नहीं हो सकता, यह लंका का कोई गुप्त षड्यंत्र है।  \n*Tone:* Tense / Urgent  \n*On-Screen Text:* सुग्रीव की चेतावनी  \n\n🎬 **SCENE 3 — HANUMAN'S DISCERNING COUNSEL**  \n**Duration:** 00:12–00:18 (6s)  \n**Asset Type:** VIDEO  \n**Emotion:** Devotion / Wisdom  \n**Visual Concept:** Sri Hanuman steps forward beside Sri Rama with folded hands, speaking calmly in defense of Vibhishana's pure intent.  \n**Camera/Movement:** Smooth close-up pedestal pan rising from Hanuman's folded hands to Sri Rama's serene face.  \n**LINE 3:**  \n*Text:* तभी श्री हनुमान ने विभीषण के निष्कपट भाव और सत्यनिष्ठा की गवाही दी।  \n*Tone:* Reverent / Calm  \n*On-Screen Text:* हनुमान का विवेक  \n\n🎬 **SCENE 4 — SRI RAMA'S MAJESTIC SERENITY**  \n**Duration:** 00:18–00:24 (6s)  \n**Asset Type:** IMAGE  \n**Emotion:** Divine Calm / Authority  \n**Visual Concept:** Sri Rama standing tall and unperturbed amidst His agitated council, radiating transcendental majesty.  \n**Camera/Movement:** Static three-quarter portrait bathed in golden coastal sunlight.  \n**LINE 4:**  \n*Text:* सेनापति असमंजस में थे, किंतु मर्यादा पुरुषोत्तम श्री राम के मुख पर अपार करुणा और शांति थी।  \n*Tone:* Majestic / Tender  \n*On-Screen Text:* मर्यादा पुरुषोत्तम  \n\n🎬 **SCENE 5 — THE MIDPOINT DECLARATION**  \n**Duration:** 00:24–00:30 (6s)  \n**Asset Type:** VIDEO  \n**Emotion:** Sacred Authority / Revelation  \n**Visual Concept:** Sri Rama raises His divine right hand in the Abhaya Mudra, declaring the eternal law of Dharma.  \n**Camera/Movement:** Slow dramatic push-in shot focusing on Sri Rama's majestic blue countenance and golden aura.  \n**LINE 5:**  \n*Text:* तब प्रभु श्री राम ने धर्म का वह सर्वोच्च सिद्धांत घोषित किया, जिसने सबको मौन कर दिया।  \n*Tone:* Resolute / Sacred  \n*On-Screen Text:* श्रीराम का परम वचन  \n\n🎬 **SCENE 6 — THE SUPREME VOW OF ABHAYA**  \n**Duration:** 00:30–00:36 (6s)  \n**Asset Type:** IMAGE  \n**Emotion:** Awe / Supreme Grace  \n**Visual Concept:** Sri Rama delivering His eternal pledge against the backdrop of crashing ocean waves and parting storm clouds.  \n**Camera/Movement:** Low-angle static wide shot with heroic framing.  \n**LINE 6:**  \n*Text:* उन्होंने कहा—'जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।'  \n*Tone:* Divine / Unshakable  \n*On-Screen Text:* अभयदान का महाव्रत  \n\n🎬 **SCENE 7 — EVEN RAVANA SHALL BE SHELTERED**  \n**Duration:** 00:36–00:42 (6s)  \n**Asset Type:** VIDEO  \n**Emotion:** Boundless Compassion / High Stakes  \n**Visual Concept:** Sri Rama commands Sugriva to bring Vibhishana forward, turning His compassionate gaze across the southern sea.  \n**Camera/Movement:** Slow cinematic tracking shot circling around Sri Rama toward the vast ocean horizon.  \n**LINE 7:**  \n*Text:* 'यदि स्वयं रावण भी पश्चाताप के साथ मेरे द्वार आए, तो मैं उसे भी त्याग नहीं सकता।'  \n*Tone:* Profound / Majestic  \n*On-Screen Text:* असीम करुणा  \n\n🎬 **SCENE 8 — THE DIVINE EMBRACE**  \n**Duration:** 00:42–00:48 (6s)  \n**Asset Type:** IMAGE  \n**Emotion:** Overwhelming Devotion / Surrender  \n**Visual Concept:** Sri Rama lifting the weeping Vibhishana from the sands and embracing him like a brother.  \n**Camera/Movement:** Intimate medium shot capturing raw emotional surrender and tears of Bhakti.  \n**LINE 8:**  \n*Text:* प्रभु के इन वचनों को सुनकर विभीषण अश्रुपूरित नेत्रों से उनके श्रीचरणों में गिर पड़े, और श्री राम ने उन्हें स्नेह से हृदय से लगा लिया।  \n*Tone:* Emotional / Tearful  \n*On-Screen Text:* प्रेम और शरणागति  \n\n🎬 **SCENE 9 — CORONATION ON THE OCEAN SHORE**  \n**Duration:** 00:48–00:54 (6s)  \n**Asset Type:** VIDEO  \n**Emotion:** Triumph / Righteous Power  \n**Visual Concept:** Lakshmana pours sacred ocean water from a golden kalash onto Vibhishana’s head upon the seashore sand.  \n**Camera/Movement:** Smooth descending crane shot highlighting the glistening sea water anointing Vibhishana as King of Lanka.  \n**LINE 9:**  \n*Text:* युद्ध से पहले ही, प्रभु ने समुद्र के जल से विभीषण का लंका नरेश के रूप में राजतिलक करवा दिया।  \n*Tone:* Triumphant / Solemn  \n*On-Screen Text:* लंका का राजतिलक  \n\n🎬 **SCENE 10 — THE ETERNAL LESSON & CLOSING CTA**  \n**Duration:** 00:54–01:00 (6s)  \n**Asset Type:** IMAGE  \n**Emotion:** Deep Reflection / Devotion  \n**Visual Concept:** Sri Rama standing on the coastal cliff overlooking the vast southern ocean, flanked by Lakshmana, Sugriva, and Vibhishana.  \n**Camera/Movement:** Epic static wide landscape composition during golden hour.  \n**LINE 10:**  \n*Text:* श्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।  \n*Tone:* Warm / Devotional  \n*On-Screen Text:* Ancient Dharma  \n\n---\n\n### SECTION 2 — TIMESTAMPS FOR EDITOR SYNC\n\n* **00:00–00:06** — जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।\n* **00:06–00:12** — सुग्रीव ने तुरंत चेतावनी दी कि शत्रु का भाई कभी मित्र नहीं हो सकता, यह लंका का कोई गुप्त षड्यंत्र है।\n* **00:12–00:18** — तभी श्री हनुमान ने विभीषण के निष्कपट भाव और सत्यनिष्ठा की गवाही दी।\n* **00:18–00:24** — सेनापति असमंजस में थे, किंतु मर्यादा पुरुषोत्तम श्री राम के मुख पर अपार करुणा और शांति थी।\n* **00:24–00:30** — तब प्रभु श्री राम ने धर्म का वह सर्वोच्च सिद्धांत घोषित किया, जिसने सबको मौन कर दिया।\n* **00:30–00:36** — उन्होंने कहा—'जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।'\n* **00:36–00:42** — 'यदि स्वयं रावण भी पश्चाताप के साथ मेरे द्वार आए, तो मैं उसे भी त्याग नहीं सकता।'\n* **00:42–00:48** — प्रभु के इन वचनों को सुनकर विभीषण अश्रुपूरित नेत्रों से उनके श्रीचरणों में गिर पड़े, और श्री राम ने उन्हें स्नेह से हृदय से लगा लिया।\n* **00:48–00:54** — युद्ध से पहले ही, प्रभु ने समुद्र के जल से विभीषण का लंका नरेश के रूप में राजतिलक करवा दिया।\n* **00:54–01:00** — श्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।\n\n---\n\n### SECTION 2B — ELEVENLABS VOICED SCRIPT (PASTE-READY)\n\n<script>\nजब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।\n\n(break)\n\nसुग्रीव ने तुरंत चेतावनी दी कि शत्रु का भाई कभी मित्र नहीं हो सकता, यह लंका का कोई गुप्त षड्यंत्र है।\n\n(break)\n\nतभी श्री हनुमान ने विभीषण के निष्कपट भाव और सत्यनिष्ठा की गवाही दी।\n\n(break)\n\nसेनापति असमंजस में थे, किंतु मर्यादा पुरुषोत्तम श्री राम के मुख पर अपार करुणा और शांति थी।\n\n(break)\n\nतब प्रभु श्री राम ने धर्म का वह सर्वोच्च सिद्धांत घोषित किया, जिसने सबको मौन कर दिया।\n\n(break)\n\nउन्होंने कहा—'जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।'\n\n(break)\n\n'यदि स्वयं रावण भी पश्चाताप के साथ मेरे द्वार आए, तो मैं उसे भी त्याग नहीं सकता।'\n\n(break)\n\nप्रभु के इन वचनों को सुनकर विभीषण अश्रुपूरित नेत्रों से उनके श्रीचरणों में गिर पड़े, और श्री राम ने उन्हें स्नेह से हृदय से लगा लिया।\n\n(break)\n\nयुद्ध से पहले ही, प्रभु ने समुद्र के जल से विभीषण का लंका नरेश के रूप में राजतिलक करवा दिया।\n\n(break)\n\nश्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।\n</script>\n\n---\n\n### SECTION 3 — VISUAL GENERATION PROMPTS (CHRONOLOGICAL)\n\n<image_prompt0>\n#image 0\nASSET: THUMBNAIL\nPrompt:\nEpic cinematic 16:9 split composition on the misty Rameshwaram sea-shore during Treta Yuga. On the right, Sri Rama in majestic close-up with deep blue-dark complexion (\"shyama varna\"), calm powerful lotus eyes, and dignified serenity, raising His right hand in the supreme Abhaya Mudra while holding the divine longbow. On the left, Vibhishana kneeling on wet golden sand with folded hands in complete emotional surrender, eyes glistening with tears of devotion. Background features towering crashing ocean waves, sacred salt spray, dramatic sunbeams piercing stormy teal clouds, and ample negative space on the top-left for bold typography. High contrast, warm amber and cerulean palette, photorealistic hyper-detail.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.\nTHUMBNAIL TEXT: श्रीराम का अभयदान\n</image_prompt0>\n\n<video_prompt1>\n#video 1\nTIMELINE: 00:00–00:06\nASSET TYPE: VIDEO CLIP (OPENING HOOK)\nSCENE: The Arrival of Vibhishana\nShot Behavior:\nWide establishing shot at sunrise on the craggy northern seashore of the Southern Ocean. Vibhishana with dusky skin in noble attire kneels humbly on wet sands with hands folded in deep reverence. In front of him, Sri Rama stands tall and composed with deep blue complexion holding His bow. Surrounding Vanara warriors raise stone clubs in defensive agitation. The camera performs ONE continuous, smooth slow forward tracking shot across the foamy ocean waves toward the central figures. Crashing waves, salt mist, and persistent warm morning light illuminate the ancient Vedic setting. Clean stable final frame with no camera wobble.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.\n</video_prompt1>\n\n<motion_graphic1>\n{\"version\":1,\"templateId\":\"ad_chapter\",\"intent\":\"Introduce the opening sacred dilemma of Vibhishana seeking shelter\",\"quote\":\"जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी\",\"position\":\"top\",\"durationSec\":4,\"layout\":\"auto\",\"content\":{\"items\":[{\"text\":\"विभीषण की शरणागति\",\"detail\":\"समुद्र तट पर प्रभु श्री राम से शरण\"}],\"links\":[]}}\n</motion_graphic1>\n\n<image_prompt2>\n#image 2\nTIMELINE: 00:06–00:12\nASSET TYPE: STATIC IMAGE\nSCENE: Sugriva's Grave Warning\nPrompt:\nDramatic medium shot on the windswept Rameshwaram coast. King Sugriva, a powerful golden-furred Vanara king with muscular build and ornate golden crown, steps forward urgently gesturing toward the distant sea, expressing intense tactical suspicion and warning. Beside him, Sri Rama remains completely calm and unruffled, His blue-dark countenance radiating majestic poise. In the foreground, sandstone boulders and wet sand catch the golden morning light; in the background, churning emerald-teal ocean waves crash violently against jagged shoreline rocks under a dramatic cloudy sky.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.\n</image_prompt2>\n\n<video_prompt3>\n#video 3\nTIMELINE: 00:12–00:18\nASSET TYPE: VIDEO CLIP\nSCENE: Hanuman's Discerning Counsel\nShot Behavior:\nMedium close-up shot of Sri Hanuman, a golden-orange furred Vanara warrior with muscular build and wearing a sacred thread (janeu), stepping gently beside Sri Rama with hands folded in profound humility and intellect. Sri Rama turns His calm gaze toward Hanuman with a subtle, approving nod. The camera performs ONE continuous, smooth slow pedestal pan tilting gently upward from Hanuman's folded palms to Sri Rama's compassionate blue-dark profile. Atmospheric sea breeze gently stirs the ascetic hair and saffron robes with stable golden lighting throughout.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nHanuman: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), deep devotional surrender, awe-inspiring strength, humble eyes, normal human scale.\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.\n</video_prompt3>\n\n<image_prompt4>\n#image 4\nTIMELINE: 00:18–00:24\nASSET TYPE: STATIC IMAGE\nSCENE: Sri Rama's Majestic Serenity\nPrompt:\nHeroic eye-level portrait of Sri Rama standing in the center of the Vanara war council on the ocean shore. Sri Rama features radiant deep blue-dark skin (\"shyama varna\"), broad shoulders, long arms (\"ajanubahu\"), and long black hair tied in an ascetic jata knot, wearing saffron bark-cloth attire. His expression is profoundly peaceful, compassionate, and unwavering, contrasting sharply with the anxious Vanara commanders in soft blur behind Him. Warm golden sunlight reflects off the ocean mist, framing Him in a subtle divine luminescence. Primordial Treta Yuga Vedic atmosphere.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.\n</image_prompt4>\n\n<video_prompt5>\n#video 5\nTIMELINE: 00:24–00:30\nASSET TYPE: VIDEO CLIP (MIDPOINT RE-HOOK)\nSCENE: The Midpoint Declaration\nShot Behavior:\nMedium hero shot of Sri Rama standing resolutely on the sea-shore. Sri Rama raises His divine right hand slowly into the sacred Abhaya Mudra (gesture of fearlessness and absolute protection), holding His legendary bow Kodanda in His left hand. The camera performs ONE continuous, slow cinematic push-in toward Sri Rama's radiant face and raised hand. Divine golden sunbeams break through dark clouds in the background, illuminating the swirling sea mist and His majestic blue complexion. The motion ends on an imposing, steady sacred composition.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.\n</video_prompt5>\n\n<image_prompt6>\n#image 6\nTIMELINE: 00:30–00:36\nASSET TYPE: STATIC IMAGE\nSCENE: The Supreme Vow of Abhaya\nPrompt:\nLow-angle grand wide shot of Sri Rama standing tall before the entire Vanara army on the sandy Rameshwaram coast. Sri Rama, with deep blue-dark skin and saffron ascetic robes, stands in divine grandeur with His right palm radiating assurance. Sugriva, Angada, and Jambavan bow their heads in reverent realization of Sri Rama’s supreme Dharma. The Southern Ocean behind churns with majestic emerald waves under dramatic golden-lit clouds. Flawless Treta Yuga aesthetic, hyper-detailed sand textures, Vedic ascetic ornamentation.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.\n</image_prompt6>\n\n<motion_graphic6>\n{\"version\":1,\"templateId\":\"ad_pull_quote\",\"intent\":\"Highlight Sri Rama's supreme scriptural vow of protection to all beings\",\"quote\":\"जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है\",\"position\":\"bottom\",\"durationSec\":5,\"layout\":\"auto\",\"content\":{\"items\":[{\"text\":\"जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।\"}],\"links\":[]}}\n</motion_graphic6>\n\n<video_prompt7>\n#video 7\nTIMELINE: 00:36–00:42\nASSET TYPE: VIDEO CLIP\nSCENE: Even Ravana Shall Be Sheltered\nShot Behavior:\nMedium wide shot of Sri Rama turning His divine profile toward the southern horizon where distant stormy skies mark the direction of Lanka. Sri Rama gestures calmly toward King Sugriva, speaking His resolute command. The camera performs ONE continuous, smooth circular arc tracking shot around Sri Rama, moving from His commanding profile to reveal the distant vast ocean and kneeling Vibhishana in the foreground. Persistent natural sea breeze rustles His saffron robes under warm amber illumination. Stable concluding frame.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.\n</video_prompt7>\n\n<image_prompt8>\n#image 8\nTIMELINE: 00:42–00:48\nASSET TYPE: STATIC IMAGE\nSCENE: The Divine Embrace\nPrompt:\nDeeply emotional close-up shot capturing Sri Rama gently raising Vibhishana from the sea sand and embracing him with profound fraternal love. Sri Rama’s deep blue-dark face reflects boundless divine compassion; Vibhishana, a noble dusky-toned Rakshasa prince in golden armor, weeps tears of uncontainable Bhakti and gratitude, his hands pressed against Sri Rama’s chest. Soft golden ocean sunlight glints off water droplets on Vibhishana’s cheeks and Sri Rama's serene features. Highly evocative, sacred, and deeply tender atmosphere.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.\n</image_prompt8>\n\n<video_prompt9>\n#video 9\nTIMELINE: 00:48–00:54\nASSET TYPE: VIDEO CLIP\nSCENE: Coronation on the Ocean Shore\nShot Behavior:\nMedium shot of Lakshmana, fair-complexioned ascetic warrior in green and ochre attire, holding an ornate golden kalash filled with sacred ocean water and gently pouring it over the head of the kneeling Vibhishana on the beach sand. Sri Rama stands beside them smiling with divine grace, extending His hand in blessing. The camera executes ONE continuous, smooth slow descending crane shot from the sparkling stream of poured sea water down to Vibhishana’s crowned head and grateful expression. Sparkling water droplets reflect the golden hour sun.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nLakshmana: Age 22–27 years old, fair wheatish complexion, sharp warrior features, intense alert eyes, highly athletic muscular build, green/ochre attire, longbow and quiver.\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.\n</video_prompt9>\n\n<image_prompt10>\n#image 10\nTIMELINE: 00:54–01:00\nASSET TYPE: STATIC IMAGE (CLOSING & CTA)\nSCENE: The Eternal Lesson\nPrompt:\nPanoramic wide shot of the southern ocean shore at glorious twilight. Sri Rama stands on a rocky elevation overlooking the vast ocean toward Lanka, holding His bow Kodanda, flanked in devotion by Lakshmana, Sugriva, Hanuman, and newly-anointed King Vibhishana. Divine amber-gold rays illuminate the rolling sea waves and ancient Vedic sandstone cliffs. The entire scene breathes eternal Dharma, fearlessness, and supreme grace. High-resolution cinematic framing, serene and sacred atmosphere.\nCharacter Consistency:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.\n</image_prompt10>\n\n<motion_graphic10>\n{\"version\":1,\"templateId\":\"ad_end_prompt\",\"intent\":\"Engage viewer with prompt to comment, like and subscribe to Ancient Dharma\",\"quote\":\"श्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।\",\"position\":\"bottom\",\"durationSec\":5,\"layout\":\"auto\",\"content\":{\"items\":[{\"text\":\"Ancient Dharma\",\"detail\":\"लाइक करें • सब्सक्राइब करें • कमेंट करें\"}],\"links\":[]}}\n</motion_graphic10>\n\n---\n\n### SECTION 4 — HINDI TEXT OVERLAYS\n\n* **Thumbnail Text:** श्रीराम का अभयदान\n* **Opening Frame Text:** विभीषण की शरणागति\n* **Scene Lower-Thirds:**\n  * Scene 2: सुग्रीव का संशय\n  * Scene 3: हनुमान का विवेक\n  * Scene 5: श्रीराम का महाव्रत\n  * Scene 9: लंका का राजतिलक\n* **Follow Frame Text:** कमेंट में अपनी राय लिखिए | Like & Subscribe Ancient Dharma\n* **End Card Text:** शरणागति का परम सत्य • Ancient Dharma\n\n---\n\n### SECTION 5 — THE REFLECTION ENGINE\n\n**Pinned YouTube Comment Question:**  \n\"प्रभु श्री राम का यह वचन सिखाता है कि जो सच्चे मन से शरण में आता है, ईश्वर उसे कभी नहीं त्यागते—चाहे अतीत में उसने कुछ भी किया हो। आपके जीवन में प्रभु श्रीराम की इस असीम करुणा और शरणागति के भाव का क्या महत्व है? अपने विचार कमेंट बॉक्स में अवश्य साझा करें। जय श्री राम! 🙏✨\"",
+    "extractedScript": "जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।\n\nसुग्रीव ने तुरंत चेतावनी दी कि शत्रु का भाई कभी मित्र नहीं हो सकता, यह लंका का कोई गुप्त षड्यंत्र है।\n\nतभी श्री हनुमान ने विभीषण के निष्कपट भाव और सत्यनिष्ठा की गवाही दी।\n\nसेनापति असमंजस में थे, किंतु मर्यादा पुरुषोत्तम श्री राम के मुख पर अपार करुणा और शांति थी।\n\nतब प्रभु श्री राम ने धर्म का वह सर्वोच्च सिद्धांत घोषित किया, जिसने सबको मौन कर दिया।\n\nउन्होंने कहा—'जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।'\n\n'यदि स्वयं रावण भी पश्चाताप के साथ मेरे द्वार आए, तो मैं उसे भी त्याग नहीं सकता।'\n\nप्रभु के इन वचनों को सुनकर विभीषण अश्रुपूरित नेत्रों से उनके श्रीचरणों में गिर पड़े, और श्री राम ने उन्हें स्नेह से हृदय से लगा लिया।\n\nयुद्ध से पहले ही, प्रभु ने समुद्र के जल से विभीषण का लंका नरेश के रूप में राजतिलक करवा दिया।\n\nश्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।",
+    "narration": "जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।\n\nसुग्रीव ने तुरंत चेतावनी दी कि शत्रु का भाई कभी मित्र नहीं हो सकता, यह लंका का कोई गुप्त षड्यंत्र है।\n\nतभी श्री हनुमान ने विभीषण के निष्कपट भाव और सत्यनिष्ठा की गवाही दी।\n\nसेनापति असमंजस में थे, किंतु मर्यादा पुरुषोत्तम श्री राम के मुख पर अपार करुणा और शांति थी।\n\nतब प्रभु श्री राम ने धर्म का वह सर्वोच्च सिद्धांत घोषित किया, जिसने सबको मौन कर दिया।\n\nउन्होंने कहा—'जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।'\n\n'यदि स्वयं रावण भी पश्चाताप के साथ मेरे द्वार आए, तो मैं उसे भी त्याग नहीं सकता।'\n\nप्रभु के इन वचनों को सुनकर विभीषण अश्रुपूरित नेत्रों से उनके श्रीचरणों में गिर पड़े, और श्री राम ने उन्हें स्नेह से हृदय से लगा लिया।\n\nयुद्ध से पहले ही, प्रभु ने समुद्र के जल से विभीषण का लंका नरेश के रूप में राजतिलक करवा दिया।\n\nश्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।",
+    "imagePrompts": [
+      "Wide establishing shot at sunrise on the craggy northern seashore of the Southern Ocean. Vibhishana with dusky skin in noble attire kneels humbly on wet sands with hands folded in deep reverence. In front of him, Sri Rama stands tall and composed with deep blue complexion holding His bow. Surrounding Vanara warriors raise stone clubs in defensive agitation. The camera performs ONE continuous, smooth slow forward tracking shot across the foamy ocean waves toward the central figures. Crashing waves, salt mist, and persistent warm morning light illuminate the ancient Vedic setting. Clean stable final frame with no camera wobble.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+      "Dramatic medium shot on the windswept Rameshwaram coast. King Sugriva, a powerful golden-furred Vanara king with muscular build and ornate golden crown, steps forward urgently gesturing toward the distant sea, expressing intense tactical suspicion and warning. Beside him, Sri Rama remains completely calm and unruffled, His blue-dark countenance radiating majestic poise. In the foreground, sandstone boulders and wet sand catch the golden morning light; in the background, churning emerald-teal ocean waves crash violently against jagged shoreline rocks under a dramatic cloudy sky.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+      "Medium close-up shot of Sri Hanuman, a golden-orange furred Vanara warrior with muscular build and wearing a sacred thread (janeu), stepping gently beside Sri Rama with hands folded in profound humility and intellect. Sri Rama turns His calm gaze toward Hanuman with a subtle, approving nod. The camera performs ONE continuous, smooth slow pedestal pan tilting gently upward from Hanuman's folded palms to Sri Rama's compassionate blue-dark profile. Atmospheric sea breeze gently stirs the ascetic hair and saffron robes with stable golden lighting throughout.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nHanuman: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), deep devotional surrender, awe-inspiring strength, humble eyes, normal human scale.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+      "Heroic eye-level portrait of Sri Rama standing in the center of the Vanara war council on the ocean shore. Sri Rama features radiant deep blue-dark skin (\"shyama varna\"), broad shoulders, long arms (\"ajanubahu\"), and long black hair tied in an ascetic jata knot, wearing saffron bark-cloth attire. His expression is profoundly peaceful, compassionate, and unwavering, contrasting sharply with the anxious Vanara commanders in soft blur behind Him. Warm golden sunlight reflects off the ocean mist, framing Him in a subtle divine luminescence. Primordial Treta Yuga Vedic atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+      "Medium hero shot of Sri Rama standing resolutely on the sea-shore. Sri Rama raises His divine right hand slowly into the sacred Abhaya Mudra (gesture of fearlessness and absolute protection), holding His legendary bow Kodanda in His left hand. The camera performs ONE continuous, slow cinematic push-in toward Sri Rama's radiant face and raised hand. Divine golden sunbeams break through dark clouds in the background, illuminating the swirling sea mist and His majestic blue complexion. The motion ends on an imposing, steady sacred composition.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+      "Low-angle grand wide shot of Sri Rama standing tall before the entire Vanara army on the sandy Rameshwaram coast. Sri Rama, with deep blue-dark skin and saffron ascetic robes, stands in divine grandeur with His right palm radiating assurance. Sugriva, Angada, and Jambavan bow their heads in reverent realization of Sri Rama’s supreme Dharma. The Southern Ocean behind churns with majestic emerald waves under dramatic golden-lit clouds. Flawless Treta Yuga aesthetic, hyper-detailed sand textures, Vedic ascetic ornamentation.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+      "Medium wide shot of Sri Rama turning His divine profile toward the southern horizon where distant stormy skies mark the direction of Lanka. Sri Rama gestures calmly toward King Sugriva, speaking His resolute command. The camera performs ONE continuous, smooth circular arc tracking shot around Sri Rama, moving from His commanding profile to reveal the distant vast ocean and kneeling Vibhishana in the foreground. Persistent natural sea breeze rustles His saffron robes under warm amber illumination. Stable concluding frame.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+      "Deeply emotional close-up shot capturing Sri Rama gently raising Vibhishana from the sea sand and embracing him with profound fraternal love. Sri Rama’s deep blue-dark face reflects boundless divine compassion; Vibhishana, a noble dusky-toned Rakshasa prince in golden armor, weeps tears of uncontainable Bhakti and gratitude, his hands pressed against Sri Rama’s chest. Soft golden ocean sunlight glints off water droplets on Vibhishana’s cheeks and Sri Rama's serene features. Highly evocative, sacred, and deeply tender atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+      "Medium shot of Lakshmana, fair-complexioned ascetic warrior in green and ochre attire, holding an ornate golden kalash filled with sacred ocean water and gently pouring it over the head of the kneeling Vibhishana on the beach sand. Sri Rama stands beside them smiling with divine grace, extending His hand in blessing. The camera executes ONE continuous, smooth slow descending crane shot from the sparkling stream of poured sea water down to Vibhishana’s crowned head and grateful expression. Sparkling water droplets reflect the golden hour sun.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nLakshmana: Age 22–27 years old, fair wheatish complexion, sharp warrior features, intense alert eyes, highly athletic muscular build, green/ochre attire, longbow and quiver.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+      "Panoramic wide shot of the southern ocean shore at glorious twilight. Sri Rama stands on a rocky elevation overlooking the vast ocean toward Lanka, holding His bow Kodanda, flanked in devotion by Lakshmana, Sugriva, Hanuman, and newly-anointed King Vibhishana. Divine amber-gold rays illuminate the rolling sea waves and ancient Vedic sandstone cliffs. The entire scene breathes eternal Dharma, fearlessness, and supreme grace. High-resolution cinematic framing, serene and sacred atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+    ],
+    "generatedImages": [
+      {
+        "index": 0,
+        "prompt": "Wide establishing shot at sunrise on the craggy northern seashore of the Southern Ocean. Vibhishana with dusky skin in noble attire kneels humbly on wet sands with hands folded in deep reverence. In front of him, Sri Rama stands tall and composed with deep blue complexion holding His bow. Surrounding Vanara warriors raise stone clubs in defensive agitation. The camera performs ONE continuous, smooth slow forward tracking shot across the foamy ocean waves toward the central figures. Crashing waves, salt mist, and persistent warm morning light illuminate the ancient Vedic setting. Clean stable final frame with no camera wobble.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_0_b122f417-9474-43fd-9b25-97f4cd351263.mp4"
+      },
+      {
+        "index": 1,
+        "prompt": "Dramatic medium shot on the windswept Rameshwaram coast. King Sugriva, a powerful golden-furred Vanara king with muscular build and ornate golden crown, steps forward urgently gesturing toward the distant sea, expressing intense tactical suspicion and warning. Beside him, Sri Rama remains completely calm and unruffled, His blue-dark countenance radiating majestic poise. In the foreground, sandstone boulders and wet sand catch the golden morning light; in the background, churning emerald-teal ocean waves crash violently against jagged shoreline rocks under a dramatic cloudy sky.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_1_78ca51ae-fd5e-4f78-8185-bf1e9d90153b.mp4"
+      },
+      {
+        "index": 2,
+        "prompt": "Medium close-up shot of Sri Hanuman, a golden-orange furred Vanara warrior with muscular build and wearing a sacred thread (janeu), stepping gently beside Sri Rama with hands folded in profound humility and intellect. Sri Rama turns His calm gaze toward Hanuman with a subtle, approving nod. The camera performs ONE continuous, smooth slow pedestal pan tilting gently upward from Hanuman's folded palms to Sri Rama's compassionate blue-dark profile. Atmospheric sea breeze gently stirs the ascetic hair and saffron robes with stable golden lighting throughout.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nHanuman: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), deep devotional surrender, awe-inspiring strength, humble eyes, normal human scale.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_2_1ae59d80-96e8-4e9b-8d65-3e1b279f8844.mp4"
+      },
+      {
+        "index": 3,
+        "prompt": "Heroic eye-level portrait of Sri Rama standing in the center of the Vanara war council on the ocean shore. Sri Rama features radiant deep blue-dark skin (\"shyama varna\"), broad shoulders, long arms (\"ajanubahu\"), and long black hair tied in an ascetic jata knot, wearing saffron bark-cloth attire. His expression is profoundly peaceful, compassionate, and unwavering, contrasting sharply with the anxious Vanara commanders in soft blur behind Him. Warm golden sunlight reflects off the ocean mist, framing Him in a subtle divine luminescence. Primordial Treta Yuga Vedic atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_3_8aa907dc-aefb-4399-a94f-26b530633444.mp4"
+      },
+      {
+        "index": 4,
+        "prompt": "Medium hero shot of Sri Rama standing resolutely on the sea-shore. Sri Rama raises His divine right hand slowly into the sacred Abhaya Mudra (gesture of fearlessness and absolute protection), holding His legendary bow Kodanda in His left hand. The camera performs ONE continuous, slow cinematic push-in toward Sri Rama's radiant face and raised hand. Divine golden sunbeams break through dark clouds in the background, illuminating the swirling sea mist and His majestic blue complexion. The motion ends on an imposing, steady sacred composition.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_4_ae048098-d835-4271-9c09-421f2b345f7c.mp4"
+      },
+      {
+        "index": 5,
+        "prompt": "Low-angle grand wide shot of Sri Rama standing tall before the entire Vanara army on the sandy Rameshwaram coast. Sri Rama, with deep blue-dark skin and saffron ascetic robes, stands in divine grandeur with His right palm radiating assurance. Sugriva, Angada, and Jambavan bow their heads in reverent realization of Sri Rama’s supreme Dharma. The Southern Ocean behind churns with majestic emerald waves under dramatic golden-lit clouds. Flawless Treta Yuga aesthetic, hyper-detailed sand textures, Vedic ascetic ornamentation.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_5_c93acf09-9848-4ac4-9ae8-210d497c71f5.mp4"
+      },
+      {
+        "index": 6,
+        "prompt": "Medium wide shot of Sri Rama turning His divine profile toward the southern horizon where distant stormy skies mark the direction of Lanka. Sri Rama gestures calmly toward King Sugriva, speaking His resolute command. The camera performs ONE continuous, smooth circular arc tracking shot around Sri Rama, moving from His commanding profile to reveal the distant vast ocean and kneeling Vibhishana in the foreground. Persistent natural sea breeze rustles His saffron robes under warm amber illumination. Stable concluding frame.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_6_e53f31b0-f765-4e7a-912c-db0fcc8a812a.mp4"
+      },
+      {
+        "index": 7,
+        "prompt": "Deeply emotional close-up shot capturing Sri Rama gently raising Vibhishana from the sea sand and embracing him with profound fraternal love. Sri Rama’s deep blue-dark face reflects boundless divine compassion; Vibhishana, a noble dusky-toned Rakshasa prince in golden armor, weeps tears of uncontainable Bhakti and gratitude, his hands pressed against Sri Rama’s chest. Soft golden ocean sunlight glints off water droplets on Vibhishana’s cheeks and Sri Rama's serene features. Highly evocative, sacred, and deeply tender atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_7_1b0a5b9d-f94b-44c1-8286-13e6294c70d2.mp4"
+      },
+      {
+        "index": 8,
+        "prompt": "Medium shot of Lakshmana, fair-complexioned ascetic warrior in green and ochre attire, holding an ornate golden kalash filled with sacred ocean water and gently pouring it over the head of the kneeling Vibhishana on the beach sand. Sri Rama stands beside them smiling with divine grace, extending His hand in blessing. The camera executes ONE continuous, smooth slow descending crane shot from the sparkling stream of poured sea water down to Vibhishana’s crowned head and grateful expression. Sparkling water droplets reflect the golden hour sun.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nLakshmana: Age 22–27 years old, fair wheatish complexion, sharp warrior features, intense alert eyes, highly athletic muscular build, green/ochre attire, longbow and quiver.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_8_bafecbd7-f89b-4b2c-beac-3ce24f2e80ba.mp4"
+      },
+      {
+        "index": 9,
+        "prompt": "Panoramic wide shot of the southern ocean shore at glorious twilight. Sri Rama stands on a rocky elevation overlooking the vast ocean toward Lanka, holding His bow Kodanda, flanked in devotion by Lakshmana, Sugriva, Hanuman, and newly-anointed King Vibhishana. Divine amber-gold rays illuminate the rolling sea waves and ancient Vedic sandstone cliffs. The entire scene breathes eternal Dharma, fearlessness, and supreme grace. High-resolution cinematic framing, serene and sacred atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "mediaType": "video",
+        "duration": 7.916667,
+        "status": "done",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/import_9_5f028d2b-9f87-4cfb-a314-642836787e18.mp4"
+      }
+    ],
+    "generatedAudio": [
+      {
+        "filename": "narration_hi_decbcb75-a38f-4eb0-a43c-f98c485b4493.wav",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/narration_hi_decbcb75-a38f-4eb0-a43c-f98c485b4493.wav",
+        "language": "hi",
+        "voice": "hi-IN-Chirp3-HD-Alnilam",
+        "provider": "google",
+        "sync": {
+          "version": 1,
+          "timingMode": "narration",
+          "planHash": "41ce382dd6d20abec55d17815ae7360a80c39c9e34b72cb9ac463fa61c9aa7d4",
+          "sampleRate": 48000,
+          "totalSamples": 2835840,
+          "scenes": [
+            {
+              "sceneId": "scene_001",
+              "startSample": 0,
+              "endSample": 297600
+            },
+            {
+              "sceneId": "scene_002",
+              "startSample": 297600,
+              "endSample": 587520
+            },
+            {
+              "sceneId": "scene_003",
+              "startSample": 587520,
+              "endSample": 808320
+            },
+            {
+              "sceneId": "scene_004",
+              "startSample": 808320,
+              "endSample": 1065600
+            },
+            {
+              "sceneId": "scene_005",
+              "startSample": 1065600,
+              "endSample": 1305600
+            },
+            {
+              "sceneId": "scene_006",
+              "startSample": 1305600,
+              "endSample": 1603200
+            },
+            {
+              "sceneId": "scene_007",
+              "startSample": 1603200,
+              "endSample": 1835520
+            },
+            {
+              "sceneId": "scene_008",
+              "startSample": 1835520,
+              "endSample": 2202240
+            },
+            {
+              "sceneId": "scene_009",
+              "startSample": 2202240,
+              "endSample": 2463360
+            },
+            {
+              "sceneId": "scene_010",
+              "startSample": 2463360,
+              "endSample": 2835840
+            }
+          ]
+        },
+        "narrationText": "जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।\n\nसुग्रीव ने तुरंत चेतावनी दी कि शत्रु का भाई कभी मित्र नहीं हो सकता, यह लंका का कोई गुप्त षड्यंत्र है।\n\nतभी श्री हनुमान ने विभीषण के निष्कपट भाव और सत्यनिष्ठा की गवाही दी।\n\nसेनापति असमंजस में थे, किंतु मर्यादा पुरुषोत्तम श्री राम के मुख पर अपार करुणा और शांति थी।\n\nतब प्रभु श्री राम ने धर्म का वह सर्वोच्च सिद्धांत घोषित किया, जिसने सबको मौन कर दिया।\n\nउन्होंने कहा—'जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।'\n\n'यदि स्वयं रावण भी पश्चाताप के साथ मेरे द्वार आए, तो मैं उसे भी त्याग नहीं सकता।'\n\nप्रभु के इन वचनों को सुनकर विभीषण अश्रुपूरित नेत्रों से उनके श्रीचरणों में गिर पड़े, और श्री राम ने उन्हें स्नेह से हृदय से लगा लिया।\n\nयुद्ध से पहले ही, प्रभु ने समुद्र के जल से विभीषण का लंका नरेश के रूप में राजतिलक करवा दिया।\n\nश्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।"
+      }
+    ],
+    "pipeline": [
+      {
+        "id": "response",
+        "label": "Response",
+        "status": "done",
+        "summary": "Assets extracted in the shared scene format",
+        "inputLog": "Vibhishana's Sharanagati: Sri Rama's Supreme Vow of Protection on the Ocean Shore",
+        "outputPreview": "जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।\n\nसुग्रीव ने तुरंत चेत"
+      }
+    ],
+    "editingProjectId": null,
+    "retentionPlan": {
+      "structure": "Source-supported action (Vibhishana arrives seeking refuge across the ocean) → authentic traditional debate (Sugriva's warning vs. Sri Rama's inviolable vow of abhaya) → decisive reason and outcome (Rama's supreme promise to protect even Ravana if he surrenders) → brief Hindi engagement invitation.",
+      "viewerPromise": "Discover why Sri Rama accepted Ravana's brother Vibhishana on the ocean shore despite his generals' warnings, establishing the supreme Vedic law of unconditional surrender (Sharanagati).",
+      "hooks": [
+        {
+          "openingLine": "जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।",
+          "openingVisual": "Dramatic wide tracking shot across the crashing waves of the southern ocean shore where Vibhishana stands prostrated before the blue-skinned Sri Rama and an alarmed Vanara army.",
+          "curiosity": "Why would Sri Rama instantly grant total protection to the blood brother of his sworn enemy against the counsel of his closest allies?",
+          "payoff": "The timeless scriptural vow of Sri Rama in Valmiki Ramayana: whoever seeks refuge with pure heart shall never be turned away, even if it were Ravana himself.",
+          "reason": "Directly establishes the high-stakes confrontation and sacred dilemma with scriptural precision and emotional gravitas without unnecessary exposition."
+        },
+        {
+          "openingLine": "सुग्रीव ने चेतावनी दी कि यह शत्रु का जासूस है, लेकिन श्री राम ने एक ऐसा वचन दिया जिसने इतिहास बदल दिया।",
+          "openingVisual": "Intense close-up of King Sugriva gesturing with urgent concern, cutting to Sri Rama's calm, majestic, blue-complexioned face radiating supreme compassion.",
+          "curiosity": "What divine principle led Rama to override his trusted army commander's realistic political warning?",
+          "payoff": "Sri Rama's eternal declaration of 'Abhaya Danam' (fearlessness to all beings who surrender once).",
+          "reason": "Focuses on the internal conflict and ideological contrast between earthly statecraft and supreme divine dharma."
+        },
+        {
+          "openingLine": "लंका त्यागकर आए विभीषण को श्री राम ने बिना किसी शर्त के अभयदान क्यों दे दिया?",
+          "openingVisual": "Slow cinematic push-in on Vibhishana kneeling with folded hands before Sri Rama's feet on the sands of the southern ocean.",
+          "curiosity": "What made Vibhishana's surrender the gold standard of true Sharanagati in the Ramayana?",
+          "payoff": "The revelation that true surrender transcends lineage, demon birth, and strategic risk in the eyes of Bhagavan.",
+          "reason": "Clear and devotional, but slightly less urgent in visual motion than Hook 0."
+        }
+      ],
+      "selectedHookIndex": 0,
+      "titles": [
+        "Sri Rama's Supreme Vow: Vibhishana Sharanagati #Shorts",
+        "जब शत्रु के भाई को श्री राम ने दी शरण | Vibhishana's Surrender #Shorts",
+        "Why Sri Rama Protected Vibhishana on the Ocean Shore #Shorts"
+      ],
+      "thumbnailConcept": "A powerful split composition on the misty sea-shore: on the left, Vibhishana kneeling in humble surrender with folded hands; on the right, the majestic blue-complexioned Sri Rama with serene divine grace, raising his right hand in the Abhaya Mudra while the ocean waves churn in the background.",
+      "description": "Explore the sacred episode of Vibhishana's Sharanagati from the Valmiki Ramayana. When Ravana's brother sought refuge on the ocean shore, Sugriva and the Vanara generals warned of treachery. Witness how Bhagavan Sri Rama established the supreme law of unconditional protection and divine compassion. #Shorts #Ramayana #AncientDharma #SriRama #Vibhishana",
+      "tags": [
+        "Ramayana",
+        "Sri Rama",
+        "Vibhishana",
+        "Sharanagati",
+        "Valmiki Ramayana",
+        "Ancient Dharma",
+        "Hindu Lore",
+        "Shorts"
+      ],
+      "musicMood": "cinematic",
+      "version": 1,
+      "topic": "Vibhishana's Sharanagati: Sri Rama's Supreme Vow of Protection on the Ocean Shore",
+      "createdAt": "2026-11-15T10:10:16.630Z",
+      "memoryEvidence": "No sufficiently sampled retention observations for this format and duration yet. Use editorial judgment; do not invent audience evidence or predicted retention scores."
+    },
+    "topicName": "Vibhishana's Sharanagati: Sri Rama's Supreme Vow of Protection on the Ocean Shore",
+    "aiInstructions": "\nNarration language selected for this run: Hindi / Hinglish. Write all spoken narration in this language.",
+    "researchData": "# Production Research Dossier: Vibhishana's Sharanagati (श्रीराम का अभयदान)\n\n---\n\n## 1. Verified Facts, Background & Key Data\n\n### A. Sacred Core & Scriptural Context\n* **Primary Source:** *Valmiki Ramayana*, *Yuddha Kanda* (Chapters/Sargas 17, 18, and 19); corroborated in *Ramcharitmanas* (*Lanka Kanda*, Dohas 43–49).\n* **The Incident:** Having been insulted, kicked, and banished by Ravana for advising him to return Mata Sita and uphold Dharma, Vibhishana flies across the southern sea with four loyal rakshasa ministers (Anala, Sharabha, Sampati, and Praghasa) to seek refuge at the feet of Sri Rama on the northern shore of the ocean.\n* **The Strategic & Ethical Dilemma:** \n  * Sugriva, Jambavan, Angada, and other Vanara commanders view Vibhishana with intense suspicion. Sugriva argues that an enemy’s brother cannot be trusted in wartime, calling him a potential spy, assassin, or Trojan horse who should be captured or executed.\n  * Sri Hanuman provides a discerning assessment, noting that Vibhishana came openly, speaks with genuine distress and righteousness, and shows no deceit in his face or speech.\n* **The Supreme Scriptural Vow (Sharanagati Vrata):**\n  Sri Rama delivers one of the most celebrated philosophical declarations in the entire epic (*Valmiki Ramayana*, 6.18.33–34):\n  > **\"सकृदेव प्रपन्नाय तवास्मीति च याचते।**  \n  > **अभयं सर्वभूतेभ्यो ददाम्येतद् व्रतं मम॥\"**  \n  > *(Sakṛdeva prapannāya tavāsmīti ca yācate | Abhayaṁ sarvabhūtebhyo dadāmyetad vrataṁ mama ||)*  \n  > *\"To anyone who surrenders unto Me even once, saying 'I am Yours', I grant absolute fearlessness (Abhaya) to all living beings. This is My eternal vow.\"*\n* **The Unconditional Climax:** \n  Sri Rama commands Sugriva (*Yuddha Kanda* 6.18.34):  \n  > **\"आनयैनं हरिश्रेष्ठ दत्तमस्याभयं मया। विभीषणो वा सुग्रीव यदि वा रावणः स्वयम्॥\"**  \n  > *\"Bring him forward, O King of the Vanaras! I have granted him protection. Be it Vibhishana, or be it Ravana himself who comes seeking refuge, I shall never turn him away!\"*\n* **The Consequence & Ocean Coronation:** \n  Before crossing the ocean or striking a single blow in the war, Sri Rama instructs Lakshmana to fetch sacred water from the ocean and anoints Vibhishana as the future King of Lanka right there on the sea-shore.\n\n### B. Sacred Diction & Editorial Guardrails\n* **No Modern Science / Engineering Jargon:** In accordance with the *Ancient Dharma* editorial rules, absolutely NO modern archaeology, bathymetry, satellite mapping, or engineering terminology.\n* **Banned Street Slang & Dignity Rules:** Epic characters and the narrator must speak strictly in elevated, dignified Hindi. Words like 'तू', 'तेरा', 'तुझे', 'अरे', or colloquial short-cuts are strictly forbidden.\n\n---\n\n## 2. Chronological Story Arc & Scene Beats (~60 Seconds)\n\n```\n[00:00 - 00:10] Scene 1: The Shocking Arrival on the Ocean Shore (Visual Hook & High Stakes)\n[00:10 - 00:22] Scene 2: The War Council Dilemma (Sugriva's Warning vs. Strategic Suspicion)\n[00:22 - 00:35] Scene 3: The Principle of Sharanagati (Hanuman's Counsel & Rama's Dharma)\n[00:35 - 00:48] Scene 4: The Supreme Vow of Abhaya (The Divine Climax: Even if it were Ravana)\n[00:48 - 00:55] Scene 5: Coronation on the Sea-Shore (The Unshakable Payoff)\n[00:55 - 01:00] Scene 6: Brief Community Invitation (Like, Subscribe, Comment)\n```\n\n### Detailed Narrative Beats\n1. **Scene 1 (Hook & Dilemma):** Vibhishana descends from the sky onto the windswept shore of Rameshwaram, kneeling before Sri Rama. The entire Vanara army raises their weapons in shock and hostility at the sight of Ravana’s brother.\n2. **Scene 2 (The Debate):** Sugriva vehemently cautions Sri Rama, warning that Vibhishana is a spy sent by Lanka to sabotage the war effort from within.\n3. **Scene 3 (The Discernment):** Hanuman recognizes Vibhishana's pure devotion and righteous conduct. Sri Rama gently clarifies that political suspicion cannot overrule the sacred law of shelter (शरणागति).\n4. **Scene 4 (The Supreme Payoff):** Sri Rama declares His supreme vow: *\"Whoever surrenders to Me even once saying 'I am Yours', receives My protection forever—even if Ravana himself comes to My feet, I will grant him refuge!\"*\n5. **Scene 5 (The Consequence):** Sri Rama lifts Vibhishana in a warm embrace and commands Lakshmana to crown him King of Lanka with ocean water on the sand, proving His word is irrevocable.\n6. **Scene 6 (CTA Close):** Compact engagement prompt in elevated Hindi.\n\n---\n\n## 3. Visual & World-Building Canon\n\n### Setting & Environment\n* **Location:** Northern shoreline of the Southern Ocean (Rameshwaram / Sethu coast).\n* **Atmosphere:** Dramatic rolling ocean swells, salt mist in the air, crashing surf against golden sands, distant dark storm clouds over the horizon towards Lanka, divine golden sunlight breaking through clouds onto Sri Rama.\n* **Color Palette:** Divine cerulean blue, warm gold, saffron, deep ocean teal, and earthy sandstone.\n\n### Character Bible & Visual Consistency\n* **Sri Rama (श्रीराम):**\n  * *Complexion & Features:* Radiant dark blue (Shyama-varna), large compassionate lotus-shaped eyes (Rajiv-lochan), dignified gentle smile radiating supreme divinity and Kshatriya majesty.\n  * *Attire:* Ascetic saffron/bark robes (*valkala*), simple wooden ornaments and Rudraksha, sacred thread (*yajnopavita*), long flowing black ascetic tresses tied partially in a topknot (*jata*).\n  * *Props & Pose:* Holding the divine bow *Kodanda* in His left hand, raising His right hand in the supreme *Abhaya Mudra* (gesture of fearlessness).\n* **Vibhishana (विभीषण):**\n  * *Appearance:* Noble, tall, dusky-toned Rakshasa prince with refined, serene facial features (not monstrous), wearing modest golden armor, white-and-gold royal dhoti, and folded hands (*Anjali Mudra*).\n  * *Posture:* Humbled, prostrated, or kneeling with eyes brimming with tears of devotion (*Bhakti*).\n* **Sugriva (सुग्रीव):**\n  * *Appearance:* Powerful golden-furred Vanara king, muscular build, wearing a jeweled royal crown and armlets, vigilant tactical stance, gesturing with concerned urgency.\n* **Sri Hanuman (हनुमान जी):**\n  * *Appearance:* Golden-hued, colossal yet humble Vanara warrior, standing close behind Sri Rama with hands folded in deep reverence and discerning intellect.\n* **Lakshmana (लक्ष्मण):**\n  * *Appearance:* Fair-complexioned, tall, ascetic archer with fierce devotion to Sri Rama, holding a golden vessel of sea water for the coronation.\n\n---\n\n## 4. Scriptwriter Directives\n\n### Spoken Language & Style Guidelines\n* **Language Mode:** Pure, elevated, natural spoken Hindi in Devanagari script.\n* **Sentence Architecture:** Keep sentences short, rhythmic, and breath-friendly (8–14 words per sentence). Use ample commas and full stops (पूर्णविराम `।`) to guide natural voice pauses for ElevenLabs TTS.\n* **Tone:** Epic, inspiring, profound, and deeply devotional.\n\n### Opening & Closing Alignment\n* **Exact Opening Line to Use:**  \n  *जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।*\n* **Earned Payoff to Deliver:**  \n  Sri Rama’s immortal vow from Valmiki Ramayana that no one who seeks refuge with a sincere heart will ever be rejected—even Ravana himself.\n* **Single Engagement Close (CTA):**  \n  *श्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।*",
+    "researchSources": [
+      {
+        "title": "valmikiramayan.net",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQHFTaXJ6KZTSDdYX3TYLPBjgoLYJNh-_GIdtN-JDs9XWwR1Hq53h89-E0SRLPA2yV26sCNEd8su7OYniCEiGgPMR_E8Ju3a8-ljrsEy0EF0kEOn5l3VpEz5GiolrjYfy6PlBGa_xyo5HtapH2vzAiKid69SoTQc4QVZFfpM9IYu"
+      },
+      {
+        "title": "valmikiramayan.net",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQFN8WBzYD5arApC4RX-zPTa6GGQbyjAZ5CIKaG40zzCftxqqLTkiMnV5EyYIsiKEqcTH-Kz3SOH-g5UloutwzpzwF6ql-ukv91r6JeATJk2KBecorXtZARwoBgHDsUDHsOlsAsHvAKOWaNrC4ieGTsALdkE2h0O4ZopMGc="
+      },
+      {
+        "title": "ramayana.info",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEgw33-4w2hTSslq-_iuFtkmKZy611jqunW7y6oCkROHZ1dzgWmIUUYp0HI6aoroXKyMl0ohvKCXG4GGQwFsA1ngdATMIq2NuCsRkN11Vcgxld3ob8GlxTIyBPxuExJ"
+      },
+      {
+        "title": "blogspot.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQGbjnHyj84Ooa3BGd0WO96bT-CZGBLQBcLHQCCgaxJ3SYwKpJQ1ikoOo9PywApHRD2ZxPrrHiqu_g9IOStHZQf3L4ELvVj23Nj-0cyJ0w17KdsRKQZL0eBKwE8fb_4R92giW6Yz9Fqe6yag6lVm9Rt7xytjjkIHfHFyMcmKdFFIxwZt_ls7vl8xXURduBHrNrFJHeaqXQ=="
+      },
+      {
+        "title": "quora.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQH_MW6jRLbwDOBGtGVrbxv_Wf-nXvBXKdHPm4zasc5tZr0mf0nuxoNDQe_O6XaXUL15kch2cCCN9w2o8K1omgtcsBeSKuu_v3aoomzAc4qex9vl_SFETYUqB7M7LDWMF_EHKtoER1wc-bLg34Ig_8b6JR_PJD63MkHAg_R8uWIy_ZfamdJdp1o4K_pgy4KEPstFHKZqvWcIf6e_Hw=="
+      },
+      {
+        "title": "wikipedia.org",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQE6GIMY7HQf9r8K6AOqP63ZMGJGqQ8Wg4-wXYPmp-5kR3Y1MnKCc_tQkWAxfe65zvhDbDDJ-ukwQy1wnHK3w5-Dd3_vaNeDkpJ2By_nzHQ2JceCJ2nKMU4WeOOzc64Zg2nxIbY="
+      },
+      {
+        "title": "gayatriheritage.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEBPgxZdHYj2A2Zx__75MHpiVUtx54MvqaX38zHm8EC9IFvAXsLohvcDQmOkuawYYIUrWENlUgprl5LQPc_Zq3VtycTyEswY62SBYqH0HE51qUeSxV0f0DNfJAQdADHbEhXzcWHMWwx7aG5tF6GBXUZUZYTM1TJJDHdBlFgMmK3kvtMFwp3qnPAbLjxzNXZYgbXwRI="
+      },
+      {
+        "title": "wordpress.com",
+        "url": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/AUZIYQEabeQhg3yvbBqVJvSgnA9zh3ArGFq0u5bnJu7aAy3aBaT1f75IZBaWtnSJ-Iqra5jlT2rMvIr2IC1ctFO39DUgkYKE4_0pW-g8yS7Xdr6RfO1DOlklxt1tzfusbJHe1Bjq4Iex-h4LiATWImMWZMKJAO8pKLmDBhk5tfqwB8NU0Q=="
+      }
+    ],
+    "retentionEdit": {
+      "sourceHash": "a43a48715c70929183cdca46e86731e09238dc0ea7695c1bb82bb7a4f0e25426",
+      "plan": {
+        "version": 1,
+        "title": "Generated Episode",
+        "thumbnailPrompt": "A powerful split composition on the misty sea-shore: on the left, Vibhishana kneeling in humble surrender with folded hands; on the right, the majestic blue-complexioned Sri Rama with serene divine grace, raising his right hand in the Abhaya Mudra while the ocean waves churn in the background.",
+        "scenes": [
+          {
+            "id": "scene_001",
+            "chapter": "The Arrival of Vibhishana",
+            "role": "story",
+            "narration": "जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Wide establishing shot at sunrise on the craggy northern seashore of the Southern Ocean. Vibhishana with dusky skin in noble attire kneels humbly on wet sands with hands folded in deep reverence. In front of him, Sri Rama stands tall and composed with deep blue complexion holding His bow. Surrounding Vanara warriors raise stone clubs in defensive agitation. The camera performs ONE continuous, smooth slow forward tracking shot across the foamy ocean waves toward the central figures. Crashing waves, salt mist, and persistent warm morning light illuminate the ancient Vedic setting. Clean stable final frame with no camera wobble.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+            "videoPrompt": "Wide establishing shot at sunrise on the craggy northern seashore of the Southern Ocean. Vibhishana with dusky skin in noble attire kneels humbly on wet sands with hands folded in deep reverence. In front of him, Sri Rama stands tall and composed with deep blue complexion holding His bow. Surrounding Vanara warriors raise stone clubs in defensive agitation. The camera performs ONE continuous, smooth slow forward tracking shot across the foamy ocean waves toward the central figures. Crashing waves, salt mist, and persistent warm morning light illuminate the ancient Vedic setting. Clean stable final frame with no camera wobble.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+          },
+          {
+            "id": "scene_002",
+            "chapter": "Sugriva's Grave Warning",
+            "role": "story",
+            "narration": "सुग्रीव ने तुरंत चेतावनी दी कि शत्रु का भाई कभी मित्र नहीं हो सकता, यह लंका का कोई गुप्त षड्यंत्र है।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Dramatic medium shot on the windswept Rameshwaram coast. King Sugriva, a powerful golden-furred Vanara king with muscular build and ornate golden crown, steps forward urgently gesturing toward the distant sea, expressing intense tactical suspicion and warning. Beside him, Sri Rama remains completely calm and unruffled, His blue-dark countenance radiating majestic poise. In the foreground, sandstone boulders and wet sand catch the golden morning light; in the background, churning emerald-teal ocean waves crash violently against jagged shoreline rocks under a dramatic cloudy sky.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+          },
+          {
+            "id": "scene_003",
+            "chapter": "Hanuman's Discerning Counsel",
+            "role": "story",
+            "narration": "तभी श्री हनुमान ने विभीषण के निष्कपट भाव और सत्यनिष्ठा की गवाही दी।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Medium close-up shot of Sri Hanuman, a golden-orange furred Vanara warrior with muscular build and wearing a sacred thread (janeu), stepping gently beside Sri Rama with hands folded in profound humility and intellect. Sri Rama turns His calm gaze toward Hanuman with a subtle, approving nod. The camera performs ONE continuous, smooth slow pedestal pan tilting gently upward from Hanuman's folded palms to Sri Rama's compassionate blue-dark profile. Atmospheric sea breeze gently stirs the ascetic hair and saffron robes with stable golden lighting throughout.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nHanuman: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), deep devotional surrender, awe-inspiring strength, humble eyes, normal human scale.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+            "videoPrompt": "Medium close-up shot of Sri Hanuman, a golden-orange furred Vanara warrior with muscular build and wearing a sacred thread (janeu), stepping gently beside Sri Rama with hands folded in profound humility and intellect. Sri Rama turns His calm gaze toward Hanuman with a subtle, approving nod. The camera performs ONE continuous, smooth slow pedestal pan tilting gently upward from Hanuman's folded palms to Sri Rama's compassionate blue-dark profile. Atmospheric sea breeze gently stirs the ascetic hair and saffron robes with stable golden lighting throughout.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nHanuman: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), deep devotional surrender, awe-inspiring strength, humble eyes, normal human scale.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+          },
+          {
+            "id": "scene_004",
+            "chapter": "Sri Rama's Majestic Serenity",
+            "role": "story",
+            "narration": "सेनापति असमंजस में थे, किंतु मर्यादा पुरुषोत्तम श्री राम के मुख पर अपार करुणा और शांति थी।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Heroic eye-level portrait of Sri Rama standing in the center of the Vanara war council on the ocean shore. Sri Rama features radiant deep blue-dark skin (\"shyama varna\"), broad shoulders, long arms (\"ajanubahu\"), and long black hair tied in an ascetic jata knot, wearing saffron bark-cloth attire. His expression is profoundly peaceful, compassionate, and unwavering, contrasting sharply with the anxious Vanara commanders in soft blur behind Him. Warm golden sunlight reflects off the ocean mist, framing Him in a subtle divine luminescence. Primordial Treta Yuga Vedic atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+          },
+          {
+            "id": "scene_005",
+            "chapter": "The Midpoint Declaration",
+            "role": "story",
+            "narration": "तब प्रभु श्री राम ने धर्म का वह सर्वोच्च सिद्धांत घोषित किया, जिसने सबको मौन कर दिया।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Medium hero shot of Sri Rama standing resolutely on the sea-shore. Sri Rama raises His divine right hand slowly into the sacred Abhaya Mudra (gesture of fearlessness and absolute protection), holding His legendary bow Kodanda in His left hand. The camera performs ONE continuous, slow cinematic push-in toward Sri Rama's radiant face and raised hand. Divine golden sunbeams break through dark clouds in the background, illuminating the swirling sea mist and His majestic blue complexion. The motion ends on an imposing, steady sacred composition.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+            "videoPrompt": "Medium hero shot of Sri Rama standing resolutely on the sea-shore. Sri Rama raises His divine right hand slowly into the sacred Abhaya Mudra (gesture of fearlessness and absolute protection), holding His legendary bow Kodanda in His left hand. The camera performs ONE continuous, slow cinematic push-in toward Sri Rama's radiant face and raised hand. Divine golden sunbeams break through dark clouds in the background, illuminating the swirling sea mist and His majestic blue complexion. The motion ends on an imposing, steady sacred composition.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+          },
+          {
+            "id": "scene_006",
+            "chapter": "The Supreme Vow of Abhaya",
+            "role": "story",
+            "narration": "उन्होंने कहा—'जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।'",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Low-angle grand wide shot of Sri Rama standing tall before the entire Vanara army on the sandy Rameshwaram coast. Sri Rama, with deep blue-dark skin and saffron ascetic robes, stands in divine grandeur with His right palm radiating assurance. Sugriva, Angada, and Jambavan bow their heads in reverent realization of Sri Rama’s supreme Dharma. The Southern Ocean behind churns with majestic emerald waves under dramatic golden-lit clouds. Flawless Treta Yuga aesthetic, hyper-detailed sand textures, Vedic ascetic ornamentation.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+            "motionGraphics": [
+              {
+                "version": 1,
+                "intent": "Highlight Sri Rama's supreme scriptural vow of protection to all beings",
+                "templateId": "ad_pull_quote",
+                "quote": "जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है",
+                "position": "bottom",
+                "durationSec": 5,
+                "layout": "auto",
+                "content": {
+                  "items": [
+                    {
+                      "text": "जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।"
+                    }
+                  ],
+                  "links": []
+                }
+              }
+            ]
+          },
+          {
+            "id": "scene_007",
+            "chapter": "Even Ravana Shall Be Sheltered",
+            "role": "story",
+            "narration": "'यदि स्वयं रावण भी पश्चाताप के साथ मेरे द्वार आए, तो मैं उसे भी त्याग नहीं सकता।'",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Medium wide shot of Sri Rama turning His divine profile toward the southern horizon where distant stormy skies mark the direction of Lanka. Sri Rama gestures calmly toward King Sugriva, speaking His resolute command. The camera performs ONE continuous, smooth circular arc tracking shot around Sri Rama, moving from His commanding profile to reveal the distant vast ocean and kneeling Vibhishana in the foreground. Persistent natural sea breeze rustles His saffron robes under warm amber illumination. Stable concluding frame.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+            "videoPrompt": "Medium wide shot of Sri Rama turning His divine profile toward the southern horizon where distant stormy skies mark the direction of Lanka. Sri Rama gestures calmly toward King Sugriva, speaking His resolute command. The camera performs ONE continuous, smooth circular arc tracking shot around Sri Rama, moving from His commanding profile to reveal the distant vast ocean and kneeling Vibhishana in the foreground. Persistent natural sea breeze rustles His saffron robes under warm amber illumination. Stable concluding frame.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+          },
+          {
+            "id": "scene_008",
+            "chapter": "The Divine Embrace",
+            "role": "story",
+            "narration": "प्रभु के इन वचनों को सुनकर विभीषण अश्रुपूरित नेत्रों से उनके श्रीचरणों में गिर पड़े, और श्री राम ने उन्हें स्नेह से हृदय से लगा लिया।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Deeply emotional close-up shot capturing Sri Rama gently raising Vibhishana from the sea sand and embracing him with profound fraternal love. Sri Rama’s deep blue-dark face reflects boundless divine compassion; Vibhishana, a noble dusky-toned Rakshasa prince in golden armor, weeps tears of uncontainable Bhakti and gratitude, his hands pressed against Sri Rama’s chest. Soft golden ocean sunlight glints off water droplets on Vibhishana’s cheeks and Sri Rama's serene features. Highly evocative, sacred, and deeply tender atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+          },
+          {
+            "id": "scene_009",
+            "chapter": "Coronation on the Ocean Shore",
+            "role": "story",
+            "narration": "युद्ध से पहले ही, प्रभु ने समुद्र के जल से विभीषण का लंका नरेश के रूप में राजतिलक करवा दिया।",
+            "mediaType": "video",
+            "duration": 8,
+            "imagePrompt": "Medium shot of Lakshmana, fair-complexioned ascetic warrior in green and ochre attire, holding an ornate golden kalash filled with sacred ocean water and gently pouring it over the head of the kneeling Vibhishana on the beach sand. Sri Rama stands beside them smiling with divine grace, extending His hand in blessing. The camera executes ONE continuous, smooth slow descending crane shot from the sparkling stream of poured sea water down to Vibhishana’s crowned head and grateful expression. Sparkling water droplets reflect the golden hour sun.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nLakshmana: Age 22–27 years old, fair wheatish complexion, sharp warrior features, intense alert eyes, highly athletic muscular build, green/ochre attire, longbow and quiver.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+            "videoPrompt": "Medium shot of Lakshmana, fair-complexioned ascetic warrior in green and ochre attire, holding an ornate golden kalash filled with sacred ocean water and gently pouring it over the head of the kneeling Vibhishana on the beach sand. Sri Rama stands beside them smiling with divine grace, extending His hand in blessing. The camera executes ONE continuous, smooth slow descending crane shot from the sparkling stream of poured sea water down to Vibhishana’s crowned head and grateful expression. Sparkling water droplets reflect the golden hour sun.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nLakshmana: Age 22–27 years old, fair wheatish complexion, sharp warrior features, intense alert eyes, highly athletic muscular build, green/ochre attire, longbow and quiver.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+          },
+          {
+            "id": "scene_010",
+            "chapter": "The Eternal Lesson",
+            "role": "story",
+            "narration": "श्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।",
+            "mediaType": "image",
+            "duration": 5,
+            "imagePrompt": "Panoramic wide shot of the southern ocean shore at glorious twilight. Sri Rama stands on a rocky elevation overlooking the vast ocean toward Lanka, holding His bow Kodanda, flanked in devotion by Lakshmana, Sugriva, Hanuman, and newly-anointed King Vibhishana. Divine amber-gold rays illuminate the rolling sea waves and ancient Vedic sandstone cliffs. The entire scene breathes eternal Dharma, fearlessness, and supreme grace. High-resolution cinematic framing, serene and sacred atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+          }
+        ],
+        "motionMetadata": [
+          {
+            "version": 1,
+            "intent": "Highlight Sri Rama's supreme scriptural vow of protection to all beings",
+            "templateId": "ad_pull_quote",
+            "quote": "जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है",
+            "position": "bottom",
+            "durationSec": 5,
+            "layout": "auto",
+            "content": {
+              "items": [
+                {
+                  "text": "जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।"
+                }
+              ],
+              "links": []
+            },
+            "index": 6,
+            "sceneNum": 6,
+            "sceneId": "scene_006",
+            "raw": "{\"version\":1,\"templateId\":\"ad_pull_quote\",\"intent\":\"Highlight Sri Rama's supreme scriptural vow of protection to all beings\",\"quote\":\"जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है\",\"position\":\"bottom\",\"durationSec\":5,\"layout\":\"auto\",\"content\":{\"items\":[{\"text\":\"जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।\"}],\"links\":[]}}"
+          }
+        ],
+        "supportingNotes": "---\n\n### SECTION 4 — HINDI TEXT OVERLAYS\n\n* **Thumbnail Text:** श्रीराम का अभयदान\n* **Opening Frame Text:** विभीषण की शरणागति\n* **Scene Lower-Thirds:**\n  * Scene 2: सुग्रीव का संशय\n  * Scene 3: हनुमान का विवेक\n  * Scene 5: श्रीराम का महाव्रत\n  * Scene 9: लंका का राजतिलक\n* **Follow Frame Text:** कमेंट में अपनी राय लिखिए | Like & Subscribe Ancient Dharma\n* **End Card Text:** शरणागति का परम सत्य • Ancient Dharma\n\n---\n\n### SECTION 5 — THE REFLECTION ENGINE\n\n**Pinned YouTube Comment Question:**  \n\"प्रभु श्री राम का यह वचन सिखाता है कि जो सच्चे मन से शरण में आता है, ईश्वर उसे कभी नहीं त्यागते—चाहे अतीत में उसने कुछ भी किया हो। आपके जीवन में प्रभु श्रीराम की इस असीम करुणा और शरणागति के भाव का क्या महत्व है? अपने विचार कमेंट बॉक्स में अवश्य साझा करें। जय श्री राम! 🙏✨\""
+      },
+      "notes": [
+        "Preserved verified Valmiki Ramayana canonical details of Vibhishana's Sharanagati and Sri Rama's vow of Abhaya.",
+        "Streamlined narration for high-momentum storytelling and spoken cadence in elevated Devanagari Hindi.",
+        "Maintained strict 50/50 alternating image/video media split across 10 scenes, with Scene 1 as an immediate video hook.",
+        "Integrated purposeful dynamic camera movements (push-in, slow-zoom-in, drift-in, pan-right, drift-out) tailored to each narrative beat.",
+        "Placed the unified single CTA close seamlessly in the final scene following the complete narrative resolution."
+      ],
+      "sceneDirections": [
+        {
+          "sceneId": "scene_001",
+          "purpose": "Establish the immediate high-stakes dilemma of Ravana's brother arriving on the shore to seek refuge.",
+          "motion": "push-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_002",
+          "purpose": "Present the strategic conflict and suspicion raised by Sugriva against trusting the enemy's brother.",
+          "motion": "drift-left",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_003",
+          "purpose": "Reveal Hanuman's wise discernment affirming Vibhishana's sincere devotion and righteousness.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_004",
+          "purpose": "Contrast the council's mortal anxiety with Sri Rama's divine poise and unwavering compassion.",
+          "motion": "drift-in",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_005",
+          "purpose": "Deliver the midpoint turning point where Sri Rama prepares to proclaim the eternal law of shelter.",
+          "motion": "push-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_006",
+          "purpose": "State the sacred core scripture of the Sharanagati vow verbatim from Valmiki Ramayana.",
+          "motion": "slow-zoom-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_007",
+          "purpose": "Deliver the climax of the promise: even Ravana would be granted shelter if he sought refuge.",
+          "motion": "pan-right",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_008",
+          "purpose": "Resolve the emotional stakes with Sri Rama embracing Vibhishana as a brother and devotee.",
+          "motion": "drift-in",
+          "transition": "cut"
+        },
+        {
+          "sceneId": "scene_009",
+          "purpose": "Demonstrate the irrevocable consequence and honor of Sri Rama crowning Vibhishana before the war even begins.",
+          "motion": "drift-out",
+          "transition": "dissolve"
+        },
+        {
+          "sceneId": "scene_010",
+          "purpose": "Provide the final visual grandeur and deliver the single compact community engagement prompt.",
+          "motion": "pull-out",
+          "transition": "cut"
+        }
+      ],
+      "editedAt": "2026-11-15T10:13:15.799Z"
+    },
+    "scenePlan": {
+      "version": 1,
+      "title": "Generated Episode",
+      "thumbnailPrompt": "A powerful split composition on the misty sea-shore: on the left, Vibhishana kneeling in humble surrender with folded hands; on the right, the majestic blue-complexioned Sri Rama with serene divine grace, raising his right hand in the Abhaya Mudra while the ocean waves churn in the background.",
+      "scenes": [
+        {
+          "id": "scene_001",
+          "chapter": "The Arrival of Vibhishana",
+          "role": "story",
+          "narration": "जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "Wide establishing shot at sunrise on the craggy northern seashore of the Southern Ocean. Vibhishana with dusky skin in noble attire kneels humbly on wet sands with hands folded in deep reverence. In front of him, Sri Rama stands tall and composed with deep blue complexion holding His bow. Surrounding Vanara warriors raise stone clubs in defensive agitation. The camera performs ONE continuous, smooth slow forward tracking shot across the foamy ocean waves toward the central figures. Crashing waves, salt mist, and persistent warm morning light illuminate the ancient Vedic setting. Clean stable final frame with no camera wobble.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+          "videoPrompt": "Wide establishing shot at sunrise on the craggy northern seashore of the Southern Ocean. Vibhishana with dusky skin in noble attire kneels humbly on wet sands with hands folded in deep reverence. In front of him, Sri Rama stands tall and composed with deep blue complexion holding His bow. Surrounding Vanara warriors raise stone clubs in defensive agitation. The camera performs ONE continuous, smooth slow forward tracking shot across the foamy ocean waves toward the central figures. Crashing waves, salt mist, and persistent warm morning light illuminate the ancient Vedic setting. Clean stable final frame with no camera wobble.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+        },
+        {
+          "id": "scene_002",
+          "chapter": "Sugriva's Grave Warning",
+          "role": "story",
+          "narration": "सुग्रीव ने तुरंत चेतावनी दी कि शत्रु का भाई कभी मित्र नहीं हो सकता, यह लंका का कोई गुप्त षड्यंत्र है।",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Dramatic medium shot on the windswept Rameshwaram coast. King Sugriva, a powerful golden-furred Vanara king with muscular build and ornate golden crown, steps forward urgently gesturing toward the distant sea, expressing intense tactical suspicion and warning. Beside him, Sri Rama remains completely calm and unruffled, His blue-dark countenance radiating majestic poise. In the foreground, sandstone boulders and wet sand catch the golden morning light; in the background, churning emerald-teal ocean waves crash violently against jagged shoreline rocks under a dramatic cloudy sky.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+          "videoPrompt": "Dramatic medium shot on the windswept Rameshwaram coast. King Sugriva, a powerful golden-furred Vanara king with muscular build and ornate golden crown, steps forward urgently gesturing toward the distant sea, expressing intense tactical suspicion and warning. Beside him, Sri Rama remains completely calm and unruffled, His blue-dark countenance radiating majestic poise. In the foreground, sandstone boulders and wet sand catch the golden morning light; in the background, churning emerald-teal ocean waves crash violently against jagged shoreline rocks under a dramatic cloudy sky.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+        },
+        {
+          "id": "scene_003",
+          "chapter": "Hanuman's Discerning Counsel",
+          "role": "story",
+          "narration": "तभी श्री हनुमान ने विभीषण के निष्कपट भाव और सत्यनिष्ठा की गवाही दी।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "Medium close-up shot of Sri Hanuman, a golden-orange furred Vanara warrior with muscular build and wearing a sacred thread (janeu), stepping gently beside Sri Rama with hands folded in profound humility and intellect. Sri Rama turns His calm gaze toward Hanuman with a subtle, approving nod. The camera performs ONE continuous, smooth slow pedestal pan tilting gently upward from Hanuman's folded palms to Sri Rama's compassionate blue-dark profile. Atmospheric sea breeze gently stirs the ascetic hair and saffron robes with stable golden lighting throughout.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nHanuman: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), deep devotional surrender, awe-inspiring strength, humble eyes, normal human scale.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+          "videoPrompt": "Medium close-up shot of Sri Hanuman, a golden-orange furred Vanara warrior with muscular build and wearing a sacred thread (janeu), stepping gently beside Sri Rama with hands folded in profound humility and intellect. Sri Rama turns His calm gaze toward Hanuman with a subtle, approving nod. The camera performs ONE continuous, smooth slow pedestal pan tilting gently upward from Hanuman's folded palms to Sri Rama's compassionate blue-dark profile. Atmospheric sea breeze gently stirs the ascetic hair and saffron robes with stable golden lighting throughout.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nHanuman: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), deep devotional surrender, awe-inspiring strength, humble eyes, normal human scale.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+        },
+        {
+          "id": "scene_004",
+          "chapter": "Sri Rama's Majestic Serenity",
+          "role": "story",
+          "narration": "सेनापति असमंजस में थे, किंतु मर्यादा पुरुषोत्तम श्री राम के मुख पर अपार करुणा और शांति थी।",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Heroic eye-level portrait of Sri Rama standing in the center of the Vanara war council on the ocean shore. Sri Rama features radiant deep blue-dark skin (\"shyama varna\"), broad shoulders, long arms (\"ajanubahu\"), and long black hair tied in an ascetic jata knot, wearing saffron bark-cloth attire. His expression is profoundly peaceful, compassionate, and unwavering, contrasting sharply with the anxious Vanara commanders in soft blur behind Him. Warm golden sunlight reflects off the ocean mist, framing Him in a subtle divine luminescence. Primordial Treta Yuga Vedic atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+          "videoPrompt": "Heroic eye-level portrait of Sri Rama standing in the center of the Vanara war council on the ocean shore. Sri Rama features radiant deep blue-dark skin (\"shyama varna\"), broad shoulders, long arms (\"ajanubahu\"), and long black hair tied in an ascetic jata knot, wearing saffron bark-cloth attire. His expression is profoundly peaceful, compassionate, and unwavering, contrasting sharply with the anxious Vanara commanders in soft blur behind Him. Warm golden sunlight reflects off the ocean mist, framing Him in a subtle divine luminescence. Primordial Treta Yuga Vedic atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+        },
+        {
+          "id": "scene_005",
+          "chapter": "The Midpoint Declaration",
+          "role": "story",
+          "narration": "तब प्रभु श्री राम ने धर्म का वह सर्वोच्च सिद्धांत घोषित किया, जिसने सबको मौन कर दिया।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "Medium hero shot of Sri Rama standing resolutely on the sea-shore. Sri Rama raises His divine right hand slowly into the sacred Abhaya Mudra (gesture of fearlessness and absolute protection), holding His legendary bow Kodanda in His left hand. The camera performs ONE continuous, slow cinematic push-in toward Sri Rama's radiant face and raised hand. Divine golden sunbeams break through dark clouds in the background, illuminating the swirling sea mist and His majestic blue complexion. The motion ends on an imposing, steady sacred composition.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+          "videoPrompt": "Medium hero shot of Sri Rama standing resolutely on the sea-shore. Sri Rama raises His divine right hand slowly into the sacred Abhaya Mudra (gesture of fearlessness and absolute protection), holding His legendary bow Kodanda in His left hand. The camera performs ONE continuous, slow cinematic push-in toward Sri Rama's radiant face and raised hand. Divine golden sunbeams break through dark clouds in the background, illuminating the swirling sea mist and His majestic blue complexion. The motion ends on an imposing, steady sacred composition.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+        },
+        {
+          "id": "scene_006",
+          "chapter": "The Supreme Vow of Abhaya",
+          "role": "story",
+          "narration": "उन्होंने कहा—'जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।'",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Low-angle grand wide shot of Sri Rama standing tall before the entire Vanara army on the sandy Rameshwaram coast. Sri Rama, with deep blue-dark skin and saffron ascetic robes, stands in divine grandeur with His right palm radiating assurance. Sugriva, Angada, and Jambavan bow their heads in reverent realization of Sri Rama’s supreme Dharma. The Southern Ocean behind churns with majestic emerald waves under dramatic golden-lit clouds. Flawless Treta Yuga aesthetic, hyper-detailed sand textures, Vedic ascetic ornamentation.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+          "motionGraphics": [
+            {
+              "version": 1,
+              "intent": "Highlight Sri Rama's supreme scriptural vow of protection to all beings",
+              "templateId": "ad_pull_quote",
+              "quote": "जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है",
+              "position": "bottom",
+              "durationSec": 5,
+              "layout": "auto",
+              "content": {
+                "items": [
+                  {
+                    "text": "जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।"
+                  }
+                ],
+                "links": []
+              }
+            }
+          ],
+          "videoPrompt": "Low-angle grand wide shot of Sri Rama standing tall before the entire Vanara army on the sandy Rameshwaram coast. Sri Rama, with deep blue-dark skin and saffron ascetic robes, stands in divine grandeur with His right palm radiating assurance. Sugriva, Angada, and Jambavan bow their heads in reverent realization of Sri Rama’s supreme Dharma. The Southern Ocean behind churns with majestic emerald waves under dramatic golden-lit clouds. Flawless Treta Yuga aesthetic, hyper-detailed sand textures, Vedic ascetic ornamentation.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+        },
+        {
+          "id": "scene_007",
+          "chapter": "Even Ravana Shall Be Sheltered",
+          "role": "story",
+          "narration": "'यदि स्वयं रावण भी पश्चाताप के साथ मेरे द्वार आए, तो मैं उसे भी त्याग नहीं सकता।'",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "Medium wide shot of Sri Rama turning His divine profile toward the southern horizon where distant stormy skies mark the direction of Lanka. Sri Rama gestures calmly toward King Sugriva, speaking His resolute command. The camera performs ONE continuous, smooth circular arc tracking shot around Sri Rama, moving from His commanding profile to reveal the distant vast ocean and kneeling Vibhishana in the foreground. Persistent natural sea breeze rustles His saffron robes under warm amber illumination. Stable concluding frame.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+          "videoPrompt": "Medium wide shot of Sri Rama turning His divine profile toward the southern horizon where distant stormy skies mark the direction of Lanka. Sri Rama gestures calmly toward King Sugriva, speaking His resolute command. The camera performs ONE continuous, smooth circular arc tracking shot around Sri Rama, moving from His commanding profile to reveal the distant vast ocean and kneeling Vibhishana in the foreground. Persistent natural sea breeze rustles His saffron robes under warm amber illumination. Stable concluding frame.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+        },
+        {
+          "id": "scene_008",
+          "chapter": "The Divine Embrace",
+          "role": "story",
+          "narration": "प्रभु के इन वचनों को सुनकर विभीषण अश्रुपूरित नेत्रों से उनके श्रीचरणों में गिर पड़े, और श्री राम ने उन्हें स्नेह से हृदय से लगा लिया।",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Deeply emotional close-up shot capturing Sri Rama gently raising Vibhishana from the sea sand and embracing him with profound fraternal love. Sri Rama’s deep blue-dark face reflects boundless divine compassion; Vibhishana, a noble dusky-toned Rakshasa prince in golden armor, weeps tears of uncontainable Bhakti and gratitude, his hands pressed against Sri Rama’s chest. Soft golden ocean sunlight glints off water droplets on Vibhishana’s cheeks and Sri Rama's serene features. Highly evocative, sacred, and deeply tender atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+          "videoPrompt": "Deeply emotional close-up shot capturing Sri Rama gently raising Vibhishana from the sea sand and embracing him with profound fraternal love. Sri Rama’s deep blue-dark face reflects boundless divine compassion; Vibhishana, a noble dusky-toned Rakshasa prince in golden armor, weeps tears of uncontainable Bhakti and gratitude, his hands pressed against Sri Rama’s chest. Soft golden ocean sunlight glints off water droplets on Vibhishana’s cheeks and Sri Rama's serene features. Highly evocative, sacred, and deeply tender atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+        },
+        {
+          "id": "scene_009",
+          "chapter": "Coronation on the Ocean Shore",
+          "role": "story",
+          "narration": "युद्ध से पहले ही, प्रभु ने समुद्र के जल से विभीषण का लंका नरेश के रूप में राजतिलक करवा दिया।",
+          "mediaType": "video",
+          "duration": 8,
+          "imagePrompt": "Medium shot of Lakshmana, fair-complexioned ascetic warrior in green and ochre attire, holding an ornate golden kalash filled with sacred ocean water and gently pouring it over the head of the kneeling Vibhishana on the beach sand. Sri Rama stands beside them smiling with divine grace, extending His hand in blessing. The camera executes ONE continuous, smooth slow descending crane shot from the sparkling stream of poured sea water down to Vibhishana’s crowned head and grateful expression. Sparkling water droplets reflect the golden hour sun.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nLakshmana: Age 22–27 years old, fair wheatish complexion, sharp warrior features, intense alert eyes, highly athletic muscular build, green/ochre attire, longbow and quiver.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+          "videoPrompt": "Medium shot of Lakshmana, fair-complexioned ascetic warrior in green and ochre attire, holding an ornate golden kalash filled with sacred ocean water and gently pouring it over the head of the kneeling Vibhishana on the beach sand. Sri Rama stands beside them smiling with divine grace, extending His hand in blessing. The camera executes ONE continuous, smooth slow descending crane shot from the sparkling stream of poured sea water down to Vibhishana’s crowned head and grateful expression. Sparkling water droplets reflect the golden hour sun.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nLakshmana: Age 22–27 years old, fair wheatish complexion, sharp warrior features, intense alert eyes, highly athletic muscular build, green/ochre attire, longbow and quiver.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter."
+        },
+        {
+          "id": "scene_010",
+          "chapter": "The Eternal Lesson",
+          "role": "story",
+          "narration": "श्रीराम के इस परम धर्म पर अपनी राय कमेंट में अवश्य लिखें। यदि यह प्रसंग अच्छा लगा, तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।",
+          "mediaType": "video",
+          "duration": 5,
+          "imagePrompt": "Panoramic wide shot of the southern ocean shore at glorious twilight. Sri Rama stands on a rocky elevation overlooking the vast ocean toward Lanka, holding His bow Kodanda, flanked in devotion by Lakshmana, Sugriva, Hanuman, and newly-anointed King Vibhishana. Divine amber-gold rays illuminate the rolling sea waves and ancient Vedic sandstone cliffs. The entire scene breathes eternal Dharma, fearlessness, and supreme grace. High-resolution cinematic framing, serene and sacred atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+          "videoPrompt": "Panoramic wide shot of the southern ocean shore at glorious twilight. Sri Rama stands on a rocky elevation overlooking the vast ocean toward Lanka, holding His bow Kodanda, flanked in devotion by Lakshmana, Sugriva, Hanuman, and newly-anointed King Vibhishana. Divine amber-gold rays illuminate the rolling sea waves and ancient Vedic sandstone cliffs. The entire scene breathes eternal Dharma, fearlessness, and supreme grace. High-resolution cinematic framing, serene and sacred atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy."
+        }
+      ],
+      "motionMetadata": [
+        {
+          "version": 1,
+          "intent": "Highlight Sri Rama's supreme scriptural vow of protection to all beings",
+          "templateId": "ad_pull_quote",
+          "quote": "जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है",
+          "position": "bottom",
+          "durationSec": 5,
+          "layout": "auto",
+          "content": {
+            "items": [
+              {
+                "text": "जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।"
+              }
+            ],
+            "links": []
+          },
+          "index": 6,
+          "sceneNum": 6,
+          "sceneId": "scene_006",
+          "raw": "{\"version\":1,\"templateId\":\"ad_pull_quote\",\"intent\":\"Highlight Sri Rama's supreme scriptural vow of protection to all beings\",\"quote\":\"जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है\",\"position\":\"bottom\",\"durationSec\":5,\"layout\":\"auto\",\"content\":{\"items\":[{\"text\":\"जो भी एक बार मेरी शरण में आकर कहे कि मैं आपका हूँ, उसे सदा के लिए अभयदान देना मेरा व्रत है।\"}],\"links\":[]}}"
+        }
+      ],
+      "supportingNotes": "---\n\n### SECTION 4 — HINDI TEXT OVERLAYS\n\n* **Thumbnail Text:** श्रीराम का अभयदान\n* **Opening Frame Text:** विभीषण की शरणागति\n* **Scene Lower-Thirds:**\n  * Scene 2: सुग्रीव का संशय\n  * Scene 3: हनुमान का विवेक\n  * Scene 5: श्रीराम का महाव्रत\n  * Scene 9: लंका का राजतिलक\n* **Follow Frame Text:** कमेंट में अपनी राय लिखिए | Like & Subscribe Ancient Dharma\n* **End Card Text:** शरणागति का परम सत्य • Ancient Dharma\n\n---\n\n### SECTION 5 — THE REFLECTION ENGINE\n\n**Pinned YouTube Comment Question:**  \n\"प्रभु श्री राम का यह वचन सिखाता है कि जो सच्चे मन से शरण में आता है, ईश्वर उसे कभी नहीं त्यागते—चाहे अतीत में उसने कुछ भी किया हो। आपके जीवन में प्रभु श्रीराम की इस असीम करुणा और शरणागति के भाव का क्या महत्व है? अपने विचार कमेंट बॉक्स में अवश्य साझा करें। जय श्री राम! 🙏✨\""
+    },
+    "sceneAnalysis": {
+      "transitions": [
+        "none",
+        "none",
+        "none",
+        "dissolve",
+        "none",
+        "none",
+        "dissolve",
+        "none",
+        "dissolve",
+        "dissolve"
+      ],
+      "effects": [
+        "zoom-in",
+        "pan-left",
+        "zoom-in",
+        "drift-in",
+        "zoom-in",
+        "zoom-in",
+        "pan-right",
+        "drift-in",
+        "drift-out",
+        "zoom-out"
+      ],
+      "timings": [],
+      "mood": "cinematic",
+      "colorGrade": "warm-vintage"
+    },
+    "referenceFrames": {
+      "0": {
+        "index": 0,
+        "prompt": "Wide establishing shot at sunrise on the craggy northern seashore of the Southern Ocean. Vibhishana with dusky skin in noble attire kneels humbly on wet sands with hands folded in deep reverence. In front of him, Sri Rama stands tall and composed with deep blue complexion holding His bow. Surrounding Vanara warriors raise stone clubs in defensive agitation. The camera performs ONE continuous, smooth slow forward tracking shot across the foamy ocean waves toward the central figures. Crashing waves, salt mist, and persistent warm morning light illuminate the ancient Vedic setting. Clean stable final frame with no camera wobble.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-00-1794737596154.png",
+        "seed": 180685003,
+        "elapsedMs": 6763,
+        "createdAt": "2026-11-15T10:13:22.920Z"
+      },
+      "1": {
+        "index": 1,
+        "prompt": "Dramatic medium shot on the windswept Rameshwaram coast. King Sugriva, a powerful golden-furred Vanara king with muscular build and ornate golden crown, steps forward urgently gesturing toward the distant sea, expressing intense tactical suspicion and warning. Beside him, Sri Rama remains completely calm and unruffled, His blue-dark countenance radiating majestic poise. In the foreground, sandstone boulders and wet sand catch the golden morning light; in the background, churning emerald-teal ocean waves crash violently against jagged shoreline rocks under a dramatic cloudy sky.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-01-1794737691692.png",
+        "seed": 807453155,
+        "elapsedMs": 7520,
+        "createdAt": "2026-11-15T10:14:59.215Z"
+      },
+      "2": {
+        "index": 2,
+        "prompt": "Medium close-up shot of Sri Hanuman, a golden-orange furred Vanara warrior with muscular build and wearing a sacred thread (janeu), stepping gently beside Sri Rama with hands folded in profound humility and intellect. Sri Rama turns His calm gaze toward Hanuman with a subtle, approving nod. The camera performs ONE continuous, smooth slow pedestal pan tilting gently upward from Hanuman's folded palms to Sri Rama's compassionate blue-dark profile. Atmospheric sea breeze gently stirs the ascetic hair and saffron robes with stable golden lighting throughout.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nHanuman: Powerful Vanara warrior, golden-orange fur, upright muscular physique, tail arched gracefully, simple sacred loincloth (kaupin), sacred thread (janeu), mace (gada), deep devotional surrender, awe-inspiring strength, humble eyes, normal human scale.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-02-1794737791633.png",
+        "seed": 1860605864,
+        "elapsedMs": 8166,
+        "createdAt": "2026-11-15T10:16:39.802Z"
+      },
+      "3": {
+        "index": 3,
+        "prompt": "Heroic eye-level portrait of Sri Rama standing in the center of the Vanara war council on the ocean shore. Sri Rama features radiant deep blue-dark skin (\"shyama varna\"), broad shoulders, long arms (\"ajanubahu\"), and long black hair tied in an ascetic jata knot, wearing saffron bark-cloth attire. His expression is profoundly peaceful, compassionate, and unwavering, contrasting sharply with the anxious Vanara commanders in soft blur behind Him. Warm golden sunlight reflects off the ocean mist, framing Him in a subtle divine luminescence. Primordial Treta Yuga Vedic atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-03-1794737982575.png",
+        "seed": 530562178,
+        "elapsedMs": 7710,
+        "createdAt": "2026-11-15T10:19:50.286Z"
+      },
+      "4": {
+        "index": 4,
+        "prompt": "Medium hero shot of Sri Rama standing resolutely on the sea-shore. Sri Rama raises His divine right hand slowly into the sacred Abhaya Mudra (gesture of fearlessness and absolute protection), holding His legendary bow Kodanda in His left hand. The camera performs ONE continuous, slow cinematic push-in toward Sri Rama's radiant face and raised hand. Divine golden sunbeams break through dark clouds in the background, illuminating the swirling sea mist and His majestic blue complexion. The motion ends on an imposing, steady sacred composition.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-04-1794738070583.png",
+        "seed": 1833477688,
+        "elapsedMs": 7714,
+        "createdAt": "2026-11-15T10:21:18.301Z"
+      },
+      "5": {
+        "index": 5,
+        "prompt": "Low-angle grand wide shot of Sri Rama standing tall before the entire Vanara army on the sandy Rameshwaram coast. Sri Rama, with deep blue-dark skin and saffron ascetic robes, stands in divine grandeur with His right palm radiating assurance. Sugriva, Angada, and Jambavan bow their heads in reverent realization of Sri Rama’s supreme Dharma. The Southern Ocean behind churns with majestic emerald waves under dramatic golden-lit clouds. Flawless Treta Yuga aesthetic, hyper-detailed sand textures, Vedic ascetic ornamentation.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-05-1794738151589.png",
+        "seed": 975025553,
+        "elapsedMs": 7741,
+        "createdAt": "2026-11-15T10:22:39.334Z"
+      },
+      "6": {
+        "index": 6,
+        "prompt": "Medium wide shot of Sri Rama turning His divine profile toward the southern horizon where distant stormy skies mark the direction of Lanka. Sri Rama gestures calmly toward King Sugriva, speaking His resolute command. The camera performs ONE continuous, smooth circular arc tracking shot around Sri Rama, moving from His commanding profile to reveal the distant vast ocean and kneeling Vibhishana in the foreground. Persistent natural sea breeze rustles His saffron robes under warm amber illumination. Stable concluding frame.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-06-1794738342588.png",
+        "seed": 1275088438,
+        "elapsedMs": 18598,
+        "createdAt": "2026-11-15T10:26:01.188Z"
+      },
+      "7": {
+        "index": 7,
+        "prompt": "Deeply emotional close-up shot capturing Sri Rama gently raising Vibhishana from the sea sand and embracing him with profound fraternal love. Sri Rama’s deep blue-dark face reflects boundless divine compassion; Vibhishana, a noble dusky-toned Rakshasa prince in golden armor, weeps tears of uncontainable Bhakti and gratitude, his hands pressed against Sri Rama’s chest. Soft golden ocean sunlight glints off water droplets on Vibhishana’s cheeks and Sri Rama's serene features. Highly evocative, sacred, and deeply tender atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-07-1794738441607.png",
+        "seed": 596215723,
+        "elapsedMs": 7055,
+        "createdAt": "2026-11-15T10:27:28.669Z"
+      },
+      "8": {
+        "index": 8,
+        "prompt": "Medium shot of Lakshmana, fair-complexioned ascetic warrior in green and ochre attire, holding an ornate golden kalash filled with sacred ocean water and gently pouring it over the head of the kneeling Vibhishana on the beach sand. Sri Rama stands beside them smiling with divine grace, extending His hand in blessing. The camera executes ONE continuous, smooth slow descending crane shot from the sparkling stream of poured sea water down to Vibhishana’s crowned head and grateful expression. Sparkling water droplets reflect the golden hour sun.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\nLakshmana: Age 22–27 years old, fair wheatish complexion, sharp warrior features, intense alert eyes, highly athletic muscular build, green/ochre attire, longbow and quiver.\n\nTemporal Constraints:\nNo cuts, no morphing, no face drift, no limb glitches, smooth motion, no lip sync, no text.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy, morphing faces, flickering, stuttering frames, camera jitter.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-08-1794738524640.png",
+        "seed": 457829353,
+        "elapsedMs": 7531,
+        "createdAt": "2026-11-15T10:28:52.173Z"
+      },
+      "9": {
+        "index": 9,
+        "prompt": "Panoramic wide shot of the southern ocean shore at glorious twilight. Sri Rama stands on a rocky elevation overlooking the vast ocean toward Lanka, holding His bow Kodanda, flanked in devotion by Lakshmana, Sugriva, Hanuman, and newly-anointed King Vibhishana. Divine amber-gold rays illuminate the rolling sea waves and ancient Vedic sandstone cliffs. The entire scene breathes eternal Dharma, fearlessness, and supreme grace. High-resolution cinematic framing, serene and sacred atmosphere.\n\nContinuity Lock:\nRama: Age 25–30 years old, deep blue-dark complexion (\"shyama varna\"), strong jaw, high forehead, calm and powerful eyes, slightly arched eyebrows, tall, broad shoulders, long arms reaching knees (\"ajanubahu\"), long black hair tied in an ascetic knot (jata), ochre/saffron bark-cloth dhoti, matted hair, no crown, bow and quiver, dignified, compassionate, serene, divine majesty — never angry or anxious.\n\nNegative Prompt:\ncartoon, anime, 3d render, illustration, modern clothing, modern architecture, western facial features, plastic skin, wrong skin color for Rama (must be blue-dark, never fair), light-skinned Rama, disrespectful depiction, blurry, watermark, text in image, extra limbs, deformed hands, distorted anatomy.",
+        "url": "/api/accounts/default/profiles/shorts/generate/file/shorts_images_videos/image-09-1794738616618.png",
+        "seed": 1221900000,
+        "elapsedMs": 7483,
+        "createdAt": "2026-11-15T10:30:24.103Z"
+      }
+    },
+    "retentionReview": {
+      "summary": "Batch 1: The video provides a clear and engaging narrative about the Sharanagati of Vibhishana, with high-quality visuals and clear audio. No defects were found.\nBatch 2: The video effectively conveys the narrative of Vibhishana Sharanagati with high-quality, consistent visuals and clear, intelligible narration. The pacing is appropriate for the short format, and the emotional payoff is well-delivered. No technical defects were found in the provided samples.\nBatch 3: The video effectively conveys the narrative of Vibhishana Sharanagati with high-quality, consistent visuals and clear, intelligible narration. The pacing is appropriate for the short format, and the ending successfully pays off the title and viewer promise.\nBatch 4: The video effectively conveys the narrative of Vibhishana Sharanagati with high-quality, consistent visuals and clear, well-paced narration. The ending successfully fulfills the viewer promise by reinforcing the core message of the scriptural vow.\nBatch 5: The video provides a clear and coherent conclusion to the narrative, effectively paying off the title and viewer promise. The audio is intelligible, and the visuals are consistent with the storytelling.",
+      "findings": [],
+      "status": "passed",
+      "reviewedAt": "2026-11-15T10:34:00.627Z",
+      "videoFilename": "final_54d2ab8e-15d3-43be-9378-d52dc6ffeb13.mp4",
+      "renderHash": "5ff06066393de72045d4d802f3e2695f7dc199a25ea9b935e20f45da705b298f",
+      "productionHash": "bfe0db77f18c8e82161b22be8f55e82f415a1c6671b70e704688ad6744cba687",
+      "duration": 59.099023,
+      "sampleTimes": [
+        0,
+        1.5,
+        3.1,
+        4,
+        5.27,
+        9.22,
+        11.334,
+        14.54,
+        16.15,
+        19.52,
+        21.396,
+        24.7,
+        26.45,
+        29.55,
+        30.3,
+        32.47,
+        35.82,
+        37.514,
+        42.06,
+        44.734,
+        48.6,
+        50.504,
+        55.2,
+        57.916,
+        58.099
+      ]
+    },
+    "retentionProduction": {
+      "hook": "जब रावण के भाई विभीषण ने समुद्र तट पर प्रभु श्री राम से शरण मांगी, तो पूरी वानर सेना स्तब्ध रह गई।",
+      "structure": "Source-supported action (Vibhishana arrives seeking refuge across the ocean) → authentic traditional debate (Sugriva's warning vs. Sri Rama's inviolable vow of abhaya) → decisive reason and outcome (Rama's supreme promise to protect even Ravana if he surrenders) → brief Hindi engagement invitation.",
+      "title": "Sri Rama's Supreme Vow: Vibhishana Sharanagati #Shorts",
+      "duration": 59.099023,
+      "musicMood": "cinematic",
+      "scenes": [
+        {
+          "sceneId": "scene_001",
+          "start": 0,
+          "end": 6.2,
+          "purpose": "Establish the immediate high-stakes dilemma of Ravana's brother arriving on the shore to seek refuge."
+        },
+        {
+          "sceneId": "scene_002",
+          "start": 6.2,
+          "end": 12.24,
+          "purpose": "Present the strategic conflict and suspicion raised by Sugriva against trusting the enemy's brother."
+        },
+        {
+          "sceneId": "scene_003",
+          "start": 12.24,
+          "end": 16.84,
+          "purpose": "Reveal Hanuman's wise discernment affirming Vibhishana's sincere devotion and righteousness."
+        },
+        {
+          "sceneId": "scene_004",
+          "start": 16.84,
+          "end": 22.2,
+          "purpose": "Contrast the council's mortal anxiety with Sri Rama's divine poise and unwavering compassion."
+        },
+        {
+          "sceneId": "scene_005",
+          "start": 22.2,
+          "end": 27.2,
+          "purpose": "Deliver the midpoint turning point where Sri Rama prepares to proclaim the eternal law of shelter."
+        },
+        {
+          "sceneId": "scene_006",
+          "start": 27.2,
+          "end": 33.4,
+          "purpose": "State the sacred core scripture of the Sharanagati vow verbatim from Valmiki Ramayana."
+        },
+        {
+          "sceneId": "scene_007",
+          "start": 33.4,
+          "end": 38.24,
+          "purpose": "Deliver the climax of the promise: even Ravana would be granted shelter if he sought refuge."
+        },
+        {
+          "sceneId": "scene_008",
+          "start": 38.24,
+          "end": 45.88,
+          "purpose": "Resolve the emotional stakes with Sri Rama embracing Vibhishana as a brother and devotee."
+        },
+        {
+          "sceneId": "scene_009",
+          "start": 45.88,
+          "end": 51.32,
+          "purpose": "Demonstrate the irrevocable consequence and honor of Sri Rama crowning Vibhishana before the war even begins."
+        },
+        {
+          "sceneId": "scene_010",
+          "start": 51.32,
+          "end": 59.08,
+          "purpose": "Provide the final visual grandeur and deliver the single compact community engagement prompt."
+        }
+      ]
+    },
+    "youtubeExport": {
+      "title": "Sri Rama's Supreme Vow: Vibhishana Sharanagati #Shorts",
+      "description": "Explore the sacred episode of Vibhishana's Sharanagati from the Valmiki Ramayana. When Ravana's brother sought refuge on the ocean shore, Sugriva and the Vanara generals warned of treachery. Witness how Bhagavan Sri Rama established the supreme law of unconditional protection and divine compassion. #Shorts #Ramayana #AncientDharma #SriRama #Vibhishana",
+      "tags": [
+        "Ramayana",
+        "Sri Rama",
+        "Vibhishana",
+        "Sharanagati",
+        "Valmiki Ramayana",
+        "Ancient Dharma",
+        "Hindu Lore",
+        "Shorts"
+      ],
+      "privacyStatus": "public",
+      "uploadedVideoId": "VA51P1Jr_X4",
+      "uploadedVideoUrl": "https://www.youtube.com/shorts/VA51P1Jr_X4",
+      "uploadedAt": "2026-11-15T10:34:12.135Z"
+    },
+    "renderedVideoUrl": "/api/accounts/default/profiles/shorts/render/file/shorts_images_videos/final_54d2ab8e-15d3-43be-9378-d52dc6ffeb13.mp4"
   },
   {
     "id": "test_e2e_video",
@@ -736,57 +1597,5 @@
         }
       ]
     }
-  },
-  {
-    "id": "test_popups_script_1794569186885",
-    "name": "Ancient Dharma Test Script",
-    "scenePlan": {
-      "scenes": [
-        {
-          "narration": "The ancient sanctum was carved from monolithic black granite stone.",
-          "imagePrompt": "Ancient temple sanctum with black granite walls",
-          "duration": 5
-        },
-        {
-          "narration": "Lord Rama wielded the divine golden arrow of celestial light.",
-          "imagePrompt": "Mythological divine warrior aiming golden glowing bow and arrow",
-          "duration": 6
-        }
-      ]
-    },
-    "extraPopups": [
-      {
-        "id": "popup_1_e3d172b7",
-        "sceneIndex": 1,
-        "cueWord": "bow",
-        "cueOffsetSec": 1,
-        "durationSec": 3.2,
-        "title": "Shiva Bow",
-        "subtitle": "Unmatched Weight & Divine Tejas",
-        "badgeTag": "DIVINE WEAPON",
-        "archetype": "heritage_intel",
-        "prompt": "Isolated macro studio close-up of Shiva Bow, sacred craftsmanship, deep obsidian and antique gold sheen, micro-fissures with subtle glowing diya amber embers, razor-sharp tactile texture, centered composition, shallow depth of field, clean dark studio backdrop, 8k photorealistic.",
-        "shape": "cutout_relic",
-        "placement": "center-right",
-        "scalePercent": 30,
-        "sfx": "crystal_ting",
-        "status": "ready"
-      },
-      {
-        "id": "popup_custom_391a8e49",
-        "sceneIndex": 1,
-        "cueWord": "Sacred Diya Flame",
-        "cueOffsetSec": 1,
-        "durationSec": 3.2,
-        "title": "Sacred Diya Flame",
-        "prompt": "Isolated macro studio close-up of Sacred Diya Flame, sacred craftsmanship, deep obsidian and antique gold sheen, micro-fissures with subtle glowing diya amber embers, razor-sharp tactile texture, centered composition, shallow depth of field, clean dark studio backdrop, 8k photorealistic.",
-        "shape": "circle_medallion",
-        "placement": "top-left",
-        "scalePercent": 30,
-        "sfx": "none",
-        "archetype": "circle_medallion",
-        "status": "pending"
-      }
-    ]
   }
 ]

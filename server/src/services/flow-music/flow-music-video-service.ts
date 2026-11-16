@@ -611,7 +611,7 @@ function appendBeatEffects(filters: string[], events?: SceneBeatFilterEvents): v
   }
 }
 
-/** Builds an oversampled Lanczos Ken Burns filter for 9:16 letterboxed Shorts scenes. */
+/** Builds an oversampled Lanczos Ken Burns filter for true full-frame 9:16 portrait (1080x1920) Shorts scenes. */
 export function buildShortsSceneFilter(dur: number, zoomIn: boolean, beatEvents?: SceneBeatFilterEvents): string {
   const numFrames = dur * 30;
   const baseZoom = zoomIn ? `'min(zoom+0.00055,1.14)` : `'max(1.14-0.00055*on,1.0)`;
@@ -623,18 +623,15 @@ export function buildShortsSceneFilter(dur: number, zoomIn: boolean, beatEvents?
   const zoomExpr = `${baseZoom}${punchTerm}'`;
 
   const fgFilters = [
-    `scale=2560:1440:flags=lanczos:force_original_aspect_ratio=increase`,
+    `scale=2160:3840:flags=lanczos:force_original_aspect_ratio=increase`,
     `unsharp=5:5:0.45:3:3:0.2`,
     `eq=contrast=1.06:saturation=1.12:brightness=0.0`,
-    `zoompan=z=${zoomExpr}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${numFrames}:s=1080x608:fps=30`,
+    `colorbalance=rs=0.03:gs=0.0:bs=-0.02`,
+    `zoompan=z=${zoomExpr}:x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=${numFrames}:s=1080x1920:fps=30`,
   ];
   appendBeatEffects(fgFilters, beatEvents);
-  const filterParts = [
-    `color=c=black:s=1080x1920:d=${dur}[bg]`,
-    `[0:v]${fgFilters.join(',')}[fg]`,
-    `[bg][fg]overlay=0:656[out]`,
-  ];
-  return filterParts.join(';');
+  fgFilters.push(`format=yuv420p`);
+  return `[0:v]${fgFilters.join(',')}[out]`;
 }
 
 /** Builds a 4K-oversampled Lanczos Ken Burns filter for 16:9 widescreen scenes. */
@@ -801,7 +798,7 @@ export function buildShortsAssSubtitles(
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    'Style: Banner,Georgia,54,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,1,2,8,20,20,420,1',
+    'Style: Banner,Georgia,54,&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,1,1,2,8,20,20,140,1',
     'Style: Caption,Nirmala UI,56,&H00FFFFFF,&H000000FF,&H00000000,&H90000000,-1,0,0,0,100,100,0,0,1,3,3,5,40,40,0,1',
     '',
     '[Events]',
@@ -1122,6 +1119,7 @@ export async function regenerateFlowMusicSceneKeyframe(opts: {
   prompt: string;
   index?: number;
   jobId?: string;
+  aspectRatio?: '9:16' | '16:9';
 }): Promise<{ filename: string; url: string; provider: string; model: string }> {
   const safeName = path.basename(opts.filename);
   if (!safeName || !/\.(png|jpg|jpeg)$/i.test(safeName)) {
@@ -1133,18 +1131,30 @@ export async function regenerateFlowMusicSceneKeyframe(opts: {
     throw new Error('Invalid scene image path');
   }
 
+  const job = opts.jobId ? videoJobs.get(opts.jobId) : undefined;
+  const targetAspect: '9:16' | '16:9' =
+    opts.aspectRatio ||
+    (job?.videoFormat === 'shorts'
+      ? '9:16'
+      : job?.videoFormat === 'long'
+        ? '16:9'
+        : safeName.includes('shorts')
+          ? '9:16'
+          : safeName.includes('long')
+            ? '16:9'
+            : '9:16');
+
   const seed = Math.floor(Math.random() * 1_000_000) + (opts.index ?? 0) * 37;
   const result = await generateFlowMusicSceneImage({
     prompt: opts.prompt,
     outputPath: imgPath,
     seed,
-    aspectRatio: '16:9',
+    aspectRatio: targetAspect,
     index: opts.index ?? 0,
     scriptId: `flow_regen_${Date.now()}`,
   });
 
   if (opts.jobId) {
-    const job = videoJobs.get(opts.jobId);
     const target = job?.images.find((im) => im.filename === safeName);
     if (target) {
       target.prompt = opts.prompt;
@@ -1172,6 +1182,7 @@ export interface StartFlowVideoPipelineOptions {
   songUrl?: string;
   /** Video format to produce: 'shorts' (9:16 portrait), 'long' (16:9 widescreen landscape), or 'both'. Defaults to 'shorts'. */
   videoFormat?: FlowVideoFormat;
+  aspectRatio?: '9:16' | '16:9';
   /** Beat-synced "cool edit" options (karaoke subtitles, punch zooms, flashes, shakes). */
   beatEdit?: Partial<BeatEditOptions>;
   /** BPM from the Flow Music settings, anchoring beat detection. */
@@ -1337,87 +1348,176 @@ export async function startFlowVideoPipeline(
     job.progress = 15;
     job.updatedAt = new Date().toISOString();
 
+    const shouldRenderShorts = requestedFormat === 'shorts' || requestedFormat === 'both';
+    const shouldRenderLong = requestedFormat === 'long' || requestedFormat === 'both';
+    const isBoth = requestedFormat === 'both';
+
+    // In shorts mode (9:16 portrait), generate native 9:16 portrait frames.
+    // In long mode (16:9 landscape), generate native 16:9 widescreen frames.
+    // In 'both' mode, generate 9:16 frames for shorts and 16:9 frames for long video.
+    const defaultAspect: '9:16' | '16:9' =
+      opts.aspectRatio || (requestedFormat === 'long' ? '16:9' : '9:16');
+
     const imageFiles: string[] = [];
+    const shortsImageFiles: string[] = [];
+    const longImageFiles: string[] = [];
 
     for (let i = 0; i < scenes.length; i++) {
       checkCancelled();
       const scene = scenes[i];
-      const imgFilename = `${jobId}_scene_${i}.png`;
-      const imgPath = path.join(outDir, imgFilename);
 
-      let reused = false;
-      if (opts.reuseImages) {
-        let candidatePath: string | null = null;
-        if (Array.isArray(opts.existingImages) && opts.existingImages[i]) {
-          const item = opts.existingImages[i];
-          const raw = typeof item === 'string' ? item : item.filename || item.url || '';
-          if (raw) {
-            const clean = path.basename(raw.split('?')[0]);
-            const p = path.join(outDir, clean);
-            if (fs.existsSync(p) && fs.statSync(p).size > 1000) {
-              candidatePath = p;
+      if (!isBoth) {
+        const imgFilename = `${jobId}_scene_${i}.png`;
+        const imgPath = path.join(outDir, imgFilename);
+
+        let reused = false;
+        if (opts.reuseImages) {
+          let candidatePath: string | null = null;
+          if (Array.isArray(opts.existingImages) && opts.existingImages[i]) {
+            const item = opts.existingImages[i];
+            const raw = typeof item === 'string' ? item : item.filename || item.url || '';
+            if (raw) {
+              const clean = path.basename(raw.split('?')[0]);
+              const p = path.join(outDir, clean);
+              if (fs.existsSync(p) && fs.statSync(p).size > 1000) {
+                candidatePath = p;
+              }
+            }
+          }
+          if (!candidatePath) {
+            // Look for any existing recent scene image ending with _scene_${i}.png
+            try {
+              const files = fs
+                .readdirSync(outDir)
+                .filter((f) => f.endsWith(`_scene_${i}.png`) && f !== imgFilename)
+                .map((f) => ({ name: f, path: path.join(outDir, f), mtime: fs.statSync(path.join(outDir, f)).mtimeMs }))
+                .sort((a, b) => b.mtime - a.mtime);
+              if (files.length > 0 && fs.statSync(files[0].path).size > 1000) {
+                candidatePath = files[0].path;
+              }
+            } catch {}
+          }
+
+          if (candidatePath) {
+            try {
+              fs.copyFileSync(candidatePath, imgPath);
+              reused = true;
+              console.log(
+                `[Flow Music Re-Render] Reused keyframe for Scene ${i + 1}/${scenes.length} from ${path.basename(candidatePath)}`
+              );
+            } catch (err) {
+              console.warn(`[Flow Music Re-Render] Could not copy ${candidatePath}:`, err);
             }
           }
         }
-        if (!candidatePath) {
-          // Look for any existing recent scene image ending with _scene_${i}.png
-          try {
-            const files = fs
-              .readdirSync(outDir)
-              .filter((f) => f.endsWith(`_scene_${i}.png`) && f !== imgFilename)
-              .map((f) => ({ name: f, path: path.join(outDir, f), mtime: fs.statSync(path.join(outDir, f)).mtimeMs }))
-              .sort((a, b) => b.mtime - a.mtime);
-            if (files.length > 0 && fs.statSync(files[0].path).size > 1000) {
-              candidatePath = files[0].path;
-            }
-          } catch {}
+
+        if (!reused) {
+          job.stage = `Generating HD Scene ${i + 1}/${scenes.length} (${defaultAspect}): ${scene.line.slice(0, 40)}...`;
+          job.progress = 15 + Math.round((i / scenes.length) * 35);
+          job.updatedAt = new Date().toISOString();
+
+          const seed = 1008 + i * 42;
+          const generated = await generateFlowMusicSceneImage({
+            prompt: scene.prompt,
+            outputPath: imgPath,
+            seed,
+            aspectRatio: defaultAspect,
+            index: i,
+            scriptId: `${jobId}_s${i}`,
+          });
+          console.log(
+            `[Flow Music Image] Scene ${i + 1}/${scenes.length} generated via ${generated.provider} (${generated.model}, ${defaultAspect}, ${Math.round(generated.bytes / 1024)} KB)`
+          );
+        } else {
+          job.stage = `Re-using keyframe for Scene ${i + 1}/${scenes.length}...`;
+          job.progress = 15 + Math.round(((i + 1) / scenes.length) * 35);
+          job.updatedAt = new Date().toISOString();
         }
 
-        if (candidatePath) {
-          try {
-            fs.copyFileSync(candidatePath, imgPath);
-            reused = true;
-            console.log(
-              `[Flow Music Re-Render] Reused keyframe for Scene ${i + 1}/${scenes.length} from ${path.basename(candidatePath)}`
-            );
-          } catch (err) {
-            console.warn(`[Flow Music Re-Render] Could not copy ${candidatePath}:`, err);
-          }
-        }
-      }
+        imageFiles.push(imgPath);
 
-      if (!reused) {
-        job.stage = `Generating HD Scene ${i + 1}/${scenes.length}: ${scene.line.slice(0, 40)}...`;
-        job.progress = 15 + Math.round((i / scenes.length) * 35);
-        job.updatedAt = new Date().toISOString();
-
-        const seed = 1008 + i * 42;
-        const generated = await generateFlowMusicSceneImage({
+        job.images.push({
+          line: scene.line,
           prompt: scene.prompt,
-          outputPath: imgPath,
-          seed,
-          aspectRatio: '16:9',
-          index: i,
-          scriptId: `${jobId}_s${i}`,
+          filename: imgFilename,
+          url: `/api/flow-music/videos/${imgFilename}`,
         });
-        console.log(
-          `[Flow Music Image] Scene ${i + 1}/${scenes.length} generated via ${generated.provider} (${generated.model}, ${Math.round(generated.bytes / 1024)} KB)`
-        );
       } else {
-        job.stage = `Re-using keyframe for Scene ${i + 1}/${scenes.length}...`;
-        job.progress = 15 + Math.round(((i + 1) / scenes.length) * 35);
-        job.updatedAt = new Date().toISOString();
+        // Dual format: generate 9:16 for shorts and 16:9 for long video
+        const shortsImgFilename = `${jobId}_shorts_scene_${i}.png`;
+        const shortsImgPath = path.join(outDir, shortsImgFilename);
+        const longImgFilename = `${jobId}_long_scene_${i}.png`;
+        const longImgPath = path.join(outDir, longImgFilename);
+
+        let reusedShorts = false;
+        let reusedLong = false;
+        if (opts.reuseImages) {
+          let candidatePath: string | null = null;
+          if (Array.isArray(opts.existingImages) && opts.existingImages[i]) {
+            const item = opts.existingImages[i];
+            const raw = typeof item === 'string' ? item : item.filename || item.url || '';
+            if (raw) {
+              const clean = path.basename(raw.split('?')[0]);
+              const p = path.join(outDir, clean);
+              if (fs.existsSync(p) && fs.statSync(p).size > 1000) {
+                candidatePath = p;
+              }
+            }
+          }
+          if (candidatePath) {
+            try {
+              fs.copyFileSync(candidatePath, shortsImgPath);
+              reusedShorts = true;
+            } catch {}
+            try {
+              fs.copyFileSync(candidatePath, longImgPath);
+              reusedLong = true;
+            } catch {}
+          }
+        }
+
+        if (!reusedShorts) {
+          job.stage = `Generating HD Shorts Scene ${i + 1}/${scenes.length} (9:16)...`;
+          job.progress = 15 + Math.round((i / scenes.length) * 18);
+          job.updatedAt = new Date().toISOString();
+          const seedShorts = 1008 + i * 42;
+          await generateFlowMusicSceneImage({
+            prompt: scene.prompt,
+            outputPath: shortsImgPath,
+            seed: seedShorts,
+            aspectRatio: '9:16',
+            index: i,
+            scriptId: `${jobId}_s${i}_s`,
+          });
+        }
+        if (!reusedLong) {
+          job.stage = `Generating HD Long Scene ${i + 1}/${scenes.length} (16:9)...`;
+          job.progress = 15 + Math.round(18 + (i / scenes.length) * 17);
+          job.updatedAt = new Date().toISOString();
+          const seedLong = 2008 + i * 42;
+          await generateFlowMusicSceneImage({
+            prompt: scene.prompt,
+            outputPath: longImgPath,
+            seed: seedLong,
+            aspectRatio: '16:9',
+            index: i,
+            scriptId: `${jobId}_s${i}_l`,
+          });
+        }
+
+        shortsImageFiles.push(shortsImgPath);
+        longImageFiles.push(longImgPath);
+        job.images.push({
+          line: scene.line,
+          prompt: scene.prompt,
+          filename: shortsImgFilename,
+          url: `/api/flow-music/videos/${shortsImgFilename}`,
+        });
       }
-
-      imageFiles.push(imgPath);
-
-      job.images.push({
-        line: scene.line,
-        prompt: scene.prompt,
-        filename: imgFilename,
-        url: `/api/flow-music/videos/${imgFilename}`,
-      });
     }
+
+    const effectiveShortsImages = isBoth ? shortsImageFiles : imageFiles;
+    const effectiveLongImages = isBoth ? longImageFiles : imageFiles;
 
     checkCancelled();
     const totalDur = scenes.reduce((acc, s) => acc + (s.duration || 8), 0);
@@ -1435,9 +1535,6 @@ export async function startFlowVideoPipeline(
       const events = computeSceneBeatEvents(range.start, range.end, beatAnalysis, beatEditOptions);
       return { ...events, options: beatEditOptions };
     };
-
-    const shouldRenderShorts = requestedFormat === 'shorts' || requestedFormat === 'both';
-    const shouldRenderLong = requestedFormat === 'long' || requestedFormat === 'both';
 
     // 3. Render Shorts Video (9:16 vertical - 1080x1920)
     if (shouldRenderShorts) {
@@ -1467,7 +1564,7 @@ export async function startFlowVideoPipeline(
 
       const shortsClipList: string[] = [];
 
-      if (imageFiles.length === 1) {
+      if (effectiveShortsImages.length === 1) {
         checkCancelled();
         const sc = scenes[0];
         const dur = sc.duration || 8;
@@ -1475,7 +1572,7 @@ export async function startFlowVideoPipeline(
         const escapedAss = shortsAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
         await runFFmpegCommand([
           '-y',
-          '-i', imageFiles[0],
+          '-i', effectiveShortsImages[0],
           '-i', audioPath,
           '-filter_complex', `${filter};[out]ass='${escapedAss}'[vout]`,
           '-map', '[vout]',
@@ -1491,7 +1588,7 @@ export async function startFlowVideoPipeline(
           shortsPath,
         ]);
       } else {
-        for (let i = 0; i < imageFiles.length; i++) {
+        for (let i = 0; i < effectiveShortsImages.length; i++) {
           checkCancelled();
           const sc = scenes[i];
           const clipFile = path.join(outDir, `${jobId}_shorts_clip_${i}.mp4`);
@@ -1500,7 +1597,7 @@ export async function startFlowVideoPipeline(
 
           await runFFmpegCommand([
             '-y',
-            '-i', imageFiles[i],
+            '-i', effectiveShortsImages[i],
             '-filter_complex', filter,
             '-map', '[out]',
             '-c:v', 'libx264',
@@ -1557,7 +1654,7 @@ export async function startFlowVideoPipeline(
 
       const longClipList: string[] = [];
 
-      if (imageFiles.length === 1) {
+      if (effectiveLongImages.length === 1) {
         checkCancelled();
         const sc = scenes[0];
         const dur = sc.duration || 8;
@@ -1565,7 +1662,7 @@ export async function startFlowVideoPipeline(
         const escapedAss = longAssPath.replace(/\\/g, '/').replace(/:/g, '\\:');
         await runFFmpegCommand([
           '-y',
-          '-i', imageFiles[0],
+          '-i', effectiveLongImages[0],
           '-i', audioPath,
           '-vf', `${filter},ass='${escapedAss}'`,
           '-map', '0:v:0',
@@ -1581,7 +1678,7 @@ export async function startFlowVideoPipeline(
           longPath,
         ]);
       } else {
-        for (let i = 0; i < imageFiles.length; i++) {
+        for (let i = 0; i < effectiveLongImages.length; i++) {
           checkCancelled();
           const sc = scenes[i];
           const clipFile = path.join(outDir, `${jobId}_long_clip_${i}.mp4`);
@@ -1590,7 +1687,7 @@ export async function startFlowVideoPipeline(
 
           await runFFmpegCommand([
             '-y',
-            '-i', imageFiles[i],
+            '-i', effectiveLongImages[i],
             '-vf', filter,
             '-c:v', 'libx264',
             '-preset', 'ultrafast',

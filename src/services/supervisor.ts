@@ -131,6 +131,43 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
     try {
       const freshRes = await ctx.fetch(`/api/scripts/${encodeURIComponent(ctx.scriptId)}`);
       const script = await freshRes.json();
+
+      if (!script.scenePlan || !script.scenePlan.scenes?.length) {
+        if (script.aiResponse) {
+          ctx.addLog(ctx.stage, '[SUPERVISOR] 🛠️ Healing Action: Extracting scene plan before synthesizing narration...', 'gemini');
+          const template = script.prompts?.filter((p: any) => p.content?.trim()).map((p: any) => p.content).join('\n\n') || script.howItWorks || '';
+          const extRes = await ctx.fetch('/api/llm/extract', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              scriptId: ctx.scriptId,
+              rawText: script.aiResponse,
+              useTimelineNarration: false,
+              template,
+            }),
+          });
+          if (extRes.ok) {
+            const extData = await extRes.json();
+            if (extData.scenePlan?.scenes?.length) {
+              const extractedPatch = {
+                extractedScript: extData.script || '',
+                imagePrompts: extData.imagePrompts || [],
+                narration: extData.ttsText || '',
+                scenePlan: extData.scenePlan,
+              };
+              ctx.patchScript(ctx.scriptId, extractedPatch);
+              await ctx.persistScript(ctx.scriptId, extractedPatch);
+              script.scenePlan = extData.scenePlan;
+              script.narration = extData.ttsText || '';
+            }
+          }
+        }
+        if (!script.scenePlan || !script.scenePlan.scenes?.length) {
+          ctx.addLog(ctx.stage, '[SUPERVISOR] ⚠️ Scene plan not yet available; retrying stage directly.', 'warn');
+          return { healed: true, retryOnly: true, actionTaken: 'Waiting for scene extraction to complete' };
+        }
+      }
+
       const hasHindi = /[\u0900-\u097F]/.test(script.narration || script.extractedScript || '');
       const languageToUse = hasHindi ? 'hi' : (script.language || 'en');
       const voiceToUse = ctx.autoPilotSettings?.voice.voiceId || script.voice || script.generatedAudio?.[0]?.voice || 'builtin';
@@ -587,6 +624,9 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
       const diagData = await diagRes.json();
       ctx.addLog(ctx.stage, `[SUPERVISOR] 💡 Cognitive Diagnosis: ${diagData.diagnosis || 'Stage recovery recommended'}`, 'gemini');
       if (diagData.recoveryAction === 'regenerate_narration_sync') {
+        if (['extract_assets', 'research_script', 'hook_promise', 'edit_retention'].includes(ctx.stage)) {
+          return { healed: true, retryOnly: true, actionTaken: 'Retry asset extraction' };
+        }
         return diagnoseAndHealError({ ...ctx, error: 'Generate synchronized narration in Audio Generation first' });
       }
       if (diagData.recoveryAction === 'regenerate_motion_captions') {

@@ -194,6 +194,9 @@ Return JSON ONLY, matching this schema:
     const response = await chat(apiKey, { messages: [{ role: 'user', content: prompt }], model: modelName });
     const cleanJson = (response.choices[0]?.message.content || '').replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
     const parsed = JSON.parse(cleanJson);
+    if (parsed.recoveryAction === 'regenerate_narration_sync' && (!script?.scenePlan?.scenes?.length || ['extract_assets', 'research_script', 'hook_promise', 'edit_retention'].includes(stage))) {
+      parsed.recoveryAction = 'retry_stage';
+    }
     res.json(parsed);
   } catch (diagError) {
     res.json({

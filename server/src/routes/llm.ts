@@ -2,7 +2,7 @@ import { getXkiroModels } from '../services/xkiro-models.js';
 import { normalizeScenePlanResponse } from '../services/scene-plan-format.js';
 import { currentWorkspace } from '../services/workspace.js';
 import { Router } from 'express';
-import { isImageOnlyTemplate, parseScenePlan, spokenText, validateScenePlan } from '../services/scene-plan.js';
+import { isImageOnlyTemplate, parseScenePlan, spokenText, validateScenePlan, type ScenePlan } from '../services/scene-plan.js';
 import { chat, formatGeminiModel, getGeminiApiKey, geminiRequestTarget } from '../services/gemini.js';
 import { generateLongScenePlan, longGenerationDuration } from '../services/long-script-generation.js';
 import { repairVisualPrompts } from '../services/visual-prompt-repair.js';
@@ -135,9 +135,17 @@ llmRouter.post('/extract', async (req, res) => {
       : (template ? isImageOnlyTemplate(template) : isImageOnlyTemplate(rawText));
     const saved = typeof req.body?.scriptId === 'string' ? store.getById<any>('scripts', req.body.scriptId) : undefined;
     const forceAllVideo = !isImageOnly && isConversationalVideoMode({ script: saved, template });
-    const edited = saved?.retentionEdit && saved.aiResponse === rawText && saved.retentionEdit.sourceHash === responseHash(rawText)
-      ? saved.retentionEdit.plan : undefined;
-    const plan = edited ? validateScenePlan(edited) : parseScenePlan(rawText, req.body?.useTimelineNarration === true, { isImageOnly, forceAllVideo });
+    let plan: ScenePlan;
+    if (saved?.retentionEdit && saved.aiResponse === rawText && saved.retentionEdit.sourceHash === responseHash(rawText)) {
+      try {
+        plan = validateScenePlan(saved.retentionEdit.plan);
+      } catch (editError) {
+        console.warn('Retention edit plan failed validation, falling back to raw response parsing:', editError);
+        plan = parseScenePlan(rawText, req.body?.useTimelineNarration === true, { isImageOnly, forceAllVideo });
+      }
+    } else {
+      plan = parseScenePlan(rawText, req.body?.useTimelineNarration === true, { isImageOnly, forceAllVideo });
+    }
     const profile = currentWorkspace().profile;
     if (profile === 'mixed' && plan.scenes.some(scene => !scene.mediaType)) throw new Error('Mixed Media requires an image or video mediaType on every scene. Use the shared scene-plan format.');
     res.json({ script: spokenText(plan), ttsText: spokenText(plan), imagePrompts: plan.scenes.map(scene => scene.imagePrompt), scenePlan: plan,

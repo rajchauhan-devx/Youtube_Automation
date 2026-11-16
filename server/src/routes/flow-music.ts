@@ -422,7 +422,7 @@ flowMusicRouter.post(
 // Regenerate a single keyframe image in place
 flowMusicRouter.post('/regenerate-scene', async (req, res) => {
   try {
-    const { filename, prompt, index, jobId } = req.body || {};
+    const { filename, prompt, index, jobId, aspectRatio } = req.body || {};
     if (!filename || !prompt) {
       res.status(400).json({ error: 'filename and prompt are required' });
       return;
@@ -432,6 +432,7 @@ flowMusicRouter.post('/regenerate-scene', async (req, res) => {
       prompt: String(prompt),
       index: typeof index === 'number' ? index : undefined,
       jobId: typeof jobId === 'string' ? jobId : undefined,
+      aspectRatio: aspectRatio === '9:16' || aspectRatio === '16:9' ? aspectRatio : undefined,
     });
     res.json({ success: true, ...updated });
   } catch (error) {
@@ -618,6 +619,7 @@ flowMusicRouter.post('/generate-full-video', async (req, res) => {
       reuseImages,
       existingImages,
       videoFormat,
+      aspectRatio,
     } = req.body || {};
     if (!scriptId) {
       res.status(400).json({ error: 'scriptId is required' });
@@ -643,6 +645,7 @@ flowMusicRouter.post('/generate-full-video', async (req, res) => {
       letterboxBanner: typeof letterboxBanner === 'string' ? letterboxBanner : undefined,
       songUrl: typeof songUrl === 'string' ? songUrl : undefined,
       videoFormat: typeof videoFormat === 'string' ? (videoFormat as any) : undefined,
+      aspectRatio: aspectRatio === '9:16' || aspectRatio === '16:9' ? aspectRatio : undefined,
       beatEdit: beatEdit && typeof beatEdit === 'object' ? beatEdit : undefined,
       bpmHint: typeof bpmHint === 'number' && bpmHint > 0 ? bpmHint : undefined,
       reuseImages: Boolean(reuseImages),
