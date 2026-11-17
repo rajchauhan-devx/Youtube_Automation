@@ -90,6 +90,38 @@ test('AI research receives this profile, template and full history; rejects exac
   } finally { globalThis.fetch = originalFetch; }
 });
 
+test('Ancient Dharma topic research enforces balanced multi-pillar rotation across Ramayana, Mahabharata and Ancient India Dharma', async () => {
+  const originalFetch = globalThis.fetch;
+  let sentPrompt = '';
+  globalThis.fetch = async (url, options) => {
+    const body = JSON.parse(options.body);
+    sentPrompt = body.contents[0].parts[0].text;
+    const candidates = [
+      { topic: 'Krishna & Arjuna: The Dilemma of War at Kurukshetra', reason: 'Mahabharata epic core dialogue', duplicateOf: null },
+      { topic: 'Nachiketa & Yama: The Secret of Immortality', reason: 'Upanishadic ancient India dharma', duplicateOf: null },
+    ];
+    return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ candidates }) }] } }] });
+  };
+  const request = {
+    template: 'Ancient Dharma template',
+    instructions: '',
+    duration: 60,
+    model: 'gemini-test',
+    apiKey: 'fixture',
+  };
+  try {
+    await ws.workspaceContext.run(scope('default'), async () => {
+      const result = await selectAutoPilotTopic(request);
+      assert.equal(result.topic, 'Krishna & Arjuna: The Dilemma of War at Kurukshetra');
+      assert.match(sentPrompt, /MANDATORY TOPIC ROTATION FOR ANCIENT DHARMA/);
+      assert.match(sentPrompt, /Sacred Ramayana/);
+      assert.match(sentPrompt, /Sacred Mahabharata/);
+      assert.match(sentPrompt, /Ancient India Dharma/);
+      assert.match(sentPrompt, /Rotate across these three pillars/);
+    });
+  } finally { globalThis.fetch = originalFetch; }
+});
+
 test('corrupt notes fail closed and are preserved', () => {
   const file = notes.topicNotesPath(a.id);
   const original = fs.readFileSync(file, 'utf8');

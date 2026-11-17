@@ -22,19 +22,32 @@ export async function selectAutoPilotTopic(options: {
   if (duplicate) throw new Error(`This profile already exported “${duplicate}” to YouTube. Choose a new topic or leave Topic blank.`);
 
   const isConv = options.isConversational ?? isConversationalVideoMode({ script: options.script, template: options.template, instructions: options.instructions });
+  const channel = identifyDocumentaryChannel(notes.name, notes.guidance);
+  const isAncientDharma = channel === 'ancient-dharma' || /ancient dharma|sanatan|vedic|ramayan|mahabharat|puran/i.test(`${notes.name} ${notes.guidance} ${options.template} ${options.script?.name || ''}`);
 
   const prompt = [
     `Today is ${new Date().toISOString().slice(0, 10)}. Select the best video topic for this channel. Research facts for factual channels; create original fictional premises for fiction channels.`,
     `Channel: ${notes.name}\nChannel guidance (${isConv ? 'conversational dialogue' : 'subject & tone only — follow template for narration & media format'}): ${notes.guidance}`,
     `Video format: ${currentWorkspace().profile}; target duration: ${options.duration} seconds.`,
+    isAncientDharma ? [
+      'MANDATORY TOPIC ROTATION FOR ANCIENT DHARMA (BALANCED MULTI-PILLAR ROTATION):',
+      'The Ancient Dharma channel NEVER restricts itself to only one subject. It actively rotates across THREE distinct core pillars of Indian dharma and sacred civilizational heritage:',
+      '1. Sacred Ramayana (e.g. Sri Ram, Lakshman, Sita, Hanuman, Bharat, Vibhishan, Jatayu, Sugriva, Kevat; profound moral dilemmas, sacred vows, supreme sacrifices, and dharmic choices)',
+      '2. Sacred Mahabharata (e.g. Krishna & Arjuna at Kurukshetra, Karna & Krishna, Draupadi & Krishna, Bhishma’s Pratigya, Abhimanyu in the Chakravyuh, Yudhishthira’s Yaksha Prashna, Vidura Niti, ethical dilemmas of war, duty, and the Gita)',
+      '3. Ancient India Dharma, Sacred Philosophy & Vedic Civilizational Wisdom (e.g. profound Upanishadic dialogues like Nachiketa & Yama, Ashtavakra & King Janaka, Yagnavalkya & Maitreyi; sacred legends of Rishis like Agastya, Vashistha, Vishwamitra; timeless dharmic kings like Harishchandra, Prahlada; ancient masters of wisdom like Adi Shankara, Patanjali, Chanakya; sacred temple lore, and eternal principles of Sanatana Dharma).',
+      'CRITICAL ROTATION RULE: Check the channel’s past exported topics in history below. If recent videos are mostly from the Ramayana, you MUST prioritize selecting an exceptional, high-retention topic from the Mahabharata or Ancient India Dharma / Philosophy to ensure a fresh, varied content mix. Rotate across these three pillars consistently!',
+    ].join('\n') : '',
     isConv ? [
       'CRITICAL FORMAT REQUIREMENT — MULTI-CHARACTER CONVERSATIONAL STORY (NOT DOCUMENTARY):',
       'This script template is specifically designed for MULTI-CHARACTER CONVERSATIONAL STORYTELLING where characters speak directly to each other in living dialogue.',
-      'STRICT NEGATIVE CONSTRAINT: DO NOT select documentary, architecture, temple construction, archaeology, science facts, metallurgy, or passive historical summaries (e.g. NEVER select topics like pillars, swords, temple capstones, shadows, or technical mysteries). Disregard any past documentary topics in the upload history; this channel produces EXCLUSIVELY pure sacred story episodes from the Ramayana and Mahabharata.',
-      'MANDATORY TOPIC RULE: You MUST choose a dramatic STORY episode from the Ramayana or Mahabharata with real epic characters involved talking to each other in high-stakes dialogue, an intense confrontation, an emotional turning point, or a moral dilemma.',
-      'For Ancient Dharma / Indian lore: STRICTLY select an intense dialogue/confrontation episode from the Ramayana or Mahabharata between specific figures (e.g. Ram and Lakshman on the seashore; Krishna and Arjuna at Kurukshetra; Sita and Ravana in Ashok Vatika; Ram and Hanuman\'s first meeting; Lakshman and Meghnad; Karna and Krishna; Draupadi and Krishna; Bhishma and Duryodhana; Bharat and Kaikeyi).',
+      isAncientDharma ? [
+        'For Ancient Dharma: Choose an intense dialogue or dramatic confrontation episode between real figures from either: (A) Ramayana (e.g. Ram & Lakshman on the seashore; Sita & Ravana in Ashok Vatika; Ram & Hanuman; Lakshman & Meghnad; Bharat & Kaikeyi), (B) Mahabharata (e.g. Krishna & Arjuna at Kurukshetra; Karna & Krishna; Draupadi & Krishna; Bhishma & Duryodhana; Yudhishthira & Yaksha), or (C) Ancient India Dharma & Philosophy (e.g. Nachiketa & Yama on mortality; King Janaka & Sage Ashtavakra; Sage Vashistha & Vishwamitra; Chanakya & Chandragupta on statecraft and dharma; Adi Shankara & Mandana Mishra).',
+        'The topic MUST explicitly name the characters and their emotional confrontation or dramatic conversation (e.g. "Krishna & Arjuna: The Dilemma of War at Kurukshetra", "Nachiketa & Yama: The Secret of Immortality", "Bhishma & Duryodhana: The Agony of the Unbreakable Vow").',
+      ].join('\n') : [
+        'MANDATORY TOPIC RULE: You MUST choose a dramatic STORY episode with real characters involved talking to each other in high-stakes dialogue, an intense confrontation, an emotional turning point, or a moral dilemma.',
+        'The topic MUST explicitly name the characters and their emotional confrontation or conversation.',
+      ].join('\n'),
       'For Talvora: Select an intimate, suspenseful nocturnal confrontation between characters (e.g. Elena and Julian).',
-      'The topic MUST explicitly name the characters and their emotional confrontation or conversation (e.g. "Ram & Lakshman: The Confrontation with Samudra", "Krishna & Arjuna: The Dilemma of War at Kurukshetra", "Sita\'s Defiance to Ravana in Ashok Vatika").',
     ].join('\n') : '',
     `Template context: ${summarizeTemplateForResearch(options.template)}\n${options.template.slice(1800, 8000)}`,
     `User instructions: ${options.instructions}`,
@@ -44,8 +57,8 @@ export async function selectAutoPilotTopic(options: {
     requested
       ? `Validate this requested topic: ${JSON.stringify(requested)}. If it repeats any past subject, set duplicateOf to the previous topic; otherwise use null. Keep the requested topic unchanged.`
       : isConv
-        ? 'Search for high-stakes, dramatic character story episodes with people involved talking to each other. Compare emotional resonance, storytelling tension and fit with the conversational dialogue format. NEVER pick a passive documentary or science topic. Return up to five candidates ranked best first, all checked against the history.'
-        : 'Search for strong, relevant topics for this audience. Compare factual support, audience interest, storytelling potential and fit with the template. Prefer a distinct topic with a compelling hook. Do not invent trend metrics. Return up to five candidates ranked best first, all checked against the history.',
+        ? `Search for high-stakes, dramatic character story episodes with people involved talking to each other. Compare emotional resonance, storytelling tension and fit with the conversational dialogue format.${isAncientDharma ? ' Rotate across Ramayana, Mahabharata, and Ancient India Dharma based on history.' : ''} Return up to five candidates ranked best first, all checked against the history.`
+        : `Search for strong, relevant topics for this audience. Compare factual support, audience interest, storytelling potential and fit with the template. Prefer a distinct topic with a compelling hook.${isAncientDharma ? ' Ensure rotation across Ramayana, Mahabharata, and Ancient India Dharma based on past history.' : ''} Do not invent trend metrics. Return up to five candidates ranked best first, all checked against the history.`,
     'Return ONLY JSON: {"candidates":[{"topic":"specific topic","reason":"why it fits this channel and evidence behind the choice","duplicateOf":null}]}. Use a previous topic string for duplicateOf if it is a semantic repeat.',
   ].filter(Boolean).join('\n\n');
   const messages = [
@@ -74,7 +87,6 @@ export async function selectAutoPilotTopic(options: {
   catch { throw new Error('Topic research returned invalid data. Run Auto-Pilot again.'); }
   // Re-read after research so another completed export is also excluded.
   const latest = syncTopicNotes();
-  const channel = identifyDocumentaryChannel(notes.name, notes.guidance);
   const isShorts = options.duration !== undefined
     ? options.duration < 180
     : currentWorkspace().profile === 'shorts';

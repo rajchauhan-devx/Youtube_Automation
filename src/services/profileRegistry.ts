@@ -57,6 +57,15 @@ export const PROFILE_THEMES: Record<ChannelProfileKey, ProfileTheme> = {
     fontDisplay: "'Cinzel', serif",
     labelPrefix: 'DRAMA // ',
   },
+  blender_3d: {
+    primary: '#06B6D4',
+    secondary: '#0891B2',
+    accent: '#38BDF8',
+    glow: 'rgba(6, 182, 212, 0.45)',
+    fontMono: "'JetBrains Mono', monospace",
+    fontDisplay: "'Montserrat', sans-serif",
+    labelPrefix: '3D // ',
+  },
 };
 
 /** Library UI presentation metadata per channel (labels, badges, theme classes). */
@@ -77,7 +86,7 @@ export interface ChannelUiMeta {
 const CHANNEL_UI_DATA: Record<ChannelProfileKey, Omit<ChannelUiMeta, 'key'>> = {
   ancient_dharma: {
     name: 'Ancient Dharma',
-    subname: 'Vedic Epics & Ramayana',
+    subname: 'Epics, Mahabharata & Dharma',
     badge: 'DHARMA',
     tag: 'Hindi Dedicated',
     themeColor: 'text-amber-400',
@@ -110,6 +119,18 @@ const CHANNEL_UI_DATA: Record<ChannelProfileKey, Omit<ChannelUiMeta, 'key'>> = {
     activeBg: 'from-amber-950/40 via-surface to-surface',
     dotColor: 'bg-amber-400',
     desc: 'High-stakes suspense and mystery micro-dramas: sharp adult heroines, high-tension conflict, strict character consistency and brisk natural dialogue.',
+  },
+  blender_3d: {
+    name: 'Curious Cutaways',
+    subname: '3D Mechanical & Cross-Section Explainer',
+    badge: '3D BLENDER',
+    tag: 'Automated 3D',
+    themeColor: 'text-cyan-400',
+    accentBorder: 'border-cyan-400/60 ring-cyan-400/30',
+    badgeBg: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+    activeBg: 'from-cyan-950/40 via-surface to-surface',
+    dotColor: 'bg-cyan-400',
+    desc: '3D animated mechanical, geological, and physical cutaways in the style of Zack D. Films, automated via headless Blender.',
   },
 };
 
@@ -149,6 +170,13 @@ export const PROFILE_IDENTITY_FALLBACKS: Record<ChannelProfileKey, ProfileIdenti
     color: '#E11D48',
     avatar: 'TL',
     youtubeChannelTitle: 'Talvora',
+  },
+  blender_3d: {
+    id: 'acct_blender_3d',
+    name: 'Curious Cutaways',
+    color: '#06B6D4',
+    avatar: '3D',
+    youtubeChannelTitle: 'Curious Cutaways',
   },
 };
 
@@ -204,5 +232,19 @@ export const CHANNEL_LORA_CONFIG: Record<ChannelProfileKey, ChannelLoraConfig> =
       'Cinematic night-portrait thriller cinematography with 35mm shallow depth of field, atmospheric nighttime noir lighting, sharp anamorphic lens bokeh, wet asphalt streetlight reflections and moody volumetric shadows, featuring a striking, sharp-featured adult heroine in her mid-20s (intense focused dark eyes, high cheekbones, sleek jet-black hair tied back, elegant tailored dark blazer or jacket over a minimalist top), locked facial consistency across all scenes, photorealistic, premium web-series production value.',
     narrativeDna:
       'High-stakes story-first suspense: every episode centers on a sharp, charismatic adult heroine in her mid-20s navigating dangerous secrets, conspiracies, undercover confrontations, and unexpected plot twists opposite intense counterparts. Strict character consistency across all scenes. Brisk, natural conversational pacing (1.04x speed) with punchy back-and-forth dialogue lines (under 15 words) and strict lip-sync coordination. Zero narrator voiceover — 100% pure character dialogue.',
+  },
+  blender_3d: {
+    channelKey: 'blender_3d',
+    channelLabel: 'Curious Cutaways',
+    loraTitle: '3D Cross-Section Explainer (Isometric & Mechanical Cutaway)',
+    loraFileName: 'blender_3d_cross_section_xl.safetensors',
+    fallbackLoraFileName: 'blender_3d_cutaway_xl.safetensors',
+    strengthModel: 0.80,
+    strengthClip: 0.80,
+    triggerToken: 'blender_3d_cross_section',
+    styleDna:
+      '3D procedural isometric cross-section explainer style, clean stylized mechanical and geological cutaway rendering, Zack D. Films aesthetic, vibrant translucent fluid materials, metallic steel machinery shaders, stratified earth cross-sections, studio studio lighting with soft ambient occlusion, crisp vertical 9:16 framing.',
+    narrativeDna:
+      'Fascinating, fast-paced mechanical and scientific breakdown: how everyday or extreme machinery works from the inside out. Clear narrative progression: The Core Problem -> Mechanical Kick/Failure -> The Engineering Solution -> Sustained Operation. Dynamic physics cues and concise, punchy voiceover.',
   },
 };

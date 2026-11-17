@@ -68,12 +68,18 @@ The AI writes BOTH the narrator lines and character lines dynamically for each t
 - Thumbnail: <image_prompt0> strictly reserved for the external 16:9 promotional cover.
 - Motion Graphics: <motion_graphic[N]> or <metadata[N]> for sacred shlokas, astra seals, or era markers.
 
-3. Character Consistency (Always repeat exact physical traits):
+3. Character Consistency (Match character descriptions to the chosen story branch):
 - 🔵 RAMA: Age 25-30, deep blue-dark skin (shyama varna non-negotiable), serene eyes, ascetic hair knot (jata), ochre bark-cloth dhoti, divine bow Sharanga. Divine majesty, never angry.
 - 🏹 LAKSHMANA: Age 22-27, fair wheatish complexion, sharp warrior features, intense alert eyes, ochre/green attire, longbow. Fierce vigilance and loyalty.
 - 🌟 SITA: Golden-fair radiant skin (suvarna varna), large expressive eyes, dignified grace, forest ochre saree.
 - 🐒 HANUMAN: Powerful Vanara warrior, golden-orange fur, upright muscular physique, sacred thread (janeu), humble eyes.
 - 👑 RAVANA: Ten heads (in wide) or dominant central head (in close-up), dark bronze skin with crimson glow, heavy royal armor, arrogant sovereign authority.
+- 🦚 SHRI KRISHNA: Transcendent dark blue-black complexion (megha-shyam), peacock feather in gold mukut, yellow pitambari silk, calm lotus eyes, cosmic serenity.
+- 🏹 ARJUNA: Fair-to-wheatish complexion, peerless Pandava archer, Gandiva bow, celestial armor, focused intense eyes.
+- ☀️ KARNA: Radiant golden-bronze solar complexion, fused golden kavach-kundala, crimson-gold warrior attire, Vijaya bow.
+- ⚔️ BHISHMA: Venerable elder patriarch, flowing silver beard and hair, pristine white robes, golden armor, gaze of unbreakable vow.
+- 👑 DRAUPADI: Luminous dark/lotus complexion born of sacred Yajna, fiery expressive eyes, regal silk saree, fierce moral dignity.
+- 🧘 ANCIENT RISHIS & SEEKERS (Nachiketa, Vashistha, Agastya, Chanakya): Serene contemplative gaze, tilak/vibhuti, rudraksha/janeu, ochre bark cloth or pure white dhoti, deep spiritual wisdom.
 
 OUTPUT STRUCTURE REQUIRED:
 SECTION 1 — SCENE BREAKDOWN (Character/Narrator, Spoken Line, Duration, Visual Framing)

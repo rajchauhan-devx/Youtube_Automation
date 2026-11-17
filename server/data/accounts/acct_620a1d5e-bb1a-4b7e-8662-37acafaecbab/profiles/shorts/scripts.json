@@ -149,17 +149,17 @@
     "enableSubtitles": false,
     "presenter": {
       "enabled": false,
-      "avatarId": "avatar_013",
+      "avatarId": "avatar_odds",
       "style": "transparent",
-      "widthPercent": 35,
-      "bottomPercent": 2,
+      "widthPercent": 50,
+      "bottomPercent": 0,
       "marginPercent": 0,
       "horizontalPercent": 100,
       "crop": {
-        "x": 32,
-        "y": 2,
-        "width": 40,
-        "height": 67
+        "x": 20,
+        "y": 0,
+        "width": 55.6,
+        "height": 100
       },
       "silenceGate": false,
       "silenceThresholdDb": -40
@@ -279,7 +279,8 @@
     "imagePrompts": [],
     "generatedImages": [],
     "generatedAudio": [],
-    "pipeline": []
+    "pipeline": [],
+    "editingProjectId": null
   },
   {
     "id": "autopilot_live_1792392528344",

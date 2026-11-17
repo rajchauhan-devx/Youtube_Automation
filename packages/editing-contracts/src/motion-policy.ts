@@ -6,19 +6,21 @@
  * ChannelMotionPolicyKey.
  */
 
-export type ChannelProfileKey = 'ancient_dharma' | 'against_the_odds' | 'talvora';
+export type ChannelProfileKey = 'ancient_dharma' | 'against_the_odds' | 'talvora' | 'blender_3d';
 export type ChannelMotionPolicyKey = ChannelProfileKey | 'documentary_standard';
 
 export const CHANNEL_PROFILE_KEYS: ChannelProfileKey[] = [
   'ancient_dharma',
   'against_the_odds',
   'talvora',
+  'blender_3d',
 ];
 
 export const MOTION_POLICY_KEYS: ChannelMotionPolicyKey[] = [
   'ancient_dharma',
   'against_the_odds',
   'talvora',
+  'blender_3d',
   'documentary_standard',
 ];
 
@@ -35,10 +37,12 @@ export const SELECTIVE_MOTION_DIRECTION =
 const AGAINST_THE_ODDS_HINTS = ['620a1d5e', 'against_the_odds', 'against the odds'];
 const ANCIENT_DHARMA_HINTS = ['ancient_dharma', 'ancient dharma', 'dharma', 'vedic', 'प्राचीन', 'धर्म'];
 const TALVORA_HINTS = ['talvora', 'talevora', 'romance', 'microdrama'];
+const BLENDER_3D_HINTS = ['blender', 'cutaway', 'explainer', '3d_explainer', 'curious', 'zackd'];
 
 const AGAINST_THE_ODDS_REGEX = /against.?the.?odds|620a1d5e/i;
 const ANCIENT_DHARMA_REGEX = /ancient.?dharma|vedic|dharma|प्राचीन|धर्म/i;
 const TALVORA_REGEX = /talvora|talevora/i;
+const BLENDER_3D_REGEX = /blender|cutaway|explainer|curious.?cutaway|3d.?explainer/i;
 const ANCIENT_SOURCE_CONTEXT_REGEX = /ancient india|vedic|ramayana|mahabharata|प्राचीन भारत|रामायण|महाभारत/i;
 
 /** Resolves channel identity (account id, name, channel title, or text) to a server policy key. */
@@ -77,10 +81,16 @@ export function detectChannelMotionKey(
     return 'talvora';
   }
 
-  // 4. Loose token hints when input is a string (e.g. from UI profile picker)
+  // 4. Curious Cutaways / Blender 3D Explainer
+  if (BLENDER_3D_REGEX.test(identity) || BLENDER_3D_HINTS.some(h => identity.includes(h))) {
+    return 'blender_3d';
+  }
+
+  // 5. Loose token hints when input is a string (e.g. from UI profile picker)
   if (typeof input === 'string') {
     if (/\b(?:odds|against)\b/.test(identity)) return 'against_the_odds';
     if (/\b(?:talvora|talevora|romance)\b/.test(identity)) return 'talvora';
+    if (/\b(?:blender|cutaway|explainer|3d)\b/.test(identity)) return 'blender_3d';
   }
 
   return fallback;
@@ -144,6 +154,8 @@ export function getChannelMotionPolicy(
     ? 'Against the Odds: restrained documentary annotation. Technical diagrams and mechanical accents only when the narrated survival mechanism warrants them; keep the human subject and real image dominant.'
     : key === 'talvora'
     ? 'Talvora: atmospheric cinematic drama and romantic suspense. Moody nocturnal ambient lighting, warm amber and rose-gold accents, elegant modern serif and sans typography, subtle cinematic letterboxing, emotional focus on adult character expressions and relationship turning points. No garish neon or technical HUDs.'
+    : key === 'blender_3d'
+    ? 'Curious Cutaways / 3D Explainer: High-curiosity mechanical cross-section and physical explainer visuals. Stylized cutaway blueprints, isometric technical markers, high-contrast engineering accents (cyan, neon amber), dynamic subsurface depth measurements, clean dimensional annotations.'
     : 'Follow the source imagery, historical period and channel metadata. Use restrained editorial graphics; do not impose a modern instrument style on unrelated stories.';
 
   const languageDirection = displayLanguage === 'hi'

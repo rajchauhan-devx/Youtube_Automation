@@ -167,12 +167,12 @@ CRITERIA FOR 90+ RETENTION:
 3. Midpoint Reversal: A moment where the initial survival plan fails or rescue encounters catastrophic difficulty.
 4. Zero fabricated melodrama or made-up quotes. High suspense comes strictly from real facts and knowledge states.`
       : channel === 'ancient-dharma'
-      ? `CHANNEL PROFILE: Ancient Dharma (Sanatana Dharma, Sacred Epic History & Spiritual Wisdom).
+      ? `CHANNEL PROFILE: Ancient Dharma (Sanatana Dharma, Sacred Epic History, Philosophy & Ancient India Civilizational Wisdom).
 CRITERIA FOR 90+ RETENTION:
-1. Grounded in authentic sacred lore of the Valmiki Ramayana, Vyasa Mahabharata, or Puranas.
-2. High-Stakes Divine Dilemma: Extreme moral conflict, sacred vows (Pratigya), sacrifice, or divine confrontation (e.g. Lakshman's 14-year vigil, Bhishma's dilemma, Krishna-Arjuna dialogue, Sita's trial).
+1. Grounded in authentic sacred lore and scriptures: Valmiki Ramayana, Vyasa Mahabharata, Puranas, Upanishads, or Ancient India Dharma.
+2. High-Stakes Dilemma / Cosmic Realization: Extreme moral conflict, sacred vows (Pratigya), sacrifice, seekers' enquiry, or divine confrontation (e.g. Krishna-Arjuna dialogue, Bhishma's dilemma, Lakshman's vigil, Nachiketa's query to Yama, Sita's trial, Chanakya's vow).
 3. Strictly NO modern satellite/carbon-dating pseudosciences, and strictly BANNED modern street slang.
-4. Deep emotional resonance, dharmic truth, and awe-inspiring sacred narrative depth.`
+4. Deep emotional resonance, timeless dharmic truth, and awe-inspiring sacred narrative depth.`
       : `CHANNEL PROFILE: High-Retention Long-Form Documentary.
 CRITERIA FOR 90+ RETENTION:
 1. High-concept core question with an irresistible curiosity gap.
