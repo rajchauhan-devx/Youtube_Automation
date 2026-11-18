@@ -243,8 +243,8 @@ export const CHANNEL_LORA_CONFIG: Record<ChannelProfileKey, ChannelLoraConfig> =
     strengthClip: 0.80,
     triggerToken: 'blender_3d_cross_section',
     styleDna:
-      '3D procedural isometric cross-section explainer style, clean stylized mechanical and geological cutaway rendering, Zack D. Films aesthetic, vibrant translucent fluid materials, metallic steel machinery shaders, stratified earth cross-sections, studio studio lighting with soft ambient occlusion, crisp vertical 9:16 framing.',
+      '3D procedural isometric cross-section explainer style, clean stylized mechanical and geological cutaway rendering, Zack D. Films & Mildly Elsewhere aesthetic, vibrant translucent fluid materials, metallic steel machinery shaders, stratified earth cross-sections with micro-laminations, authentic timber lattice derrick framing, worm-eye perspectives, kinematic walking beam pumpjack mechanisms, 2D chalk overlay schematics, studio lighting with soft contact ambient occlusion, crisp vertical 9:16 framing.',
     narrativeDna:
-      'Fascinating, fast-paced mechanical and scientific breakdown: how everyday or extreme machinery works from the inside out. Clear narrative progression: The Core Problem -> Mechanical Kick/Failure -> The Engineering Solution -> Sustained Operation. Dynamic physics cues and concise, punchy voiceover.',
+      'Fascinating, fast-paced mechanical and scientific breakdown: how everyday or extreme machinery works from the inside out. Clear narrative progression: The Core Problem -> Mechanical Kick/Failure -> The Engineering Solution -> Sustained Operation. Dynamic physics cues, 2D chalkboard explanatory line-art, and concise, punchy voiceover.',
   },
 };

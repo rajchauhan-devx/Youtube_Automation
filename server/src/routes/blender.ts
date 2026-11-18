@@ -28,7 +28,16 @@ blenderRouter.get('/status', async (_req, res) => {
  */
 blenderRouter.post('/render', async (req, res) => {
   try {
-    const { scriptId, sceneIndex = 0, action = 'drill_down', duration = 5.0, fps = 30 } = req.body || {};
+    const {
+      scriptId,
+      sceneIndex = 0,
+      shotIndex,
+      action = 'drill_down',
+      sceneType,
+      duration = 5.0,
+      fps = 24,
+      params,
+    } = req.body || {};
 
     if (!scriptId) {
       res.status(400).json({ error: 'scriptId is required' });
@@ -43,10 +52,13 @@ blenderRouter.post('/render', async (req, res) => {
     const outputFile = path.join(scriptDir, `blender_scene_${sceneIndex}.mp4`);
 
     const resultPath = await renderBlenderScene({
+      sceneType,
+      shotIndex: typeof shotIndex === 'number' ? shotIndex : undefined,
       action,
       durationSeconds: Number(duration) || 5.0,
-      fps: Number(fps) || 30,
+      fps: Number(fps) || 24,
       outputPath: outputFile,
+      params: params && typeof params === 'object' ? params : undefined,
     });
 
     res.json({

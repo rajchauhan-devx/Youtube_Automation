@@ -18,12 +18,35 @@ export interface BlenderRenderOptions {
   sceneType?: 'cross_section_explainer' | 'grease_pencil_2d' | 'master_film' | 'shot_film' | 'custom';
   blendFile?: string;
   pythonScript?: string;
-  action?: 'drill_down' | 'oil_gusher' | 'sponge_rock_zoom' | 'bop_clamp' | 'pump_jack' | 'custom';
+  shotIndex?: number;
+  action?: 'drill_down' | 'oil_gusher' | 'sponge_rock_zoom' | 'bop_clamp' | 'pump_jack' | 'custom' | string;
   durationSeconds: number;
   fps?: number;
   outputPath: string;
   params?: Record<string, unknown>;
   signal?: AbortSignal;
+}
+
+export function actionToShotIndex(action?: string): number {
+  switch (action) {
+    case 'drill_down': return 1;
+    case 'derrick_well': return 2;
+    case 'sand_caving': return 3;
+    case 'mud_pump': return 4;
+    case 'mud_column': return 5;
+    case 'derrick_upward': return 6;
+    case 'pipe_ejection': return 7;
+    case 'pipe_breaking_crown': return 8;
+    case 'oil_gusher': return 9;
+    case 'deep_strata_plunge': return 10;
+    case 'reservoir_myth': return 11;
+    case 'macro_pores_zoom': return 12;
+    case 'sponge_rock_zoom': return 13;
+    case 'casing_travel': return 14;
+    case 'bop_clamp': return 15;
+    case 'pump_jack': return 16;
+    default: return 1;
+  }
 }
 
 /**
@@ -127,9 +150,9 @@ export async function renderBlenderScene(options: BlenderRenderOptions): Promise
     );
   }
 
-  let defaultScriptName = 'cross_section_explainer.py';
-  if (options.sceneType === 'shot_film') {
-    defaultScriptName = 'shot_film_generator.py';
+  let defaultScriptName = 'shot_film_generator.py';
+  if (options.sceneType === 'cross_section_explainer') {
+    defaultScriptName = 'cross_section_explainer.py';
   } else if (options.sceneType === 'master_film') {
     defaultScriptName = 'master_film_generator.py';
   }
@@ -145,9 +168,10 @@ export async function renderBlenderScene(options: BlenderRenderOptions): Promise
   }
 
   const payload = JSON.stringify({
+    shot: options.shotIndex || actionToShotIndex(options.action),
     action: options.action || 'drill_down',
     duration: options.durationSeconds,
-    fps: options.fps || 30,
+    fps: options.fps || 24,
     output_path: options.outputPath,
     params: options.params || {},
   });
