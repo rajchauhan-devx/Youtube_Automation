@@ -15,7 +15,7 @@ export interface BlenderStatus {
 }
 
 export interface BlenderRenderOptions {
-  sceneType?: 'cross_section_explainer' | 'grease_pencil_2d' | 'custom';
+  sceneType?: 'cross_section_explainer' | 'grease_pencil_2d' | 'master_film' | 'shot_film' | 'custom';
   blendFile?: string;
   pythonScript?: string;
   action?: 'drill_down' | 'oil_gusher' | 'sponge_rock_zoom' | 'bop_clamp' | 'pump_jack' | 'custom';
@@ -46,6 +46,8 @@ export function resolveBlenderBinary(): string | undefined {
     '/usr/local/bin/blender',
     '/usr/bin/blender',
     // Windows standard locations
+    'C:\\Users\\zrajc\\blender\\blender-5.3.0-windows-x64\\blender.exe',
+    'C:\\Program Files\\Blender Foundation\\Blender 5.3\\blender.exe',
     'C:\\Program Files\\Blender Foundation\\Blender 4.3\\blender.exe',
     'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe',
     'C:\\Program Files\\Blender Foundation\\Blender 4.1\\blender.exe',
@@ -125,7 +127,13 @@ export async function renderBlenderScene(options: BlenderRenderOptions): Promise
     );
   }
 
-  const scriptPath = options.pythonScript || path.join(SERVER_ROOT, 'scripts', 'blender', 'cross_section_explainer.py');
+  let defaultScriptName = 'cross_section_explainer.py';
+  if (options.sceneType === 'shot_film') {
+    defaultScriptName = 'shot_film_generator.py';
+  } else if (options.sceneType === 'master_film') {
+    defaultScriptName = 'master_film_generator.py';
+  }
+  const scriptPath = options.pythonScript || path.join(SERVER_ROOT, 'scripts', 'blender', defaultScriptName);
   if (!fs.existsSync(scriptPath)) {
     throw new Error(`Blender Python animation script not found: ${scriptPath}`);
   }
