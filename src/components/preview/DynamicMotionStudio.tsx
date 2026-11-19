@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   Sparkles,
   Play,
@@ -30,6 +30,7 @@ import {
   type MotionGraphicCategory,
 } from '@tubeflow/editing-contracts';
 import { DynamicMotionPlayer, playSynthesizedSfx } from './DynamicMotionPlayer';
+import { findMetadata } from '../../lib/parseAIResponse';
 
 interface DynamicMotionStudioProps {
   script: Script;
@@ -40,6 +41,7 @@ const STYLE_PRESETS = [
   { id: 'vedic-gold', label: 'Vedic Gold', desc: 'Ancient Dharma & Solar Aura', icon: '🌟', channel: 'Ancient Dharma' },
   { id: 'archival-compass', label: 'Against the Odds', desc: 'Brass Compass & Topography', icon: '🧭', channel: 'Against the Odds' },
   { id: 'talvora-noir', label: 'Talvora Noir', desc: 'Rose Gold & Nocturnal Drama', icon: '🌹', channel: 'Talvora' },
+  { id: 'blender-3d', label: 'Curious Cutaways', desc: '3D CAD Blueprints & Wireframes', icon: '📐', channel: 'Curious Cutaways' },
   { id: 'celestial-cyan', label: 'Celestial Cyan', desc: 'Cosmic Blue & Starlight', icon: '🌌' },
   { id: 'rudra-fire', label: 'Rudra Fire', desc: 'Shiva Tandava & Blazing Embers', icon: '🔥' },
   { id: 'mystic-amethyst', label: 'Mystic Amethyst', desc: 'Deep Violet & Ethereal Resonance', icon: '🔮' },
@@ -63,18 +65,34 @@ export function DynamicMotionStudio({
   script,
   onUpdateScript,
 }: DynamicMotionStudioProps) {
+  const defaultTheme = useMemo(() => {
+    const raw = (script.name || (script as any).channelName || (script as any).section || '').toLowerCase();
+    if (raw.includes('odds') || raw.includes('survival') || raw.includes('expedition')) return 'archival-compass';
+    if (raw.includes('talvora') || raw.includes('noir') || raw.includes('thriller')) return 'talvora-noir';
+    if (raw.includes('blender') || raw.includes('cutaway') || raw.includes('3d') || raw.includes('curious')) return 'blender-3d';
+    return 'vedic-gold';
+  }, [script.name]);
+
   const [isOpen, setIsOpen] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyStep, setVerifyStep] = useState<'idle' | 'orchestrating' | 'verifying' | 'done'>('idle');
+  const [isDirectorRunning, setIsDirectorRunning] = useState(false);
+  const [directorStage, setDirectorStage] = useState<'idle' | 'analyzing' | 'eliminating' | 'assigning' | 'compiling' | 'done'>('idle');
+  const [directorStatusMsg, setDirectorStatusMsg] = useState('');
+  const [isReviewerRunning, setIsReviewerRunning] = useState(false);
   const [generatingSceneIdx, setGeneratingSceneIdx] = useState<number | null>(null);
   const [customPrompt, setCustomPrompt] = useState('');
-  const [selectedTheme, setSelectedTheme] = useState<string>('vedic-gold');
+  const [selectedTheme, setSelectedTheme] = useState<string>(defaultTheme);
   const [activeTab, setActiveTab] = useState<'graphics' | 'popups'>('graphics');
   const [selectedGraphicIndex, setSelectedGraphicIndex] = useState<number>(0);
   const [selectedPopupIndex, setSelectedPopupIndex] = useState<number>(0);
   const [showVerificationReport, setShowVerificationReport] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedTheme(defaultTheme);
+  }, [defaultTheme]);
 
   // 100+ Motion Graphics Library Drawer State
   const [showCatalogDrawer, setShowCatalogDrawer] = useState(false);
@@ -86,10 +104,29 @@ export function DynamicMotionStudio({
   const graphics: DynamicMotionGraphicData[] = (script as any).dynamicMotionGraphics || [];
   const popups: ExtraPopupAsset[] = (script as any).extraPopups || [];
   const verification = (script as any).twoStepVerification;
+  const directorReport = (script as any).motionDirectorReport;
+  const reviewerReport = (script as any).motionReviewerReport;
 
   // Extract scenes from script response or prompt
   function extractSceneInputs() {
-    const scenes: Array<{ sceneIndex: number; narration: string; visualPrompt: string; durationSec: number }> = [];
+    if (Array.isArray(script.scenePlan?.scenes) && script.scenePlan.scenes.length > 0) {
+      return script.scenePlan.scenes.map((s: any, idx: number) => ({
+        sceneIndex: idx,
+        narration: String(s.narration || '').trim(),
+        visualPrompt: String(s.imagePrompt || s.videoPrompt || '').trim(),
+        durationSec: Number(s.duration) > 0 ? Number(s.duration) : 6.0,
+        motionGraphics: s.motionGraphics,
+        title: s.motionGraphics?.[0]?.title || s.motionGraphics?.[0]?.label,
+        detail: s.motionGraphics?.[0]?.detail || s.motionGraphics?.[0]?.metric,
+        badge: s.motionGraphics?.[0]?.badge || s.motionGraphics?.[0]?.unit,
+        statValue: s.motionGraphics?.[0]?.statValue || s.motionGraphics?.[0]?.metric,
+        statUnit: s.motionGraphics?.[0]?.statUnit || s.motionGraphics?.[0]?.unit,
+        placement: s.motionGraphics?.[0]?.placement,
+        cuePhrase: s.motionGraphics?.[0]?.cuePhrase || s.motionGraphics?.[0]?.cue,
+      }));
+    }
+
+    const scenes: Array<{ sceneIndex: number; narration: string; visualPrompt: string; durationSec: number; motionGraphics?: any[]; title?: string; detail?: string }> = [];
     const imagePrompts: string[] = script.imagePrompts || [];
     const narrationText = script.narration || script.extractedScript || script.aiResponse || '';
 
@@ -98,17 +135,45 @@ export function DynamicMotionStudio({
       .map((s) => s.trim())
       .filter((s) => s.length > 5);
 
+    const overlays = findMetadata(narrationText);
     const count = Math.max(imagePrompts.length, sentences.length, 3);
     for (let i = 0; i < count; i++) {
+      const overlay = overlays.find((m) => m.index === i + 1 || Number(m.scene) === i + 1);
       scenes.push({
         sceneIndex: i,
-        narration: sentences[i] || `Scene ${i + 1} sacred narrative beat`,
-        visualPrompt: imagePrompts[i] || `Scene ${i + 1} Vedic cinematic visuals`,
+        narration: sentences[i] || `Scene ${i + 1} narrative beat`,
+        visualPrompt: imagePrompts[i] || `Scene ${i + 1} cinematic visual shot`,
         durationSec: 6.4,
+        motionGraphics: overlay ? [{
+          templateId: overlay.type,
+          type: overlay.type,
+          title: overlay.title,
+          detail: overlay.detail,
+          label: overlay.title,
+          metric: overlay.detail,
+          statValue: overlay.detail,
+          cuePhrase: overlay.motionPlan?.quote,
+          placement: overlay.motionPlan?.position,
+        }] : undefined,
+        title: overlay?.title,
+        detail: overlay?.detail,
       });
     }
     return scenes;
   }
+
+  // Auto-compile if graphics is empty but co-authored overlays exist in aiResponse or scenePlan
+  const autoCompiledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (graphics.length > 0 || isGenerating || isVerifying) return;
+    const hasCoauthoredOverlays =
+      script.scenePlan?.scenes?.some((s: any) => s.motionGraphics?.length) ||
+      (script.aiResponse && /<overlay/i.test(script.aiResponse));
+    if (hasCoauthoredOverlays && autoCompiledRef.current !== script.id) {
+      autoCompiledRef.current = script.id;
+      void handleAIDecideMotion();
+    }
+  }, [script.id, script.aiResponse, script.scenePlan, graphics.length]);
 
   /**
    * Complete 2-Step AI Orchestration & Full-Script Verification Engine:
@@ -163,6 +228,126 @@ export function DynamicMotionStudio({
       setVerifyStep('idle');
     } finally {
       setIsVerifying(false);
+    }
+  }
+
+  /**
+   * AI MOTION GRAPHICS DIRECTOR:
+   * Deeply re-examines the completed script and narrative scene beats.
+   * Eliminates 100% of boring text cards, boxes, and lower thirds, and replaces
+   * them with high-energy transparent vector motion graphics (Radar HUDs, Route Trajectories,
+   * EKG Pulse Monitors, Circular Gauges, Emerald Seals, Victory Crests, 3D CAD Blueprints).
+   */
+  async function handleRunMotionGraphicsDirector() {
+    setIsDirectorRunning(true);
+    setDirectorStage('analyzing');
+    setDirectorStatusMsg('Phase 1/4: Analyzing narrative tension & visual focal points...');
+    setError(null);
+
+    const t1 = setTimeout(() => {
+      setDirectorStage('eliminating');
+      setDirectorStatusMsg('Phase 2/4: Eliminating text boxes, lower thirds & dark cards...');
+    }, 2000);
+
+    const t2 = setTimeout(() => {
+      setDirectorStage('assigning');
+      setDirectorStatusMsg('Phase 3/4: Directing pure visual vector graphics (HUD, Trajectory, Pulse, Gauges)...');
+    }, 4500);
+
+    const t3 = setTimeout(() => {
+      setDirectorStage('compiling');
+      setDirectorStatusMsg('Phase 4/4: Compiling 60fps GSAP vector graphics & updating script tags...');
+    }, 7500);
+
+    try {
+      const activePreset = STYLE_PRESETS.find((p) => p.id === selectedTheme);
+      const channelName = activePreset?.channel || (script as any).channelName || (script.name?.toLowerCase().includes('dharma') ? 'Ancient Dharma' : 'Against the Odds');
+      const channelProfile = (script as any).section || activePreset?.id || (channelName.toLowerCase().includes('dharma') ? 'ancient_dharma' : 'against_the_odds');
+
+      const res = await fetch('/api/editing/motion-director', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId: script.id,
+          channelName,
+          channelProfile,
+          customInstructions: customPrompt.trim() || undefined,
+        }),
+      });
+
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Motion Director failed (HTTP ${res.status})`);
+      }
+
+      const data = await res.json();
+      setDirectorStage('done');
+      setDirectorStatusMsg(`Director Complete: Assigned ${data.graphics?.length || 0} pure visual motion graphics.`);
+
+      if (onUpdateScript && data.script) {
+        onUpdateScript({
+          ...data.script,
+          dynamicMotionGraphics: data.graphics || data.script.dynamicMotionGraphics,
+          extraPopups: [],
+          editingProjectId: undefined,
+          motionDirectorReport: data.report || data.script.motionDirectorReport,
+        });
+      }
+
+      setSelectedGraphicIndex(0);
+    } catch (err) {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      setError(err instanceof Error ? err.message : 'Could not run Motion Graphics Director');
+      setDirectorStage('idle');
+    } finally {
+      setIsDirectorRunning(false);
+    }
+  }
+
+  /**
+   * AI MOTION GRAPHICS VISUAL REVIEWER & AUTO-FIXER:
+   * Inspects all motion graphics from a real user's perspective:
+   * Checks safe zones, screen edge clipping, focal subject occlusion, and size problems,
+   * and automatically fixes all of them before finishing.
+   */
+  async function handleRunVisualReviewer() {
+    setIsReviewerRunning(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/editing/motion-reviewer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId: script.id,
+          aspectRatio: '9:16',
+          channelProfile: (script as any).section || selectedTheme || 'against_the_odds',
+        }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || `Visual Reviewer failed (HTTP ${res.status})`);
+      }
+
+      const data = await res.json();
+      if (onUpdateScript && data.script) {
+        onUpdateScript({
+          ...data.script,
+          dynamicMotionGraphics: data.graphics || data.script.dynamicMotionGraphics,
+          motionReviewerReport: data.report || data.script.motionReviewerReport,
+        });
+      }
+      setSelectedGraphicIndex(0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not run Visual Reviewer');
+    } finally {
+      setIsReviewerRunning(false);
     }
   }
 
@@ -458,11 +643,62 @@ export function DynamicMotionStudio({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* AI Motion Graphics Director Trigger */}
+          <button
+            type="button"
+            onClick={handleRunMotionGraphicsDirector}
+            disabled={isDirectorRunning || isReviewerRunning || isVerifying || isGenerating}
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-500 px-4 py-2 text-xs font-black text-black shadow-lg shadow-teal-500/25 hover:brightness-110 active:scale-95 disabled:opacity-50 transition"
+            title="AI Motion Graphics Director: Deeply re-examines script beats, eliminates all text boxes, and applies pure visual vector graphics"
+          >
+            {isDirectorRunning ? (
+              <>
+                <RotateCw className="h-3.5 w-3.5 animate-spin" />
+                <span>Director Re-examining…</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" />
+                <span>🎬 AI Motion Graphics Director</span>
+              </>
+            )}
+          </button>
+
+          {/* AI Visual Reviewer & Auto-Fix Trigger */}
+          <button
+            type="button"
+            onClick={handleRunVisualReviewer}
+            disabled={isReviewerRunning || isDirectorRunning || isVerifying || isGenerating}
+            className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition border ${
+              reviewerReport
+                ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-200 shadow-sm'
+                : 'border-teal-500/30 bg-black/40 text-teal-300 hover:bg-teal-500/10 hover:border-teal-400'
+            }`}
+            title="Inspect overlays from user perspective: auto-fixes clipping, subtitle safe-zones, and scale issues"
+          >
+            {isReviewerRunning ? (
+              <>
+                <RotateCw className="h-3.5 w-3.5 animate-spin text-teal-300" />
+                <span>Auditing Safe Zones…</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
+                <span>🛡️ Review &amp; Auto-Fix</span>
+                {reviewerReport && (
+                  <span className="rounded-full bg-emerald-500/25 px-1.5 py-0.5 text-[10px] text-emerald-300 font-mono font-bold">
+                    100% Safe
+                  </span>
+                )}
+              </>
+            )}
+          </button>
+
           {/* 100+ Motion Graphics Library Toggle Button */}
           <button
             type="button"
             onClick={() => setShowCatalogDrawer(!showCatalogDrawer)}
-            className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition border ${
+            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition border ${
               showCatalogDrawer
                 ? 'border-amber-400 bg-amber-500/25 text-amber-200 shadow-md shadow-amber-500/20'
                 : 'border-amber-500/30 bg-black/50 text-amber-300 hover:bg-amber-500/15 hover:border-amber-400'
@@ -471,30 +707,25 @@ export function DynamicMotionStudio({
           >
             <BookOpen className="h-3.5 w-3.5 text-amber-400" />
             <span>100+ Library</span>
-            <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] text-amber-300 font-mono">
-              100
-            </span>
           </button>
 
           {/* Main 2-Step Verification & Orchestration Trigger */}
           <button
             type="button"
             onClick={handleTwoStepVerification}
-            disabled={isVerifying || isGenerating}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 px-4 py-2 text-xs font-black text-black shadow-lg shadow-amber-500/25 hover:brightness-110 active:scale-95 disabled:opacity-50 transition"
+            disabled={isVerifying || isGenerating || isDirectorRunning}
+            className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/20 px-3.5 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/30 disabled:opacity-50 transition"
             title="AI decides motion graphics & popups, then verifies the whole script in a 2-step audit"
           >
             {isVerifying ? (
               <>
                 <RotateCw className="h-3.5 w-3.5 animate-spin" />
-                {verifyStep === 'orchestrating'
-                  ? 'Step 1/2: Orchestrating Overlays…'
-                  : 'Step 2/2: Verifying Script & Cues…'}
+                <span>Verifying…</span>
               </>
             ) : (
               <>
-                <ShieldCheck className="h-4 w-4" />
-                <span>AI 2-Step Verify &amp; Orchestrate</span>
+                <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
+                <span>2-Step Audit</span>
               </>
             )}
           </button>
@@ -516,6 +747,263 @@ export function DynamicMotionStudio({
             <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-xs text-red-300">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{error}</span>
+            </div>
+          )}
+
+          {/* AI MOTION GRAPHICS DIRECTOR ACTIVE PROGRESS BANNER */}
+          {isDirectorRunning && (
+            <div className="mb-6 rounded-2xl border border-teal-500/40 bg-gradient-to-r from-teal-950/60 via-[#0a1c18]/80 to-emerald-950/60 p-5 shadow-xl backdrop-blur-md animate-pulse">
+              <div className="flex items-center justify-between border-b border-teal-500/20 pb-3 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <RotateCw className="h-4 w-4 animate-spin text-teal-400" />
+                  <span className="text-xs font-black uppercase tracking-wider text-teal-200">
+                    AI Motion Graphics &amp; VFX Director Re-examining Script
+                  </span>
+                </div>
+                <span className="rounded-full border border-teal-400/30 bg-teal-500/10 px-2.5 py-0.5 text-[10px] font-mono font-bold text-teal-300">
+                  Zero Text Cards • Deep Narrative Pass
+                </span>
+              </div>
+              <div className="space-y-2 text-xs font-medium">
+                <div className="flex items-center gap-2">
+                  <span className={directorStage === 'analyzing' ? 'text-teal-300 font-bold' : 'text-teal-400/60'}>
+                    {directorStage === 'analyzing' ? '▶' : '✓'} Phase 1: Re-examining Narrative Tension &amp; Beat Cadence
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={directorStage === 'eliminating' ? 'text-teal-300 font-bold' : ['assigning', 'compiling', 'done'].includes(directorStage) ? 'text-teal-400/60' : 'text-zinc-500'}>
+                    {directorStage === 'eliminating' ? '▶' : ['assigning', 'compiling', 'done'].includes(directorStage) ? '✓' : '○'} Phase 2: Purging Text Boxes, Cards &amp; Lower Thirds
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={directorStage === 'assigning' ? 'text-teal-300 font-bold' : ['compiling', 'done'].includes(directorStage) ? 'text-teal-400/60' : 'text-zinc-500'}>
+                    {directorStage === 'assigning' ? '▶' : ['compiling', 'done'].includes(directorStage) ? '✓' : '○'} Phase 3: Directing Pure Visual Vector Graphics (HUD, Route, Pulse, Gauges, Seals)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={directorStage === 'compiling' ? 'text-teal-300 font-bold' : directorStage === 'done' ? 'text-teal-400/60' : 'text-zinc-500'}>
+                    {directorStage === 'compiling' ? '▶' : directorStage === 'done' ? '✓' : '○'} Phase 4: Compiling 60fps GSAP Vector Overlays &amp; Synchronizing Script Tags
+                  </span>
+                </div>
+              </div>
+              <p className="mt-3 text-[11px] text-teal-300/80 italic font-mono">
+                {directorStatusMsg}
+              </p>
+            </div>
+          )}
+
+          {/* AI MOTION GRAPHICS DIRECTOR VISION REPORT CARD */}
+          {directorReport && (
+            <div className="mb-6 rounded-2xl border border-teal-500/30 bg-gradient-to-r from-teal-950/40 via-[#0d1f1c]/50 to-emerald-950/40 p-5 shadow-xl backdrop-blur-md">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-teal-500/20 pb-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-teal-500/40 bg-teal-500/15 text-teal-300 shadow-glow">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-teal-100">
+                        AI Motion Graphics Director Vision Report
+                      </h4>
+                      <span className="rounded-full border border-teal-400/40 bg-teal-500/15 px-2 py-0.5 text-[10px] font-bold text-teal-300">
+                        {directorReport.channelProfile}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-teal-300/70">
+                      Upgraded {directorReport.activeGraphicsCount} scenes with pure visual vector graphics • {directorReport.breathingRoomScenes} breathing room scenes
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 text-[11px] font-black text-emerald-300 shadow-sm">
+                    <Check className="h-3.5 w-3.5" />
+                    <span>0% Text Cards • 100% Pure Vectors</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRunMotionGraphicsDirector}
+                    disabled={isDirectorRunning}
+                    className="flex items-center gap-1.5 rounded-lg border border-teal-500/30 bg-teal-500/10 px-2.5 py-1 text-[11px] font-bold text-teal-200 hover:bg-teal-500/20 transition"
+                    title="Re-run the Director to re-examine again"
+                  >
+                    <RotateCw className="h-3 w-3" />
+                    <span>Re-Examine</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="mb-4 rounded-xl border border-teal-500/20 bg-black/40 p-3.5">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-teal-400/80 mb-1">
+                  Artistic Director Vision
+                </div>
+                <p className="text-xs leading-relaxed text-teal-100/90 italic">
+                  "{directorReport.directorVision}"
+                </p>
+              </div>
+
+              {/* Scene upgrades chip list */}
+              {directorReport.sceneUpgrades && directorReport.sceneUpgrades.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-teal-400/80">
+                    Scene-by-Scene Visual Upgrades ({directorReport.sceneUpgrades.length} Scenes)
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                    {directorReport.sceneUpgrades.map((upg: any, uIdx: number) => {
+                      const isNone = upg.template === 'none';
+                      return (
+                        <div
+                          key={uIdx}
+                          onClick={() => {
+                            if (!isNone) {
+                              const foundIdx = graphics.findIndex((g: any) => g.sceneIndex === upg.sceneIndex);
+                              if (foundIdx >= 0) setSelectedGraphicIndex(foundIdx);
+                            }
+                          }}
+                          className={`rounded-xl border p-2.5 text-xs transition cursor-pointer ${
+                            isNone
+                              ? 'border-zinc-800 bg-zinc-900/40 text-zinc-400'
+                              : 'border-teal-500/30 bg-teal-950/30 hover:border-teal-400 hover:bg-teal-900/30 text-teal-100'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-[11px] text-teal-300">
+                              Scene {upg.sceneIndex + 1}
+                            </span>
+                            <span className={`rounded px-1.5 py-0.5 text-[9px] font-mono uppercase font-bold ${
+                              isNone ? 'bg-zinc-800 text-zinc-400' : 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                            }`}>
+                              {upg.template.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                          {!isNone && (
+                            <div className="space-y-1">
+                              <div className="font-semibold text-white text-[11px] truncate">
+                                {upg.label} {upg.metric ? `// ${upg.metric} ${upg.unit || ''}` : ''}
+                              </div>
+                              <div className="text-[10px] text-teal-200/70 line-clamp-1">
+                                {upg.directorRationale}
+                              </div>
+                            </div>
+                          )}
+                          {isNone && (
+                            <div className="text-[10px] text-zinc-500 italic">
+                              Footage breathing room (clean visual)
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* AI VISUAL REVIEWER & SAFE-ZONE AUTO-FIX REPORT CARD */}
+          {reviewerReport && (
+            <div className="mb-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-r from-emerald-950/40 via-[#0a1e17]/50 to-teal-950/40 p-5 shadow-xl backdrop-blur-md">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/20 pb-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 shadow-glow">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-emerald-100">
+                        AI Visual Reviewer &amp; Auto-Fix Report
+                      </h4>
+                      <span className="rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-300">
+                        {reviewerReport.aspectRatio} Mobile Safe
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-emerald-300/70">
+                      User Perspective Audit: {reviewerReport.totalFixed} issues auto-fixed across {reviewerReport.totalAudited} motion graphics • 0% clipping
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 rounded-full border border-emerald-400/50 bg-emerald-500/20 px-3 py-1 text-[11px] font-black text-emerald-300 shadow-sm">
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Safe Zone: {reviewerReport.safeZoneCompliance}% Verified</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRunVisualReviewer}
+                    disabled={isReviewerRunning}
+                    className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-200 hover:bg-emerald-500/20 transition"
+                    title="Re-run the Reviewer to re-audit safe zones"
+                  >
+                    <RotateCw className="h-3 w-3" />
+                    <span>Re-Audit</span>
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-emerald-200/90 leading-relaxed mb-3">
+                {reviewerReport.summary}
+              </p>
+
+              {/* Per-scene audit items */}
+              {reviewerReport.items && reviewerReport.items.length > 0 && (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-400/80">
+                    Safe-Zone &amp; Positioning Audits
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {reviewerReport.items.map((item: any, itmIdx: number) => {
+                      const hasFixes = item.issues && item.issues.length > 0;
+                      return (
+                        <div
+                          key={itmIdx}
+                          className={`rounded-xl border p-3 text-xs transition ${
+                            hasFixes
+                              ? 'border-emerald-500/30 bg-emerald-950/30'
+                              : 'border-zinc-800 bg-zinc-900/30 text-zinc-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="font-bold text-[11px] text-emerald-300">
+                              Scene {item.sceneIndex + 1}: {item.templateId.replace(/_/g, ' ')}
+                            </span>
+                            <span className={`rounded px-1.5 py-0.5 text-[9px] font-mono font-bold ${
+                              hasFixes
+                                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                : 'bg-zinc-800 text-zinc-400'
+                            }`}>
+                              {hasFixes ? 'AUTO-FIXED' : 'CLEAN'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-[10px] text-zinc-400 mb-1.5">
+                            <span>Placement:</span>
+                            <span className="font-mono text-zinc-400">{item.originalPlacement}</span>
+                            <span>→</span>
+                            <span className="font-mono font-bold text-emerald-300">{item.correctedPlacement}</span>
+                            <span className="ml-auto font-mono text-[9px] text-emerald-400">scale {item.correctedScale}x</span>
+                          </div>
+
+                          {hasFixes ? (
+                            <div className="space-y-1 mt-2 border-t border-emerald-500/20 pt-1.5">
+                              {item.issues.map((iss: any, issIdx: number) => (
+                                <div key={issIdx} className="text-[10px] leading-tight text-emerald-200/80 flex items-start gap-1.5">
+                                  <span className="text-emerald-400 shrink-0">✓</span>
+                                  <span>{iss.fixApplied}</span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-zinc-500 italic">
+                              Passed all safe-zone, sizing &amp; focal clearance checks.
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

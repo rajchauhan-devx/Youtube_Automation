@@ -393,6 +393,56 @@ export async function diagnoseAndHealError(ctx: SupervisorContext): Promise<Heal
   }
 
   // -------------------------------------------------------------------------
+  // HEALING RULE: Motion Plan Per Scene Limit / Motion Graphics Conflict
+  // -------------------------------------------------------------------------
+  if (/at most one motion plan|motion plan per scene|motionGraphics/i.test(errMsg)) {
+    ctx.addLog(ctx.stage, '[SUPERVISOR] 🛠️ Healing Action: Normalizing scene motion plans to 1 primary plan per scene...', 'gemini');
+    ctx.setStatus('Gemini Supervisor: Auto-healing scene motion plans...');
+
+    try {
+      const freshRes = await ctx.fetch(`/api/scripts/${encodeURIComponent(ctx.scriptId)}`);
+      if (freshRes.ok) {
+        const script = await freshRes.json();
+        let changed = false;
+
+        if (script.scenePlan?.scenes) {
+          script.scenePlan.scenes.forEach((sc: any) => {
+            if (Array.isArray(sc.motionGraphics) && sc.motionGraphics.length > 1) {
+              sc.motionGraphics = sc.motionGraphics.slice(0, 1);
+              changed = true;
+            }
+          });
+        }
+
+        if (script.retentionEdit?.plan?.scenes) {
+          script.retentionEdit.plan.scenes.forEach((sc: any) => {
+            if (Array.isArray(sc.motionGraphics) && sc.motionGraphics.length > 1) {
+              sc.motionGraphics = sc.motionGraphics.slice(0, 1);
+              changed = true;
+            }
+          });
+        }
+
+        if (changed) {
+          ctx.patchScript(ctx.scriptId, {
+            scenePlan: script.scenePlan,
+            retentionEdit: script.retentionEdit,
+          });
+          await ctx.persistScript(ctx.scriptId, {
+            scenePlan: script.scenePlan,
+            retentionEdit: script.retentionEdit,
+          });
+        }
+
+        ctx.addLog(ctx.stage, '[SUPERVISOR] ✅ Scene motion plans auto-healed. Resuming pipeline autonomously...', 'success');
+        return { healed: true, actionTaken: 'Auto-healed motion plans to 1 per scene' };
+      }
+    } catch (healErr) {
+      console.error('[Supervisor] Motion plan healing failed:', healErr);
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // HEALING RULE: Footage Duration Shorter Than Narration (Allow Image Fallback)
   // -------------------------------------------------------------------------
   if (/cannot cover .* of narration naturally|Import a longer clip for this scene|footage cannot cover/i.test(errMsg)) {

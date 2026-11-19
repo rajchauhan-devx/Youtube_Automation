@@ -141,10 +141,11 @@ export function freeChatSystem(template?: string, hasResearch = false): string {
   const researchDirective = hasResearch
     ? ' Ground all voiceover narration, factual claims, chronology, character/location details, and visual scene prompts in the provided Pre-Generation Research Dossier so the response is deeply researched, accurate, and specific.'
     : '';
+  const overlayDirective = ' For each scene N, write a companion <overlay[N]> tag specifying an open-source visual motion graphic directly justified by that scene\'s narration (templates: circular-progress, stat-counter, area-chart, donut-chart, tactical-reticle, radar-compass, framing-brackets, route-trajectory, line-chart, progress-steps, sound-wave, alert-beacon, verified-seal, victory-crest, cinematic-underline, or none).';
   if (isImageOnly) {
-    return `You are an expert video production assistant. Follow the user template instructions, story requirements and visual style.${researchDirective} Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and wrap each scene still-image prompt inside its own sequentially numbered tag: <image_prompt1>...</image_prompt1>, <image_prompt2>...</image_prompt2>, up to <image_prompt[N]>. Do NOT generate any <video_prompt> tags; this is a static image-only production. The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.`;
+    return `You are an expert video production assistant. Follow the user template instructions, story requirements and visual style.${researchDirective} Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, wrap each scene still-image prompt inside its own sequentially numbered tag: <image_prompt1>...</image_prompt1>, <image_prompt2>...</image_prompt2>, up to <image_prompt[N]>. Do NOT generate any <video_prompt> tags; this is a static image-only production.${overlayDirective} The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.`;
   }
-  return `You are an expert video production assistant. Follow the user template instructions, story requirements and visual style.${researchDirective} Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and wrap scene prompts inside sequentially numbered tags incrementing chronologically across the video timeline (<image_prompt[N]> for static images and <video_prompt[N]> for video shots, e.g. <video_prompt1>, <image_prompt2>, <video_prompt3>; the first scene must always be a video to hook the user). The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.`;
+  return `You are an expert video production assistant. Follow the user template instructions, story requirements and visual style.${researchDirective} Always wrap the complete voiceover narration inside <script>...</script>, wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and wrap scene prompts inside sequentially numbered tags incrementing chronologically across the video timeline (<image_prompt[N]> for static images and <video_prompt[N]> for video shots, e.g. <video_prompt1>, <image_prompt2>, <video_prompt3>; the first scene must always be a video to hook the user).${overlayDirective} The selected Target duration and minimum scene/image count in the user message override any default, example or maximum runtime in the template.`;
 }
 
 export const FREE_CHAT_SYSTEM = freeChatSystem();
@@ -156,9 +157,26 @@ export function buildFreePrompt(template: string, topic: string, instructions: s
   const isImageOnly = isImageOnlyTemplate(template);
   const cleanResearch = sanitizeResearchForPrompt(researchData);
 
+  const overlayGuide = `(4) For each scene N, output an <overlay[N]> tag co-authoring an open-source visual motion graphic directly tied to what is spoken in that scene:
+- [METRIC & GAUGES]: circular-progress, stat-counter, area-chart, donut-chart (use when script delivers a number, %, temperature, count, money, duration, or speed).
+- [HUD & TRACKING]: tactical-reticle, radar-compass, framing-brackets (use when script establishes a location, coordinate, target, search, or vehicle).
+- [JOURNEY & MAP]: route-trajectory, line-chart, progress-steps (use when script describes a journey, distance, route, or milestone progression).
+- [AUDIO & HAZARD]: sound-wave, alert-beacon, camera-shake (use when script mentions warnings, alarms, distress calls, emergency, or radio signals).
+- [STAMPS & CRESTS]: verified-seal, victory-crest, cinematic-underline (use for verified facts, evidence seals, major discoveries, or triumphant climax).
+- none (use when the scene should breathe with pure unobstructed visual footage).
+Format:
+<overlay[N]>
+template: <template-name or none>
+label: <short uppercase punchy label>
+metric: <exact value or detail if applicable>
+unit: <unit if applicable, e.g. MILES, %, °C, HRS>
+placement: <center | top | bottom | top-right>
+cue: "<exact spoken phrase triggering the graphic>"
+</overlay[N]>`;
+
   const tagRules = isImageOnly
-    ? `REQUIRED EXTRACTION TAGS (image-only production): (1) Wrap the complete spoken voiceover inside <script>...</script>, (2) Wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and (3) Wrap each scene still-image prompt inside its own sequentially numbered tag: <image_prompt1>...</image_prompt1>, <image_prompt2>...</image_prompt2>, up to <image_prompt${minScenes}>. Do NOT generate any <video_prompt> tags.`
-    : `REQUIRED EXTRACTION TAGS (numbered timeline): (1) Wrap the complete spoken voiceover inside <script>...</script>, (2) Wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, and (3) Wrap scene prompts inside sequentially numbered tags incrementing chronologically across the timeline (<image_prompt[N]> for static images and <video_prompt[N]> for video shots, e.g. <video_prompt1>, <image_prompt2>, <video_prompt3>; the first scene must always be a video to hook the user).`;
+    ? `REQUIRED EXTRACTION TAGS (image-only production): (1) Wrap the complete spoken voiceover inside <script>...</script>, (2) Wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, (3) Wrap each scene still-image prompt inside its own sequentially numbered tag: <image_prompt1>...</image_prompt1>, <image_prompt2>...</image_prompt2>, up to <image_prompt${minScenes}>. Do NOT generate any <video_prompt> tags. ${overlayGuide}`
+    : `REQUIRED EXTRACTION TAGS (numbered timeline): (1) Wrap the complete spoken voiceover inside <script>...</script>, (2) Wrap the thumbnail prompt inside <image_prompt0>...</image_prompt0>, (3) Wrap scene prompts inside sequentially numbered tags incrementing chronologically across the timeline (<image_prompt[N]> for static images and <video_prompt[N]> for video shots, e.g. <video_prompt1>, <image_prompt2>, <video_prompt3>; the first scene must always be a video to hook the user). ${overlayGuide}`;
 
   const tail = [
     `Topic: ${(topic || '').trim()}`,

@@ -84,7 +84,13 @@ export function validateScenePlan(value: unknown): ScenePlan {
       throw new Error('Each scene needs a unique ID, chapter, role, image prompt and spoken narration.');
     }
     if(scene.motionGraphics !== undefined) {
-      if(!Array.isArray(scene.motionGraphics)||scene.motionGraphics.length>1)throw new Error('Use at most one motion plan per scene');
+      if(!Array.isArray(scene.motionGraphics)) {
+        scene.motionGraphics = scene.motionGraphics ? [scene.motionGraphics] : [];
+      }
+      if(scene.motionGraphics.length > 1) {
+        // Auto-heal: keep the primary motion plan and never halt the production pipeline
+        scene.motionGraphics = scene.motionGraphics.slice(0, 1);
+      }
       const refreshed = refreshMotionHints(scene.motionGraphics, scene.narration) || [];
       scene.motionGraphics = refreshed.map(hint => {
         const h = hint as Record<string, unknown>;

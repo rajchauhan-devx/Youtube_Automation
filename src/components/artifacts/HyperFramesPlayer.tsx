@@ -6,6 +6,7 @@ import React, {
   useState,
 } from 'react';
 import { SceneGraphOverlay } from './SceneGraphOverlay';
+import { RemotionTemplatePlayer, resolveOpenSourceTemplate } from '../../templates/open-source';
 
 export interface PlayerRef {
   seekTo: (frame: number) => void;
@@ -285,6 +286,34 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                       assets: Object.fromEntries(Object.entries(assets).map(([id, a]: [string, any]) => [id, a.url])),
                       fonts: Object.fromEntries((project.style?.fontAssetIds || []).map((id: string) => [id, `sg-font-${id}`])) }} />;
                 }
+
+                // Check for Open-Source Remotion Motion Graphic Templates First!
+                const dm = art.dynamicMotion;
+                const templateKey = dm?.templateId || dm?.type || art.templateId || art.graphic?.templateId;
+                if (templateKey && resolveOpenSourceTemplate(templateKey)) {
+                  return (
+                    <RemotionTemplatePlayer
+                      key={art.id}
+                      templateId={templateKey}
+                      frame={Math.max(0, roundedFrame - art.startFrame)}
+                      fps={fps}
+                      width={compositionWidth}
+                      height={compositionHeight}
+                      durationInFrames={Math.max(1, art.endFrame - art.startFrame)}
+                    />
+                  );
+                }
+
+                if (dm && dm.render && dm.render.html) {
+                  return (
+                    <div
+                      key={art.id}
+                      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 25 }}
+                      dangerouslySetInnerHTML={{ __html: `<style>${dm.render.css || ''}</style>${dm.render.html || ''}` }}
+                    />
+                  );
+                }
+
                 const g = art.graphic;
                 if (!g) return null;
 
@@ -335,210 +364,93 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                   );
                 }
 
-                // 1. Free-floating chapter title
+                // 1. Cinematic Title Intro
                 if (g.kind === 'title') {
                   return (
-                    <div
+                    <RemotionTemplatePlayer
                       key={art.id}
-                      style={{
-                        position: 'absolute',
-                        top: '10%',
-                        left: '6%',
-                        right: '6%',
-                        padding: '10px 14px',
-                        background: 'transparent',
-                        border: 'none',
-                        borderRadius: 0,
-                        boxShadow: 'none',
-                        textShadow: '0 2px 4px #000, 0 0 2px #000',
-                        zIndex: 10,
-                      }}
-                    >
-                      <div style={{ fontSize: '8px', color: '#FF6B00', fontWeight: 'bold', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-                        CHAPTER // PRODUCTION RECORD
-                      </div>
-                      <div data-editing-text="motion" style={{ fontSize: '13px', fontWeight: 900, color: '#FFFFFF', marginTop: '2px', letterSpacing: '0.02em' }}>
-                        {g.title}
-                      </div>
-                      {g.detail && (
-                        <div style={{ fontSize: '9px', color: '#94A3B8', marginTop: '2px' }}>
-                          {g.detail}
-                        </div>
-                      )}
-                    </div>
+                      templateId="cinematic-title-intro"
+                      frame={Math.max(0, roundedFrame - art.startFrame)}
+                      fps={fps}
+                      width={compositionWidth}
+                      height={compositionHeight}
+                      durationInFrames={Math.max(1, art.endFrame - art.startFrame)}
+                    />
                   );
                 }
 
-                // 2. Telemetry Counter
+                // 2. High-Tech Circular Gauge Progress (Zero text cards!)
                 if (g.kind === 'counter') {
                   return (
-                    <div
+                    <RemotionTemplatePlayer
                       key={art.id}
-                      style={{
-                        position: 'absolute',
-                        top: '25%',
-                        left: '6%',
-                        right: '6%',
-                        padding: '12px 16px',
-                        background: 'transparent',
-                        border: 'none',
-                        borderRadius: 0,
-                        boxShadow: 'none',
-                        textShadow: '0 2px 4px #000, 0 0 2px #000',
-                        zIndex: 10,
-                      }}
-                    >
-                      <div style={{ fontSize: '8px', color: '#FF6B00', fontWeight: 'bold', letterSpacing: '0.12em' }}>
-                        TELEMETRY // VERIFIED RECORD
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#E2E8F0', marginTop: '1px' }}>
-                        {g.detail || 'ELEVATION / ALTITUDE'}
-                      </div>
-                      <div data-editing-text="motion" style={{ fontSize: '24px', fontWeight: 900, color: '#FFFFFF', margin: '4px 0 6px', fontFamily: 'monospace' }}>
-                        {g.title}
-                      </div>
-                      <div style={{ height: '3px', width: '100%', background: '#334155', borderRadius: 0, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: '85%', background: 'linear-gradient(90deg, #FF6B00, #FFD600)' }} />
-                      </div>
-                    </div>
+                      templateId="circular-progress"
+                      frame={Math.max(0, roundedFrame - art.startFrame)}
+                      fps={fps}
+                      width={compositionWidth}
+                      height={compositionHeight}
+                      durationInFrames={Math.max(1, art.endFrame - art.startFrame)}
+                    />
                   );
                 }
 
-                // 3. Route Map
+                // 3. Audio Frequency Spectrum Waveform (Zero text cards!)
                 if (g.kind === 'route') {
                   return (
-                    <div
+                    <RemotionTemplatePlayer
                       key={art.id}
-                      style={{
-                        position: 'absolute',
-                        top: '28%',
-                        left: '6%',
-                        right: '6%',
-                        padding: '12px 14px',
-                        background: 'transparent',
-                        border: 'none',
-                        borderRadius: 0,
-                        boxShadow: 'none',
-                        textShadow: '0 2px 4px #000, 0 0 2px #000',
-                        zIndex: 10,
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px', color: '#FF6B00', fontWeight: 'bold' }}>
-                        <span>EXPEDITION TRAJECTORY</span>
-                        <span style={{ color: '#94A3B8' }}>LAT // LON</span>
-                      </div>
-                      <svg viewBox="0 0 300 90" style={{ width: '100%', height: '70px', margin: '4px 0' }}>
-                        <path d="M 30 70 Q 150 15 270 70" fill="none" stroke="#FF6B00" strokeWidth="2.5" />
-                        <circle cx="30" cy="70" r="4" fill="#FF6B00" />
-                        <circle cx="270" cy="70" r="4" fill="#FF6B00" />
-                        <text x="30" y="85" fill="#FFF" fontSize="8" fontWeight="bold" textAnchor="middle">CRASH SITE</text>
-                        <text x="270" y="85" fill="#FFF" fontSize="8" fontWeight="bold" textAnchor="middle">OUTPOST</text>
-                      </svg>
-                      <div data-editing-text="motion" style={{ fontSize: '8px', color: '#CBD5E1', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '4px' }}>
-                        {g.title}
-                      </div>
-                    </div>
+                      templateId="sound-wave"
+                      frame={Math.max(0, roundedFrame - art.startFrame)}
+                      fps={fps}
+                      width={compositionWidth}
+                      height={compositionHeight}
+                      durationInFrames={Math.max(1, art.endFrame - art.startFrame)}
+                    />
                   );
                 }
 
-                // 4. Free-floating badge text
+                // 4. Notification Pop Badge (Zero text cards!)
                 if (g.kind === 'badge') {
                   return (
-                    <div
+                    <RemotionTemplatePlayer
                       key={art.id}
-                      style={{
-                        position: 'absolute',
-                        top: '22%',
-                        left: '20%',
-                        width: '60%',
-                        padding: '8px 8px 12px 8px',
-                        background: 'transparent',
-                        borderRadius: 0,
-                        boxShadow: 'none',
-                        textShadow: '0 2px 4px #000, 0 0 2px #000',
-                        transform: 'none',
-                        zIndex: 12,
-                      }}
-                    >
-                      <div style={{ marginTop: '8px', textAlign: 'center' }}>
-                        <div data-editing-text="motion" style={{ fontSize: '11px', fontWeight: 900, color: '#FFFFFF', textTransform: 'uppercase' }}>
-                          {g.title}
-                        </div>
-                        {g.detail && (
-                          <div style={{ fontSize: '8px', color: '#EA580C', fontWeight: 'bold', marginTop: '1px' }}>
-                            {g.detail}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                      templateId="notification-pop"
+                      frame={Math.max(0, roundedFrame - art.startFrame)}
+                      fps={fps}
+                      width={compositionWidth}
+                      height={compositionHeight}
+                      durationInFrames={Math.max(1, art.endFrame - art.startFrame)}
+                    />
                   );
                 }
 
-                // 5. Object spotlight with an unboxed label
+                // 5. Spotlight Reveal
                 if (g.kind === 'spotlight') {
                   return (
-                    <div key={art.id} style={{ position: 'absolute', inset: 0, zIndex: 12 }}>
-                      <svg viewBox="0 0 360 640" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
-                        <ellipse cx="180" cy="360" rx="36" ry="60" fill="none" stroke="#FF6B00" strokeWidth="2" strokeDasharray="4 2" />
-                        <path d="M 150 400 L 90 470" fill="none" stroke="#FF6B00" strokeWidth="1.5" />
-                      </svg>
-                      <div
-                        style={{
-                          position: 'absolute',
-                          top: '72%',
-                          left: '6%',
-                          maxWidth: '70%',
-                          padding: '6px 12px',
-                          background: 'transparent',
-                          border: 'none',
-                          borderRadius: 0,
-                          boxShadow: 'none',
-                        textShadow: '0 2px 4px #000, 0 0 2px #000',
-                        }}
-                      >
-                        <div data-editing-text="motion" style={{ fontSize: '10px', fontWeight: 900, color: '#FFF' }}>
-                          {g.title}
-                        </div>
-                        {g.detail && (
-                          <div style={{ fontSize: '8px', color: '#94A3B8' }}>
-                            {g.detail}
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    <RemotionTemplatePlayer
+                      key={art.id}
+                      templateId="spotlight-reveal"
+                      frame={Math.max(0, roundedFrame - art.startFrame)}
+                      fps={fps}
+                      width={compositionWidth}
+                      height={compositionHeight}
+                      durationInFrames={Math.max(1, art.endFrame - art.startFrame)}
+                    />
                   );
                 }
 
-                // 6. Free-floating annotation
+                // 6. Area Metric Chart
                 if (g.kind === 'frame' || g.kind === 'diagram') {
                   return (
-                    <div
+                    <RemotionTemplatePlayer
                       key={art.id}
-                      style={{
-                        position: 'absolute',
-                        top: '35%',
-                        left: '6%',
-                        right: '6%',
-                        padding: '12px 14px',
-                        background: 'transparent',
-                        borderRadius: 0,
-                        boxShadow: 'none',
-                        textShadow: '0 2px 4px #000, 0 0 2px #000',
-                        transform: 'none',
-                        zIndex: 12,
-                      }}
-                    >
-                      <div style={{ fontSize: '7px', color: '#475569', fontWeight: 'bold', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid #CBD5E1', paddingBottom: '3px' }}>
-                        HISTORICAL ARCHIVE // DISASTER INVESTIGATION
-                      </div>
-                      <div data-editing-text="motion" style={{ fontSize: '14px', fontWeight: 900, color: '#FFFFFF', marginTop: '6px', lineHeight: '1.2' }}>
-                        <span>{g.title}</span>
-                      </div>
-                      <div style={{ height: '2px', background: '#E2E8F0', margin: '8px 0 4px' }} />
-                      <div style={{ fontSize: '8px', color: '#CBD5E1' }}>
-                        {g.detail || 'Verified survivor accounted for following extensive search.'}
-                      </div>
-                    </div>
+                      templateId="area-chart"
+                      frame={Math.max(0, roundedFrame - art.startFrame)}
+                      fps={fps}
+                      width={compositionWidth}
+                      height={compositionHeight}
+                      durationInFrames={Math.max(1, art.endFrame - art.startFrame)}
+                    />
                   );
                 }
 
@@ -645,31 +557,17 @@ export const HyperFramesPlayer = forwardRef<PlayerRef, PlayerProps>(
                   );
                 }
 
-                // Default free-floating label
+                // Default to pure visual particle explosion animation (Zero text cards!)
                 return (
-                  <div
+                  <RemotionTemplatePlayer
                     key={art.id}
-                    style={{
-                      position: 'absolute',
-                      top: '20%',
-                      left: '8%',
-                      right: '8%',
-                      padding: '10px 14px',
-                      background: 'transparent',
-                      border: 'none',
-                      borderRadius: 0,
-                      boxShadow: 'none',
-                        textShadow: '0 2px 4px #000, 0 0 2px #000',
-                      zIndex: 10,
-                    }}
-                  >
-                    <div style={{ fontSize: '8px', color: '#FF6B00', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                      {g.kind}
-                    </div>
-                    <div data-editing-text="motion" style={{ fontSize: '12px', fontWeight: 800, color: '#FFF' }}>
-                      {g.title}
-                    </div>
-                  </div>
+                    templateId="particle-explosion"
+                    frame={Math.max(0, roundedFrame - art.startFrame)}
+                    fps={fps}
+                    width={compositionWidth}
+                    height={compositionHeight}
+                    durationInFrames={Math.max(1, art.endFrame - art.startFrame)}
+                  />
                 );
               })}
             </div>

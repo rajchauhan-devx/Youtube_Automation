@@ -890,7 +890,7 @@ export function AutoPilotSettingsPanel({
               label="Graphics type"
               value={value.graphics.mode}
               choices={[
-                ['images', 'Evidence images & explanatory diagrams'],
+                ['images', '🎬 Pure Visual Vector Overlays (HUD, Route, Pulse, Gauges, Seals)'],
                 ['callouts', 'Titles, numbers & callouts'],
               ]}
               onChange={mode =>
@@ -899,7 +899,7 @@ export function AutoPilotSettingsPanel({
                   style:
                     mode === 'callouts'
                       ? 'Use restrained titles, statistics and source-grounded callouts that support the spoken story.'
-                      : 'Keep footage clean. Use an occasional evidence image or explanatory diagram only where helpful. No decorative numbers or oversized text.',
+                      : 'AI Motion Graphics Director: Pure visual vector graphics (Radar HUD, Route Trajectory, Heartbeat Pulse, Survival Gauges, Seals). Zero text boxes, zero dark cards.',
                 })
               }
             />

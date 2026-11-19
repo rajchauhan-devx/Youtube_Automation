@@ -4,7 +4,7 @@ import { YouTubeAccountsPanel } from './YouTubeAccountsPanel';
 import { MetaAccountsPanel } from './MetaAccountsPanel';
 import { ProfileTopicNotes } from './ProfileTopicNotes';
 import { RecoveryPanel } from './RecoveryPanel';
-import { MotionTemplatesGallery } from './MotionTemplatesGallery';
+import { OpenSourceTemplatesGallery } from './OpenSourceTemplatesGallery';
 import { useWorkspaceApi } from '../../services/workspaceApi';
 import { Users, FileText, Wrench, Sparkles, Music } from 'lucide-react';
 import { GoogleFlowMusicContent } from '../generation/GoogleFlowMusicContent';
@@ -132,9 +132,7 @@ export function ProfilePage({
       )}
 
       {activeTab === 'templates' && (
-        <div className="space-y-6">
-          <MotionTemplatesGallery />
-        </div>
+        <OpenSourceTemplatesGallery />
       )}
 
       {activeTab === 'flow-music' && (

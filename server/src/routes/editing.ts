@@ -7,6 +7,8 @@ import {
   compileDynamicMotionGraphic,
 } from '../services/dynamic-motion-engine.js';
 import { runTwoStepVerification } from '../services/two-step-verifier.js';
+import { runMotionGraphicsDirector } from '../services/motion-graphics-director.js';
+import { reviewAndFixMotionGraphics } from '../services/motion-graphics-reviewer.js';
 import {
   Router,
   type Request,
@@ -201,6 +203,45 @@ editingRouter.post(
       customInstructions: typeof customInstructions === 'string' ? customInstructions : undefined,
       model: typeof model === 'string' ? model : undefined,
       theme: typeof theme === 'string' ? theme : undefined,
+      apiKey: credential(req),
+    });
+    res.json(result);
+  })
+);
+
+editingRouter.post(
+  '/motion-director',
+  route(async (req, res) => {
+    const { scriptId, channelName, channelProfile, customInstructions, model } = req.body || {};
+    if (!scriptId) {
+      res.status(400).json({ error: 'scriptId is required' });
+      return;
+    }
+    const result = await runMotionGraphicsDirector({
+      scriptId,
+      channelName: typeof channelName === 'string' ? channelName : undefined,
+      channelProfile: typeof channelProfile === 'string' ? channelProfile : undefined,
+      customInstructions: typeof customInstructions === 'string' ? customInstructions : undefined,
+      model: typeof model === 'string' ? model : undefined,
+      apiKey: credential(req),
+    });
+    res.json(result);
+  })
+);
+
+editingRouter.post(
+  '/motion-reviewer',
+  route(async (req, res) => {
+    const { scriptId, aspectRatio, channelProfile, model } = req.body || {};
+    if (!scriptId) {
+      res.status(400).json({ error: 'scriptId is required' });
+      return;
+    }
+    const result = await reviewAndFixMotionGraphics({
+      scriptId,
+      aspectRatio: typeof aspectRatio === 'string' ? (aspectRatio as any) : '9:16',
+      channelProfile: typeof channelProfile === 'string' ? channelProfile : undefined,
+      model: typeof model === 'string' ? model : undefined,
       apiKey: credential(req),
     });
     res.json(result);

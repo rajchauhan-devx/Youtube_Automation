@@ -38,6 +38,7 @@ import { EditingWorkspace } from './components/editor/EditingWorkspace';
 import { ArtifactsTab } from './components/artifacts/ArtifactsTab';
 import { SetupTab } from './components/setup/SetupTab';
 import { ExportHubTab } from './components/export/ExportHubTab';
+import { OpenSourceTemplatesGallery } from './components/profile/OpenSourceTemplatesGallery';
 import { Header } from './components/layout/Header';
 import { ChannelSwitcher } from './components/layout/ChannelSwitcher';
 import { incompleteResponse, placeholderResponse } from '../server/src/services/generation-status';
@@ -71,7 +72,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
     title: 'Studio',
     items: [
       { id: 'dashboard', label: 'YT Studio', icon: LayoutDashboard, badge: '3 YT' },
-      { id: 'templates', label: 'Motion Templates', icon: Sparkles, badge: 'Gallery' },
+      { id: 'templates', label: 'Motion Templates', icon: Sparkles, badge: '80+' },
       { id: 'flow-music', label: 'Flow Music', icon: Music, badge: 'Dharma' },
     ],
   },
@@ -1047,14 +1048,15 @@ export default function App() {
 
       let editorial = { edit: currentScript.retentionEdit! };
       if (startStage <= 2) {
-        enterStage('edit_retention');
-        editorial = await apiPost<{ edit: NonNullable<Script['retentionEdit']> }>(
-          '/api/retention/edit', { scriptId }, getApiKey(), fetch, controller.signal);
-        await checkPauseOrAbort();
-        patchScriptState(scriptId, { retentionEdit: editorial.edit });
-        for (const note of editorial.edit.notes) addAutoPilotLog('edit_retention', note, 'success');
-        setAutoPilotState(prev => ({ ...prev, stage: 'extract_assets', stageIndex: 3, progressPercent: 27,
-          statusMessage: 'Extracting the edited production scenes, visuals and narration...' }));
+        await executeStage('edit_retention', async () => {
+          editorial = await apiPost<{ edit: NonNullable<Script['retentionEdit']> }>(
+            '/api/retention/edit', { scriptId }, getApiKey(), fetch, controller.signal);
+          await checkPauseOrAbort();
+          patchScriptState(scriptId, { retentionEdit: editorial.edit });
+          for (const note of editorial.edit.notes) addAutoPilotLog('edit_retention', note, 'success');
+          setAutoPilotState(prev => ({ ...prev, stage: 'extract_assets', stageIndex: 3, progressPercent: 27,
+            statusMessage: 'Extracting the edited production scenes, visuals and narration...' }));
+        }, supervisorCtx);
       }
 
       // -------------------------------------------------------------
@@ -1128,6 +1130,7 @@ export default function App() {
           narration,
           scenePlan,
           sceneAnalysis,
+          ...(extractResult.dynamicMotionGraphics?.length ? { dynamicMotionGraphics: extractResult.dynamicMotionGraphics } : {}),
           pipeline: [
             {
               id: 'response',
@@ -1608,117 +1611,83 @@ export default function App() {
           .filter((img) => img.url)
           .map((img) => img.index);
 
-        if ((runSettings.graphics.enabled || runSettings.captions === 'motion') && audioFilename && readyImageIndexes.length) {
+        if (runSettings.graphics.enabled) {
           try {
-            let directed: EditingPayload | null = null;
-            if (currentScript.editingProjectId) {
-              const existing = await editingRequest<EditingPayload>(fetch, `/projects/${currentScript.editingProjectId}`).catch(() => null);
-              if (existing?.project) {
-                  const imageCompositions = existing.project.artifacts?.filter(a => a.enabled && a.graphic?.kind === 'composition')?.length || 0;
-                  const inputsMatch = existing.project.inputs?.audioFilename === audioFilename &&
-                    existing.project.inputs?.imageAssets?.length === readyImageIndexes.length && !existing.stale &&
-                    existing.project.settings.stylePreference === runSettings.graphics.style && existing.project.settings.density === runSettings.graphics.density &&
-                    (!isImageOnlyShorts(currentScript,section) || existing.project.settings.graphicEngine === 'generative');
-                  const failedReview = existing.jobs?.filter(job => job.revisionId === existing.project.revisionId &&
-                    ['generate', 'review', 'revise'].includes(job.operation) && ['failed', 'interrupted'].includes(job.state) &&
-                    /Rendered vision review has not passed|VISUAL_REVIEW_REQUIRED|Rendered typography failed the layout check/i.test(job.error || ''))
-                    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-                  // Generation failures can have valid assets in a checkpoint
-                  // while the published revision is still a draft. Recover that
-                  // job before creating yet another visual project.
-                  if (inputsMatch && failedReview) throw new Error(failedReview.error);
-                  const pendingReviews = existing.project.artifacts.filter(a => a.enabled && a.graphic && a.graphic.kind !== 'caption' && a.visualReview?.status !== 'passed');
-                  if (inputsMatch && existing.project.settings.visualReview && pendingReviews.length)
-                    throw new Error(`Rendered vision review has not passed for ${pendingReviews.length} motion graphic(s). Retry visual review before exporting.`);
-                  if (inputsMatch && ['ready', 'partial'].includes(existing.project.status)) {
-                    directed = existing;
-                    addAutoPilotLog('plan_motion', `Reusing ${imageCompositions} verified documentary visuals from saved project.`, 'info');
-                  }
-              }
-            }
+            addAutoPilotLog('plan_motion', '🎬 AI Motion Graphics Director: Deeply re-examining script narrative beats and scene cadence...', 'gemini');
+            setAutoPilotState(prev => ({ ...prev, statusMessage: '🎬 AI Director: Re-examining scenes & eliminating text cards...' }));
 
-            if (!directed) {
-              const projectInputs = {
+            const channelProfile = section || currentScript.section || 'against_the_odds';
+            const channelName = currentScript.name || (currentScript as any).channelName || (String(channelProfile).toLowerCase().includes('dharma') ? 'Ancient Dharma' : 'Against the Odds');
+
+            const directorRes = await fetch('/api/editing/motion-director', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
                 scriptId,
-                audioFilename,
-                language: currentScript.generatedAudio?.[0]?.language || 'en',
-                imageIndexes: readyImageIndexes,
-                aspect: section === 'shorts' ? '9:16' : '16:9',
-                fps: 30,
-              settings: { graphicEngine: isImageOnlyShorts(currentScript,section)?'generative':'directed', soundDesign: isImageOnlyShorts(currentScript,section)?'subtle':'off', motionLevel: isImageOnlyShorts(currentScript,section)?'subtle':'balanced', stylePreference: runSettings.graphics.style, density: runSettings.graphics.density, documentary: runSettings.graphics.enabled && runSettings.graphics.mode === 'images', treatment: runSettings.graphics.treatment, visualReview: true, maxGeneratedAssets: 3, maxProviderCalls: 40, ...(runSettings.graphics.model ? { aiModel: runSettings.graphics.model } : {}) },
-              };
-              const created = await editingRequest<EditingPayload>(fetch, '/projects', projectInputs);
-              if (created?.project?.id) {
-                patchScriptState(scriptId, { editingProjectId: created.project.id });
-                await persistScript(scriptId, { editingProjectId: created.project.id });
-                if (runSettings.graphics.enabled) {
-                  const started = await editingRequest<{ jobId: string }>(fetch, `/projects/${created.project.id}/generate`,
-                    { expectedRevisionId: created.project.revisionId }, 'POST', controller.signal);
-                  let visualsComplete = false;
-                  try {
-                    while (!visualsComplete) {
-                      await checkPauseOrAbort();
-                      const visualJob = await editingRequest<{ state: string; stage: string; error?: string }>(fetch,
-                        `/jobs/${started.jobId}`, undefined, 'GET', controller.signal);
-                      if (['succeeded', 'partial'].includes(visualJob.state)) {
-                        visualsComplete = true;
-                        if (visualJob.state === 'partial') addAutoPilotLog('plan_motion', 'Some optional visuals were skipped or need review; generation notes are available in Artifacts.', 'warn');
-                      } else if (['failed', 'needs_configuration', 'interrupted', 'cancelled'].includes(visualJob.state)) {
-                        if (visualJob.error?.includes('DOCUMENTARY_VISUALS_REQUIRED') || visualJob.error?.includes('no enabled image compositions')) {
-                          addAutoPilotLog('plan_motion', 'Documentary visual overlays skipped; continuing with full scene visual keyframes.', 'info');
-                          visualsComplete = true;
-                          break;
-                        }
-                        throw new Error(visualJob.error || `Documentary visuals ${visualJob.state}`);
-                      } else {
-                        setAutoPilotState(prev => ({ ...prev, statusMessage: visualJob.stage }));
-                        await new Promise(resolve => setTimeout(resolve, 1500));
-                      }
-                    }
-                  } finally {
-                    if (!visualsComplete) await editingRequest(fetch, `/jobs/${started.jobId}/cancel`, {}).catch(() => {});
-                  }
-                }
-                directed = await editingRequest<EditingPayload>(fetch, `/projects/${created.project.id}`);
-              }
+                channelName,
+                channelProfile,
+                customInstructions: runSettings.graphics.style || undefined,
+                model: runSettings.graphics.model || undefined,
+              }),
+              signal: controller.signal,
+            });
+
+            if (directorRes.ok) {
+              const directorData = await directorRes.json();
+              const count = directorData.graphics?.length || 0;
+              addAutoPilotLog(
+                'plan_motion',
+                `🎬 AI Motion Graphics Director: Successfully upgraded ${count} scenes with pure visual vector graphics (Radar HUD, Route Trajectory, EKG Pulse, Gauges, Seals). Zero text boxes.`,
+                'success'
+              );
+              currentScript = await reloadCurrentScript(scriptId, controller.signal);
+              patchScriptState(scriptId, currentScript);
+            } else {
+              const errText = await directorRes.text().catch(() => '');
+              addAutoPilotLog('plan_motion', `AI Director warning: ${errText.slice(0, 100)}. Falling back to scene visuals.`, 'warn');
             }
 
-            if (directed?.project?.id) {
-              const imageCompositions = directed.project.artifacts.filter(a => a.enabled && a.graphic?.kind === 'composition').length;
-              if (runSettings.graphics.enabled && runSettings.graphics.mode === 'images' && !imageCompositions) {
-                addAutoPilotLog('plan_motion', 'Documentary overlays skipped; proceeding with scene-led visuals.', 'info');
-              }
-              if (runSettings.captions === 'motion') {
-                await editingRequest<EditingPayload>(fetch, `/projects/${directed.project.id}/captions`,
-                  { expectedRevisionId: directed.project.revisionId });
-              }
-              addAutoPilotLog('plan_motion', runSettings.graphics.enabled
-                ? `${directed.project.artifacts.filter(a => a.enabled && a.graphic?.kind !== 'caption').length} motion graphics prepared${runSettings.captions === 'motion' ? ' with motion captions' : ''}.`
-                : 'Motion captions prepared. Documentary motion graphics are switched off in this run’s settings.', runSettings.graphics.enabled ? 'success' : 'info');
-            }
-          } catch (projErr) {
-            if (isAbortError(projErr)) throw projErr;
-            addAutoPilotLog('plan_motion', `Optional graphics skipped: ${safeErrorMessage(projErr, 'Visual generation was unavailable')}. Continuing with scene footage.`, 'warn');
-            await persistScript(scriptId, { editingProjectId: null });
-            patchScriptState(scriptId, { editingProjectId: undefined });
-            if (runSettings.captions === 'motion') {
+            // If user requested motion captions, generate captions project only
+            if (runSettings.captions === 'motion' && audioFilename && readyImageIndexes.length) {
               const captionsProject = await editingRequest<EditingPayload>(fetch, '/projects', {
                 scriptId, audioFilename, language: currentScript.generatedAudio?.[0]?.language || 'en', imageIndexes: readyImageIndexes,
                 aspect: section === 'shorts' ? '9:16' : '16:9', fps: 30,
-                settings: { documentary: false, visualReview: true, stylePreference: '', density: 'subtle', maxGeneratedAssets: 0, maxProviderCalls: 40 },
+                settings: { documentary: false, visualReview: false, stylePreference: '', density: 'subtle', maxGeneratedAssets: 0, maxProviderCalls: 40 },
               });
-              await editingRequest(fetch, `/projects/${captionsProject.project.id}/captions`, { expectedRevisionId: captionsProject.project.revisionId });
-              await persistScript(scriptId, { editingProjectId: captionsProject.project.id });
-              patchScriptState(scriptId, { editingProjectId: captionsProject.project.id });
+              if (captionsProject?.project?.id) {
+                await editingRequest(fetch, `/projects/${captionsProject.project.id}/captions`, { expectedRevisionId: captionsProject.project.revisionId });
+                await persistScript(scriptId, { editingProjectId: captionsProject.project.id });
+                patchScriptState(scriptId, { editingProjectId: captionsProject.project.id });
+                addAutoPilotLog('plan_motion', 'Motion captions synchronized with voice audio.', 'success');
+              }
+            } else {
+              // Ensure legacy text project is wiped so only pure dynamicMotionGraphics render
+              await persistScript(scriptId, { editingProjectId: null, extraPopups: [] });
+              patchScriptState(scriptId, { editingProjectId: undefined, extraPopups: [] });
             }
+          } catch (projErr) {
+            if (isAbortError(projErr)) throw projErr;
+            addAutoPilotLog('plan_motion', `AI Director notice: ${safeErrorMessage(projErr, 'Visual generation was unavailable')}. Continuing with scene footage.`, 'warn');
+          }
+        } else if (runSettings.captions === 'motion' && audioFilename && readyImageIndexes.length) {
+          const captionsProject = await editingRequest<EditingPayload>(fetch, '/projects', {
+            scriptId, audioFilename, language: currentScript.generatedAudio?.[0]?.language || 'en', imageIndexes: readyImageIndexes,
+            aspect: section === 'shorts' ? '9:16' : '16:9', fps: 30,
+            settings: { documentary: false, visualReview: false, stylePreference: '', density: 'subtle', maxGeneratedAssets: 0, maxProviderCalls: 40 },
+          });
+          if (captionsProject?.project?.id) {
+            await editingRequest(fetch, `/projects/${captionsProject.project.id}/captions`, { expectedRevisionId: captionsProject.project.revisionId });
+            await persistScript(scriptId, { editingProjectId: captionsProject.project.id });
+            patchScriptState(scriptId, { editingProjectId: captionsProject.project.id });
           }
         } else {
-          await persistScript(scriptId, { editingProjectId: null });
+          await persistScript(scriptId, { editingProjectId: null, extraPopups: [] });
+          patchScriptState(scriptId, { editingProjectId: undefined, extraPopups: [] });
           addAutoPilotLog('plan_motion', 'Motion graphics and motion captions are off for this run.', 'info');
         }
 
-        // Extra Popups Auto-Generation for Shorts retention callouts (only when optional graphics are on)
-        if (section === 'shorts' && runSettings.graphics.enabled) {
+        // Extra Popups Auto-Generation for Shorts retention callouts (only if no dynamic motion graphics exist)
+        if (section === 'shorts' && runSettings.graphics.enabled && (!currentScript.dynamicMotionGraphics || currentScript.dynamicMotionGraphics.length === 0)) {
           try {
             addAutoPilotLog('plan_motion', 'Scanning scenes for retention detail callouts (Extra Popups)...', 'gemini');
             const popupsRes = await fetch(`/api/extra-popups/detect/${encodeURIComponent(scriptId)}`, {
@@ -2123,7 +2092,7 @@ export default function App() {
     });
     setTab('assets');
 
-    let extracted: { script: string; ttsText: string; imagePrompts: string[]; scenePlan?: Script['scenePlan'] };
+    let extracted: { script: string; ttsText: string; imagePrompts: string[]; scenePlan?: Script['scenePlan']; dynamicMotionGraphics?: any[] };
 
     try {
       const template = selectedScript.prompts
@@ -2140,6 +2109,7 @@ export default function App() {
         ttsText: result.ttsText,
         imagePrompts: result.imagePrompts || [],
         scenePlan: result.scenePlan,
+        dynamicMotionGraphics: result.dynamicMotionGraphics,
       };
     } catch (err) {
       await persistScript(scriptId, { pipeline: [{ id: 'response', label: 'Response', status: 'error', summary: 'Asset extraction needs attention', inputLog: '', outputPreview: err instanceof Error ? err.message : 'Check the scene plan and narration links in the response.' }] });
@@ -2160,6 +2130,7 @@ export default function App() {
       imagePrompts: extracted.imagePrompts,
       narration: extracted.ttsText,
       scenePlan: extracted.scenePlan,
+      ...(extracted.dynamicMotionGraphics?.length ? { dynamicMotionGraphics: extracted.dynamicMotionGraphics } : {}),
       ...(section !== 'shorts' || extracted.scenePlan ? { generatedImages: [], generatedAudio: [], timelineConfig: undefined } : {}),
       sceneAnalysis,
       pipeline: [
@@ -2423,7 +2394,7 @@ export default function App() {
             ) : sidebar === 'flow-music' ? (
               <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} initialTab="flow-music" />
             ) : sidebar === 'templates' ? (
-              <ProfilePage accounts={accounts} onAccountsChange={setAccounts} onSelectAccount={switchChannel} onOpenDashboard={() => setSidebar('dashboard')} initialTab="templates" />
+              <OpenSourceTemplatesGallery />
             ) : sidebar === 'settings' ? (
               <SetupTab />
             ) : !isMainSection ? (

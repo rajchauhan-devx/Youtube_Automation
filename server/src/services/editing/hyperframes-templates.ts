@@ -188,15 +188,16 @@ export function renderNewspaperHeadline(opts: {
     #${id} .newspaper-card {
       width: 92%;
       max-width: 940px;
-      background: rgba(18, 14, 10, 0.88);
-      backdrop-filter: blur(12px);
-      border: 2px solid ${theme.primary};
+      background: transparent !important;
+      backdrop-filter: none !important;
+      border: none !important;
       color: #FFFFFF;
-      padding: 22px 30px;
-      border-radius: 10px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.95);
+      padding: 12px 16px;
+      border-radius: 0;
+      box-shadow: none !important;
       box-sizing: border-box;
       transform-origin: center bottom;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95), 0 0 3px #000;
     }
     #${id} .news-meta {
       display: flex;
@@ -345,16 +346,16 @@ export function renderTelemetryCounter(opts: {
     #${id} .telemetry-hud-card {
       width: auto;
       max-width: 640px;
-      background: rgba(10, 15, 29, 0.88);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-left: 5px solid ${theme.primary};
-      padding: 20px 28px;
-      border-radius: 12px;
+      background: transparent !important;
+      backdrop-filter: none !important;
+      border: none !important;
+      padding: 12px 16px;
+      border-radius: 0;
       color: #FFFFFF;
       font-family: ${theme.fontFamily};
       box-sizing: border-box;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+      box-shadow: none !important;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95), 0 0 3px #000;
     }
     #${id} .hud-top-bar {
       display: flex;
@@ -548,14 +549,14 @@ export function renderRouteMap(opts: {
     #${id} .route-overlay-card {
       width: 92%;
       max-width: 920px;
-      background: rgba(10, 15, 29, 0.88);
-      backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-left: 5px solid ${theme.primary};
-      border-radius: 12px;
-      padding: 18px 24px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+      background: transparent !important;
+      backdrop-filter: none !important;
+      border: none !important;
+      border-radius: 0;
+      padding: 12px 16px;
+      box-shadow: none !important;
       box-sizing: border-box;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95), 0 0 3px #000;
     }
     #${id} .route-header {
       display: flex;
@@ -686,7 +687,7 @@ export function renderPolaroidBadge(opts: {
       width: ${opts.bounds ? '100%' : 'auto'};
       height: ${opts.bounds ? '100%' : 'auto'};
       max-width: ${opts.bounds ? 'none' : '560px'};
-      background: rgba(18, 25, 35, 0.85);
+      background: transparent !important;
       padding: ${opts.bounds && opts.bounds.height < 100 ? '6px 12px' : '12px 20px 12px 14px'};
       border-radius: 8px;
       border: none;
@@ -962,16 +963,17 @@ export function renderCinematicTitle(opts: {
     #${id} .title-card {
       width: 100%;
       height: 100%;
-      background: rgba(10, 15, 29, 0.85);
-      backdrop-filter: blur(12px);
-      border-left: 5px solid ${theme.primary};
-      border-radius: 8px;
-      padding: 20px 28px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+      background: transparent !important;
+      backdrop-filter: none !important;
+      border: none !important;
+      border-radius: 0;
+      padding: 12px 16px;
+      box-shadow: none !important;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95), 0 0 3px #000;
     }
     #${id} .title-tag-row {
       display: flex;
@@ -1145,16 +1147,17 @@ export function renderSpotlight(opts: {
     }
     #${id} .spotlight-label-card {
       position: absolute;
-      background: rgba(15, 23, 42, 0.88);
-      backdrop-filter: blur(12px);
-      border-left: 5px solid ${theme.primary};
-      border-radius: 8px;
-      padding: 14px 20px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+      background: transparent !important;
+      backdrop-filter: none !important;
+      border: none !important;
+      border-radius: 0;
+      padding: 10px 14px;
+      box-shadow: none !important;
       box-sizing: border-box;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.95), 0 0 3px #000;
     }
     #${id} .spotlight-tag {
       font-family: ${theme.secondaryFont};

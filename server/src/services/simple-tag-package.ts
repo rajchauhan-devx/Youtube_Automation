@@ -247,7 +247,7 @@ const METADATA_LINE = /^(?:ASSET|TIMELINE|DURATION|PURPOSE|Scene|Mode|Characters
 
 function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number, tagNum?: number): ParsedVisualAsset | null {
   // Strip any nested or stray XML tags that an LLM might have hallucinated inside
-  const tagStripped = rawBlock.replace(/<\/?(?:image_prompt|video_prompt)\d*\b[^>]*>/gi, '');
+  const tagStripped = rawBlock.replace(/<\/?(?:image_prompt|video_prompt)(?:\[\d+\]|\d+)*\b[^>]*>/gi, '');
   const cleaned = tagStripped.replace(/\r/g, '').replace(/\*\*/g, '').trim();
   if (!cleaned) return null;
 
@@ -358,7 +358,7 @@ function parseVisualBlock(rawBlock: string, kind: 'image' | 'video', pos: number
   if (!prompt) return null;
 
   // Clean any remaining XML tag artifacts or trailing thumbnail text
-  prompt = prompt.replace(/<\/?(?:image_prompt|video_prompt)\d*\b[^>]*>/gi, '').trim();
+  prompt = prompt.replace(/<\/?(?:image_prompt|video_prompt)(?:\[\d+\]|\d+)*\b[^>]*>/gi, '').trim();
 
   const isThumbnail = (assetNum === 0) || /\bTHUMBNAIL\b/i.test(headerText) || /\bTHUMBNAIL\b/i.test(cleaned.slice(0, 100));
   const isFollowFrame = /\bFOLLOW(?:\s+FRAME)?\b/i.test(headerText);
@@ -430,11 +430,12 @@ export function parseSimpleTagPackage(
 
   // 2. Extract Visual Assets (<image_prompt[N]> and <video_prompt[N]>)
   const visualAssets: ParsedVisualAsset[] = [];
-  const tagRegex = /<(image_prompt|video_prompt)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:image_prompt|video_prompt)(?:\d+)?\s*>/gi;
+  const tagRegex = /<(image_prompt|video_prompt)(?:\[(\d+)\]|(\d+))?[^>]*>([\s\S]*?)<\/(?:image_prompt|video_prompt)(?:\[\d+\]|\d+)?\s*>/gi;
   for (const m of text.matchAll(tagRegex)) {
     const kind = m[1].toLowerCase().startsWith('video') ? 'video' : 'image';
-    const tagNum = m[2] !== undefined ? Number(m[2]) : undefined;
-    const parsed = parseVisualBlock(m[3], kind, m.index ?? 0, tagNum);
+    const numStr = m[2] !== undefined ? m[2] : m[3];
+    const tagNum = numStr !== undefined ? Number(numStr) : undefined;
+    const parsed = parseVisualBlock(m[4], kind, m.index ?? 0, tagNum);
     if (parsed) visualAssets.push(parsed);
   }
 
@@ -494,7 +495,7 @@ export function parseSimpleTagPackage(
   const rawThumbPrompt = explicitThumbTag
     || (thumbAsset ? thumbAsset.prompt.replace(/THUMBNAIL TEXT:[^\n]*/i, '').trim() : undefined)
     || (storyAssets.length > 0 ? storyAssets[0].prompt : 'Episode Thumbnail');
-  const thumbnailPrompt = rawThumbPrompt.replace(/<\/?(?:image_prompt|video_prompt)\d*\b[^>]*>/gi, '').trim();
+  const thumbnailPrompt = rawThumbPrompt.replace(/<\/?(?:image_prompt|video_prompt)(?:\[\d+\]|\d+)*\b[^>]*>/gi, '').trim();
 
   // 4. Build ordered visual slots
   interface VisualSlot {
@@ -647,17 +648,18 @@ export function parseSimpleTagPackage(
     text.match(/^(?:[-*+]\s+)?Title\s*:[ \t]*([^\n]+)/im)?.[1]?.replace(/\*\*/g, '').trim() ||
     'Generated Episode';
 
-  // 5. Extract Motion Graphics Metadata (<metadata[N]> or <motion_graphic[N]>) — optional, never throws
+  // 5. Extract Motion Graphics Metadata (<metadata[N]>, <motion_graphic[N]>, or <overlay[N]>) — optional, never throws
   const motionMetadata: any[] = [];
   const cleanForMotion = text.replace(/```[\s\S]*?```/g, '').replace(/`[^`\n]*`/g, '');
-  const metadataRegex = /<(?:metadata|motion_graphic)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic)(\d+)?\s*>/gi;
+  const metadataRegex = /<(?:metadata|motion_graphic|overlay)(?:\[(\d+)\]|(\d+))?[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic|overlay)(?:\[\d+\]|\d+)?\s*>/gi;
   let metaIdx = 1;
   for (const m of cleanForMotion.matchAll(metadataRegex)) {
-    const raw = m[2].trim();
-    if (m[1] && m[3] && m[1] !== m[3]) continue;
+    const raw = m[3].trim();
+    const tagNumStr = m[1] !== undefined ? m[1] : m[2];
+    const tagNum = tagNumStr !== undefined ? Number(tagNumStr) : undefined;
     if (raw.startsWith('{')) {
-      const sceneNum = Number(m[1]);
-      if (!Number.isInteger(sceneNum) || sceneNum < 1 || !scenes[sceneNum - 1]) continue;
+      const sceneNum = tagNum;
+      if (typeof sceneNum !== 'number' || !Number.isInteger(sceneNum) || sceneNum < 1 || !scenes[sceneNum - 1]) continue;
       let json: unknown;
       try { json = JSON.parse(raw); } catch { continue; }
       try {
@@ -668,33 +670,41 @@ export function parseSimpleTagPackage(
       }
       continue;
     }
-    const typeMatch = raw.match(/Type:\s*([^\n]+)/i);
+    const typeMatch = raw.match(/(?:Type|template|overlay):\s*([^\n]+)/i);
     const sceneMatch = raw.match(/(?:Scene|#scene|#image)[:\s]+\s*#?(?:image\s*|scene\s*)?(\d+)/i);
-    const titleMatch = raw.match(/Title:\s*([^\n]+)/i);
-    const detailMatch = raw.match(/Detail:\s*([^\n]+)/i);
+    const titleMatch = raw.match(/(?:Title|Label):\s*([^\n]+)/i);
+    const detailMatch = raw.match(/(?:Detail|Metric|Value):\s*([^\n]+)/i);
     const intentMatch = raw.match(/Intent:\s*([^\n]+)/i);
-    const templateMatch = raw.match(/Template(?:\s*ID)?:\s*([^\n]+)/i);
+    const templateMatch = raw.match(/(?:Template(?:\s*ID)?|Overlay):\s*([^\n]+)/i);
     const targetMatch = raw.match(/Target:\s*([^\n]+)/i);
     const unitMatch = raw.match(/Unit:\s*([^\n]+)/i);
-    const labelMatch = raw.match(/Label:\s*([^\n]+)/i);
+    const labelMatch = raw.match(/(?:Label|Title):\s*([^\n]+)/i);
     const originMatch = raw.match(/Origin:\s*([^\n]+)/i);
     const destMatch = raw.match(/Destination:\s*([^\n]+)/i);
     const distMatch = raw.match(/Distance:\s*([^\n]+)/i);
     const pubMatch = raw.match(/Publication:\s*([^\n]+)/i);
     const headMatch = raw.match(/Headline:\s*([^\n]+)/i);
-    const highMatch = raw.match(/Highlight:\s*([^\n]+)/i);
+    const highMatch = raw.match(/(?:Highlight|Cue):\s*([^\n]+)/i);
+    const placementMatch = raw.match(/Placement:\s*([^\n]+)/i);
     const assetPromptMatch = raw.match(/Asset\s*Prompt:\s*([\s\S]*?)(?=(?:\n[A-Z][a-z]+:|$))/i);
 
-    const sceneNum = sceneMatch ? parseInt(sceneMatch[1], 10) : m[1] ? Number(m[1]) : undefined;
+    const sceneNum = sceneMatch ? parseInt(sceneMatch[1], 10) : (tagNum !== undefined ? tagNum : undefined);
+    const templateId = (templateMatch ? templateMatch[1] : (typeMatch ? typeMatch[1] : undefined))?.trim();
+    const cleanCue = highMatch ? highMatch[1].trim().replace(/^["']|["']$/g, '') : undefined;
+
     motionMetadata.push({
-      index: m[1] ? Number(m[1]) : metaIdx++,
+      index: tagNum !== undefined ? tagNum : metaIdx++,
       sceneNum,
       sceneId: sceneNum ? `scene_${String(sceneNum).padStart(3, '0')}` : undefined,
-      type: typeMatch ? typeMatch[1].trim().toLowerCase() : 'badge',
-      title: titleMatch ? titleMatch[1].trim() : undefined,
+      type: templateId ? templateId.toLowerCase() : (typeMatch ? typeMatch[1].trim().toLowerCase() : 'badge'),
+      templateId,
+      title: titleMatch ? titleMatch[1].trim() : (labelMatch ? labelMatch[1].trim() : undefined),
       detail: detailMatch ? detailMatch[1].trim() : undefined,
+      statValue: detailMatch ? detailMatch[1].trim() : undefined,
+      statUnit: unitMatch ? unitMatch[1].trim() : undefined,
+      placement: placementMatch ? placementMatch[1].trim().toLowerCase() : undefined,
+      cuePhrase: cleanCue,
       intent: intentMatch ? intentMatch[1].trim() : undefined,
-      templateId: templateMatch ? templateMatch[1].trim() : undefined,
       target: targetMatch ? targetMatch[1].trim() : undefined,
       unit: unitMatch ? unitMatch[1].trim() : undefined,
       label: labelMatch ? labelMatch[1].trim() : undefined,
@@ -703,7 +713,7 @@ export function parseSimpleTagPackage(
       distance: distMatch ? distMatch[1].trim() : undefined,
       publication: pubMatch ? pubMatch[1].trim() : undefined,
       headline: headMatch ? headMatch[1].trim() : undefined,
-      highlight: highMatch ? highMatch[1].trim() : undefined,
+      highlight: cleanCue,
       assetPrompt: assetPromptMatch ? assetPromptMatch[1].trim() : undefined,
       raw,
     });
@@ -714,14 +724,15 @@ export function parseSimpleTagPackage(
       const sceneNum = idx + 1;
       const matched = motionMetadata.filter(m => m.sceneNum === sceneNum || m.sceneId === sc.id);
       if (matched.length > 0) {
-        (sc as any).motionGraphics = matched;
+        // Auto-heal: ensure at most 1 primary motion graphic hint per scene
+        (sc as any).motionGraphics = matched.slice(0, 1);
       }
     });
   }
 
   // Preserve trailing editorial/overlay/reflection sections after the last visual prompt tag
   let lastTagEnd = 0;
-  for (const m of [...text.matchAll(/<\/(?:image_prompt\d*|video_prompt\d*|script|narration|metadata\d*|motion_graphic\d*)\s*>/gi)]) {
+  for (const m of [...text.matchAll(/<\/(?:image_prompt(?:\[\d+\]|\d+)*|video_prompt(?:\[\d+\]|\d+)*|script|narration|metadata(?:\[\d+\]|\d+)*|motion_graphic(?:\[\d+\]|\d+)*|overlay(?:\[\d+\]|\d+)*)\s*>/gi)]) {
     const end = (m.index ?? 0) + m[0].length;
     if (end > lastTagEnd) lastTagEnd = end;
   }

@@ -64,8 +64,13 @@ function extractSceneInputs(script: any): Array<{
       visualPrompt: String(s.imagePrompt || s.videoPrompt || '').trim(),
       durationSec: Number(s.duration) > 0 ? Number(s.duration) : 6.0,
       motionGraphics: s.motionGraphics,
-      title: s.motionGraphics?.[0]?.title,
-      detail: s.motionGraphics?.[0]?.detail,
+      title: s.motionGraphics?.[0]?.title || s.motionGraphics?.[0]?.label,
+      detail: s.motionGraphics?.[0]?.detail || s.motionGraphics?.[0]?.metric || s.motionGraphics?.[0]?.statValue,
+      badge: s.motionGraphics?.[0]?.badge || s.motionGraphics?.[0]?.unit,
+      statValue: s.motionGraphics?.[0]?.statValue || s.motionGraphics?.[0]?.metric,
+      statUnit: s.motionGraphics?.[0]?.statUnit || s.motionGraphics?.[0]?.unit,
+      placement: s.motionGraphics?.[0]?.placement,
+      cuePhrase: s.motionGraphics?.[0]?.cuePhrase || s.motionGraphics?.[0]?.cue,
     }));
   }
 

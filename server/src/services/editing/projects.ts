@@ -224,7 +224,7 @@ async function createProjectSnapshot(value: unknown, publishNew = true) {
       id: "story-style",
       direction:
         request.settings.stylePreference || "Clear, calm explanatory graphics",
-      colors: { background: "#192333", text: "#f7faff", accent: "#8bb9e8" },
+      colors: { background: "transparent", text: "#f7faff", accent: "#8bb9e8" },
       fontAssetIds: fonts.map((f) => f.id),
       headingSize: 64,
       bodySize: 42,

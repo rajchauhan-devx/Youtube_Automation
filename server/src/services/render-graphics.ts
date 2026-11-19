@@ -27,7 +27,7 @@ export function graphicsRenderRevision(script: { editingProjectId?: string; dyna
   const hasDynamic = (script.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) ||
     (script.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status === 'ready'));
   const graphicsEnabled = script.autoPilotSettings?.graphics?.enabled !== false;
-  if (!script?.editingProjectId && hasDynamic && graphicsEnabled) {
+  if (hasDynamic && graphicsEnabled) {
     return { version: 1, rendererVersion: RENDERER_VERSION, projectId: script.editingProjectId || 'dynamic', hash: objectHash({ dmg: script.dynamicMotionGraphics, ep: script.extraPopups }) };
   }
   if (!script.editingProjectId) return undefined;
@@ -242,7 +242,7 @@ export function savedGraphicsForRender(
   const hasDynamic = (script?.dynamicMotionGraphics && Array.isArray(script.dynamicMotionGraphics) && script.dynamicMotionGraphics.length > 0) ||
     (script?.extraPopups && Array.isArray(script.extraPopups) && script.extraPopups.some((p: any) => p.status !== 'failed' && (p.title || p.cueWord)));
   const graphicsEnabled = script?.autoPilotSettings?.graphics?.enabled !== false;
-  if (!script?.editingProjectId && hasDynamic && graphicsEnabled) {
+  if (hasDynamic && graphicsEnabled) {
     const dynProj = dynamicMotionProjectForRender(script, audioPath, imagePaths, resolution, duration);
     if (dynProj) return dynProj;
   }

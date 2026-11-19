@@ -20,6 +20,7 @@ import { hasSpeakerDialogueTags } from '../services/conversational-tts.js';
 import { isConversationalVideoMode } from '../services/channel-editorial.js';
 import { syncTopicNotes } from '../services/topic-notes.js';
 import { responseHash } from '../services/retention.js';
+import { decideDynamicMotionGraphics } from '../services/dynamic-motion-engine.js';
 
 export const llmRouter = Router();
 
@@ -148,8 +149,46 @@ llmRouter.post('/extract', async (req, res) => {
     }
     const profile = currentWorkspace().profile;
     if (profile === 'mixed' && plan.scenes.some(scene => !scene.mediaType)) throw new Error('Mixed Media requires an image or video mediaType on every scene. Use the shared scene-plan format.');
-    res.json({ script: spokenText(plan), ttsText: spokenText(plan), imagePrompts: plan.scenes.map(scene => scene.imagePrompt), scenePlan: plan,
-      normalizedResponse: normalizeScenePlanResponse(rawText, plan) });
+
+    let dynamicMotionGraphics: any[] = [];
+    if (plan.scenes.some(s => s.motionGraphics && s.motionGraphics.length > 0)) {
+      try {
+        dynamicMotionGraphics = await decideDynamicMotionGraphics({
+          scenes: plan.scenes.map((s, idx) => ({
+            sceneIndex: idx,
+            narration: s.narration,
+            visualPrompt: s.imagePrompt || s.videoPrompt || '',
+            motionGraphics: s.motionGraphics,
+            title: s.motionGraphics?.[0]?.title || s.motionGraphics?.[0]?.label,
+            detail: s.motionGraphics?.[0]?.detail || s.motionGraphics?.[0]?.metric,
+            badge: s.motionGraphics?.[0]?.badge || s.motionGraphics?.[0]?.unit,
+            statValue: s.motionGraphics?.[0]?.statValue || s.motionGraphics?.[0]?.metric,
+            statUnit: s.motionGraphics?.[0]?.statUnit || s.motionGraphics?.[0]?.unit,
+            placement: s.motionGraphics?.[0]?.placement,
+            cuePhrase: s.motionGraphics?.[0]?.cuePhrase || s.motionGraphics?.[0]?.cue,
+          })),
+          channelProfile: profile,
+          scriptText: rawText,
+        });
+        if (req.body?.scriptId && dynamicMotionGraphics.length > 0) {
+          const existing = store.getById<any>('scripts', req.body.scriptId);
+          if (existing) {
+            store.add('scripts', { ...existing, dynamicMotionGraphics });
+          }
+        }
+      } catch (err) {
+        console.warn('[llm/extract] Co-authored motion graphics compilation warning:', err);
+      }
+    }
+
+    res.json({
+      script: spokenText(plan),
+      ttsText: spokenText(plan),
+      imagePrompts: plan.scenes.map(scene => scene.imagePrompt),
+      scenePlan: plan,
+      dynamicMotionGraphics,
+      normalizedResponse: normalizeScenePlanResponse(rawText, plan)
+    });
   } catch (error) { res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid scene plan' }); }
 });
 

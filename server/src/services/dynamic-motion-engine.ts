@@ -2627,6 +2627,326 @@ function renderCosmicUniverseExplainer(params: ProfileTemplateParams, kit: Style
 }
 
 /**
+ * Open-Source Visual Motion Graphic: Tactical Radar & Compass HUD
+ * 100% CARDLESS & FLOATING: pure luminous vector HUD with rotating sweep beam.
+ */
+function renderRadarCompass(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'top', scale);
+  const color = kit.theme.primary || '#00E5FF';
+  const accent = kit.theme.accent || '#FACC15';
+  const labelText = params.title || params.badge || 'NAVAL RADAR // AZIMUTH';
+  const metricText = params.detail || params.statValue || '68°S 52°W';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template radar-compass dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 280 280" width="220" height="220" class="dm-radar-svg">
+          <defs>
+            <radialGradient id="${containerId}-sweep" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="${color}" stop-opacity="0.45" />
+              <stop offset="70%" stop-color="${color}" stop-opacity="0.08" />
+              <stop offset="100%" stop-color="${color}" stop-opacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="140" cy="140" r="125" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="4,8" opacity="0.8" />
+          <circle cx="140" cy="140" r="100" fill="none" stroke="${color}" stroke-width="1.5" opacity="0.4" />
+          <circle cx="140" cy="140" r="65" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.5" />
+          <line x1="15" y1="140" x2="265" y2="140" stroke="${color}" stroke-width="1.5" stroke-dasharray="8,6" opacity="0.5" />
+          <line x1="140" y1="15" x2="140" y2="265" stroke="${color}" stroke-width="1.5" stroke-dasharray="8,6" opacity="0.5" />
+          <g class="dm-radar-sweep-group">
+            <path d="M 140 140 L 225 55 A 125 125 0 0 1 257 115 Z" fill="url(#${containerId}-sweep)" />
+            <line x1="140" y1="140" x2="257" y2="115" stroke="${color}" stroke-width="2.5" opacity="0.95" />
+          </g>
+          <circle cx="195" cy="95" r="5" fill="${accent}" class="dm-radar-blip" />
+          <circle cx="140" cy="140" r="4" fill="${color}" />
+          <text x="140" y="24" text-anchor="middle" fill="${color}" font-family="monospace" font-size="10" font-weight="bold">000° N</text>
+          <text x="256" y="144" text-anchor="middle" fill="${color}" font-family="monospace" font-size="10" font-weight="bold">090°</text>
+          <text x="140" y="266" text-anchor="middle" fill="${color}" font-family="monospace" font-size="10" font-weight="bold">180° S</text>
+          <text x="24" y="144" text-anchor="middle" fill="${color}" font-family="monospace" font-size="10" font-weight="bold">270°</text>
+        </svg>
+        <div class="dm-radar-label">
+          <span style="color:${color}; font-family:monospace; font-size:12px; font-weight:800; letter-spacing:0.18em; text-transform:uppercase;">● ${escapeHtml(labelText)}</span>
+          ${metricText ? `<div style="color:${accent}; font-family:monospace; font-size:11px; margin-top:2px;">${escapeHtml(metricText)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-radar-svg { filter: drop-shadow(0 0 16px ${color}); overflow: visible; }
+    #${containerId} .dm-radar-label { text-align: center; margin-top: 6px; text-shadow: 0 0 10px ${color}; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.4, ease: "power2.out" });
+    const sweep = el.querySelector(".dm-radar-sweep-group");
+    if (sweep) {
+      tl.to(sweep, { rotation: 360, transformOrigin: "140px 140px", duration: 3.5, repeat: -1, ease: "none" }, 0);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Visual Motion Graphic: Nautical / Geographic Route Trajectory Arc
+ * Parabolic glowing dashed arc across terrain with waypoint rings and distance pill.
+ */
+function renderRouteTrajectory(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'bottom', scale);
+  const color = kit.theme.primary || '#FACC15';
+  const accent = kit.theme.accent || '#00E5FF';
+  const labelText = params.title || 'OPEN-OCEAN TRAJECTORY';
+  const distVal = params.statValue || params.detail || '800';
+  const distUnit = params.statUnit || 'NAUTICAL MILES';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template route-trajectory dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 420 160" width="340" height="130" class="dm-route-svg">
+          <defs>
+            <linearGradient id="${containerId}-rtGrad" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0%" stop-color="${accent}" />
+              <stop offset="100%" stop-color="${color}" />
+            </linearGradient>
+          </defs>
+          <path d="M 40 120 Q 210 20 380 90" fill="none" stroke="url(#${containerId}-rtGrad)" stroke-width="4.5" stroke-dasharray="10,8" stroke-linecap="round" class="dm-route-path" />
+          <circle cx="40" cy="120" r="10" fill="none" stroke="${accent}" stroke-width="2" />
+          <circle cx="40" cy="120" r="5" fill="${accent}" />
+          <circle cx="380" cy="90" r="14" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="4,4" />
+          <circle cx="380" cy="90" r="6" fill="${color}" />
+          <g transform="translate(210, 56) rotate(12)">
+            <polygon points="0,-10 18,0 0,10 4,0" fill="${color}" />
+          </g>
+        </svg>
+        <div class="dm-route-pill" style="display:inline-flex; align-items:center; gap:8px; background:rgba(12,14,20,0.85); border:1.5px solid ${color}; border-radius:999px; padding:6px 18px; margin-top:-10px; box-shadow:0 0 16px ${color}66;">
+          <span style="color:#FFFFFF; font-size:16px; font-weight:900; letter-spacing:0.05em;">${escapeHtml(distVal)} <span style="color:${color}; font-size:13px;">${escapeHtml(distUnit)}</span></span>
+        </div>
+        <div style="color:${accent}; font-family:monospace; font-size:11px; font-weight:700; margin-top:4px; text-shadow:0 0 8px ${accent};">${escapeHtml(labelText)}</div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-route-svg { filter: drop-shadow(0 0 12px ${color}); overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" });
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Visual Motion Graphic: Audio Equalizer Waveform & Radio Distress Telemetry
+ */
+function renderSoundWave(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'bottom', scale);
+  const color = kit.theme.accent || '#FF9900';
+  const labelText = params.title || 'AUDIO TELEMETRY';
+  const detailText = params.detail || params.statValue || 'RADIO FREQ: 500 kHz';
+
+  const bars = [20, 35, 55, 75, 100, 65, 45, 85, 115, 95, 70, 50, 80, 110, 120, 95, 60, 90, 115, 105, 75, 40, 65, 95];
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template sound-wave dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 380 120" width="320" height="95" class="dm-wave-svg">
+          <defs>
+            <linearGradient id="${containerId}-waveGrad" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stop-color="#FF3366" />
+              <stop offset="100%" stop-color="${color}" />
+            </linearGradient>
+          </defs>
+          ${bars.map((h, i) => {
+            const x = 15 + i * 15;
+            const y = 100 - h * 0.7;
+            return `<rect x="${x}" y="${y}" width="9" height="${h * 0.7}" rx="4" fill="url(#${containerId}-waveGrad)" class="dm-eq-bar dm-eq-bar-${i}" />`;
+          }).join('')}
+          <line x1="10" y1="105" x2="370" y2="105" stroke="${color}" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.6" />
+        </svg>
+        <div style="display:flex; gap:12px; font-family:monospace; font-size:11px; color:${color}; font-weight:800; letter-spacing:0.12em; text-shadow:0 0 8px ${color}; margin-top:2px;">
+          <span>📻 ${escapeHtml(labelText)}</span>
+          <span style="opacity:0.8;">${escapeHtml(detailText)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-wave-svg { filter: drop-shadow(0 0 12px ${color}); overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.35, ease: "power2.out" });
+    const bars = el.querySelectorAll(".dm-eq-bar");
+    bars.forEach((bar, idx) => {
+      tl.to(bar, { scaleY: 0.4 + Math.random() * 0.8, transformOrigin: "bottom", duration: 0.25 + Math.random() * 0.2, yoyo: true, repeat: -1, ease: "sine.inOut" }, idx * 0.04);
+    });
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Visual Motion Graphic: Remotion Circular Progress Radial Gauge
+ */
+function renderCircularProgress(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const color = kit.theme.primary || '#00E5FF';
+  const accent = kit.theme.accent || '#FACC15';
+  const rawVal = params.statValue || params.detail || '94';
+  const numVal = parseInt(rawVal.replace(/\D/g, ''), 10) || 94;
+  const labelText = params.title || 'SURVIVAL PROBABILITY';
+
+  const circ = 471.2;
+  const offset = circ - (circ * Math.min(100, Math.max(0, numVal))) / 100;
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template circular-progress dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 220 220" width="190" height="190" class="dm-circ-svg">
+          <defs>
+            <linearGradient id="${containerId}-circGrad" x1="0" y1="1" x2="1" y2="0">
+              <stop offset="0%" stop-color="${color}" />
+              <stop offset="100%" stop-color="${accent}" />
+            </linearGradient>
+          </defs>
+          <circle cx="110" cy="110" r="75" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="12" />
+          <circle cx="110" cy="110" r="75" fill="none" stroke="url(#${containerId}-circGrad)" stroke-width="12" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round" transform="rotate(-90 110 110)" class="dm-circ-bar" />
+          <text x="110" y="112" text-anchor="middle" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="44" font-weight="900" letter-spacing="-1">
+            ${numVal}<tspan fill="${accent}" font-size="24">%</tspan>
+          </text>
+          <text x="110" y="136" text-anchor="middle" fill="${color}" font-family="monospace" font-size="9" font-weight="bold" letter-spacing="2">
+            ${escapeHtml(labelText)}
+          </text>
+        </svg>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-circ-svg { filter: drop-shadow(0 0 16px ${color}); overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" });
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Visual Motion Graphic: Emerald Verified Stamp Emblem & Shockwave
+ */
+function renderVerifiedSeal(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'bottom', scale);
+  const color = '#10B981';
+  const labelText = params.title || 'MISSION VERIFIED';
+  const detailText = params.detail || params.statValue || 'ZERO CASUALTIES';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template verified-seal dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 200 200" width="160" height="160" class="dm-seal-svg">
+          <circle cx="100" cy="100" r="90" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="6,6" opacity="0.6" class="dm-seal-ripple" />
+          <circle cx="100" cy="100" r="75" fill="rgba(6, 78, 59, 0.75)" stroke="${color}" stroke-width="4" />
+          <path d="M 70 100 L 90 120 L 135 75" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" class="dm-seal-check" />
+        </svg>
+        <div style="display:inline-block; background:rgba(16,185,129,0.25); border:1.5px solid ${color}; padding:4px 16px; border-radius:999px; color:#FFFFFF; font-size:13px; font-weight:800; letter-spacing:0.05em; margin-top:-6px; text-shadow:0 0 8px ${color};">
+          ${escapeHtml(labelText)} // ${escapeHtml(detailText)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-seal-svg { filter: drop-shadow(0 0 18px ${color}); overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(2.5)" });
+    const rip = el.querySelector(".dm-seal-ripple");
+    if (rip) {
+      tl.to(rip, { scale: 1.15, transformOrigin: "100px 100px", opacity: 0.2, duration: 1.5, repeat: -1, yoyo: true }, 0.5);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Visual Motion Graphic: Golden Victory Laurel Crest & Climax Flare
+ */
+function renderVictoryCrest(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'bottom', scale);
+  const color = kit.theme.primary || '#FACC15';
+  const labelText = params.title || 'NOT A SINGLE LIFE LOST';
+  const detailText = params.detail || params.statValue || '✦ 100% SURVIVAL ✦';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template victory-crest dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 260 120" width="220" height="100" class="dm-crest-svg">
+          <defs>
+            <linearGradient id="${containerId}-goldG" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#FFFBEB" />
+              <stop offset="100%" stop-color="${color}" />
+            </linearGradient>
+          </defs>
+          <g stroke="url(#${containerId}-goldG)" stroke-width="2.5" fill="none">
+            <path d="M 110 90 C 70 85 55 55 65 25" />
+            <ellipse cx="70" cy="70" rx="7" ry="3" transform="rotate(-30 70 70)" fill="url(#${containerId}-goldG)" />
+            <ellipse cx="62" cy="52" rx="7" ry="3" transform="rotate(-50 62 52)" fill="url(#${containerId}-goldG)" />
+            <ellipse cx="68" cy="35" rx="7" ry="3" transform="rotate(-70 68 35)" fill="url(#${containerId}-goldG)" />
+            <path d="M 150 90 C 190 85 205 55 195 25" />
+            <ellipse cx="190" cy="70" rx="7" ry="3" transform="rotate(30 190 70)" fill="url(#${containerId}-goldG)" />
+            <ellipse cx="198" cy="52" rx="7" ry="3" transform="rotate(50 198 52)" fill="url(#${containerId}-goldG)" />
+            <ellipse cx="192" cy="35" rx="7" ry="3" transform="rotate(70 192 35)" fill="url(#${containerId}-goldG)" />
+          </g>
+          <g transform="translate(130, 48)">
+            <path d="M -12 -18 L 12 -18 L 10 0 C 9 9 0 12 0 12 C 0 12 -9 9 -10 0 Z" fill="url(#${containerId}-goldG)" />
+            <rect x="-3" y="12" width="6" height="8" fill="url(#${containerId}-goldG)" />
+            <rect x="-9" y="20" width="18" height="4" rx="1" fill="url(#${containerId}-goldG)" />
+          </g>
+          <line x1="20" y1="105" x2="240" y2="105" stroke="${color}" stroke-width="2" />
+          <circle cx="130" cy="105" r="3" fill="#FFFFFF" />
+        </svg>
+        <div style="color:#FFFFFF; font-size:18px; font-weight:900; letter-spacing:-0.02em; text-shadow:0 0 14px ${color}; margin-top:2px;">
+          ${escapeHtml(labelText)}
+        </div>
+        <div style="color:${color}; font-family:monospace; font-size:11px; font-weight:800; letter-spacing:0.2em; margin-top:2px;">
+          ${escapeHtml(detailText)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-crest-svg { filter: drop-shadow(0 0 14px ${color}); overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" });
+  `;
+
+  return { html, css, js };
+}
+
+/**
  * Documentary Template 20: Cinematic Outro & Shanti Mantra Seal
  * Royal golden seal medallion with 3D embossed Om and Shanti mantra floating over footage.
  * 100% CARDLESS & FLOATING.
@@ -2671,6 +2991,529 @@ function renderCinematicOutroSeal(params: ProfileTemplateParams, kit: StyleKit, 
   return { html, css, js };
 }
 
+/**
+ * Open-Source Visual Motion Graphic: Heartbeat EKG Pulse Monitor
+ * 100% CARDLESS & FLOATING: Oscilloscope heartbeat with animated lead dot & BPM metric.
+ */
+function renderHeartbeatPulse(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const color = kit.theme.accent || kit.theme.primary || '#10B981';
+  const labelText = params.title || params.badge || 'EKG // VITALS MONITOR';
+  const metricText = params.detail || params.statValue || '142 BPM';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template heartbeat-pulse dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 340 180" width="280" height="150" class="dm-ekg-svg">
+          <defs>
+            <filter id="${containerId}-ekgGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <!-- Oscilloscope Fine Grid -->
+          <pattern id="${containerId}-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="${color}" stroke-width="0.5" opacity="0.12" />
+          </pattern>
+          <rect width="340" height="180" fill="url(#${containerId}-grid)" rx="8" />
+          <rect width="340" height="180" fill="none" stroke="${color}" stroke-width="1.2" opacity="0.25" rx="8" />
+          <!-- Baseline Sweep -->
+          <line x1="10" y1="90" x2="330" y2="90" stroke="${color}" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.3" />
+          <!-- EKG Path: P-wave, QRS spike, T-wave -->
+          <path d="M 10 90 L 70 90 L 85 82 L 95 90 L 115 90 L 125 135 L 140 25 L 155 150 L 165 90 L 185 90 L 200 78 L 220 90 L 240 90 L 250 135 L 265 25 L 280 150 L 290 90 L 330 90"
+                fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+                filter="url(#${containerId}-ekgGlow)" class="dm-ekg-path" />
+          <!-- Glowing Pulse Lead Head -->
+          <circle cx="140" cy="25" r="4.5" fill="#FFFFFF" filter="url(#${containerId}-ekgGlow)" class="dm-ekg-dot" />
+        </svg>
+        <div class="dm-ekg-telemetry" style="display:flex; align-items:center; justify-content:space-between; width:260px; margin-top:6px;">
+          <span style="color:${color}; font-family:monospace; font-size:11px; font-weight:800; letter-spacing:0.16em;">● ${escapeHtml(labelText)}</span>
+          <span style="color:#FFFFFF; font-family:monospace; font-size:13px; font-weight:900; background:rgba(0,0,0,0.5); padding:1px 6px; border-radius:4px; border:1px solid ${color};">${escapeHtml(metricText)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-ekg-svg { filter: drop-shadow(0 0 16px ${color}); overflow: visible; }
+    #${containerId} .dm-ekg-path { stroke-dasharray: 600; stroke-dashoffset: 600; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.4, ease: "power2.out" });
+    const pth = el.querySelector(".dm-ekg-path");
+    if (pth) {
+      tl.to(pth, { strokeDashoffset: 0, duration: 1.8, ease: "power1.inOut" }, 0.1);
+    }
+    const dot = el.querySelector(".dm-ekg-dot");
+    if (dot) {
+      tl.fromTo(dot, { scale: 0, opacity: 0 }, { scale: 1.4, opacity: 1, duration: 0.3, yoyo: true, repeat: 5, ease: "power2.out" }, 0.4);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Visual Motion Graphic: Rotating Vedic Chakra & Sacred Mandala
+ * 100% CARDLESS & FLOATING: Sacred 12-spoke Vedic solar chakra rotating with concentric geometries.
+ */
+function renderChakraMandala(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const gold = kit.theme.primary || '#F59E0B';
+  const accent = kit.theme.accent || '#FDE68A';
+  const labelText = params.title || 'कालचक्र // COSMIC YUGA';
+  const detailText = params.detail || 'SACRED SOLAR ALIGNMENT';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template chakra-mandala dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 300 300" width="220" height="220" class="dm-chakra-svg">
+          <defs>
+            <filter id="${containerId}-chakraGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <!-- Outer Solar Rays & Flame Ring -->
+          <circle cx="150" cy="150" r="135" fill="none" stroke="${gold}" stroke-width="2" stroke-dasharray="4,8" opacity="0.65" />
+          <circle cx="150" cy="150" r="120" fill="none" stroke="${gold}" stroke-width="1.5" opacity="0.45" />
+          <!-- Rotating 12-Spoke Chakra Wheel -->
+          <g class="dm-chakra-wheel" filter="url(#${containerId}-chakraGlow)">
+            <!-- 12 Spokes -->
+            ${Array.from({ length: 12 }).map((_, i) => {
+              const deg = i * 30;
+              const rad = (deg * Math.PI) / 180;
+              const x2 = 150 + 115 * Math.cos(rad);
+              const y2 = 150 + 115 * Math.sin(rad);
+              return `<line x1="150" y1="150" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="${gold}" stroke-width="2" />`;
+            }).join('')}
+            <!-- 12 Outer Lotus Petal Points -->
+            ${Array.from({ length: 12 }).map((_, i) => {
+              const deg = i * 30;
+              const rad = (deg * Math.PI) / 180;
+              const cx = 150 + 120 * Math.cos(rad);
+              const cy = 150 + 120 * Math.sin(rad);
+              return `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="3" fill="${accent}" />`;
+            }).join('')}
+            <!-- Concentric Sacred Geometric Rings -->
+            <circle cx="150" cy="150" r="75" fill="none" stroke="${accent}" stroke-width="2" stroke-dasharray="6,4" />
+            <circle cx="150" cy="150" r="45" fill="none" stroke="${gold}" stroke-width="2" />
+          </g>
+          <!-- Central Sacred Bindu Orb -->
+          <circle cx="150" cy="150" r="18" fill="url(#${containerId}-chakraGlow)" />
+          <circle cx="150" cy="150" r="16" fill="${gold}" />
+          <circle cx="150" cy="150" r="8" fill="#FFFFFF" />
+        </svg>
+        <div class="dm-chakra-label" style="text-align:center; margin-top:8px;">
+          <div style="color:${gold}; font-family:${kit.theme.fontFamily}; font-size:16px; font-weight:900; letter-spacing:0.12em; text-shadow:0 0 16px ${gold};">${escapeHtml(labelText)}</div>
+          ${detailText ? `<div style="color:${accent}; font-family:${kit.theme.fontFamily}; font-size:11px; margin-top:2px; font-weight:700;">${escapeHtml(detailText)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-chakra-svg { filter: drop-shadow(0 0 20px ${gold}); overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 0.5, ease: "power2.out" });
+    const wheel = el.querySelector(".dm-chakra-wheel");
+    if (wheel) {
+      tl.to(wheel, { rotation: 120, transformOrigin: "150px 150px", duration: 4.4, ease: "none" }, 0);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+// ============================================================================
+// OPEN-SOURCE REMOTION / HYPERFRAMES VECTOR MOTION GRAPHIC RENDERERS
+// ============================================================================
+
+/**
+ * Open-Source Template: Particle Explosion Burst
+ * Radiating glowing particles and expanding shockwave ring (100% transparent overlay).
+ */
+function renderParticleExplosion(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const color = kit.theme.primary || '#FFD700';
+  const accent = kit.theme.accent || '#FF6B00';
+  const titleText = params.title || 'CRITICAL IMPACT';
+  const detailText = params.detail || params.statValue || '';
+
+  const particles = Array.from({ length: 36 }).map((_, i) => {
+    const angle = (i / 36) * Math.PI * 2;
+    const dist = 70 + (i % 5) * 18;
+    const x = Math.cos(angle) * dist;
+    const y = Math.sin(angle) * dist;
+    const size = 3 + (i % 4) * 2;
+    const pColor = i % 2 === 0 ? color : accent;
+    return `<circle cx="${140 + x}" cy="${140 + y}" r="${size}" fill="${pColor}" opacity="0.9" class="dm-particle dm-p-${i}" />`;
+  }).join('');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template particle-explosion dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 280 280" width="240" height="240" class="dm-explosion-svg">
+          <defs>
+            <filter id="${containerId}-expGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <circle cx="140" cy="140" r="16" fill="#FFFFFF" filter="url(#${containerId}-expGlow)" class="dm-core-blast" />
+          <circle cx="140" cy="140" r="42" fill="none" stroke="${color}" stroke-width="3" opacity="0.8" class="dm-shockwave-ring" />
+          <g filter="url(#${containerId}-expGlow)">
+            ${particles}
+          </g>
+        </svg>
+        <div style="text-align:center; margin-top:-18px; text-shadow:0 2px 10px rgba(0,0,0,0.95), 0 0 4px #000;">
+          <div style="font-family:${kit.theme.fontFamily}; font-size:16px; font-weight:900; color:#FFFFFF; letter-spacing:0.04em;">${escapeHtml(titleText)}</div>
+          ${detailText ? `<div style="font-family:monospace; font-size:11px; font-weight:800; color:${color}; margin-top:2px;">${escapeHtml(detailText)}</div>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-explosion-svg { filter: drop-shadow(0 0 16px ${color}); overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.35, ease: "back.out(2)" });
+    const blast = el.querySelector(".dm-core-blast");
+    if (blast) {
+      tl.fromTo(blast, { scale: 0.2, opacity: 1 }, { scale: 2.8, opacity: 0, duration: 0.5, transformOrigin: "140px 140px", ease: "power2.out" }, 0.05);
+    }
+    const ring = el.querySelector(".dm-shockwave-ring");
+    if (ring) {
+      tl.fromTo(ring, { scale: 0.3, opacity: 1 }, { scale: 2.2, opacity: 0, duration: 0.7, transformOrigin: "140px 140px", ease: "expo.out" }, 0.1);
+    }
+    const pts = el.querySelectorAll(".dm-particle");
+    pts.forEach((pt, idx) => {
+      tl.fromTo(pt, { scale: 0, opacity: 1 }, { scale: 1.2, opacity: 0.8, duration: 0.45, ease: "expo.out" }, 0.08 + (idx % 4) * 0.02);
+    });
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Template: Liquid Sine Wave
+ * Undulating glowing liquid sine wave overlay.
+ */
+function renderLiquidWave(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'bottom', scale);
+  const color = kit.theme.accent || kit.theme.primary || '#00E5FF';
+  const labelText = params.title || 'SURGE INTENSITY';
+  const detailText = params.detail || params.statValue || 'MAX WAVE FREQUENCY';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template liquid-wave dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center; width:100%;">
+        <svg viewBox="0 0 400 120" width="340" height="100" class="dm-liquid-svg">
+          <defs>
+            <linearGradient id="${containerId}-waveGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="${color}" stop-opacity="0.8" />
+              <stop offset="100%" stop-color="${color}" stop-opacity="0.05" />
+            </linearGradient>
+          </defs>
+          <path d="M 0 60 Q 50 20 100 60 T 200 60 T 300 60 T 400 60 L 400 120 L 0 120 Z" fill="url(#${containerId}-waveGrad)" class="dm-wave-body dm-wave-1" />
+          <path d="M 0 60 Q 50 20 100 60 T 200 60 T 300 60 T 400 60" fill="none" stroke="${color}" stroke-width="3" filter="drop-shadow(0 0 8px ${color})" class="dm-wave-crest" />
+        </svg>
+        <div style="font-family:monospace; font-size:11px; font-weight:800; color:${color}; letter-spacing:0.12em; text-shadow:0 0 8px ${color}; margin-top:2px;">
+          🌊 ${escapeHtml(labelText)} // ${escapeHtml(detailText)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-liquid-svg { overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" });
+    const crest = el.querySelector(".dm-wave-crest");
+    if (crest) {
+      tl.to(crest, { y: -8, duration: 1.2, repeat: -1, yoyo: true, ease: "sine.inOut" }, 0.2);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Template: High-Tech Area Chart
+ * Analytical area chart with glowing gradient fill & reveal sweep.
+ */
+function renderAreaChart(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const color = kit.theme.primary || '#00E5FF';
+  const accent = kit.theme.accent || '#FACC15';
+  const labelText = params.title || 'GROWTH METRIC TRAJECTORY';
+  const val = params.statValue || params.detail || '+284%';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template area-chart dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 340 160" width="300" height="140" class="dm-area-svg">
+          <defs>
+            <linearGradient id="${containerId}-areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="${color}" stop-opacity="0.65" />
+              <stop offset="100%" stop-color="${color}" stop-opacity="0.0" />
+            </linearGradient>
+          </defs>
+          <!-- Grid lines -->
+          <line x1="20" y1="20" x2="320" y2="20" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+          <line x1="20" y1="65" x2="320" y2="65" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+          <line x1="20" y1="110" x2="320" y2="110" stroke="rgba(255,255,255,0.08)" stroke-width="1" />
+          <!-- Area fill -->
+          <path d="M 20 120 L 60 95 L 110 105 L 160 65 L 210 80 L 260 35 L 320 20 L 320 120 Z" fill="url(#${containerId}-areaGrad)" class="dm-area-polygon" />
+          <!-- Area stroke -->
+          <path d="M 20 120 L 60 95 L 110 105 L 160 65 L 210 80 L 260 35 L 320 20" fill="none" stroke="${color}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="dm-area-line" />
+          <!-- Target pulse node -->
+          <circle cx="320" cy="20" r="5" fill="#FFFFFF" stroke="${accent}" stroke-width="3" class="dm-area-target" />
+        </svg>
+        <div style="display:flex; justify-content:space-between; width:92%; font-family:monospace; font-size:11px; font-weight:800; color:${color}; letter-spacing:0.12em; text-shadow:0 0 8px ${color}; margin-top:2px;">
+          <span>📊 ${escapeHtml(labelText)}</span>
+          <span style="color:${accent}; font-weight:900;">${escapeHtml(val)}</span>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-area-svg { filter: drop-shadow(0 0 12px ${color}); overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.45, ease: "power2.out" });
+    const poly = el.querySelector(".dm-area-polygon");
+    if (poly) {
+      tl.fromTo(poly, { scaleY: 0, transformOrigin: "bottom" }, { scaleY: 1, duration: 0.6, ease: "expo.out" }, 0.1);
+    }
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Template: Matrix Digital Rain
+ * Cascading digital cipher stream overlay.
+ */
+function renderMatrixRain(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const color = '#10B981';
+  const labelText = params.title || 'SYSTEM DATA DECRYPT';
+  const detailText = params.detail || params.statValue || 'STREAM PROTOCOL ACTIVE';
+
+  const chars = ['0', '1', 'A', '7', 'X', '9', 'Ф', '3', '8', 'Z', '5', 'Ω'];
+  const columns = Array.from({ length: 8 }).map((_, colIdx) => {
+    const x = 20 + colIdx * 35;
+    const colChars = Array.from({ length: 6 }).map((__, rowIdx) => {
+      const char = chars[(colIdx + rowIdx) % chars.length];
+      const opacity = rowIdx === 5 ? 1 : 0.3 + rowIdx * 0.12;
+      const isLead = rowIdx === 5;
+      return `<text x="${x}" y="${25 + rowIdx * 20}" fill="${isLead ? '#FFFFFF' : color}" font-family="monospace" font-size="16" font-weight="900" opacity="${opacity}" class="dm-matrix-char">${char}</text>`;
+    }).join('');
+    return `<g class="dm-matrix-col dm-mcol-${colIdx}">${colChars}</g>`;
+  }).join('');
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template matrix-rain dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 300 160" width="260" height="140" class="dm-matrix-svg">
+          <defs>
+            <filter id="${containerId}-matrixGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="2.5" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <g filter="url(#${containerId}-matrixGlow)">
+            ${columns}
+          </g>
+        </svg>
+        <div style="font-family:monospace; font-size:11px; font-weight:800; color:${color}; letter-spacing:0.14em; text-shadow:0 0 8px ${color}; margin-top:2px;">
+          ⚡ ${escapeHtml(labelText)} // ${escapeHtml(detailText)}
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-matrix-svg { filter: drop-shadow(0 0 14px ${color}); overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" });
+    const cols = el.querySelectorAll(".dm-matrix-col");
+    cols.forEach((col, idx) => {
+      tl.to(col, { y: 25, duration: 0.6 + (idx % 3) * 0.15, repeat: -1, yoyo: true, ease: "none" }, idx * 0.05);
+    });
+  `;
+
+  return { html, css, js };
+}
+
+/**
+ * Open-Source Template: Ambient Bokeh Circles
+ * Floating ethereal glowing orbs.
+ */
+function renderBokehCircles(params: ProfileTemplateParams, kit: StyleKit, containerId: string) {
+  const scale = resolveScale(params.size);
+  const posCss = computePlacementStyles(params.placement || 'center', scale);
+  const color = kit.theme.primary || '#FFD700';
+  const labelText = params.title || 'ETHEREAL ATMOSPHERE';
+
+  const html = `
+    <div id="${containerId}" class="profile-motion-template bokeh-circles dm-3d-scene">
+      <div class="dm-3d-card" style="display:flex; flex-direction:column; align-items:center;">
+        <svg viewBox="0 0 280 200" width="240" height="170" class="dm-bokeh-svg">
+          <defs>
+            <radialGradient id="${containerId}-bokehGrad" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="${color}" stop-opacity="0.9" />
+              <stop offset="60%" stop-color="${color}" stop-opacity="0.3" />
+              <stop offset="100%" stop-color="${color}" stop-opacity="0" />
+            </radialGradient>
+          </defs>
+          <circle cx="80" cy="80" r="45" fill="url(#${containerId}-bokehGrad)" class="dm-orb dm-orb-1" />
+          <circle cx="200" cy="110" r="55" fill="url(#${containerId}-bokehGrad)" class="dm-orb dm-orb-2" />
+          <circle cx="140" cy="60" r="30" fill="url(#${containerId}-bokehGrad)" class="dm-orb dm-orb-3" />
+        </svg>
+        <div style="font-family:${kit.theme.fontFamily}; font-size:14px; font-weight:800; color:#FFFFFF; letter-spacing:0.08em; text-shadow:0 0 10px ${color};">
+          ✦ ${escapeHtml(labelText)} ✦
+        </div>
+      </div>
+    </div>
+  `;
+
+  const css = `
+    #${containerId} { position: absolute; ${posCss} display: flex; flex-direction: column; align-items: center; pointer-events: none; z-index: 40; perspective: 1200px; background: transparent !important; }
+    #${containerId} .dm-bokeh-svg { overflow: visible; }
+  `;
+
+  const js = `
+    tl.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "sine.inOut" });
+    const orbs = el.querySelectorAll(".dm-orb");
+    orbs.forEach((orb, i) => {
+      tl.to(orb, { scale: 1.25, transformOrigin: "center", duration: 1.5 + i * 0.3, repeat: -1, yoyo: true, ease: "sine.inOut" }, i * 0.2);
+    });
+  `;
+
+  return { html, css, js };
+}
+
+// ============================================================================
+// SEMANTIC FUZZY TEMPLATE RESOLVER
+// ============================================================================
+
+export function resolveCanonicalTemplateId(rawId?: string | null): string {
+  if (!rawId) return 'thunder_lightning';
+  const s = String(rawId).toLowerCase().trim().replace(/[\s-]+/g, '_');
+
+  // Direct element matches that should not be broad-fuzzy mapped
+  const directMatches = new Set([
+    'question_head', 'question_mark', 'box_highlight', 'red_circle', 'bouncing_arrow',
+    'alert_exclamation', 'idea_lightbulb', 'check_verified', 'check_stamp', 'cross_failed',
+    'cross_stamp', 'speech_bubble', 'location_pin', 'gauge_needle', 'money_surge',
+    'particle_explosion', 'liquid_wave', 'area_chart', 'line_chart', 'donut_chart',
+    'pie_chart', 'matrix_rain', 'starfield', 'bokeh_circles', 'glitch_text',
+    'countdown_intro', 'circular_progress', 'radar_compass', 'route_trajectory',
+    'heartbeat_pulse', 'chakra_mandala', 'sound_wave', 'verified_seal',
+    'victory_crest', 'target_reticle', 'sniper_lock', 'magnifying_glass',
+    'redacted_stamp', 'metric_ticker', 'historical_timeline', 'divine_character_intro',
+    'sudarshana_chakra', 'sudharshana_chakra', 'thunder_lightning', 'highlighter',
+    'arrow_callout', 'temple_architecture', 'cosmic_universe_explainer', 'dynasty_family_tree'
+  ]);
+  if (directMatches.has(s)) return s;
+
+  // 1. Radar / Compass HUD
+  if (s.includes('radar') || s.includes('sonar') || s.includes('compass_hud')) return 'radar_compass';
+  // 2. Route Trajectory / Nautical / Flight Map Arc / Chariot Track
+  if (s.includes('route') || s.includes('trajectory') || s.includes('nautical') || s.includes('chariot') || s.includes('march') || s.includes('flight') || s.includes('map_track')) return 'route_trajectory';
+  // 3. Heartbeat / EKG Pulse Monitor / Polygraph
+  if (s.includes('heartbeat') || s.includes('ekg') || s.includes('polygraph') || s.includes('pulse_monitor') || s.includes('lie_detector')) return 'heartbeat_pulse';
+  // 4. Chakra / Mandala / Yuga Wheel / Sacred Astrolabe
+  if (s.includes('chakra') || s.includes('mandala') || s.includes('yuga') || s.includes('sundial') || s.includes('astrolabe')) return 'chakra_mandala';
+  // 5. Sound Wave / Equalizer / Wiretap / Audio Spectrum
+  if (s.includes('sound_wave') || s.includes('audio_wave') || s.includes('equalizer') || s.includes('wiretap') || s.includes('waveform') || s.includes('frequency_spectrum') || s.includes('distress_radio') || s.includes('beacon')) return 'sound_wave';
+  // 6. Circular Progress / Gauge / Survival Dial / Speedometer / Biometrics
+  if (s.includes('circular') || s.includes('radial') || s.includes('progress') || s.includes('survival_gauge') || s.includes('speedometer') || s.includes('flow_dial') || s.includes('biometric')) return 'circular_progress';
+  // 7. Verified Seal / Stamp / Pass / Royal Seal
+  if (s.includes('verified') || s.includes('royal_seal') || s.includes('trishula_stamp') || s.includes('emerald_seal') || s.includes('case_file') || s.includes('seal')) return 'verified_seal';
+  // 8. Victory Crest / Golden Laurel / Triumph / Aura
+  if (s.includes('victory') || s.includes('laurel') || s.includes('trophy') || s.includes('divine_aura') || s.includes('ray_burst') || s.includes('crest')) return 'victory_crest';
+  // 9. Tactical Reticle / Target Lock / Sniper / Rangefinder / Framing Brackets
+  if (s.includes('reticle') || s.includes('target') || s.includes('sniper') || s.includes('crosshair') || s.includes('rangefinder') || s.includes('framing_bracket')) return 'sniper_lock';
+  // 10. Loupe / Magnifying Glass / Inspection
+  if (s.includes('loupe') || s.includes('magnif') || s.includes('lens')) return 'magnifying_glass';
+  // 11. Classified / Redacted Stamp
+  if (s.includes('redact') || s.includes('classified')) return 'redacted_stamp';
+  // 12. Blueprint / CAD Wireframe / Dimension Callout / Cutaway
+  if (s.includes('blueprint') || s.includes('wireframe') || s.includes('cad') || s.includes('dimension') || s.includes('cutaway') || s.includes('cross_section') || s.includes('exploded_view')) return 'temple_architecture';
+  // 13. Location Pin / Map Pin / Evidence Pin
+  if (s.includes('pin') || s.includes('evidence_pin') || s.includes('suspect_link') || s.includes('coordinates')) return 'location_pin';
+  // 14. Heatmap / Pressure Scale / Stress Scale
+  if (s.includes('heatmap') || s.includes('heat_map') || s.includes('stress_scale') || s.includes('pressure') || s.includes('needle') || s.includes('gauge')) return 'gauge_needle';
+  // 15. Shloka / Vedic Verse
+  if (s.includes('shloka') || s.includes('verse') || s.includes('mantra')) return 'sanskrit_shloka_reveal';
+  // 16. Scroll / Manuscript
+  if (s.includes('scroll') || s.includes('manuscript') || s.includes('parchment') || s.includes('bhurjapatra')) return 'ancient_scroll_unfurl';
+  // 17. Weapon / Divine Astra
+  if (s.includes('weapon') || s.includes('astra') || s.includes('pinaka') || s.includes('bow')) return 'divine_weapon_showcase';
+  // 18. Timeline / Historical Epoch
+  if (s.includes('timeline') || s.includes('epoch') || s.includes('chronology')) return 'historical_timeline';
+  // 19. Character Reveal / Hero Intro
+  if (s.includes('character') || s.includes('deity') || s.includes('hero_reveal')) return 'divine_character_intro';
+  // 20. Question Mark / Inquiry
+  if (s.includes('question') || s.includes('inquiry') || s.includes('mystery')) return 'question_mark';
+  // 21. Bouncing Arrow / Pointer
+  if (s.includes('arrow') || s.includes('pointer') || s.includes('cursor')) return 'bouncing_arrow';
+  // 22. Highlighter / Marker
+  if (s.includes('highlight') || s.includes('marker')) return 'highlighter';
+  // 23. Alert / Hazard / Warning
+  if (s.includes('alert') || s.includes('hazard') || s.includes('warning') || s.includes('danger')) return 'alert_exclamation';
+  // 24. Idea / Breakthrough / Lightbulb
+  if (s.includes('idea') || s.includes('lightbulb') || s.includes('eureka')) return 'idea_lightbulb';
+  // 25. Particle Explosion Burst
+  if (s.includes('particle') || s.includes('explosion') || s.includes('burst')) return 'particle_explosion';
+  // 26. Liquid Wave / Water / Fluid Surge
+  if (s.includes('liquid') || s.includes('wave') || s.includes('surge') || s.includes('fluid')) return 'liquid_wave';
+  // 27. Area Chart / Growth Curve / Graph
+  if (s.includes('area_chart') || s.includes('area') || s.includes('chart') || s.includes('graph')) return 'area_chart';
+  // 28. Matrix Digital Rain / Cyber Rain
+  if (s.includes('matrix') || s.includes('rain') || s.includes('code_rain')) return 'matrix_rain';
+  // 29. Starfield / Cosmic Warp
+  if (s.includes('starfield') || s.includes('warp') || s.includes('space') || s.includes('stars')) return 'starfield';
+  // 30. Bokeh Circles / Ethereal Glow
+  if (s.includes('bokeh') || s.includes('orbs') || s.includes('bubbles')) return 'bokeh_circles';
+  // 31. Glitch Text / Cyber Disruption
+  if (s.includes('glitch') || s.includes('distortion')) return 'glitch_text';
+
+  return s;
+}
+
 // ============================================================================
 // MASTER COMPILER & TEMPLATE DECIDER
 // ============================================================================
@@ -2685,11 +3528,77 @@ export function compileMotionTemplate(
 ): DynamicMotionGraphicData {
   const kit = styleKitFor(channelIdentity);
   const containerId = `dm-t-${params.sceneIndex}-${Date.now().toString(36).slice(-4)}`;
-  const templateId = params.templateId || (params as any).type || 'thunder_lightning';
+  const rawType = params.templateId || (params as any).type;
+  const templateId = resolveCanonicalTemplateId(rawType);
 
   let rendered: { html: string; css: string; js: string };
 
   switch (templateId) {
+    // --- Open-Source / Remotion Vector Motion Graphics ---
+    case 'particle_explosion':
+      rendered = renderParticleExplosion(params, kit, containerId);
+      break;
+
+    case 'liquid_wave':
+      rendered = renderLiquidWave(params, kit, containerId);
+      break;
+
+    case 'area_chart':
+    case 'line_chart':
+    case 'donut_chart':
+    case 'pie_chart':
+      rendered = renderAreaChart(params, kit, containerId);
+      break;
+
+    case 'matrix_rain':
+      rendered = renderMatrixRain(params, kit, containerId);
+      break;
+
+    case 'starfield':
+    case 'bokeh_circles':
+      rendered = renderBokehCircles(params, kit, containerId);
+      break;
+
+    // --- Tactical / Radar / HUD ---
+    case 'radar_compass':
+      rendered = renderRadarCompass(params, kit, containerId);
+      break;
+
+    // --- Route / Map Trajectory ---
+    case 'route_trajectory':
+      rendered = renderRouteTrajectory(params, kit, containerId);
+      break;
+
+    // --- Soundwave / Equalizer ---
+    case 'sound_wave':
+      rendered = renderSoundWave(params, kit, containerId);
+      break;
+
+    // --- Heartbeat / EKG Pulse Monitor ---
+    case 'heartbeat_pulse':
+      rendered = renderHeartbeatPulse(params, kit, containerId);
+      break;
+
+    // --- Rotating Chakra Mandala ---
+    case 'chakra_mandala':
+      rendered = renderChakraMandala(params, kit, containerId);
+      break;
+
+    // --- Circular Progress Gauge ---
+    case 'circular_progress':
+      rendered = renderCircularProgress(params, kit, containerId);
+      break;
+
+    // --- Verified Seal / Check ---
+    case 'verified_seal':
+      rendered = renderVerifiedSeal(params, kit, containerId);
+      break;
+
+    // --- Victory Crest / Golden Laurel ---
+    case 'victory_crest':
+      rendered = renderVictoryCrest(params, kit, containerId);
+      break;
+
     // --- Ancient Dharma Documentary Templates ---
     case 'vedic_title_reveal':
     case 'title_reveal':
@@ -2825,6 +3734,7 @@ export function compileMotionTemplate(
 
     // Simple 2: Energetic Bouncing Arrow & Directional Pointers
     case 'bouncing_arrow':
+    case 'bouncing-arrow':
     case 'sketch_arrow':
     case 'arrow_target':
     case 'double_pointer_arrow':
@@ -2844,6 +3754,8 @@ export function compileMotionTemplate(
     case 'frame_highlight':
     case 'bracket_callout':
     case 'spotlight_oval':
+    case 'framing-brackets':
+    case 'framing_brackets':
       rendered = renderBoxHighlight(params, kit, containerId);
       break;
 
@@ -2929,6 +3841,10 @@ export function compileMotionTemplate(
     case 'tactical_lock':
     case 'crosshair_pinpoint':
     case 'reticle_scan':
+    case 'tactical-reticle':
+    case 'tactical_reticle':
+    case 'target-reticle':
+    case 'target_reticle':
       rendered = renderSniperLock(params, kit, containerId);
       break;
 
@@ -3015,7 +3931,7 @@ export function compileMotionTemplate(
   return {
     id: `dmg-${containerId}`,
     sceneIndex: params.sceneIndex,
-    type: templateId,
+    type: rawType || templateId,
     title: params.title,
     detail: params.detail,
     cuePhrase: params.cuePhrase || params.title,
@@ -3068,11 +3984,18 @@ export function decideTemplateMotionGraphics(
 
     const isHindi = scenes.some((s) => /[\u0900-\u097F]/.test(s.narration));
 
-    // Scene 0: ALWAYS use the Profile Hook Attention Extractor!
+    // Scene 0: ALWAYS use the Profile Hook Attention Extractor (unless explicit overlay given)!
     if (i === 0) {
       const plannedMotion = scene.motionGraphics?.[0];
+      if (plannedMotion) {
+        const expId = String(plannedMotion.templateId || plannedMotion.type || '').toLowerCase();
+        if (expId === 'none' || expId === 'skip') {
+          continue;
+        }
+      }
       let hookTitle = scene.title || plannedMotion?.title || (isHindi ? 'दिव्य रहस्य' : 'DIVINE MYSTERY');
       let hookDetail = scene.detail || plannedMotion?.detail || (isHindi ? 'सनातन महागाथा — आदि रामायण' : 'The Sacred Ancient Chronicle');
+      let hookId = (plannedMotion?.templateId || plannedMotion?.type) || hookTemplate.id;
       if (profileKey === 'against_the_odds') {
         hookTitle = scene.title || plannedMotion?.title || 'SURVIVAL HOOK';
         hookDetail = scene.detail || plannedMotion?.detail || 'AGAINST ALL ODDS // ZERO MARGIN';
@@ -3102,14 +4025,16 @@ export function decideTemplateMotionGraphics(
       graphics.push(
         compileMotionTemplate(
           {
-            templateId: hookTemplate.id,
+            templateId: hookId,
             sceneIndex: sIdx,
             title: hookTitle,
             detail: hookDetail,
-            badge: 'HOOK // RETENTION',
+            badge: plannedMotion?.badge || 'HOOK // RETENTION',
+            statValue: plannedMotion?.statValue || plannedMotion?.metric || plannedMotion?.detail,
+            statUnit: plannedMotion?.statUnit || plannedMotion?.unit,
             size: 'hero',
-            placement: 'center',
-            cuePhrase: narration.includes('पिनाक') ? 'पिनाक' : narration.slice(0, 20),
+            placement: (plannedMotion?.placement as any) || 'center',
+            cuePhrase: plannedMotion?.cuePhrase || (narration.includes('पिनाक') ? 'पिनाक' : narration.slice(0, 20)),
             startSec: 1.0,
             durationSec: 4.8,
           },
@@ -3124,28 +4049,40 @@ export function decideTemplateMotionGraphics(
     const selectedTemplate = remainingTemplates[(i - 1) % Math.max(1, remainingTemplates.length)] || templates[0];
 
     const plannedMotion = scene.motionGraphics?.[0];
+    if (plannedMotion) {
+      const expId = String(plannedMotion.templateId || plannedMotion.type || '').toLowerCase();
+      if (expId === 'none' || expId === 'skip') {
+        continue;
+      }
+    }
+
     let title = scene.title || plannedMotion?.title || (isHindi ? 'सत्यमेव जयते' : 'CORE EVIDENCE');
     let detail = scene.detail || plannedMotion?.detail || (isHindi ? 'मर्यादा और धर्म' : 'VERIFIED DOCUMENTATION');
-    let badge = scene.badge || (isHindi ? 'दिव्य ज्ञान' : 'KEY INTEL');
+    let badge = scene.badge || plannedMotion?.badge || (isHindi ? 'दिव्य ज्ञान' : 'KEY INTEL');
 
     if (profileKey === 'against_the_odds') {
       title = scene.title || plannedMotion?.title || 'TACTICAL FACTOR';
       detail = scene.detail || plannedMotion?.detail || 'SURVIVAL PROTOCOL';
-      badge = scene.badge || 'ALERT';
+      badge = scene.badge || plannedMotion?.badge || 'ALERT';
     } else if (profileKey === 'talvora') {
       title = scene.title || plannedMotion?.title || 'A TURNING POINT';
       detail = scene.detail || plannedMotion?.detail || 'AN UNSPOKEN PROMISE';
-      badge = scene.badge || 'ROMANCE';
+      badge = scene.badge || plannedMotion?.badge || 'ROMANCE';
     } else if (profileKey === 'documentary_standard') {
       title = scene.title || plannedMotion?.title || 'ARCHIVAL RECORD';
       detail = scene.detail || plannedMotion?.detail || 'HISTORICAL SOURCE';
-      badge = scene.badge || 'DOCUMENTARY';
+      badge = scene.badge || plannedMotion?.badge || 'DOCUMENTARY';
     }
 
     const hasWord = (pattern: RegExp) => pattern.test(narration);
-    let chosenTemplateId = selectedTemplate.id;
+    let chosenTemplateId = (plannedMotion?.templateId || plannedMotion?.type) || selectedTemplate.id;
 
-    if (scene.title || plannedMotion?.title) {
+    if (plannedMotion?.templateId || plannedMotion?.type) {
+      chosenTemplateId = plannedMotion.templateId || plannedMotion.type;
+      if (plannedMotion.title || plannedMotion.label) title = plannedMotion.title || plannedMotion.label;
+      if (plannedMotion.detail || plannedMotion.metric || plannedMotion.statValue) detail = plannedMotion.detail || plannedMotion.metric || plannedMotion.statValue;
+      if (plannedMotion.badge) badge = plannedMotion.badge;
+    } else if (scene.title || plannedMotion?.title) {
       if (plannedMotion?.type) {
         chosenTemplateId = plannedMotion.type;
       }
@@ -3318,6 +4255,11 @@ export function decideTemplateMotionGraphics(
       }
     }
 
+    const chosenPlacement = plannedMotion?.placement || (i % 2 === 1 ? 'top' : 'center');
+    const chosenCue = plannedMotion?.cuePhrase || narration.slice(0, 24);
+    const chosenStatValue = plannedMotion?.statValue || plannedMotion?.metric || plannedMotion?.detail;
+    const chosenStatUnit = plannedMotion?.statUnit || plannedMotion?.unit;
+
     graphics.push(
       compileMotionTemplate(
         {
@@ -3326,9 +4268,11 @@ export function decideTemplateMotionGraphics(
           title,
           detail,
           badge,
+          statValue: chosenStatValue,
+          statUnit: chosenStatUnit,
           size: 'standard',
-          placement: i % 2 === 1 ? 'top' : 'center',
-          cuePhrase: narration.slice(0, 24),
+          placement: chosenPlacement as any,
+          cuePhrase: chosenCue,
           startSec: 1.0,
           durationSec: 4.5,
         },

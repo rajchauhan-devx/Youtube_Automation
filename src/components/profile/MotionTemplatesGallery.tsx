@@ -16,8 +16,9 @@ import {
 import type { DynamicMotionGraphicData } from '@tubeflow/editing-contracts';
 import { DynamicMotionPlayer, playSynthesizedSfx } from '../preview/DynamicMotionPlayer';
 import { useWorkspaceApi } from '../../services/workspaceApi';
+import { TEMPLATE_CATALOG, RemotionTemplatePlayer } from '../../templates/open-source';
 
-export type ProfileId = 'ancient_dharma' | 'against_the_odds' | 'talvora' | 'documentary_standard';
+export type ProfileId = 'ancient_dharma' | 'against_the_odds' | 'talvora' | 'documentary_standard' | 'open_source_remotion';
 
 interface UsefulTemplateMeta {
   id: string;
@@ -788,6 +789,29 @@ const PROFILES: Array<{
       },
     ],
   },
+  {
+    id: 'open_source_remotion',
+    name: 'Open-Source Remotion (80+ Templates)',
+    desc: 'The complete downloaded collection of 81 pure Remotion vector templates: particle explosions, liquid waves, circular progress dials, matrix rain, starfields, bokeh orbs, and analytical charts.',
+    icon: '🚀',
+    color: '#06B6D4',
+    accent: '#3B82F6',
+    badge: '81 Remotion Templates',
+    templates: TEMPLATE_CATALOG.map((t) => ({
+      id: t.id,
+      name: t.name,
+      category: 'documentary' as const,
+      description: `Pure Open-Source Remotion template (${t.category}): ${t.name}`,
+      isHook: t.id.includes('intro') || t.id.includes('explosion') || t.id.includes('shake'),
+      icon: t.id.includes('chart') ? '📊' : t.id.includes('text') || t.id.includes('title') ? '🔤' : t.id.includes('wave') ? '🌊' : '✨',
+      defaultPlacement: 'center' as const,
+      defaultSfx: 'whoosh',
+      defaultTitle: t.name,
+      defaultDetail: '80+ Open-Source Templates',
+      defaultBadge: 'Remotion',
+      role: t.category,
+    })),
+  },
 ];
 
 export function MotionTemplatesGallery() {
@@ -831,6 +855,21 @@ export function MotionTemplatesGallery() {
   // Compiled graphic representation
   const [compiledGraphic, setCompiledGraphic] = useState<DynamicMotionGraphicData | null>(null);
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
+  const [remotionFrame, setRemotionFrame] = useState(0);
+
+  useEffect(() => {
+    if (selectedProfileId !== 'open_source_remotion') return;
+    let animId: number;
+    let start = performance.now();
+    const tick = (now: number) => {
+      const elapsed = (now - start) / 1000;
+      const current = Math.floor((elapsed * 30) % 90);
+      setRemotionFrame(current);
+      animId = requestAnimationFrame(tick);
+    };
+    animId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animId);
+  }, [selectedProfileId, selectedTemplateId]);
 
   // When active profile changes, reset to profile's #1 Hook
   useEffect(() => {
@@ -1199,8 +1238,19 @@ export function MotionTemplatesGallery() {
                   </span>
                 </div>
 
-                {/* Live GSAP Player */}
-                {compiledGraphic ? (
+                {/* Live GSAP or Remotion Player */}
+                {selectedProfileId === 'open_source_remotion' ? (
+                  <div className="relative w-full h-full flex items-center justify-center pointer-events-none">
+                    <RemotionTemplatePlayer
+                      templateId={selectedTemplateId}
+                      frame={remotionFrame}
+                      fps={30}
+                      width={1080}
+                      height={1920}
+                      durationInFrames={120}
+                    />
+                  </div>
+                ) : compiledGraphic ? (
                   <DynamicMotionPlayer
                     key={`${compiledGraphic.id}-${backdrop}`}
                     graphic={compiledGraphic}

@@ -25,11 +25,11 @@ function stripMarkdownFences(text: string): string {
 function findImagePrompts(text: string): string[] {
   const prompts: string[] = [];
 
-  // Strategy 1: Look for <image_prompt[N]> or <video_prompt[N]> tags
-  const imageTagRegex = /<(?:image_prompt|video_prompt)(?:\d+)?\b[^>]*>(?:[\s\S]*?#(?:image|video)\s*\d+)?\s*([\s\S]*?)<\/(?:image_prompt|video_prompt)(?:\d+)?\s*>/gi;
+  // Strategy 1: Look for <image_prompt[N]> or <video_prompt[N]> or <image_promptN> tags
+  const imageTagRegex = /<(?:image_prompt|video_prompt)(?:\[\d+\]|\d+)?[^>]*>(?:[\s\S]*?#(?:image|video)\s*\d+)?\s*([\s\S]*?)<\/(?:image_prompt|video_prompt)(?:\[\d+\]|\d+)?\s*>/gi;
   let tagMatch;
   while ((tagMatch = imageTagRegex.exec(text)) !== null) {
-    const content = tagMatch[1].replace(/<\/?(?:image_prompt|video_prompt)\d*\b[^>]*>/gi, '').trim();
+    const content = tagMatch[1].replace(/<\/?(?:image_prompt|video_prompt)(?:\[\d+\]|\d+)*\b[^>]*>/gi, '').trim();
     if (content.length > 0) prompts.push(content);
   }
   if (prompts.length > 0) return prompts;
@@ -122,33 +122,42 @@ export function findMetadata(text: string): ParsedMetadata[] {
     } catch { /* A streamed response may still be incomplete. */ }
     return list;
   }
-  const regex = /<(?:metadata|motion_graphic)(\d+)?\b[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic)(?:\d+)?\s*>/gi;
+  const regex = /<(?:metadata|motion_graphic|overlay)(?:\[\d+\]|\d+)?[^>]*>([\s\S]*?)<\/(?:metadata|motion_graphic|overlay)(?:\[\d+\]|\d+)?\s*>/gi;
   let m;
   let idx = 1;
   while ((m = regex.exec(text)) !== null) {
-    const raw = m[2].trim();
-    if(raw.startsWith('{')) {
+    const raw = m[1].trim();
+    const tagMatch = m[0].match(/<(?:metadata|motion_graphic|overlay)(?:\[(\d+)\]|(\d+))?/i);
+    const tagNum = tagMatch ? (tagMatch[1] || tagMatch[2]) : undefined;
+    if (raw.startsWith('{')) {
       try {
-        const parsed=MotionScriptHint.safeParse(JSON.parse(raw));
-        if(parsed.success)list.push({index:Number(m[1])||idx++,scene:m[1],type:'motion',title:parsed.data.intent,raw,motionPlan:parsed.data});
+        const parsed = MotionScriptHint.safeParse(JSON.parse(raw));
+        if (parsed.success) list.push({ index: Number(tagNum) || idx++, scene: tagNum, type: 'motion', title: parsed.data.intent, raw, motionPlan: parsed.data });
       } catch { /* Leave malformed metadata visible in the original response. */ }
       continue;
     }
-    const typeMatch = raw.match(/Type:\s*([^\n]+)/i);
+    const templateMatch = raw.match(/(?:template|templateId):\s*([^\n]+)/i);
+    const typeMatch = raw.match(/type:\s*([^\n]+)/i);
     const sceneMatch = raw.match(/(?:Scene|#scene|#image)[:\s]+\s*([^\n]+)/i);
-    const titleMatch = raw.match(/Title:\s*([^\n]+)/i);
-    const detailMatch = raw.match(/Detail:\s*([^\n]+)/i);
-    const quoteMatch = raw.match(/Quote:\s*([^\n]+)/i);
+    const titleMatch = raw.match(/title:\s*([^\n]+)/i);
+    const labelMatch = raw.match(/label:\s*([^\n]+)/i);
+    const detailMatch = raw.match(/detail:\s*([^\n]+)/i);
+    const metricMatch = raw.match(/(?:metric|statValue|value):\s*([^\n]+)/i);
+    const unitMatch = raw.match(/(?:unit|statUnit):\s*([^\n]+)/i);
+    const quoteMatch = raw.match(/quote:\s*([^\n]+)/i);
+    const cueMatch = raw.match(/cue:\s*([^\n]+)/i);
     const assetPromptMatch = raw.match(/Asset\s*Prompt:\s*([\s\S]*?)(?=(?:\n[A-Z][a-z]+:|$))/i);
-    const whenMatch = raw.match(/(?:When|Timing|Cue):\s*([^\n]+)/i);
+    const whenMatch = raw.match(/(?:When|Timing):\s*([^\n]+)/i);
     const whereMatch = raw.match(/(?:Where|Position|Placement):\s*([^\n]+)/i);
     const visualMatch = raw.match(/(?:Visual|Concept|Style):\s*([^\n]+)/i);
-    const rawType = typeMatch ? typeMatch[1].trim() : 'dynamic_motion';
+
+    const templateName = templateMatch ? templateMatch[1].trim() : (typeMatch ? typeMatch[1].trim() : 'dynamic_motion');
+    const rawType = templateName;
     const typeKey = rawType.toLowerCase().replace(/[\s-]+/g, '_');
-    const titleVal = titleMatch ? titleMatch[1].trim() : '';
-    const detailVal = detailMatch ? detailMatch[1].trim() : (visualMatch ? visualMatch[1].trim() : '');
-    const sceneVal = sceneMatch ? sceneMatch[1].trim() : (m[1] || String(idx));
-    const quoteVal = quoteMatch ? quoteMatch[1].trim() : (whenMatch ? whenMatch[1].trim() : titleVal);
+    const titleVal = titleMatch ? titleMatch[1].trim() : (labelMatch ? labelMatch[1].trim() : '');
+    const detailVal = detailMatch ? detailMatch[1].trim() : (metricMatch ? (unitMatch ? `${metricMatch[1].trim()} ${unitMatch[1].trim()}` : metricMatch[1].trim()) : (visualMatch ? visualMatch[1].trim() : ''));
+    const sceneVal = sceneMatch ? sceneMatch[1].trim() : (tagNum || String(idx));
+    const quoteVal = quoteMatch ? quoteMatch[1].trim() : (cueMatch ? cueMatch[1].trim() : (whenMatch ? whenMatch[1].trim() : titleVal));
     const items = titleVal ? [{ text: titleVal, ...(detailVal ? { detail: detailVal } : {}) }] : [];
 
     const positionRaw = whereMatch ? whereMatch[1].trim().toLowerCase() : 'auto';
@@ -168,7 +177,7 @@ export function findMetadata(text: string): ParsedMetadata[] {
     } : undefined;
 
     list.push({
-      index: m[1] ? Number(m[1]) : idx++,
+      index: tagNum ? Number(tagNum) : idx++,
       type: rawType,
       scene: sceneVal,
       title: titleVal || undefined,
