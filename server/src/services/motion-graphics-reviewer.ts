@@ -215,7 +215,7 @@ export async function reviewAndFixMotionGraphics(
           {
             templateId,
             sceneIndex: sIdx,
-            title: graphic.title || 'KEY INTEL',
+            title: graphic.title || '',
             detail: graphic.detail,
             statValue: (graphic as any).statValue || graphic.detail,
             statUnit: (graphic as any).statUnit,
@@ -258,6 +258,7 @@ export async function reviewAndFixMotionGraphics(
     if (!fixedForScene) return sc;
 
     const overlay = {
+      source: 'reviewer',
       templateId: fixedForScene.type,
       type: fixedForScene.type,
       title: fixedForScene.title,
@@ -274,8 +275,7 @@ export async function reviewAndFixMotionGraphics(
     const sceneNum = sIdx + 1;
     const overlayBlock = `<overlay[${sceneNum}]>
 template: ${overlay.templateId}
-${overlay.metric ? `metric: ${overlay.metric}\n` : ''}label: ${overlay.label || 'KEY INTEL'}
-placement: ${overlay.placement}
+${overlay.metric ? `metric: ${overlay.metric}\n` : ''}${(overlay.label || overlay.title) ? `label: ${overlay.label || overlay.title}\n` : ''}placement: ${overlay.placement}
 cue: ${overlay.cuePhrase || sc.narration?.slice(0, 25) || ''}
 </overlay[${sceneNum}]>`;
 

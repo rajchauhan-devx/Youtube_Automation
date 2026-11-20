@@ -2,7 +2,7 @@ import { store } from './store.js';
 import { currentWorkspace } from './workspace.js';
 import { getGeminiApiKey, chat } from './gemini.js';
 import { parseSimpleTagPackage } from './simple-tag-package.js';
-import { compileMotionTemplate, resolveCanonicalTemplateId } from './dynamic-motion-engine.js';
+import { compileMotionTemplate, resolveCanonicalTemplateId, MOTION_TEMPLATE_CATALOG, deriveShortLabel } from './dynamic-motion-engine.js';
 import { reviewAndFixMotionGraphics } from './motion-graphics-reviewer.js';
 import type { DynamicMotionGraphicData } from '@tubeflow/editing-contracts';
 
@@ -79,68 +79,59 @@ export async function runMotionGraphicsDirector(
     throw new Error('Script does not contain readable scenes. Generate a preview script first.');
   }
 
+  // Decide FRESH from content every run: previous overlay hints/tags are output of an
+  // earlier pass and would otherwise lock every video into the same template sequence.
+  scenes = scenes.map((s: any) => {
+    const { motionGraphics: _ignored, ...rest } = s;
+    void _ignored;
+    return { ...rest };
+  });
+
   // 2. Perform Deep Director Re-Examination Pass with Gemini
   let directorPlan: { directorVision: string; upgrades: MotionDirectorSceneUpgrade[] } | null = null;
 
   if (effectiveKey) {
     try {
-      const sceneDescriptions = scenes.map((s, idx) => {
-        const existingMg = s.motionGraphics?.[0];
+      const sceneDescriptions = scenes.map((s: any, idx: number) => {
         return `SCENE ${idx + 1}:
 - Narration: "${s.narration}"
-- Visual Shot: "${s.imagePrompt || s.videoPrompt || ''}"
-- Current Overlay Hint: ${existingMg ? `template=${existingMg.templateId || existingMg.type}, label=${existingMg.label || existingMg.title}, metric=${existingMg.metric || existingMg.detail}` : 'None'}`;
+- Visual Shot: "${s.imagePrompt || s.videoPrompt || ''}"`;
       }).join('\n\n');
+
+      const catalog = MOTION_TEMPLATE_CATALOG.map(t => `- "${t.id}": ${t.look}`).join('\n');
 
       const systemPrompt = `You are the Master Motion Graphics & VFX Director (inspired by top-tier Vox, Lemmino, MagnatesMedia, and Apple Keynote presentations).
 You are conducting a thorough, deep-dive VISUAL RE-EXAMINATION of a completed video script and its scene beats.
 
 YOUR SOLE MISSION:
 1. ELIMINATE 100% OF BORING TEXT BOXES, TITLE CARDS, PARAGRAPH BLOCKS, AND LOWER THIRDS.
-2. EVERY OVERLAY MUST BE A PURE VISUAL VECTOR MOTION GRAPHIC.
-3. Overlays must NEVER cover the focal subject or caption zones. Use transparent vector graphics with glowing lines, dials, sweeps, waveforms, and badges.
-4. BREATHING ROOM: Not every scene needs a graphic! Scenes where visual footage should speak for itself MUST use "none". (Ideal density: 50% to 75% of scenes have a graphic).
+2. Overlays must NEVER cover the focal subject or caption zones. Use transparent vector graphics with glowing lines, dials, sweeps, and waveforms.
+3. MATCH CONTENT: the template must be justified by what is literally happening in the narration/visual shot of that scene (a voyage → route_trajectory; a vital-sign crisis → heartbeat_pulse; a percentage → circular_progress; a money figure → metric_ticker; a machine cutaway → temple_architecture; a decryption → matrix_rain).
+4. VARY: never use the same template on more than ~40% of scenes and never fall into a repeating sequence.
+5. BREATHING ROOM: scenes where the footage already tells the story get template "none". Target 50-75% of scenes carrying a graphic; the rest stay clean.
+6. MINIMAL TEXT: "label" is OPTIONAL and must be at most 3-4 words grounded in that scene's narration (an entity name, a place, or a metric). Omit "label" entirely when a pure visual works. NEVER invent generic labels like "KEY INTEL", "CORE EVIDENCE" or "BREAKING".
+7. "metric" (optional): a number+unit that actually appears in that scene's narration (e.g. "-40°C", "800 NM", "94%"). Omit when no number exists.
+8. "cue" must be an EXACT contiguous phrase copied from that scene's narration (max 12 words).
 
-SUPPORTED PURE VISUAL TEMPLATES (Pick the best match for each scene beat):
-- "particle_explosion": Energetic particle blast, shockwave ring & radiating embers. Ideal for climaxes, major impacts, breakthroughs, explosive reveals.
-- "liquid_wave": Fluid undulating sine wave liquid surge. Ideal for ocean voyages, fluid dynamics, tension surges.
-- "area_chart": Analytical area metric chart with gradient fill & reveal line. Ideal for survival curves, probability tracking, analytics.
-- "matrix_rain": Cascading digital rain cipher stream. Ideal for intelligence decrypts, digital espionage, codebreaking.
-- "bokeh_circles": Floating ethereal glowing orbs. Ideal for sacred reveals, wonder, atmospheric emotion.
-- "radar_compass": Naval / Polar / Tactical Radar Compass HUD with 360° rotating azimuth sweep and degree marks. Ideal for expeditions, survival navigation, tracking location.
-- "route_trajectory": Map trajectory route arc across distances (e.g. 800 NM, chariot path, flight trajectory).
-- "heartbeat_pulse": Oscilloscope EKG waveform pulse monitor with glowing lead dot and BPM telemetry. Ideal for crisis, tension, survival panic, polygraph stress.
-- "sound_wave": 32-bar audio equalizer / wiretap frequency spectrum. Ideal for radio distress, audio intercept, atmospheric suspense.
-- "circular_progress": 360° circular biometric survival gauge or speedometer dial with percentage / rate. Ideal for biometrics, odds, pressure, engine speed.
-- "verified_seal": Emerald / Royal Verified Seal with shockwave pulse ring (e.g. 0 Lost, Authenticated, Verified Case). Ideal for milestone resolutions and proof.
-- "victory_crest": Golden laurel victory crest with light flare or divine aura. Ideal for climax and triumph.
-- "sniper_lock": Tactical corner framing brackets snapping inward with crosshair reticle and rangefinder. Ideal for target context and subject lock.
-- "chakra_mandala": Rotating 12-spoke Vedic solar chakra mandala with sacred geometry rings. Ideal for Ancient Dharma divine reveals and cosmic yuga epochs.
-- "temple_architecture": 3D CAD wireframe blueprint with precision dimension callout (e.g. 14.2 mm). Ideal for engineering, mechanism explainer, architecture.
-- "magnifying_glass": Precision optical inspection loupe with realistic reflection glare. Ideal for forensic evidence, close-up inspection.
-- "redacted_stamp": Stamped classified / declassified archival stamp.
-- "none": Leave scene clean for pure footage.
+RENDERABLE TEMPLATE CATALOG (choose only from these ids):
+${catalog}
 
-CHANNEL IDENTITY: "${effectiveChannel}" (Profile: ${effectiveProfile})
-- Against the Odds: Focus on radar HUDs, route trajectory arcs, EKG pulse waves, survival gauges (94%), and emerald 0-lost seals.
-- Ancient Dharma: Focus on rotating chakra mandalas, sacred map paths, yuga timelines, divine weapon showcases, and golden victory crests.
-- Talvora: Focus on audio wiretap waveforms, heartbeat EKG pulse waves, noir loupes, and case file verified seals.
-- Curious Cutaways: Focus on 3D CAD blueprints, dimension callouts (14.2mm), flow dials, and cross-section tags.
+CHANNEL IDENTITY: "${effectiveChannel}" (Profile: ${effectiveProfile}) — bias template choices toward the channel's visual identity but never at the cost of content relevance.
 
-EXAMINE EVERY SCENE THOROUGHLY AND OUTPUT ONLY A VALID JSON OBJECT (no markdown outside the JSON):
+OUTPUT ONLY A VALID JSON OBJECT (no markdown outside the JSON):
 {
   "directorVision": "Multi-sentence artistic summary of the motion graphics direction for this video...",
   "upgrades": [
     {
       "sceneIndex": 0,
-      "template": "radar_compass",
-      "metric": "-40°C",
-      "unit": "C",
-      "label": "POLAR AZIMUTH // 78°S",
+      "template": "<template id from the catalog, or \"none\">",
+      "metric": "<optional number+unit copied from this scene's narration>",
+      "unit": "<optional unit>",
+      "label": "<optional 2-4 word label grounded in this scene's narration, or omit>",
       "placement": "top-right",
-      "cue": "exact phrase from scene narration",
-      "directorRationale": "Opens with immediate tactical stakes using a glowing naval radar HUD rather than a generic text title.",
-      "visualImpact": "Pure vector cyan HUD sweep with degree markers"
+      "cue": "<exact contiguous phrase copied from this scene's narration>",
+      "directorRationale": "Why this template serves this scene's story beat.",
+      "visualImpact": "What the viewer sees on screen."
     }
   ]
 }`;
@@ -192,15 +183,18 @@ EXAMINE EVERY SCENE THOROUGHLY AND OUTPUT ONLY A VALID JSON OBJECT (no markdown 
 
     const narration = scene.narration || '';
     const cleanCue = upgrade.cue || narration.slice(0, 30);
+    const label = typeof upgrade.label === 'string' ? upgrade.label.trim().slice(0, 40) : '';
+    const detail = upgrade.metric ? (upgrade.unit && !upgrade.metric.includes(upgrade.unit) ? `${upgrade.metric} ${upgrade.unit}`.trim() : upgrade.metric) : undefined;
 
     const sceneOverlay = {
+      source: 'director',
       templateId: canonicalTemplate,
       type: canonicalTemplate,
       metric: upgrade.metric,
       unit: upgrade.unit,
-      label: upgrade.label,
-      title: upgrade.label,
-      detail: upgrade.metric ? (upgrade.unit ? `${upgrade.metric} ${upgrade.unit}` : upgrade.metric) : undefined,
+      label: label || undefined,
+      title: label || undefined,
+      detail,
       placement: upgrade.placement || 'top-right',
       cuePhrase: cleanCue,
       cue: cleanCue,
@@ -215,9 +209,9 @@ EXAMINE EVERY SCENE THOROUGHLY AND OUTPUT ONLY A VALID JSON OBJECT (no markdown 
         {
           templateId: canonicalTemplate,
           sceneIndex: sIdx,
-          title: upgrade.label,
-          detail: sceneOverlay.detail || upgrade.label,
-          badge: upgrade.unit || (upgrade.metric ? `${upgrade.metric}` : undefined),
+          title: label,
+          detail,
+          badge: upgrade.unit || undefined,
           statValue: upgrade.metric,
           statUnit: upgrade.unit,
           placement: upgrade.placement as any,
@@ -261,8 +255,7 @@ EXAMINE EVERY SCENE THOROUGHLY AND OUTPUT ONLY A VALID JSON OBJECT (no markdown 
 
     const overlayBlock = `<overlay[${sceneNum}]>
 template: ${mg.templateId}
-${mg.metric ? `metric: ${mg.metric}\n` : ''}${mg.unit ? `unit: ${mg.unit}\n` : ''}label: ${mg.label || mg.title || 'KEY INTEL'}
-placement: ${mg.placement || 'top-right'}
+${mg.metric ? `metric: ${mg.metric}\n` : ''}${mg.unit ? `unit: ${mg.unit}\n` : ''}${(mg.label || mg.title) ? `label: ${mg.label || mg.title}\n` : ''}placement: ${mg.placement || 'top-right'}
 cue: ${mg.cuePhrase || sc.narration?.slice(0, 25) || ''}
 </overlay[${sceneNum}]>`;
 
@@ -339,8 +332,10 @@ cue: ${mg.cuePhrase || sc.narration?.slice(0, 25) || ''}
 }
 
 /**
- * Deterministic Heuristic Director Plan:
- * Guarantees high-impact visual graphics tailored to channel profiles even offline.
+ * Deterministic Heuristic Director Plan (offline fallback):
+ * Content-driven — matches templates to narration keywords, derives labels from
+ * the actual narration, and rotates through the full catalog with a stable
+ * per-script seed so different videos never share the same fixed sequence.
  */
 function generateHeuristicDirectorPlan(
   scenes: any[],
@@ -349,72 +344,106 @@ function generateHeuristicDirectorPlan(
 ): { directorVision: string; upgrades: MotionDirectorSceneUpgrade[] } {
   const upgrades: MotionDirectorSceneUpgrade[] = [];
 
-  const profileTemplates = {
-    against_the_odds: [
-      { template: 'radar_compass', label: 'POLAR AZIMUTH // 78°S', metric: '-40°C', unit: 'C', placement: 'top-right' },
-      { template: 'route_trajectory', label: 'DRIFT TRAJECTORY', metric: '800 NM', unit: 'NM', placement: 'top' },
-      { template: 'heartbeat_pulse', label: 'CRITICAL VITALS', metric: '148 BPM', unit: 'BPM', placement: 'center' },
-      { template: 'circular_progress', label: 'SURVIVAL MARGIN', metric: '6%', unit: '%', placement: 'top-right' },
-      { template: 'verified_seal', label: 'MISSION ACCOMPLISHED', metric: '0 LOST', unit: '', placement: 'center' },
-    ],
-    ancient_dharma: [
-      { template: 'chakra_mandala', label: 'अखण्ड साधना // कालचक्र', metric: '१४ वर्ष', unit: '', placement: 'center' },
-      { template: 'temple_architecture', label: 'नागर वास्तु शिल्प', metric: '१०८ दिशा', unit: '', placement: 'top-right' },
-      { template: 'historical_timeline', label: 'त्रेता युग कालक्रम', metric: 'त्रेता युग', unit: '', placement: 'bottom-right' },
-      { template: 'divine_weapon_showcase', label: 'दिव्यास्त्र // पिनाक', metric: 'अमोघ तेज', unit: '', placement: 'center' },
-      { template: 'victory_crest', label: 'सत्य सनातन विजय', metric: 'धर्म विजय', unit: '', placement: 'center' },
-    ],
-    talvora: [
-      { template: 'sound_wave', label: 'AUDIO INTERCEPT // FREQUENCY', metric: '42.8 kHz', unit: 'kHz', placement: 'top' },
-      { template: 'sniper_lock', label: 'SURVEILLANCE LOCK', metric: 'TARGET ACQUIRED', unit: '', placement: 'center' },
-      { template: 'heartbeat_pulse', label: 'POLYGRAPH // STRESS', metric: 'DECEPTION DETECTED', unit: '', placement: 'center' },
-      { template: 'magnifying_glass', label: 'FORENSIC EVIDENCE', metric: 'LATENT PRINT', unit: '', placement: 'center' },
-      { template: 'verified_seal', label: 'CASE CLOSED', metric: 'CONFIRMED', unit: '', placement: 'center' },
-    ],
-    blender_3d: [
-      { template: 'temple_architecture', label: '3D CAD WIREFRAME', metric: '14.2 mm', unit: 'mm', placement: 'top-right' },
-      { template: 'circular_progress', label: 'OSCILLATION SPEED', metric: '28,800 VPH', unit: 'VPH', placement: 'center' },
-      { template: 'route_trajectory', label: 'GEAR TOOTH AXIS', metric: '0.02 mm TOLERANCE', unit: '', placement: 'top' },
-      { template: 'gauge_needle', label: 'TORQUE / PRESSURE', metric: '8.4 Nm', unit: 'Nm', placement: 'top-right' },
-      { template: 'verified_seal', label: 'TOLERANCE VERIFIED', metric: 'PASSED', unit: '', placement: 'center' },
-    ]
+  // Channel-identity template pools — used as ordering preference, not as a fixed sequence.
+  const profilePools: Record<string, string[]> = {
+    against_the_odds: ['radar_compass', 'circular_progress', 'heartbeat_pulse', 'route_trajectory', 'sniper_lock', 'metric_ticker', 'verified_seal', 'alert_exclamation', 'gauge_needle', 'redacted_stamp'],
+    ancient_dharma: ['chakra_mandala', 'sanskrit_shloka_reveal', 'temple_architecture', 'historical_timeline', 'divine_weapon_showcase', 'victory_crest', 'ancient_scroll_unfurl', 'ancient_india_map', 'cosmic_universe_explainer', 'sacred_geometry_yantra'],
+    talvora: ['sound_wave', 'heartbeat_pulse', 'magnifying_glass', 'sniper_lock', 'redacted_stamp', 'verified_seal', 'question_mark', 'location_pin'],
+    blender_3d: ['temple_architecture', 'gauge_needle', 'circular_progress', 'metric_ticker', 'box_highlight', 'route_trajectory', 'verified_seal'],
+  };
+  const pool = profilePools[profile] || profilePools.against_the_odds;
+
+  // Narration-keyword → template affinities (checked before the profile pool).
+  const keywordAffinities: Array<[RegExp, string]> = [
+    [/(?:ship|voyage|ocean|sailed|crossed|route|march|journey|expedition|मार्ग|यात्रा)/i, 'route_trajectory'],
+    [/(?:heart|pulse|bpm|vitals|cardiac|panic|breath|दिल|धड़कन)/i, 'heartbeat_pulse'],
+    [/(?:\d+\s?%|percent|odds|probability|chance|margin|प्रतिशत)/i, 'circular_progress'],
+    [/(?:\$|%|\d{2,}|crore|million|billion|surge|price|cost|करोड़|लाख)/i, 'metric_ticker'],
+    [/(?:radar|navigate|compass|azimuth|bearing|coordinates|दिशा)/i, 'radar_compass'],
+    [/(?:temple|machine|engine|blueprint|structure|architecture|wireframe|मन्दिर|शिल्प)/i, 'temple_architecture'],
+    [/(?:timeline|era|epoch|century|years later|युग|कालक्रम)/i, 'historical_timeline'],
+    [/(?:secret|classified|hidden|declassified|rahasya|रहस्य|गुप्त)/i, 'redacted_stamp'],
+    [/(?:verified|proven|confirmed|authenticated|प्रमाणित)/i, 'verified_seal'],
+    [/(?:victory|triumph|won|defeated|conquer|विजय)/i, 'victory_crest'],
+    [/(?:exploded|blast|impact|crash|eruption|explosion|विस्फोट)/i, 'particle_explosion'],
+    [/(?:wave|flood|tsunami|liquid|water surge|बाढ़|लहर)/i, 'liquid_wave'],
+    [/(?:radio|signal|frequency|intercept|wiretap|संकेत)/i, 'sound_wave'],
+    [/(?:where|location|place|city|reached|स्थान|स्थल)/i, 'location_pin'],
+    [/(?:why|how|what|who|mystery|question|unknown|क्यों|कैसे)/i, 'question_mark'],
+    [/(?:manuscript|scripture|scroll|verse|shloka|mantra|श्लोक|पाण्डुलिपि)/i, 'ancient_scroll_unfurl'],
+    [/(?:deity|god|goddess|avatar|incarnation|revealed|देवी|अवतार)/i, 'divine_character_intro'],
+    [/(?:warn|danger|hazard|critical|risk|चेतावनी|खतरा)/i, 'alert_exclamation'],
+    [/(?:idea|realized|discovered|breakthrough|eureka|खोज)/i, 'idea_lightbulb'],
+    [/(?:chart|data|statistics|trend|graph|आँकड़े)/i, 'area_chart'],
+  ];
+
+  // Stable per-script rotation seed so each video gets a different sequence.
+  const joined = scenes.map((s) => s.narration || '').join('|').slice(0, 4000);
+  let seed = 5381;
+  for (let i = 0; i < joined.length; i++) seed = ((seed << 5) + seed + joined.charCodeAt(i)) >>> 0;
+
+  const usedCounts = new Map<string, number>();
+  let poolCursor = seed % pool.length;
+
+  const pickTemplate = (narration: string, i: number): string => {
+    for (const [pattern, template] of keywordAffinities) {
+      if (pattern.test(narration)) {
+        // Avoid hammering one affinity template on every matching scene
+        const count = usedCounts.get(template) || 0;
+        if (count < Math.max(2, Math.ceil(scenes.length / 4))) {
+          usedCounts.set(template, count + 1);
+          return template;
+        }
+        break;
+      }
+    }
+    const template = pool[Math.floor(poolCursor) % pool.length];
+    poolCursor += 1 + (seed % 3); // uneven stride breaks fixed cycles
+    return template;
   };
 
-  const pool = profileTemplates[profile as keyof typeof profileTemplates] || profileTemplates.against_the_odds;
+  const placements = ['top-right', 'top-left', 'top', 'center'] as const;
 
   for (let i = 0; i < scenes.length; i++) {
     const sc = scenes[i];
     const narration = sc.narration || '';
-    // Every 4th scene can be breathing room if scene count > 4
-    if (scenes.length > 4 && i % 4 === 3) {
+
+    // Breathing room: keep ~1/3 of later scenes clean when the video is long enough
+    if (scenes.length >= 4 && i % 3 === 2) {
       upgrades.push({
         sceneIndex: i,
         template: 'none',
-        label: 'BREATHING ROOM',
+        label: '',
         placement: 'center',
         cue: '',
-        directorRationale: 'Letting video footage breathe without overlay clutter.',
+        directorRationale: 'Letting the footage breathe without overlay clutter.',
         visualImpact: 'Clean footage'
       });
       continue;
     }
 
-    const tpl = pool[i % pool.length];
+    const template = i === 0
+      ? pool[seed % pool.length] // hook scene still comes from the channel pool
+      : pickTemplate(narration, i);
+    const metricMatch = narration.match(/[-+]?\d[\d,.]*\s?(?:°\s?[CF]|%|NM|km|kg|bpm|kHz|VPH|mm|crore|लाख|करोड़|वर्ष)?/i);
+    const metric = metricMatch ? metricMatch[0].trim() : '';
+    const label = deriveShortLabel(narration, 3) || '';
+
     upgrades.push({
       sceneIndex: i,
-      template: tpl.template,
-      metric: tpl.metric,
-      unit: tpl.unit,
-      label: tpl.label,
-      placement: tpl.placement as any,
+      template,
+      metric: metric || undefined,
+      unit: '',
+      label,
+      placement: placements[(i + seed) % placements.length] as any,
       cue: narration.slice(0, 25),
-      directorRationale: `Directed cinematic visual graphic for Scene ${i + 1} (${channel}). Zero text boxes.`,
-      visualImpact: `Vector ${tpl.template.replace(/_/g, ' ')} overlay`
+      directorRationale: `Content-matched visual graphic for Scene ${i + 1} (${channel}).`,
+      visualImpact: `Vector ${template.replace(/_/g, ' ')} overlay`
     });
   }
 
   return {
-    directorVision: `Heuristic Director vision for ${channel}: high-energy transparent vector overlays customized to scene cadence.`,
+    directorVision: `Heuristic Director vision for ${channel}: narration-matched transparent vector overlays with breathing room and minimal text.`,
     upgrades,
   };
 }

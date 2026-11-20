@@ -275,7 +275,9 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     const hasPopups = Boolean(currentScript?.extraPopups?.some((p: any) => p.status !== 'failed' && (p.title || p.cueWord)));
     const graphicsEnabled = currentScript?.autoPilotSettings?.graphics?.enabled !== false;
 
-    if (!currentScript?.editingProjectId && graphicsEnabled && (!hasDynamicGraphics || !hasPopups) && effectiveEditing?.enabled !== false) {
+    // Orchestrate only when graphics are missing. Re-running when popups are empty would
+    // resurrect the dark text cards the director wiped and re-roll already-directed graphics.
+    if (!currentScript?.editingProjectId && graphicsEnabled && !hasDynamicGraphics && effectiveEditing?.enabled !== false) {
       try {
         console.log(`[render] Auto-orchestrating motion graphics and popups for script ${scriptId}...`);
         await runTwoStepVerification({

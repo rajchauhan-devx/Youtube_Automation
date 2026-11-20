@@ -12,6 +12,7 @@ import {
   type ChannelMotionPolicyKey,
   type StyleKit,
 } from '@tubeflow/editing-contracts';
+import { chat } from './gemini.js';
 
 export interface SceneMotionInput {
   sceneIndex: number;
@@ -227,10 +228,10 @@ function renderThunderLightning(params: ProfileTemplateParams, kit: StyleKit, co
           <line x1="72" y1="405" x2="60" y2="425" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" class="dm-spark-3"/>
         </svg>
         <div class="dm-lightning-label">
-          <div class="dm-impact-badge">
+          ${badgeText ? `<div class="dm-impact-badge">
             <span class="dm-pulse-dot"></span>
             <span>⚡ ${escapeHtml(badgeText)}</span>
-          </div>
+          </div>` : ''}
           <div class="dm-impact-title">${escapeHtml(params.title)}</div>
           ${params.detail ? `<div class="dm-impact-detail">${escapeHtml(params.detail)}</div>` : ''}
         </div>
@@ -295,16 +296,16 @@ function renderHighlighter(params: ProfileTemplateParams, kit: StyleKit, contain
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'top', scale);
   const markerColor = kit.popup.accent || kit.theme.primary || '#FFD700';
-  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'मुख्य सूत्र' : 'KEY INTEL');
+  const badgeText = params.badge || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template highlighter-tool dm-3d-scene">
       <div class="dm-3d-card">
         <div class="dm-highlighter-wrapper">
-          <div class="dm-hl-badge">
+          ${badgeText ? `<div class="dm-hl-badge">
             <span class="dm-pulse-dot"></span>
             <span>🖊️ ${escapeHtml(badgeText)}</span>
-          </div>
+          </div>` : ''}
           <div class="dm-hl-line-container">
             <div class="dm-hl-fill">
               <!-- Animated glint reflection sweep -->
@@ -485,10 +486,10 @@ function renderCircleCallout(params: ProfileTemplateParams, kit: StyleKit, conta
           <line x1="132" y1="120" x2="138" y2="120" stroke="${circleColor}" stroke-width="2"/>
         </svg>
         <div class="dm-circle-label">
-          <div class="dm-circ-badge">
+          ${badgeText ? `<div class="dm-circ-badge">
             <span class="dm-pulse-dot"></span>
             <span>⭕ ${escapeHtml(badgeText)}</span>
-          </div>
+          </div>` : ''}
           <div class="dm-circ-title">${escapeHtml(params.title)}</div>
           ${params.detail ? `<div class="dm-circ-detail">${escapeHtml(params.detail)}</div>` : ''}
         </div>
@@ -536,7 +537,7 @@ function renderSniperLock(params: ProfileTemplateParams, kit: StyleKit, containe
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const lockColor = kit.theme.primary || '#00F0FF';
-  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'सुदर्शन चक्र' : 'TARGET LOCKED');
+  const badgeText = params.badge || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template sniper-lock dm-3d-scene">
@@ -567,10 +568,10 @@ function renderSniperLock(params: ProfileTemplateParams, kit: StyleKit, containe
           <line x1="150" y1="130" x2="175" y2="130" stroke="#FFFFFF" stroke-width="2"/>
         </svg>
         <div class="dm-hud-label">
-          <div class="dm-hud-badge">
+          ${badgeText ? `<div class="dm-hud-badge">
             <span class="dm-blink-dot"></span>
             <span>🎯 ${escapeHtml(badgeText)}</span>
-          </div>
+          </div>` : ''}
           <div class="dm-hud-title">${escapeHtml(params.title)}</div>
           ${params.detail ? `<div class="dm-hud-detail">${escapeHtml(params.detail)}</div>` : ''}
         </div>
@@ -618,7 +619,7 @@ function renderMagnifyingGlass(params: ProfileTemplateParams, kit: StyleKit, con
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const rimColor = kit.theme.primary || '#FFD700';
-  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'प्राचीन ग्रंथ' : 'INSPECT EVIDENCE');
+  const badgeText = params.badge || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template magnifying-glass dm-3d-scene">
@@ -657,10 +658,10 @@ function renderMagnifyingGlass(params: ProfileTemplateParams, kit: StyleKit, con
           <path d="M 65,85 C 80,65 145,65 160,85 C 150,75 90,75 65,85 Z" fill="#FFFFFF" opacity="0.65" class="dm-glass-glare"/>
         </svg>
         <div class="dm-glass-label">
-          <div class="dm-glass-badge">
+          ${badgeText ? `<div class="dm-glass-badge">
             <span class="dm-pulse-dot"></span>
             <span>🔎 ${escapeHtml(badgeText)}</span>
-          </div>
+          </div>` : ''}
           <div class="dm-glass-title">${escapeHtml(params.title)}</div>
           ${params.detail ? `<div class="dm-glass-detail">${escapeHtml(params.detail)}</div>` : ''}
         </div>
@@ -714,7 +715,7 @@ function renderRedactedStamp(params: ProfileTemplateParams, kit: StyleKit, conta
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const stampColor = kit.popup.accent || kit.theme.primary || '#EF4444';
-  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'सत्यमेव जयते' : 'CLASSIFIED');
+  const badgeText = params.badge || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template redacted-stamp dm-3d-scene">
@@ -723,7 +724,7 @@ function renderRedactedStamp(params: ProfileTemplateParams, kit: StyleKit, conta
         <div class="dm-stamp-dust-ring"></div>
         <div class="dm-stamp-box">
           <div class="dm-stamp-inner-border">
-            <div class="dm-stamp-badge">★ ${escapeHtml(badgeText)} ★</div>
+            ${badgeText ? `<div class="dm-stamp-badge">★ ${escapeHtml(badgeText)} ★</div>` : ''}
             <div class="dm-stamp-title">${escapeHtml(params.title)}</div>
             ${params.detail ? `<div class="dm-stamp-detail">${escapeHtml(params.detail)}</div>` : ''}
           </div>
@@ -780,16 +781,16 @@ function renderMetricTicker(params: ProfileTemplateParams, kit: StyleKit, contai
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'top', scale);
   const tickerColor = kit.popup.accent || kit.theme.primary || '#10B981';
-  const badgeText = params.badge || (kit.key === 'ancient_dharma' ? 'कर्म चक्र' : 'CRITICAL METRIC');
+  const badgeText = params.badge || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template metric-ticker dm-3d-scene">
       <div class="dm-3d-card">
         <div class="dm-ticker-wrapper">
-          <div class="dm-ticker-badge">
+          ${badgeText ? `<div class="dm-ticker-badge">
             <span class="dm-pulse-dot"></span>
             <span>📊 ${escapeHtml(badgeText)}</span>
-          </div>
+          </div>` : ''}
           <div class="dm-ticker-number-box">
             <span class="dm-ticker-delta">▲ SURGE</span>
             <div class="dm-ticker-value">${escapeHtml(params.title)}</div>
@@ -1009,10 +1010,10 @@ function renderQuestionMark(params: ProfileTemplateParams, kit: StyleKit, contai
             </svg>
           </div>
           <div class="dm-qmark-label">
-            <div class="dm-qmark-badge">
+            ${badgeText ? `<div class="dm-qmark-badge">
               <span class="dm-pulse-dot"></span>
               <span>❓ ${escapeHtml(badgeText)}</span>
-            </div>
+            </div>` : ''}
             <div class="dm-qmark-title">${escapeHtml(params.title)}</div>
             ${params.detail ? `<div class="dm-qmark-detail">${escapeHtml(params.detail)}</div>` : ''}
           </div>
@@ -1827,10 +1828,10 @@ function renderDivineCharacterIntro(params: ProfileTemplateParams, kit: StyleKit
 
         <!-- Pure Floating Character Info (CARD-FREE) -->
         <div class="dm-character-card">
-          <div class="dm-char-badge">
+          ${badgeText ? `<div class="dm-char-badge">
             <span class="dm-pulse-dot"></span>
             <span>⚡ ${escapeHtml(badgeText)}</span>
-          </div>
+          </div>` : ''}
           <div class="dm-char-title">${escapeHtml(params.title || 'भगवान परशुराम')}</div>
         </div>
       </div>
@@ -2635,8 +2636,8 @@ function renderRadarCompass(params: ProfileTemplateParams, kit: StyleKit, contai
   const posCss = computePlacementStyles(params.placement || 'top', scale);
   const color = kit.theme.primary || '#00E5FF';
   const accent = kit.theme.accent || '#FACC15';
-  const labelText = params.title || params.badge || 'NAVAL RADAR // AZIMUTH';
-  const metricText = params.detail || params.statValue || '68°S 52°W';
+  const labelText = params.title || params.badge || '';
+  const metricText = params.detail || params.statValue || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template radar-compass dm-3d-scene">
@@ -2665,10 +2666,10 @@ function renderRadarCompass(params: ProfileTemplateParams, kit: StyleKit, contai
           <text x="140" y="266" text-anchor="middle" fill="${color}" font-family="monospace" font-size="10" font-weight="bold">180° S</text>
           <text x="24" y="144" text-anchor="middle" fill="${color}" font-family="monospace" font-size="10" font-weight="bold">270°</text>
         </svg>
-        <div class="dm-radar-label">
-          <span style="color:${color}; font-family:monospace; font-size:12px; font-weight:800; letter-spacing:0.18em; text-transform:uppercase;">● ${escapeHtml(labelText)}</span>
+        ${labelText || metricText ? `<div class="dm-radar-label">
+          ${labelText ? `<span style="color:${color}; font-family:monospace; font-size:12px; font-weight:800; letter-spacing:0.18em; text-transform:uppercase;">● ${escapeHtml(labelText)}</span>` : ''}
           ${metricText ? `<div style="color:${accent}; font-family:monospace; font-size:11px; margin-top:2px;">${escapeHtml(metricText)}</div>` : ''}
-        </div>
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -2699,9 +2700,9 @@ function renderRouteTrajectory(params: ProfileTemplateParams, kit: StyleKit, con
   const posCss = computePlacementStyles(params.placement || 'bottom', scale);
   const color = kit.theme.primary || '#FACC15';
   const accent = kit.theme.accent || '#00E5FF';
-  const labelText = params.title || 'OPEN-OCEAN TRAJECTORY';
-  const distVal = params.statValue || params.detail || '800';
-  const distUnit = params.statUnit || 'NAUTICAL MILES';
+  const labelText = params.title || '';
+  const distVal = params.statValue || params.detail || '';
+  const distUnit = params.statUnit || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template route-trajectory dm-3d-scene">
@@ -2722,10 +2723,10 @@ function renderRouteTrajectory(params: ProfileTemplateParams, kit: StyleKit, con
             <polygon points="0,-10 18,0 0,10 4,0" fill="${color}" />
           </g>
         </svg>
-        <div class="dm-route-pill" style="display:inline-flex; align-items:center; gap:8px; background:rgba(12,14,20,0.85); border:1.5px solid ${color}; border-radius:999px; padding:6px 18px; margin-top:-10px; box-shadow:0 0 16px ${color}66;">
+        ${distVal ? `<div class="dm-route-pill" style="display:inline-flex; align-items:center; gap:8px; background:rgba(12,14,20,0.85); border:1.5px solid ${color}; border-radius:999px; padding:6px 18px; margin-top:-10px; box-shadow:0 0 16px ${color}66;">
           <span style="color:#FFFFFF; font-size:16px; font-weight:900; letter-spacing:0.05em;">${escapeHtml(distVal)} <span style="color:${color}; font-size:13px;">${escapeHtml(distUnit)}</span></span>
-        </div>
-        <div style="color:${accent}; font-family:monospace; font-size:11px; font-weight:700; margin-top:4px; text-shadow:0 0 8px ${accent};">${escapeHtml(labelText)}</div>
+        </div>` : ''}
+        ${labelText ? `<div style="color:${accent}; font-family:monospace; font-size:11px; font-weight:700; margin-top:4px; text-shadow:0 0 8px ${accent};">${escapeHtml(labelText)}</div>` : ''}
       </div>
     </div>
   `;
@@ -2749,8 +2750,8 @@ function renderSoundWave(params: ProfileTemplateParams, kit: StyleKit, container
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'bottom', scale);
   const color = kit.theme.accent || '#FF9900';
-  const labelText = params.title || 'AUDIO TELEMETRY';
-  const detailText = params.detail || params.statValue || 'RADIO FREQ: 500 kHz';
+  const labelText = params.title || '';
+  const detailText = params.detail || params.statValue || '';
 
   const bars = [20, 35, 55, 75, 100, 65, 45, 85, 115, 95, 70, 50, 80, 110, 120, 95, 60, 90, 115, 105, 75, 40, 65, 95];
 
@@ -2771,10 +2772,10 @@ function renderSoundWave(params: ProfileTemplateParams, kit: StyleKit, container
           }).join('')}
           <line x1="10" y1="105" x2="370" y2="105" stroke="${color}" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.6" />
         </svg>
-        <div style="display:flex; gap:12px; font-family:monospace; font-size:11px; color:${color}; font-weight:800; letter-spacing:0.12em; text-shadow:0 0 8px ${color}; margin-top:2px;">
-          <span>📻 ${escapeHtml(labelText)}</span>
-          <span style="opacity:0.8;">${escapeHtml(detailText)}</span>
-        </div>
+        ${labelText || detailText ? `<div style="display:flex; gap:12px; font-family:monospace; font-size:11px; color:${color}; font-weight:800; letter-spacing:0.12em; text-shadow:0 0 8px ${color}; margin-top:2px;">
+          ${labelText ? `<span>📻 ${escapeHtml(labelText)}</span>` : ''}
+          ${detailText ? `<span style="opacity:0.8;">${escapeHtml(detailText)}</span>` : ''}
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -2803,9 +2804,9 @@ function renderCircularProgress(params: ProfileTemplateParams, kit: StyleKit, co
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const color = kit.theme.primary || '#00E5FF';
   const accent = kit.theme.accent || '#FACC15';
-  const rawVal = params.statValue || params.detail || '94';
-  const numVal = parseInt(rawVal.replace(/\D/g, ''), 10) || 94;
-  const labelText = params.title || 'SURVIVAL PROBABILITY';
+  const rawVal = params.statValue || params.detail || '';
+  const numVal = parseInt(rawVal.replace(/\D/g, ''), 10) || 100;
+  const labelText = params.title || '';
 
   const circ = 471.2;
   const offset = circ - (circ * Math.min(100, Math.max(0, numVal))) / 100;
@@ -2822,12 +2823,13 @@ function renderCircularProgress(params: ProfileTemplateParams, kit: StyleKit, co
           </defs>
           <circle cx="110" cy="110" r="75" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="12" />
           <circle cx="110" cy="110" r="75" fill="none" stroke="url(#${containerId}-circGrad)" stroke-width="12" stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round" transform="rotate(-90 110 110)" class="dm-circ-bar" />
-          <text x="110" y="112" text-anchor="middle" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="44" font-weight="900" letter-spacing="-1">
+          ${rawVal ? `<text x="110" y="112" text-anchor="middle" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="44" font-weight="900" letter-spacing="-1">
             ${numVal}<tspan fill="${accent}" font-size="24">%</tspan>
-          </text>
+          </text>` : ''}
+          ${labelText ? `
           <text x="110" y="136" text-anchor="middle" fill="${color}" font-family="monospace" font-size="9" font-weight="bold" letter-spacing="2">
             ${escapeHtml(labelText)}
-          </text>
+          </text>` : ''}
         </svg>
       </div>
     </div>
@@ -2852,8 +2854,8 @@ function renderVerifiedSeal(params: ProfileTemplateParams, kit: StyleKit, contai
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'bottom', scale);
   const color = '#10B981';
-  const labelText = params.title || 'MISSION VERIFIED';
-  const detailText = params.detail || params.statValue || 'ZERO CASUALTIES';
+  const labelText = params.title || '';
+  const detailText = params.detail || params.statValue || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template verified-seal dm-3d-scene">
@@ -2863,9 +2865,9 @@ function renderVerifiedSeal(params: ProfileTemplateParams, kit: StyleKit, contai
           <circle cx="100" cy="100" r="75" fill="rgba(6, 78, 59, 0.75)" stroke="${color}" stroke-width="4" />
           <path d="M 70 100 L 90 120 L 135 75" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" class="dm-seal-check" />
         </svg>
-        <div style="display:inline-block; background:rgba(16,185,129,0.25); border:1.5px solid ${color}; padding:4px 16px; border-radius:999px; color:#FFFFFF; font-size:13px; font-weight:800; letter-spacing:0.05em; margin-top:-6px; text-shadow:0 0 8px ${color};">
-          ${escapeHtml(labelText)} // ${escapeHtml(detailText)}
-        </div>
+        ${labelText || detailText ? `<div style="display:inline-block; background:rgba(16,185,129,0.25); border:1.5px solid ${color}; padding:4px 16px; border-radius:999px; color:#FFFFFF; font-size:13px; font-weight:800; letter-spacing:0.05em; margin-top:-6px; text-shadow:0 0 8px ${color};">
+          ${[labelText, detailText].filter(Boolean).map(t => escapeHtml(t)).join(' // ')}
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -2893,8 +2895,8 @@ function renderVictoryCrest(params: ProfileTemplateParams, kit: StyleKit, contai
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'bottom', scale);
   const color = kit.theme.primary || '#FACC15';
-  const labelText = params.title || 'NOT A SINGLE LIFE LOST';
-  const detailText = params.detail || params.statValue || '✦ 100% SURVIVAL ✦';
+  const labelText = params.title || '';
+  const detailText = params.detail || params.statValue || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template victory-crest dm-3d-scene">
@@ -2924,12 +2926,12 @@ function renderVictoryCrest(params: ProfileTemplateParams, kit: StyleKit, contai
           <line x1="20" y1="105" x2="240" y2="105" stroke="${color}" stroke-width="2" />
           <circle cx="130" cy="105" r="3" fill="#FFFFFF" />
         </svg>
-        <div style="color:#FFFFFF; font-size:18px; font-weight:900; letter-spacing:-0.02em; text-shadow:0 0 14px ${color}; margin-top:2px;">
+        ${labelText ? `<div style="color:#FFFFFF; font-size:18px; font-weight:900; letter-spacing:-0.02em; text-shadow:0 0 14px ${color}; margin-top:2px;">
           ${escapeHtml(labelText)}
-        </div>
-        <div style="color:${color}; font-family:monospace; font-size:11px; font-weight:800; letter-spacing:0.2em; margin-top:2px;">
+        </div>` : ''}
+        ${detailText ? `<div style="color:${color}; font-family:monospace; font-size:11px; font-weight:800; letter-spacing:0.2em; margin-top:2px;">
           ${escapeHtml(detailText)}
-        </div>
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -2999,8 +3001,8 @@ function renderHeartbeatPulse(params: ProfileTemplateParams, kit: StyleKit, cont
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const color = kit.theme.accent || kit.theme.primary || '#10B981';
-  const labelText = params.title || params.badge || 'EKG // VITALS MONITOR';
-  const metricText = params.detail || params.statValue || '142 BPM';
+  const labelText = params.title || params.badge || '';
+  const metricText = params.detail || params.statValue || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template heartbeat-pulse dm-3d-scene">
@@ -3030,10 +3032,10 @@ function renderHeartbeatPulse(params: ProfileTemplateParams, kit: StyleKit, cont
           <!-- Glowing Pulse Lead Head -->
           <circle cx="140" cy="25" r="4.5" fill="#FFFFFF" filter="url(#${containerId}-ekgGlow)" class="dm-ekg-dot" />
         </svg>
-        <div class="dm-ekg-telemetry" style="display:flex; align-items:center; justify-content:space-between; width:260px; margin-top:6px;">
-          <span style="color:${color}; font-family:monospace; font-size:11px; font-weight:800; letter-spacing:0.16em;">● ${escapeHtml(labelText)}</span>
-          <span style="color:#FFFFFF; font-family:monospace; font-size:13px; font-weight:900; background:rgba(0,0,0,0.5); padding:1px 6px; border-radius:4px; border:1px solid ${color};">${escapeHtml(metricText)}</span>
-        </div>
+        ${labelText || metricText ? `<div class="dm-ekg-telemetry" style="display:flex; align-items:center; justify-content:space-between; width:260px; margin-top:6px;">
+          ${labelText ? `<span style="color:${color}; font-family:monospace; font-size:11px; font-weight:800; letter-spacing:0.16em;">● ${escapeHtml(labelText)}</span>` : ''}
+          ${metricText ? `<span style="color:#FFFFFF; font-family:monospace; font-size:13px; font-weight:900; background:rgba(0,0,0,0.5); padding:1px 6px; border-radius:4px; border:1px solid ${color};">${escapeHtml(metricText)}</span>` : ''}
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -3068,8 +3070,8 @@ function renderChakraMandala(params: ProfileTemplateParams, kit: StyleKit, conta
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const gold = kit.theme.primary || '#F59E0B';
   const accent = kit.theme.accent || '#FDE68A';
-  const labelText = params.title || 'कालचक्र // COSMIC YUGA';
-  const detailText = params.detail || 'SACRED SOLAR ALIGNMENT';
+  const labelText = params.title || '';
+  const detailText = params.detail || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template chakra-mandala dm-3d-scene">
@@ -3114,10 +3116,10 @@ function renderChakraMandala(params: ProfileTemplateParams, kit: StyleKit, conta
           <circle cx="150" cy="150" r="16" fill="${gold}" />
           <circle cx="150" cy="150" r="8" fill="#FFFFFF" />
         </svg>
-        <div class="dm-chakra-label" style="text-align:center; margin-top:8px;">
-          <div style="color:${gold}; font-family:${kit.theme.fontFamily}; font-size:16px; font-weight:900; letter-spacing:0.12em; text-shadow:0 0 16px ${gold};">${escapeHtml(labelText)}</div>
+        ${labelText || detailText ? `<div class="dm-chakra-label" style="text-align:center; margin-top:8px;">
+          ${labelText ? `<div style="color:${gold}; font-family:${kit.theme.fontFamily}; font-size:16px; font-weight:900; letter-spacing:0.12em; text-shadow:0 0 16px ${gold};">${escapeHtml(labelText)}</div>` : ''}
           ${detailText ? `<div style="color:${accent}; font-family:${kit.theme.fontFamily}; font-size:11px; margin-top:2px; font-weight:700;">${escapeHtml(detailText)}</div>` : ''}
-        </div>
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -3151,7 +3153,7 @@ function renderParticleExplosion(params: ProfileTemplateParams, kit: StyleKit, c
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const color = kit.theme.primary || '#FFD700';
   const accent = kit.theme.accent || '#FF6B00';
-  const titleText = params.title || 'CRITICAL IMPACT';
+  const titleText = params.title || '';
   const detailText = params.detail || params.statValue || '';
 
   const particles = Array.from({ length: 36 }).map((_, i) => {
@@ -3181,7 +3183,7 @@ function renderParticleExplosion(params: ProfileTemplateParams, kit: StyleKit, c
           </g>
         </svg>
         <div style="text-align:center; margin-top:-18px; text-shadow:0 2px 10px rgba(0,0,0,0.95), 0 0 4px #000;">
-          <div style="font-family:${kit.theme.fontFamily}; font-size:16px; font-weight:900; color:#FFFFFF; letter-spacing:0.04em;">${escapeHtml(titleText)}</div>
+          ${titleText ? `<div style="font-family:${kit.theme.fontFamily}; font-size:16px; font-weight:900; color:#FFFFFF; letter-spacing:0.04em;">${escapeHtml(titleText)}</div>` : ''}
           ${detailText ? `<div style="font-family:monospace; font-size:11px; font-weight:800; color:${color}; margin-top:2px;">${escapeHtml(detailText)}</div>` : ''}
         </div>
       </div>
@@ -3220,8 +3222,8 @@ function renderLiquidWave(params: ProfileTemplateParams, kit: StyleKit, containe
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'bottom', scale);
   const color = kit.theme.accent || kit.theme.primary || '#00E5FF';
-  const labelText = params.title || 'SURGE INTENSITY';
-  const detailText = params.detail || params.statValue || 'MAX WAVE FREQUENCY';
+  const labelText = params.title || '';
+  const detailText = params.detail || params.statValue || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template liquid-wave dm-3d-scene">
@@ -3236,9 +3238,9 @@ function renderLiquidWave(params: ProfileTemplateParams, kit: StyleKit, containe
           <path d="M 0 60 Q 50 20 100 60 T 200 60 T 300 60 T 400 60 L 400 120 L 0 120 Z" fill="url(#${containerId}-waveGrad)" class="dm-wave-body dm-wave-1" />
           <path d="M 0 60 Q 50 20 100 60 T 200 60 T 300 60 T 400 60" fill="none" stroke="${color}" stroke-width="3" filter="drop-shadow(0 0 8px ${color})" class="dm-wave-crest" />
         </svg>
-        <div style="font-family:monospace; font-size:11px; font-weight:800; color:${color}; letter-spacing:0.12em; text-shadow:0 0 8px ${color}; margin-top:2px;">
-          🌊 ${escapeHtml(labelText)} // ${escapeHtml(detailText)}
-        </div>
+        ${labelText || detailText ? `<div style="font-family:monospace; font-size:11px; font-weight:800; color:${color}; letter-spacing:0.12em; text-shadow:0 0 8px ${color}; margin-top:2px;">
+          🌊 ${[labelText, detailText].filter(Boolean).map(t => escapeHtml(t)).join(' // ')}
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -3268,8 +3270,8 @@ function renderAreaChart(params: ProfileTemplateParams, kit: StyleKit, container
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const color = kit.theme.primary || '#00E5FF';
   const accent = kit.theme.accent || '#FACC15';
-  const labelText = params.title || 'GROWTH METRIC TRAJECTORY';
-  const val = params.statValue || params.detail || '+284%';
+  const labelText = params.title || '';
+  const val = params.statValue || params.detail || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template area-chart dm-3d-scene">
@@ -3292,10 +3294,10 @@ function renderAreaChart(params: ProfileTemplateParams, kit: StyleKit, container
           <!-- Target pulse node -->
           <circle cx="320" cy="20" r="5" fill="#FFFFFF" stroke="${accent}" stroke-width="3" class="dm-area-target" />
         </svg>
-        <div style="display:flex; justify-content:space-between; width:92%; font-family:monospace; font-size:11px; font-weight:800; color:${color}; letter-spacing:0.12em; text-shadow:0 0 8px ${color}; margin-top:2px;">
-          <span>📊 ${escapeHtml(labelText)}</span>
-          <span style="color:${accent}; font-weight:900;">${escapeHtml(val)}</span>
-        </div>
+        ${labelText || val ? `<div style="display:flex; justify-content:space-between; width:92%; font-family:monospace; font-size:11px; font-weight:800; color:${color}; letter-spacing:0.12em; text-shadow:0 0 8px ${color}; margin-top:2px;">
+          ${labelText ? `<span>📊 ${escapeHtml(labelText)}</span>` : '<span></span>'}
+          ${val ? `<span style="color:${accent}; font-weight:900;">${escapeHtml(val)}</span>` : ''}
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -3324,8 +3326,8 @@ function renderMatrixRain(params: ProfileTemplateParams, kit: StyleKit, containe
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const color = '#10B981';
-  const labelText = params.title || 'SYSTEM DATA DECRYPT';
-  const detailText = params.detail || params.statValue || 'STREAM PROTOCOL ACTIVE';
+  const labelText = params.title || '';
+  const detailText = params.detail || params.statValue || '';
 
   const chars = ['0', '1', 'A', '7', 'X', '9', 'Ф', '3', '8', 'Z', '5', 'Ω'];
   const columns = Array.from({ length: 8 }).map((_, colIdx) => {
@@ -3353,9 +3355,9 @@ function renderMatrixRain(params: ProfileTemplateParams, kit: StyleKit, containe
             ${columns}
           </g>
         </svg>
-        <div style="font-family:monospace; font-size:11px; font-weight:800; color:${color}; letter-spacing:0.14em; text-shadow:0 0 8px ${color}; margin-top:2px;">
-          ⚡ ${escapeHtml(labelText)} // ${escapeHtml(detailText)}
-        </div>
+        ${labelText || detailText ? `<div style="font-family:monospace; font-size:11px; font-weight:800; color:${color}; letter-spacing:0.14em; text-shadow:0 0 8px ${color}; margin-top:2px;">
+          ⚡ ${[labelText, detailText].filter(Boolean).map(t => escapeHtml(t)).join(' // ')}
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -3384,7 +3386,7 @@ function renderBokehCircles(params: ProfileTemplateParams, kit: StyleKit, contai
   const scale = resolveScale(params.size);
   const posCss = computePlacementStyles(params.placement || 'center', scale);
   const color = kit.theme.primary || '#FFD700';
-  const labelText = params.title || 'ETHEREAL ATMOSPHERE';
+  const labelText = params.title || '';
 
   const html = `
     <div id="${containerId}" class="profile-motion-template bokeh-circles dm-3d-scene">
@@ -3401,9 +3403,9 @@ function renderBokehCircles(params: ProfileTemplateParams, kit: StyleKit, contai
           <circle cx="200" cy="110" r="55" fill="url(#${containerId}-bokehGrad)" class="dm-orb dm-orb-2" />
           <circle cx="140" cy="60" r="30" fill="url(#${containerId}-bokehGrad)" class="dm-orb dm-orb-3" />
         </svg>
-        <div style="font-family:${kit.theme.fontFamily}; font-size:14px; font-weight:800; color:#FFFFFF; letter-spacing:0.08em; text-shadow:0 0 10px ${color};">
+        ${labelText ? `<div style="font-family:${kit.theme.fontFamily}; font-size:14px; font-weight:800; color:#FFFFFF; letter-spacing:0.08em; text-shadow:0 0 10px ${color};">
           ✦ ${escapeHtml(labelText)} ✦
-        </div>
+        </div>` : ''}
       </div>
     </div>
   `;
@@ -3975,6 +3977,7 @@ export function decideTemplateMotionGraphics(
   const hookTemplate = getProfileHookTemplate(profileKey);
 
   const graphics: DynamicMotionGraphicData[] = [];
+  let lastChosenTemplate = '';
 
   for (let i = 0; i < scenes.length; i++) {
     const scene = scenes[i];
@@ -3984,27 +3987,33 @@ export function decideTemplateMotionGraphics(
 
     const isHindi = scenes.some((s) => /[\u0900-\u097F]/.test(s.narration));
 
-    // Scene 0: ALWAYS use the Profile Hook Attention Extractor (unless explicit overlay given)!
+    // Hints written back by a previous director/reviewer pass are stale output of an
+    // earlier decision — ignore them so every orchestration decides fresh from content.
+    const usableHint = (scene.motionGraphics || []).find((h: any) => h &&
+      !['director', 'reviewer'].includes(String(h.source || '')) && !h.reviewedSafe) as any;
+
+    // Scene 0: Profile Hook Attention Extractor (unless a usable overlay hint says otherwise)
     if (i === 0) {
-      const plannedMotion = scene.motionGraphics?.[0];
+      const plannedMotion = usableHint;
       if (plannedMotion) {
         const expId = String(plannedMotion.templateId || plannedMotion.type || '').toLowerCase();
         if (expId === 'none' || expId === 'skip') {
           continue;
         }
       }
-      let hookTitle = scene.title || plannedMotion?.title || (isHindi ? 'दिव्य रहस्य' : 'DIVINE MYSTERY');
-      let hookDetail = scene.detail || plannedMotion?.detail || (isHindi ? 'सनातन महागाथा — आदि रामायण' : 'The Sacred Ancient Chronicle');
+      const hookDerived = deriveShortLabel(narration, 4);
+      let hookTitle = scene.title || plannedMotion?.title || hookDerived || (isHindi ? 'दिव्य रहस्य' : 'THE UNTOLD STORY');
+      let hookDetail = scene.detail || plannedMotion?.detail || '';
       let hookId = (plannedMotion?.templateId || plannedMotion?.type) || hookTemplate.id;
       if (profileKey === 'against_the_odds') {
-        hookTitle = scene.title || plannedMotion?.title || 'SURVIVAL HOOK';
-        hookDetail = scene.detail || plannedMotion?.detail || 'AGAINST ALL ODDS // ZERO MARGIN';
+        hookTitle = scene.title || plannedMotion?.title || hookDerived || 'SURVIVAL HOOK';
+        hookDetail = scene.detail || plannedMotion?.detail || '';
       } else if (profileKey === 'talvora') {
-        hookTitle = scene.title || plannedMotion?.title || 'MIDNIGHT ENCOUNTER';
-        hookDetail = scene.detail || plannedMotion?.detail || 'A CHANCE MEETING // TURNING POINT';
+        hookTitle = scene.title || plannedMotion?.title || hookDerived || 'MIDNIGHT ENCOUNTER';
+        hookDetail = scene.detail || plannedMotion?.detail || '';
       } else if (profileKey === 'documentary_standard') {
-        hookTitle = scene.title || plannedMotion?.title || 'THE UNTOLD STORY';
-        hookDetail = scene.detail || plannedMotion?.detail || 'DECLASSIFIED ARCHIVES';
+        hookTitle = scene.title || plannedMotion?.title || hookDerived || 'THE UNTOLD STORY';
+        hookDetail = scene.detail || plannedMotion?.detail || '';
       }
 
       if (!scene.title && !plannedMotion?.title) {
@@ -4029,7 +4038,7 @@ export function decideTemplateMotionGraphics(
             sceneIndex: sIdx,
             title: hookTitle,
             detail: hookDetail,
-            badge: plannedMotion?.badge || 'HOOK // RETENTION',
+            badge: plannedMotion?.badge || '',
             statValue: plannedMotion?.statValue || plannedMotion?.metric || plannedMotion?.detail,
             statUnit: plannedMotion?.statUnit || plannedMotion?.unit,
             size: 'hero',
@@ -4044,11 +4053,12 @@ export function decideTemplateMotionGraphics(
       continue;
     }
 
-    // Subsequent Scenes (Scene 1, 2, 3...): Select from remaining profile templates
+    // Subsequent Scenes (Scene 1, 2, 3...): narration-driven selection with variety
     const remainingTemplates = templates.filter((t) => !t.isHookTemplate);
-    const selectedTemplate = remainingTemplates[(i - 1) % Math.max(1, remainingTemplates.length)] || templates[0];
+    const rotationOffset = narrationSeed(scenes) % Math.max(1, remainingTemplates.length);
+    const selectedTemplate = remainingTemplates[(i - 1 + rotationOffset) % Math.max(1, remainingTemplates.length)] || templates[0];
 
-    const plannedMotion = scene.motionGraphics?.[0];
+    const plannedMotion = usableHint;
     if (plannedMotion) {
       const expId = String(plannedMotion.templateId || plannedMotion.type || '').toLowerCase();
       if (expId === 'none' || expId === 'skip') {
@@ -4056,23 +4066,15 @@ export function decideTemplateMotionGraphics(
       }
     }
 
-    let title = scene.title || plannedMotion?.title || (isHindi ? 'सत्यमेव जयते' : 'CORE EVIDENCE');
-    let detail = scene.detail || plannedMotion?.detail || (isHindi ? 'मर्यादा और धर्म' : 'VERIFIED DOCUMENTATION');
-    let badge = scene.badge || plannedMotion?.badge || (isHindi ? 'दिव्य ज्ञान' : 'KEY INTEL');
-
-    if (profileKey === 'against_the_odds') {
-      title = scene.title || plannedMotion?.title || 'TACTICAL FACTOR';
-      detail = scene.detail || plannedMotion?.detail || 'SURVIVAL PROTOCOL';
-      badge = scene.badge || plannedMotion?.badge || 'ALERT';
-    } else if (profileKey === 'talvora') {
-      title = scene.title || plannedMotion?.title || 'A TURNING POINT';
-      detail = scene.detail || plannedMotion?.detail || 'AN UNSPOKEN PROMISE';
-      badge = scene.badge || plannedMotion?.badge || 'ROMANCE';
-    } else if (profileKey === 'documentary_standard') {
-      title = scene.title || plannedMotion?.title || 'ARCHIVAL RECORD';
-      detail = scene.detail || plannedMotion?.detail || 'HISTORICAL SOURCE';
-      badge = scene.badge || plannedMotion?.badge || 'DOCUMENTARY';
+    // Breathing room: keep roughly one third of later scenes clean so footage can speak
+    if (!plannedMotion && scenes.length >= 4 && i % 3 === 2) {
+      continue;
     }
+
+    const derivedLabel = deriveShortLabel(narration);
+    let title = scene.title || plannedMotion?.title || derivedLabel || '';
+    let detail = scene.detail || plannedMotion?.detail || '';
+    let badge = scene.badge || plannedMotion?.badge || '';
 
     const hasWord = (pattern: RegExp) => pattern.test(narration);
     let chosenTemplateId = (plannedMotion?.templateId || plannedMotion?.type) || selectedTemplate.id;
@@ -4233,9 +4235,9 @@ export function decideTemplateMotionGraphics(
         badge = isHindi ? 'दिव्यास्त्र' : 'WEAPON';
         chosenTemplateId = 'arrow_callout';
       } else if (hasWord(/(?:\$|\%|\d{2,}|प्रतिशत|करोड़|लाख|हजार|rate|odds|percent|trillion|million)/i)) {
-        title = isHindi ? 'कर्म फल गणना' : 'METRIC SURGE';
-        detail = isHindi ? 'तीव्र वृद्धि और प्रभाव' : 'Live Data Verification';
-        badge = isHindi ? 'संख्या प्रभाव' : 'SURGE';
+        // Keep the narration-derived label when available; only pick the ticker template
+        if (!title) title = isHindi ? 'कर्म फल गणना' : 'METRIC SURGE';
+        detail = detail || '';
         chosenTemplateId = 'metric_ticker';
       } else if (hasWord(/(?:सील|मुहर|सत्य|गुप्त|secret|classified|forbidden|truth|unsealed)/i)) {
         title = isHindi ? 'सत्यमेव जयते' : 'TOP SECRET';
@@ -4254,6 +4256,13 @@ export function decideTemplateMotionGraphics(
         chosenTemplateId = 'sniper_lock';
       }
     }
+
+    // Avoid hammering the same template on consecutive scenes — swap in a rotation alternative
+    if (chosenTemplateId === lastChosenTemplate) {
+      const alt = remainingTemplates[(i - 1 + rotationOffset + 2) % Math.max(1, remainingTemplates.length)];
+      if (alt && alt.id !== chosenTemplateId) chosenTemplateId = alt.id;
+    }
+    lastChosenTemplate = chosenTemplateId;
 
     const chosenPlacement = plannedMotion?.placement || (i % 2 === 1 ? 'top' : 'center');
     const chosenCue = plannedMotion?.cuePhrase || narration.slice(0, 24);
@@ -4284,11 +4293,207 @@ export function decideTemplateMotionGraphics(
   return graphics;
 }
 
-// Backwards compatibility aliases
+// ============================================================================
+// FULL TEMPLATE CATALOG — every compiled vector template the engine can render.
+// The AI director picks from this list; nothing is limited to a fixed rotation.
+// ============================================================================
+
+export const MOTION_TEMPLATE_CATALOG: ReadonlyArray<{ id: string; look: string }> = [
+  { id: 'particle_explosion', look: 'energetic particle blast with shockwave ring and embers — impacts, breakthroughs, climaxes' },
+  { id: 'liquid_wave', look: 'fluid undulating liquid surge — oceans, floods, tension surges' },
+  { id: 'area_chart', look: 'analytical area chart with gradient fill and draw-on reveal line — survival curves, growth, analytics' },
+  { id: 'line_chart', look: 'line chart trend with animated draw-on — comparisons, trajectories over time' },
+  { id: 'donut_chart', look: 'donut chart share breakdown sweep — proportions, budgets, splits' },
+  { id: 'pie_chart', look: 'pie chart proportion reveal — market shares, allocations' },
+  { id: 'matrix_rain', look: 'cascading digital cipher rain — decrypts, code, espionage' },
+  { id: 'starfield', look: 'cosmic warp starfield — space, scale, infinity' },
+  { id: 'bokeh_circles', look: 'floating ethereal glowing orbs — wonder, atmosphere, emotion' },
+  { id: 'radar_compass', look: 'radar compass HUD with rotating azimuth sweep — expeditions, navigation, tracking' },
+  { id: 'route_trajectory', look: 'map trajectory arc with waypoint rings and distance pill — voyages, migrations, journeys' },
+  { id: 'sound_wave', look: 'audio equalizer frequency spectrum — radio intercepts, music, suspense' },
+  { id: 'heartbeat_pulse', look: 'EKG oscilloscope pulse monitor with BPM telemetry — crisis, medical, stress' },
+  { id: 'chakra_mandala', look: 'rotating 12-spoke sacred mandala — divine reveals, cosmic cycles' },
+  { id: 'circular_progress', look: 'circular gauge dial sweeping to a percentage — odds, probability, pressure, speed' },
+  { id: 'verified_seal', look: 'verified seal emblem with shockwave pulse ring — proof, milestones, authentication' },
+  { id: 'victory_crest', look: 'laurel victory crest with light flare — triumph, resolution, glory' },
+  { id: 'ancient_scroll_unfurl', look: 'ancient manuscript scroll unfurling — records, decrees, history' },
+  { id: 'divine_character_intro', look: 'hero character reveal intro frame — deity/hero entrances' },
+  { id: 'ancient_india_map', look: 'ancient map with route and region highlights — geography, kingdoms, pilgrimage' },
+  { id: 'temple_architecture', look: 'CAD wireframe blueprint with dimension calipers — engineering, structures, mechanisms' },
+  { id: 'historical_timeline', look: 'horizontal epoch timeline with markers — chronology, eras, sequences' },
+  { id: 'sanskrit_shloka_reveal', look: 'sacred verse inscription reveal — scripture, mantras, verses' },
+  { id: 'sacred_geometry_yantra', look: 'sri yantra sacred geometry construction — mysticism, precision, patterns' },
+  { id: 'dynasty_family_tree', look: 'family tree lineage branches — dynasties, succession, relations' },
+  { id: 'divine_weapon_showcase', look: 'celestial weapon showcase pedestal — weapons, artifacts, relics' },
+  { id: 'documentary_lower_third', look: 'cinematic lower third nameplate — person/place identification' },
+  { id: 'stone_inscription_reveal', look: 'stone inscription tablet carving reveal — archaeology, epigraphy, evidence' },
+  { id: 'cosmic_universe_explainer', look: 'cosmology multi-loka universe explainer — cosmology, scale, creation' },
+  { id: 'cinematic_outro_seal', look: 'outro seal with closing blessing — endings, loops, sign-offs' },
+  { id: 'thunder_lightning', look: 'aggressive lightning strike impact — dramatic hooks, power reveals' },
+  { id: 'highlighter', look: 'felt marker highlight swipe — key figures, crucial phrases' },
+  { id: 'arrow_callout', look: 'angled pointer arrow with pulsing chevron — direction, flow, pressure' },
+  { id: 'question_mark', look: 'floating mystery question mark callout — puzzles, unknowns' },
+  { id: 'bouncing_arrow', look: 'bouncing pointer arrow toward evidence — look here moments' },
+  { id: 'box_highlight', look: 'neon box bracket highlight — framing key evidence' },
+  { id: 'red_circle', look: 'hand-drawn red circle around subject — spotting the detail' },
+  { id: 'alert_exclamation', look: 'danger alert hazard badge — warnings, critical moments' },
+  { id: 'idea_lightbulb', look: 'eureka lightbulb breakthrough burst — ideas, discoveries' },
+  { id: 'check_verified', look: 'check stamp verification tick — confirmations, facts' },
+  { id: 'cross_failed', look: 'rejection cross stamp — debunking, failures' },
+  { id: 'speech_bubble', look: 'historic quote speech bubble — dialogues, statements' },
+  { id: 'location_pin', look: 'geographic map pin drop — places, sites, coordinates' },
+  { id: 'gauge_needle', look: 'analog gauge needle sweep — readings, temperature, altitude' },
+  { id: 'circle_callout', look: 'pulsing focus circle ring — emphasis, attention' },
+  { id: 'sniper_lock', look: 'tactical corner brackets snapping to target — lock-on, surveillance' },
+  { id: 'magnifying_glass', look: 'optical inspection loupe with glare — forensics, close inspection' },
+  { id: 'redacted_stamp', look: 'classified rubber stamp slam — secrets, declassification' },
+  { id: 'metric_ticker', look: 'rapid number counter ticker with surge bar — money, counts, surging stats' },
+  { id: 'kinetic_underline', look: 'brush underline swipe under keyword — emphasis, vows, conditions' },
+  { id: 'title_reveal', look: 'cinematic title card reveal — chapter openings, announcements' },
+  { id: 'shockwave_pulse', look: 'concentric shockwave rings with starburst — impacts, realizations' },
+];
+
+const VALID_PLACEMENTS = new Set(['top', 'top-right', 'top-left', 'center', 'center-left', 'center-right', 'bottom', 'bottom-right', 'bottom-left']);
+
+/**
+ * Derives a short, content-grounded label from the scene narration so overlays
+ * carry real information instead of hardcoded placeholder text.
+ * Returns undefined when the narration offers nothing concise — the template
+ * then renders as a pure visual with no text.
+ */
+export function deriveShortLabel(narration: string, maxWords = 4): string | undefined {
+  const text = String(narration || '').replace(/\s+/g, ' ').trim();
+  if (!text) return undefined;
+  // 1. Prefer a striking number+unit metric if one exists ("-40°C", "800 NM", "94%")
+  const metric = text.match(/[-+]?\d[\d,.]*\s?(?:°\s?[CF]|%|percent|per\s?cent|NM|km|KG|BPM|kHz|MHz|VPH|mm|cm|BC|AD|वर्ष|साल|करोड़|लाख|हज़ार)?/i);
+  if (metric) {
+    const m = metric[0].trim().replace(/[.,]+$/, '').trim();
+    if (m.length >= 1 && m.length <= 14 && /\d/.test(m)) return m;
+  }
+  // 2. First clause, trimmed to a few significant words (keep words containing digits)
+  const clause = text.split(/[,.!?;:—–।]/)[0] || text;
+  const words = clause.split(' ').filter(w => w.length > 1 || /\d/.test(w));
+  if (words.length === 0) return undefined;
+  const label = words.slice(0, maxWords).join(' ');
+  return label.length > 34 ? label.slice(0, 34).trim() : label;
+}
+
+/** Stable per-script seed so different videos rotate through templates differently. */
+function narrationSeed(scenes: SceneMotionInput[]): number {
+  const joined = scenes.map(s => s.narration || '').join('|').slice(0, 4000);
+  let h = 5381;
+  for (let i = 0; i < joined.length; i++) h = ((h << 5) + h + joined.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+interface AiDirectorUpgrade {
+  sceneIndex: number;
+  template: string;
+  label?: string;
+  detail?: string;
+  metric?: string;
+  unit?: string;
+  placement?: string;
+  cue?: string;
+}
+
+/**
+ * AI-driven motion graphics decision: asks the LLM to pick a template per scene
+ * from the FULL compiled catalog based on the actual narration and visual prompt.
+ * Falls back to the deterministic heuristic when no key is available or the pass fails.
+ */
 export async function decideDynamicMotionGraphics(
   req: DynamicMotionDecisionRequest
 ): Promise<DynamicMotionGraphicData[]> {
-  return decideTemplateMotionGraphics(req.scenes, req.channelName || req.channelProfile);
+  const scenes = Array.isArray(req.scenes) ? req.scenes : [];
+  if (scenes.length === 0) return [];
+  const channelIdentity = req.channelName || req.channelProfile;
+
+  if (req.apiKey) {
+    try {
+      const catalog = MOTION_TEMPLATE_CATALOG.map(t => `- "${t.id}": ${t.look}`).join('\n');
+      const systemPrompt = `You are a world-class Motion Graphics Director (Vox / Lemmino / MagnatesMedia caliber).
+Choose at most one visual motion graphic per scene from this EXACT catalog of renderable templates:
+
+${catalog}
+
+RULES:
+1. Match the template to what is literally happening in the narration and the visual shot (a sea voyage → route_trajectory; a heart-rate crisis → heartbeat_pulse; a percentage → circular_progress; a treasure/money figure → metric_ticker; a sacred verse → sanskrit_shloka_reveal; a machine cutaway → temple_architecture).
+2. VARY your choices across scenes — never assign the same template to more than ~40% of scenes. Never fall into a fixed sequence.
+3. BREATHING ROOM: scenes where the footage already tells the story get template "none". Target 50-75% of scenes carrying a graphic; the rest stay clean.
+4. MINIMAL TEXT: "label" must be at most 3-4 words taken from or summarizing the narration (an entity name, a place, a metric). Omit "label" entirely when a pure visual works without text. Never invent generic labels like "KEY INTEL" or "CORE EVIDENCE".
+5. "metric" (optional) is a number+unit that appears in the narration (e.g. "-40°C", "800 NM", "94%"). Omit it when no number exists.
+6. "placement": one of top, top-right, top-left, center, bottom-right, bottom-left. Prefer top-right/top-left to keep the subtitle band clear.
+7. "cue" must be an EXACT contiguous phrase copied from that scene's narration (max 12 words) — it anchors timing.
+
+RESPOND EXCLUSIVELY WITH THIS JSON (no markdown outside JSON):
+{"graphics":[{"sceneIndex":0,"template":"radar_compass","label":"optional short label","metric":"optional 12°C","placement":"top-right","cue":"exact narration phrase"}]}`;
+
+      const sceneLines = scenes.map((s, idx) => `SCENE ${idx}: narration: "${(s.narration || '').slice(0, 400)}" | visual: "${(s.visualPrompt || '').slice(0, 200)}"${s.durationSec ? ` | duration: ${s.durationSec}s` : ''}`).join('\n');
+      const userPrompt = `CHANNEL: ${req.channelName || 'auto'} (profile: ${req.channelProfile || 'auto'})\n\n${req.customInstructions ? `CUSTOM INSTRUCTIONS: ${req.customInstructions}\n\n` : ''}SCENES:\n${sceneLines}${req.scriptText ? `\n\nFULL SCRIPT CONTEXT:\n${String(req.scriptText).slice(0, 2000)}` : ''}`;
+
+      const resp = await chat(req.apiKey, {
+        model: req.model || 'gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        json: true,
+        temperature: 0.55,
+        max_tokens: 8192,
+        thinkingBudget: 0,
+      });
+
+      const content = resp?.choices?.[0]?.message?.content?.trim();
+      if (!content) throw new Error('Empty director response');
+      let parsed: any = null;
+      try { parsed = JSON.parse(content); } catch {
+        const match = content.match(/\{[\s\S]*\}/);
+        if (match) parsed = JSON.parse(match[0]);
+      }
+      const upgrades: AiDirectorUpgrade[] = Array.isArray(parsed?.graphics)
+        ? parsed.graphics
+        : Array.isArray(parsed?.upgrades) ? parsed.upgrades : [];
+      if (upgrades.length === 0) throw new Error('Director returned no graphics');
+
+      const graphics: DynamicMotionGraphicData[] = [];
+      for (const up of upgrades) {
+        const sIdx = Number.isInteger(up.sceneIndex) ? up.sceneIndex : -1;
+        if (sIdx < 0 || sIdx >= scenes.length) continue;
+        const canonical = resolveCanonicalTemplateId(up.template);
+        if (canonical === 'none' || canonical === 'skip') continue;
+
+        const label = typeof up.label === 'string' ? up.label.trim().slice(0, 40) : undefined;
+        const detail = typeof up.metric === 'string' && up.metric.trim()
+          ? (up.unit && !up.metric.includes(up.unit) ? `${up.metric.trim()} ${up.unit}`.trim() : up.metric.trim())
+          : undefined;
+        const narration = scenes[sIdx].narration || '';
+        let cue = typeof up.cue === 'string' ? up.cue.trim() : '';
+        if (cue && !narration.includes(cue)) cue = narration.slice(0, 30);
+
+        graphics.push(compileMotionTemplate({
+          templateId: canonical,
+          sceneIndex: sIdx,
+          title: label || '',
+          detail,
+          statValue: detail,
+          badge: typeof up.unit === 'string' ? up.unit : undefined,
+          size: sIdx === 0 ? 'hero' : 'standard',
+          placement: (VALID_PLACEMENTS.has(String(up.placement)) ? up.placement : (sIdx % 2 === 0 ? 'top-right' : 'top-left')) as any,
+          cuePhrase: cue || narration.slice(0, 24),
+          startSec: 1.0,
+          durationSec: 4.5,
+        }, channelIdentity));
+      }
+      if (graphics.length === 0) throw new Error('Director upgrades compiled to zero graphics');
+      console.log(`[dynamic-motion-engine] AI director pass selected ${graphics.length} graphics from the full ${MOTION_TEMPLATE_CATALOG.length}-template catalog.`);
+      return graphics;
+    } catch (err) {
+      console.warn('[dynamic-motion-engine] AI director pass failed, using heuristic selection:', err);
+    }
+  }
+
+  return decideTemplateMotionGraphics(scenes, channelIdentity);
 }
 
 export function decideHeuristicMotionGraphics(
