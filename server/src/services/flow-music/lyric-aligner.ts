@@ -36,7 +36,7 @@ interface VocalEnvelope {
   speechSpans: Array<{ start: number; end: number }>;
 }
 
-const ALIGN_CACHE_VERSION = 'v4';
+const ALIGN_CACHE_VERSION = 'v7';
 const VOCAL_SAMPLE_RATE = 16000;
 const VOCAL_HOP_SAMPLES = 320; // 20ms frames
 
@@ -127,6 +127,9 @@ function readCachedAlignment(audioPath: string, lyrics: string): LyricAlignmentR
     if (!fs.existsSync(file)) return null;
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
     if (parsed && Array.isArray(parsed.phrases) && Array.isArray(parsed.words)) {
+      if (parsed.source === 'acoustic-dsp' && hasRealGeminiConfig()) {
+        return null;
+      }
       return parsed as LyricAlignmentResult;
     }
   } catch {}
@@ -581,131 +584,106 @@ async function alignWithGeminiAudio(
   audioPath: string,
   lyrics: string,
   env: VocalEnvelope,
-  isIsolatedVocals = false
+  _isIsolatedVocals = false
 ): Promise<AlignedPhrase[] | null> {
   if (!hasRealGeminiConfig()) return null;
   const stat = fs.statSync(audioPath);
-  // Skip multi-megabyte inline payloads > 18MB (unless slicing into slot clips)
-  const slots = env.speechSpans;
-  const maxSlotDur = slots.reduce((m, s) => Math.max(m, s.end - s.start), 0);
-  const useBatchedSlotClips = slots.length > 0 && maxSlotDur <= 14;
-  if (!useBatchedSlotClips && stat.size > 18 * 1024 * 1024) return null;
 
-  const model = formatGeminiModel('gemini-flash-latest');
-  const target = await geminiRequestTarget(model, 'generateContent', getGeminiApiKey());
-
-  const cleanRefLines = String(lyrics || '')
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l && !/^\[.*\]$/.test(l))
-    .join('\n');
-
-  let rawSegments: RawGeminiSegment[] = [];
-
-  if (useBatchedSlotClips) {
-    const indexedSlots = slots.map((s, id) => ({ id, start: s.start, end: s.end }));
-    const batches: Array<typeof indexedSlots> = [];
-    for (let i = 0; i < indexedSlots.length; i += 5) {
-      batches.push(indexedSlots.slice(i, i + 5));
-    }
-
-    const batchResults = await Promise.all(
-      batches.map(async (batch) => {
-        const parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [
-          {
-            text: [
-              `You are given ${batch.length} short ${isIsolatedVocals ? 'dry-vocal' : 'vocal'} clips extracted separately in exact chronological order (Clip #${batch[0].id}..#${batch[batch.length - 1].id} out of ${indexedSlots.length} total clips).`,
-              'For EACH numbered clip, listen ONLY to the audio directly following its label and identify the spoken/sung lyric in THAT clip.',
-              'RULES:',
-              '1. Each Clip [#id] has its OWN isolated audio attachment! Never pull lines from the next/previous clip! Only ~1 phrase (3-10 words) fits per normal 2-4s clip.',
-              '2. Use the Reference Lyrics below ONLY for accurate Devanagari/English spelling: AI vocalists may slightly slur a consonant, so when a clip phonetically & rhythmically matches a Reference Lyric line in sequence, output the clean intended line (omitting any clearly skipped filler word like "हैं").',
-              '3. If a longer clip begins or ends with a wordless hum ("ooh/aah"), set startFrac/endFrac (0.0..1.0 within that clip) covering ONLY where the actual spoken/sung words occur (or text="" if purely hum).',
-              cleanRefLines ? `Reference Lyrics:\n${cleanRefLines}` : '',
-            ]
-              .filter(Boolean)
-              .join('\n'),
-          },
-        ];
-
-        for (const sl of batch) {
-          const clipB64 = await sliceSlotToMp3Base64(audioPath, sl.start, sl.end - sl.start);
-          if (!clipB64) continue;
-          parts.push({ text: `\nClip [#${sl.id}] (${(sl.end - sl.start).toFixed(2)}s):` });
-          parts.push({ inlineData: { mimeType: 'audio/mp3', data: clipB64 } });
-        }
-        parts.push({
-          text: '\nReturn ONLY JSON: {"hasVocals":boolean,"slots":[{"id":number,"text":string,"startFrac":number,"endFrac":number}]}',
-        });
-
-        const res = await fetch(target.url, {
-          method: 'POST',
-          headers: target.headers,
-          body: JSON.stringify({
-            contents: [{ role: 'user', parts }],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              temperature: 0.0,
-              maxOutputTokens: 4096,
-              thinkingConfig: { thinkingBudget: 512 },
-            },
-          }),
-          signal: AbortSignal.timeout(60000),
-        });
-        if (!res.ok) {
-          throw new Error(`Gemini batched slot alignment HTTP ${res.status}`);
-        }
-        const json: any = await res.json();
-        const rawText = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-        if (!rawText) return [] as RawGeminiSegment[];
-        const parsed = JSON.parse(rawText);
-        if (parsed?.hasVocals === false) return [] as RawGeminiSegment[];
-        return Array.isArray(parsed?.slots) ? (parsed.slots as RawGeminiSegment[]) : [];
-      })
+  let sendAudioPath = audioPath;
+  let tempDownsampledPath: string | null = null;
+  // If payload is larger than 16MB (e.g. uncompressed WAV), downsample to a temporary 64k mono mp3
+  if (stat.size > 16 * 1024 * 1024) {
+    tempDownsampledPath = path.join(
+      os.tmpdir(),
+      `flow_align_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.mp3`
     );
+    await new Promise<void>((resolve) => {
+      const proc = spawn('ffmpeg', [
+        '-y', '-v', 'error',
+        '-i', audioPath,
+        '-ar', '16000',
+        '-ac', '1',
+        '-b:a', '64k',
+        tempDownsampledPath!,
+      ]);
+      proc.on('close', () => resolve());
+      proc.on('error', () => resolve());
+    });
+    if (fs.existsSync(tempDownsampledPath) && fs.statSync(tempDownsampledPath).size > 1024) {
+      sendAudioPath = tempDownsampledPath;
+    }
+  }
 
-    rawSegments = batchResults.flat().sort((a, b) => Number(a.id ?? 0) - Number(b.id ?? 0));
-  } else {
-    const audioBase64 = fs.readFileSync(audioPath).toString('base64');
+  try {
+    const model = formatGeminiModel('gemini-flash-latest');
+    const target = await geminiRequestTarget(model, 'generateContent', getGeminiApiKey());
+
+    const cleanRefLines = String(lyrics || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l && !/^\[.*\]$/.test(l))
+      .join('\n');
+
+    const audioBase64 = fs.readFileSync(sendAudioPath).toString('base64');
     const prompt = [
-      `Listen carefully to this entire ${env.duration.toFixed(1)}s audio track from 0.0s to ${env.duration.toFixed(1)}s.`,
-      'Partition the FULL timeline continuously into contiguous "vocal" and "instrumental" segments with exact start/end seconds.',
-      'Critical rules:',
-      '1. Every second from 0.0 to the end must be accounted for in chronological order so timing never drifts.',
-      '2. Mark pure music breaks, intros, pauses (>0.8s), and instrumental outros as type "instrumental" (never invent lyrics over instrumental-only parts!).',
-      '3. For each "vocal" segment, put ONLY the short lyric line/clause actually spoken or sung during that window (3 to 8 words per segment).',
+      `You are an expert audio synchronizer and lyric aligner. Listen carefully to this entire ${env.duration.toFixed(1)}s audio track from 0.0s to ${env.duration.toFixed(1)}s.`,
+      'Partition the FULL timeline into contiguous segments with exact second timestamps [start, end].',
+      'CRITICAL TIMING RULES:',
+      '1. Detect INSTRUMENTAL INTROS: Most songs start with music before vocals begin. Listen for the exact second when human voice actually starts speaking or singing. Label initial music as {"type":"instrumental","text":"","start":0.0,"end":<first_vocal_start>}. NEVER place lyric text over the instrumental intro!',
+      '2. Detect INSTRUMENTAL BREAKS & OUTROS: Mark all music interludes, drum breaks, guitar solos, pauses (>0.7s), and the ending instrumental outro as {"type":"instrumental","text":""}.',
+      '3. Exact VOCAL TIMESTAMPS (0ms SYNC): Break all singing and speech into natural short readable chunks (2 to 4 words per segment). "start" must be the EXACT acoustic onset (vocal attack millisecond) when the speaker or singer articulates the first syllable of that chunk. "end" must be when the last word of that chunk finishes sounding.',
+      '4. ONLY ACTUALLY SUNG/SPOKEN WORDS: If the vocalist skipped lines from the reference lyrics or repeated choruses differently, align ONLY what is genuinely heard in the audio. NEVER hallucinate unsung lines.',
       cleanRefLines
-        ? `4. Reference lyrics below are ONLY for accurate Devanagari/English spelling when a vocal line matches what you actually hear:\n--- REFERENCE LYRICS ---\n${cleanRefLines}\n--- END REFERENCE ---`
+        ? `5. Reference lyrics for spelling and order:\n--- REFERENCE LYRICS ---\n${cleanRefLines}\n--- END REFERENCE ---`
         : '',
+      '6. Output chronological order. Every segment must have positive duration (end > start).',
       'Return ONLY JSON: {"hasVocals":boolean,"segments":[{"start":number,"end":number,"type":"vocal"|"instrumental","text":string}]}',
     ]
       .filter(Boolean)
       .join('\n');
 
-    const res = await fetch(target.url, {
-      method: 'POST',
-      headers: target.headers,
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { inlineData: { mimeType: getMimeType(audioPath), data: audioBase64 } },
-              { text: prompt },
+    let res: Response | null = null;
+    let attempts = 0;
+    while (attempts < 4) {
+      attempts++;
+      try {
+        res = await fetch(target.url, {
+          method: 'POST',
+          headers: target.headers,
+          body: JSON.stringify({
+            contents: [
+              {
+                role: 'user',
+                parts: [
+                  { inlineData: { mimeType: getMimeType(sendAudioPath), data: audioBase64 } },
+                  { text: prompt },
+                ],
+              },
             ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.0,
-          maxOutputTokens: 8192,
-          thinkingConfig: { thinkingBudget: 0 },
-        },
-      }),
-      signal: AbortSignal.timeout(60000),
-    });
+            generationConfig: {
+              responseMimeType: 'application/json',
+              temperature: 0.0,
+              maxOutputTokens: 8192,
+            },
+          }),
+          signal: AbortSignal.timeout(90000),
+        });
 
-    if (!res.ok) {
-      throw new Error(`Gemini audio alignment HTTP ${res.status}`);
+        if (res.status === 429 || res.status === 503) {
+          console.warn(`[Flow Music Aligner] Gemini audio alignment returned HTTP ${res.status}, retrying in ${4 * attempts}s (attempt ${attempts}/4)...`);
+          await new Promise((r) => setTimeout(r, 4000 * attempts));
+          continue;
+        }
+        break;
+      } catch (err: any) {
+        if (attempts >= 4) throw err;
+        console.warn(`[Flow Music Aligner] Gemini fetch error: ${err.message}, retrying in ${3 * attempts}s...`);
+        await new Promise((r) => setTimeout(r, 3000 * attempts));
+      }
+    }
+
+    if (!res || !res.ok) {
+      throw new Error(`Gemini audio alignment HTTP ${res?.status || 'failed'}`);
     }
 
     const json: any = await res.json();
@@ -714,70 +692,60 @@ async function alignWithGeminiAudio(
 
     const parsed = JSON.parse(rawText);
     if (parsed?.hasVocals === false) return [];
-    rawSegments = Array.isArray(parsed?.segments)
-      ? parsed.segments
-      : Array.isArray(parsed?.phrases)
-        ? parsed.phrases
-        : [];
-  }
+    const rawSegments: RawGeminiSegment[] = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.segments)
+        ? parsed.segments
+        : Array.isArray(parsed?.phrases)
+          ? parsed.phrases
+          : [];
 
-  if (rawSegments.length === 0) return null;
+    if (rawSegments.length === 0) return null;
 
-  const out: AlignedPhrase[] = [];
-  let minAllowedStart = 0;
+    const out: AlignedPhrase[] = [];
+    let minAllowedStart = 0;
 
-  for (const item of rawSegments) {
-    const segType = String(item.type || 'vocal').toLowerCase();
-    if (segType === 'instrumental') continue;
-    const cleanText = String(item.text || '').replace(/\s+/g, ' ').trim();
-    if (!cleanText || /^\[.*\]$/.test(cleanText)) continue;
+    for (const item of rawSegments) {
+      const segType = String(item.type || 'vocal').toLowerCase();
+      if (segType === 'instrumental' || segType === 'music') continue;
+      const cleanText = String(item.text || '').replace(/\s+/g, ' ').trim();
+      if (!cleanText || /^\[.*\]$/.test(cleanText)) continue;
 
-    let rawStart = Number(item.start);
-    let rawEnd = Number(item.end);
-    const sid = Number.isInteger(item.id) ? Number(item.id) : Number.isInteger(item.slotId) ? Number(item.slotId) : -1;
+      const rawStart = Number(item.start);
+      const rawEnd = Number(item.end);
+      if (!Number.isFinite(rawStart) || !Number.isFinite(rawEnd) || rawEnd <= rawStart) continue;
+      if (rawStart >= env.duration - 0.1) continue;
 
-    if (useBatchedSlotClips && sid >= 0 && sid < slots.length) {
-      const slot = slots[sid];
-      const slotDur = Math.max(0.2, slot.end - slot.start);
-      const sfRaw = Number(item.startFrac);
-      const efRaw = Number(item.endFrac);
-      const sf = Number.isFinite(sfRaw) && sfRaw > 0.10 && sfRaw < 0.90 ? sfRaw : 0;
-      // Only clip tail via endFrac if Gemini flagged a substantial trailing hum (> 22% of slot);
-      // normal breath silence at slot end is already trimmed accurately by trimPhraseSilence.
-      const ef = Number.isFinite(efRaw) && efRaw > sf + 0.15 && efRaw < 0.78 ? efRaw : 1;
-      rawStart = slot.start + slotDur * sf;
-      if (sf > 0.10) {
-        rawStart = refineHumPrefixOnset(slot.start, slot.end, rawStart, env);
+      const clampedStart = Math.max(minAllowedStart, Math.min(env.duration - 0.3, rawStart));
+      const clampedEnd = Math.max(clampedStart + 0.25, Math.min(env.duration, rawEnd));
+      // Only trim silence if we have an isolated vocal stem; on full mixed audio, Gemini's acoustic onset is authoritative
+      const phraseStartTarget = _isIsolatedVocals ? trimPhraseSilence(clampedStart, clampedEnd, env).start : clampedStart;
+      const phraseEndTarget = clampedEnd;
+
+      const wordsText = cleanText.split(/\s+/).filter(Boolean);
+      if (wordsText.length === 0) continue;
+
+      const alignedWords = alignWordsInsideSpan(wordsText, phraseStartTarget, phraseEndTarget, env);
+
+      if (alignedWords.length > 0) {
+        const phraseStart = alignedWords[0].start;
+        const phraseEnd = alignedWords[alignedWords.length - 1].end;
+        out.push({
+          start: phraseStart,
+          end: phraseEnd,
+          text: cleanText,
+          words: alignedWords,
+        });
+        minAllowedStart = phraseEnd;
       }
-      rawEnd = slot.start + slotDur * ef;
     }
 
-    if (!Number.isFinite(rawStart) || !Number.isFinite(rawEnd) || rawEnd <= rawStart) continue;
-    if (rawStart >= env.duration - 0.1) continue;
-
-    const clampedStart = Math.max(minAllowedStart, Math.min(env.duration - 0.3, rawStart));
-    const clampedEnd = Math.max(clampedStart + 0.25, Math.min(env.duration, rawEnd));
-    const trimmed = trimPhraseSilence(clampedStart, clampedEnd, env);
-
-    const wordsText = cleanText.split(/\s+/).filter(Boolean);
-    if (wordsText.length === 0) continue;
-
-    const alignedWords = alignWordsInsideSpan(wordsText, trimmed.start, trimmed.end, env);
-
-    if (alignedWords.length > 0) {
-      const phraseStart = alignedWords[0].start;
-      const phraseEnd = alignedWords[alignedWords.length - 1].end;
-      out.push({
-        start: phraseStart,
-        end: phraseEnd,
-        text: cleanText,
-        words: alignedWords,
-      });
-      minAllowedStart = phraseEnd;
+    return out;
+  } finally {
+    if (tempDownsampledPath) {
+      try { fs.unlinkSync(tempDownsampledPath); } catch {}
     }
   }
-
-  return out;
 }
 
 /**
@@ -866,8 +834,29 @@ export async function alignLyricsToAudio(opts: {
   scriptId?: string;
   offlineOnly?: boolean;
 }): Promise<LyricAlignmentResult> {
-  const lyrics = String(opts.lyrics || '').trim();
-  if (!lyrics) {
+  let lyrics = String(opts.lyrics || '').trim();
+  if (!lyrics && opts.audioPath) {
+    try {
+      const { extractAudioId3Lyrics } = await import('./audio-metadata.js');
+      const id3Lyrics = await extractAudioId3Lyrics(opts.audioPath);
+      if (id3Lyrics) lyrics = id3Lyrics;
+    } catch {}
+
+    if (!lyrics) {
+      const metaPath = opts.audioPath.replace(/\.(mp3|wav|m4a|ogg|aac)$/i, '.json');
+      if (fs.existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          if (meta.lyrics) lyrics = String(meta.lyrics).trim();
+          else if (meta.transcription) lyrics = String(meta.transcription).trim();
+        } catch {}
+      }
+    }
+  }
+
+  const useGemini = !opts.offlineOnly && hasRealGeminiConfig();
+
+  if (!lyrics && !useGemini) {
     const env = await extractVocalEnvelope(opts.audioPath, false);
     return {
       duration: env.duration,
@@ -878,7 +867,7 @@ export async function alignLyricsToAudio(opts: {
     };
   }
 
-  if (!opts.offlineOnly) {
+  if (!opts.offlineOnly && lyrics) {
     const cached = readCachedAlignment(opts.audioPath, lyrics);
     if (cached) return cached;
   }
@@ -887,8 +876,6 @@ export async function alignLyricsToAudio(opts: {
   const stamp = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const stemWav = path.join(tmpDir, `flow_vocals_${stamp}.wav`);
   let usedDemucs = false;
-
-  const useGemini = !opts.offlineOnly && hasRealGeminiConfig();
 
   try {
     if (useGemini) {

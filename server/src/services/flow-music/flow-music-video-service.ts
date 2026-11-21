@@ -19,6 +19,10 @@ import { chat as geminiChat, getGeminiApiKey } from '../gemini.js';
 import { analyzeBeats, type BeatAnalysis } from './beat-detector.js';
 import { alignLyricsToAudio, type LyricAlignmentResult } from './lyric-aligner.js';
 import {
+  extractAudioId3Lyrics,
+  transcribeAudioLyricsWithGemini,
+} from './audio-metadata.js';
+import {
   normalizeBeatEditOptions,
   snapScenesToBeats,
   computeSceneBeatEvents,
@@ -376,9 +380,88 @@ export function resetFlowMusicWorkspace(opts: {
   };
 }
 
+// Natural painterly style — avoids the over-processed "AI image" look.
+// Uses traditional Indian miniature painting and classical illustration aesthetics.
 const HD_CINEMATIC_STYLE =
-  'Cinematic high-definition visual, dramatic composition, rich lighting, 2K clarity, highly detailed, zero text, zero watermarks';
-const HD_MYTHOLOGY_STYLE = HD_CINEMATIC_STYLE;
+  'traditional Indian painting style, warm earthy pigments, hand-painted brush texture, natural dramatic lighting, rich warm golds and deep reds, painterly depth, no digital gloss, no watermarks, no text';
+const HD_MYTHOLOGY_STYLE =
+  'classical Ramayana illustration style, warm hand-painted tones, natural ochre and crimson palette, oil-on-canvas texture, dramatic raking light, authentic mythological aesthetic, no watermarks, no text';
+
+// 8 HD scenes for Hanuman's FIRST VISIT to Lanka (Lanka Dahan — ocean leap, search for Sita, Lanka ablaze)
+export const HANUMAN_LANKA_DAHAN_SCENE_DEFINITIONS: FlowSceneDefinition[] = [
+  {
+    line: 'हनुमान का महासागर लांघना — रामकाज के लिए',
+    caption: 'हनुमान का महासागर लांघना',
+    tag: '[Ocean Leap · Opening]',
+    duration: 8,
+    effect: 'pan-up',
+    prompt:
+      `Heroic low-angle wide shot of Lord Hanuman leaping powerfully across a vast dark ocean at dusk — muscular monkey form with long curled tail, golden crown and crimson dhoti, NO wings, NO feathers, carried only by divine vayu-putra wind power, body radiating warm golden aura, distant rocky Lanka island silhouetted on the horizon, churning waves below lit orange by setting sun, ${HD_MYTHOLOGY_STYLE}`,
+  },
+  {
+    line: 'सुरसा और मैनाक — देवों की परीक्षा',
+    caption: 'देवों की परीक्षा — आगे बढ़ते हनुमान',
+    tag: '[Divine Test]',
+    duration: 8,
+    effect: 'zoom-in',
+    prompt:
+      `Dramatic scene of Lord Hanuman — monkey warrior with long tail, golden ornaments, NO wings, NO feathers — leaping by divine strength past a gigantic serpentine sea goddess Surasa rising from the storm-tossed ocean, moonlit clouds parting around his blazing golden form, showers of divine blessings raining from above, ${HD_MYTHOLOGY_STYLE}`,
+  },
+  {
+    line: 'लंका नगरी — रावण की स्वर्ण सभा',
+    caption: 'लंका नगरी — स्वर्णिम महल',
+    tag: '[Golden Lanka · Establishing]',
+    duration: 9,
+    effect: 'pan-left',
+    prompt:
+      `Sweeping wide-angle painting of the legendary golden city of Lanka seen at night, towering multi-tiered palaces gleaming like molten gold, tall fortress walls guarded by demon sentinels carrying flaming torches, moonlit ocean surrounding the island, ${HD_MYTHOLOGY_STYLE}`,
+  },
+  {
+    line: 'अशोक वाटिका — माँ सीता की खोज',
+    caption: 'अशोक वाटिका में माँ सीता',
+    tag: '[Ashok Vatika · Emotion]',
+    duration: 10,
+    effect: 'zoom-in',
+    prompt:
+      `Tender intimate scene inside a lush moonlit garden — a sorrowful noble queen seated under an ancient ashoka tree, surrounded by demon guards, a small glowing figure watching from above among the leaves, warm golden divine light filtering through the canopy, ${HD_MYTHOLOGY_STYLE}`,
+  },
+  {
+    line: 'अक्षकुमार वध — हनुमान का प्रताप',
+    caption: 'अक्षकुमार वध — रण भूमि',
+    tag: '[Battle Surge]',
+    duration: 8,
+    effect: 'zoom-out',
+    prompt:
+      `Dynamic battle painting of a mighty divine monkey warrior standing victorious among fallen demon warriors on the red-tinged courtyard of Lanka palace, iron mace raised high, dark smoke curling against a blood-orange sky, fierce determined expression, ${HD_MYTHOLOGY_STYLE}`,
+  },
+  {
+    line: 'रावण दरबार — नीति का उपदेश',
+    caption: 'रावण दरबार — हनुमान का साहस',
+    tag: '[Royal Confrontation]',
+    duration: 9,
+    effect: 'zoom-in',
+    prompt:
+      `Dramatic throne-room scene of a fearless divine monkey warrior standing proudly before a ten-headed demon king seated on a jewelled throne, flames lighting the ornate columned hall, the warrior's posture radiating calm fearlessness, ${HD_MYTHOLOGY_STYLE}`,
+  },
+  {
+    line: 'लंका दहन — अग्नि का प्रकोप',
+    caption: 'लंका दहन — जय श्री राम!',
+    tag: '[Lanka Burns · Climax]',
+    duration: 10,
+    effect: 'zoom-out',
+    prompt:
+      `Epic wide painting of the golden city of Lanka engulfed in roaring orange and crimson flames at night, a divine monkey warrior silhouetted against the blazing inferno as his tail sets the towers alight, sparks and embers swirling across a smoke-filled sky, ${HD_MYTHOLOGY_STYLE}`,
+  },
+  {
+    line: 'वापसी — राम जी की भक्ति में',
+    caption: 'जय श्री राम — भक्ति का उत्सव',
+    tag: '[Return · Triumph]',
+    duration: 9,
+    effect: 'pan-up',
+    prompt:
+      `Radiant dawn seascape of victorious Lord Hanuman — muscular monkey warrior with long curled tail, golden crown, crimson dhoti, NO wings, NO feathers — leaping triumphantly back across the ocean toward the mainland by divine vayu power, golden morning light breaking on the horizon, divine aura surrounding his wingless form, waves below shimmering in first light, ${HD_MYTHOLOGY_STYLE}`,
+  },
+];
 
 // 8 Epic HD Mythological Scenes corresponding to each line of dialogue & sacred Sanskrit war chants
 export const HANUMAN_SCENE_DEFINITIONS: FlowSceneDefinition[] = [
@@ -425,7 +508,7 @@ export const HANUMAN_SCENE_DEFINITIONS: FlowSceneDefinition[] = [
     duration: 8,
     effect: 'pan-left',
     prompt:
-      `Dynamic high-speed aerial vista of Lord Hanuman soaring like a blazing comet high above the churning emerald ocean at night, supersonic wind trails and golden shockwave rings carving through towering storm clouds illuminated by celestial lightning, ${HD_MYTHOLOGY_STYLE}`,
+      `Dynamic high-speed aerial vista of Lord Hanuman — muscular monkey warrior with long curled tail, golden crown and crimson dhoti, NO wings, NO feathers, wingless — soaring like a blazing comet high above the churning emerald ocean at night by divine vayu power, golden shockwave rings carving through storm clouds, ${HD_MYTHOLOGY_STYLE}`,
   },
   {
     line: 'हनुमान अतुलितबलधामम्...',
@@ -434,7 +517,7 @@ export const HANUMAN_SCENE_DEFINITIONS: FlowSceneDefinition[] = [
     duration: 9,
     effect: 'zoom-in',
     prompt:
-      `Majestic wide shot of radiant Lord Hanuman hovering in the star-strewn night sky while effortlessly lifting the colossal craggy Dronagiri mountain overhead on one palm, glowing emerald and golden Sanjeevani medicinal herbs illuminating rugged cliffside waterfalls and drifting mist, ${HD_MYTHOLOGY_STYLE}`,
+      `Majestic wide shot of radiant Lord Hanuman — muscular monkey warrior with curled tail, golden ornaments, NO wings, NO feathers, wingless — hovering in the star-strewn night sky while effortlessly lifting the colossal craggy Dronagiri mountain overhead on one palm, glowing emerald and golden Sanjeevani medicinal herbs illuminating rugged cliffside waterfalls, ${HD_MYTHOLOGY_STYLE}`,
   },
   {
     line: 'हनुमान महाकाल शंभोरावतारः...',
@@ -443,7 +526,7 @@ export const HANUMAN_SCENE_DEFINITIONS: FlowSceneDefinition[] = [
     duration: 10,
     effect: 'zoom-out',
     prompt:
-      `Awe-inspiring cosmic fantasy scene of Lord Hanuman in his fierce Rudra Mahakal avatar standing between the dark earth and rising dawn sun, glowing divine trident aura and sacred Rudraksha beads around chest and arms, coronal solar flares silhouetting his mighty form, ${HD_MYTHOLOGY_STYLE}`,
+      `Awe-inspiring cosmic fantasy scene of Lord Hanuman in his fierce Rudra Mahakal avatar — mighty vanara form with long tail, NO wings, NO feathers — standing between the dark earth and rising dawn sun, glowing divine trident aura and sacred Rudraksha beads around chest and arms, coronal solar flares silhouetting his mighty wingless form, ${HD_MYTHOLOGY_STYLE}`,
   },
   {
     line: 'बजरंगबली... जय श्री राम!',
@@ -479,6 +562,84 @@ function selectGoogleHdModel(configuredModel?: string): string {
 }
 
 /**
+ * Rigorously enforces authentic canonical Hindu mythological character integrity and
+ * classical Indian devotional aesthetics, preventing model distortions on sacred deities.
+ */
+export function sanitizeCanonicalMythologyPrompt(rawPrompt: string): string {
+  let prompt = String(rawPrompt || '').trim();
+  if (!prompt) return prompt;
+
+  // 1. Remove unwanted modern or inappropriate style keywords
+  prompt = prompt.replace(
+    /\b(?:graphic\s+novel|comic\s+book|cartoon|anime|manga|3d\s+render|octane\s+render|cgi|unreal\s+engine|superhero|modern|photorealistic|hyperrealistic)\b/gi,
+    'classical devotional painting'
+  );
+
+  // 2. Lord Hanuman Canonical Integrity
+  const isHanuman = /hanuman|bajrangbali|anjaneya|maruti|pawanputra|mahaveer|kesarinandan|हनुमान|बजरंगबली|वानर|बजरंगी|मारुति/i.test(prompt);
+  if (isHanuman) {
+    // Aggressively remove any reference to wings, feathers, angelic appendages or bird hybrids
+    prompt = prompt.replace(/\b(?:with\s+)?(?:enormous\s+|golden\s+|feathered\s+|giant\s+|angelic\s+|eagle\s+|majestic\s+|seraphic\s+)?wings?(?:\s+of\s+wind)?\b/gi, 'divine vayu wind power');
+    prompt = prompt.replace(/\b(?:bird|angel|eagle|avian)\s+feathers?\b/gi, '');
+    prompt = prompt.replace(/\bfeathers?\b/gi, '');
+    prompt = prompt.replace(/\bfeathered\b/gi, '');
+    prompt = prompt.replace(/\bdemonic\s+horns?\b/gi, '');
+    prompt = prompt.replace(/\bfangs?\b/gi, '');
+
+    if (!/no wings/i.test(prompt)) {
+      prompt = `${prompt}, Lord Hanuman as sacred divine Vanara monkey warrior with long curled tail, golden crown and crimson dhoti, strictly NO wings, NO feathers, wingless divine form propelled purely by divine vayu wind power`;
+    }
+  }
+
+  // 3. Lord Rama Canonical Integrity
+  const isRama = /(?:\b|_)(?:rama|ram|shree\s+ram|sri\s+ram|raghunath|raghav|ramachandra|sita\s+ram|siya\s+ram)(?:\b|_)|श्री\s*राम|प्रभु\s*राम|रघुनाथ|राघव|रामचंद्र/i.test(prompt);
+  if (isRama) {
+    prompt = prompt.replace(/\b(?:thick\s+|heavy\s+)?(?:beard|mustache|facial\s+hair)\b/gi, 'clean-shaven noble face');
+    prompt = prompt.replace(/\b(?:angry|ferocious|wrathful)\s+(?:face|expression)\b/gi, 'serene majestic expression');
+
+    if (!/shyama|blue-tinted|kodanda/i.test(prompt)) {
+      prompt = `${prompt}, Lord Rama depicted with serene lotus-eyes, gentle noble smile, divine blue-tinted shyama complexion, royal golden mukut (crown), yellow silk pitambara dhoti, sacred Janeu thread, holding sacred Kodanda bow, strictly clean-shaven noble royal countenance`;
+    }
+  }
+
+  // 4. Mata Sita Canonical Integrity
+  const isSita = /\b(?:sita|seeta|janaki|vaidehi|maithili)\b|सीता|माता\s*सीता|जानकी|वैदेही/i.test(prompt);
+  if (isSita) {
+    prompt = prompt.replace(/\b(?:revealing|seductive|modern|western)\b/gi, 'traditional modest');
+    if (!/traditional.*saree|auspicious/i.test(prompt)) {
+      prompt = `${prompt}, Mata Sita with queenly grace, divine purity and noble dignity, dressed in traditional Vedic auspicious saree and sacred ornaments (maang tikka, bangles)`;
+    }
+  }
+
+  // 5. Ravana Canonical Integrity
+  const isRavana = /\b(?:ravan|ravana|dashanan|dasanana|lankapati)\b|रावण|दशानन|लंकपति/i.test(prompt);
+  if (isRavana) {
+    if (!/ten-headed|dashanana/i.test(prompt)) {
+      prompt = `${prompt}, ten-headed demon king Ravana in ornate golden armor, majestic towering dark warrior king with ten crowned heads`;
+    }
+  }
+
+  // 6. Lord Shiva Canonical Integrity
+  const isShiva = /\b(?:shiva|mahadev|rudra|shankar|bholenath|nilakantha)\b|शिव|महादेव|रुद्र|शंकर|भोलेनाथ/i.test(prompt);
+  if (isShiva) {
+    if (!/trishula|crescent\s+moon/i.test(prompt)) {
+      prompt = `${prompt}, Lord Shiva with matted jata locks holding crescent moon and sacred Ganga, sacred ash and Rudraksha beads, holding sacred Trishula and Damru, serene meditative cosmic aura`;
+    }
+  }
+
+  // 7. Ensure traditional classical Indian painting aesthetic
+  if (!/raja ravi varma|ramayana illustration style|classical indian/i.test(prompt)) {
+    prompt = `${prompt}, ${HD_MYTHOLOGY_STYLE}`;
+  }
+
+  return prompt;
+}
+
+export function sanitizeHanumanPrompt(rawPrompt: string): string {
+  return sanitizeCanonicalMythologyPrompt(rawPrompt);
+}
+
+/**
  * Generates an HD keyframe image using configured high-clarity providers
  * (`google` -> `cloudflare` -> `local`), never falling back to Pollinations or blank boxes.
  */
@@ -490,6 +651,7 @@ export async function generateFlowMusicSceneImage(opts: {
   index?: number;
   scriptId?: string;
 }): Promise<FlowMusicImageGenerationResult> {
+  const effectivePrompt = sanitizeCanonicalMythologyPrompt(opts.prompt);
   const aspectRatio = opts.aspectRatio || '16:9';
   const index = opts.index ?? 0;
   const cfCfg = getCloudflareConfig();
@@ -525,7 +687,7 @@ export async function generateFlowMusicSceneImage(opts: {
           result = await generateGoogleImage({
             scriptId: tempScriptId,
             index,
-            prompt: opts.prompt,
+            prompt: effectivePrompt,
             seed: opts.seed,
             preset: 'high',
             imageSize: '2K',
@@ -537,7 +699,7 @@ export async function generateFlowMusicSceneImage(opts: {
           result = await generateCloudflareImage({
             scriptId: tempScriptId,
             index,
-            prompt: opts.prompt,
+            prompt: effectivePrompt,
             seed: opts.seed,
             preset: 'high',
             aspectRatio,
@@ -547,7 +709,7 @@ export async function generateFlowMusicSceneImage(opts: {
           const localResult = await generateImage({
             scriptId: tempScriptId,
             index,
-            prompt: opts.prompt,
+            prompt: effectivePrompt,
             seed: opts.seed,
             preset: 'high',
             aspectRatio,
@@ -871,7 +1033,6 @@ export function buildLongAssSubtitles(
     return;
   }
 
-  const useHanumanHighlights = isHanumanPresetScenes(scenes);
   let currentTime = 0;
   for (let i = 0; i < scenes.length; i++) {
     const sc = scenes[i];
@@ -880,9 +1041,7 @@ export function buildLongAssSubtitles(
     const endTime = currentTime + dur;
     currentTime = endTime;
 
-    const text = useHanumanHighlights
-      ? HANUMAN_LONG_HIGHLIGHTS[i]
-      : wrapAssCaption(sc.caption || sc.line, 64);
+    const text = wrapAssCaption(sc.caption || sc.line, 64);
     if (text) {
       lines.push(`Dialogue: 1,${formatAssTime(startTime)},${formatAssTime(endTime)},LongCaption,,0,0,0,,${text}`);
     }
@@ -928,6 +1087,21 @@ function splitScriptLines(rawText: string, maxScenes = 10): string[] {
 }
 
 /**
+ * Detects if the given topic/title/lyrics refers to Hanuman's first Lanka visit (Lanka Dahan).
+ */
+function isLankaDahanTopic(topic: string, rawSource: string): boolean {
+  const combined = `${topic} ${rawSource}`.toLowerCase();
+  return (
+    /lanka\s*dahan/i.test(combined) ||
+    /लंका\s*दहन/i.test(combined) ||
+    /lankadahan/i.test(combined) ||
+    (/lanka/i.test(combined) && /hanuman|हनुमान/i.test(combined) && /first|pehli|पहली|pratham/i.test(combined)) ||
+    (/ashok\s*vatika|अशोक\s*वाटिका/i.test(combined)) ||
+    (/sita.*search|sita.*khoj|sitaji/i.test(combined) && /hanuman|हनुमान/i.test(combined))
+  );
+}
+
+/**
  * Converts user script/lyrics/topic into HD keyframe scene definitions, enriching visual prompts via Gemini when configured.
  */
 export async function buildScenesFromScript(opts: {
@@ -943,6 +1117,12 @@ export async function buildScenesFromScript(opts: {
   const topic = (opts.topic || opts.theme || 'Epic Cinematic Story').trim();
   const mood = (opts.mood || 'dramatic high-contrast storytelling').trim();
   const rawLines = splitScriptLines(rawSource, 10);
+
+  // Auto-detect Lanka Dahan topic when no explicit lyrics were provided
+  if (rawLines.length === 0 && isLankaDahanTopic(topic, rawSource)) {
+    const target = opts.targetDuration || 60;
+    return fitScenesToAudioDuration(HANUMAN_LANKA_DAHAN_SCENE_DEFINITIONS, target);
+  }
 
   const beats =
     rawLines.length > 0
@@ -973,28 +1153,75 @@ export async function buildScenesFromScript(opts: {
 
   const apiKey = !opts.offlineOnly ? getGeminiApiKey() : '';
   if (!apiKey || rawLines.length === 0) {
-    return fallbackScenes;
+    return fallbackScenes.map((sc) => ({
+      ...sc,
+      prompt: sanitizeCanonicalMythologyPrompt(sc.prompt),
+    }));
   }
 
   try {
     const response = await geminiChat(apiKey, {
-      temperature: 0.4,
-      max_tokens: 2048,
+      temperature: 0.35,
+      max_tokens: 3072,
       json: true,
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(20000),
       messages: [
         {
           role: 'system',
-          content:
-            'You are a film storyboard director for a lyric-synced music short. For every input lyric line, decide what visual best fits that part of the song. Output a valid JSON array matching the input lines 1-to-1. Each item has: sectionType (one of hook, dialogue, tension, drop, chant, triumph, finale), imageType (the shot/framing this section deserves, e.g. "tense intimate close-up", "monumental low-angle hero shot", "aerial wide establishing shot", "cosmic divine wide shot", "silhouette against fire"), caption (concise overlay subtitle for the line), visualPrompt (rich detailed scene visual description starting with the chosen imageType, with lighting, camera framing, emotion, zero embedded text/watermarks, and NEVER use the words "graphic novel" or "cartoon").',
+          content: `You are an elite storyboard director and sacred iconography scholar for Indian devotional & epic music videos (Ramayana, Mahabharata, Shiva Purana, Krishna Leela).
+
+YOUR WORKFLOW:
+1. FIRST, thoroughly read through the FULL lyrics from beginning to end to understand the complete narrative arc, the sacred deities, their actions, and the emotional climax.
+2. SECOND, create chronologically progressive visual scenes that directly illustrate what is happening in the song at that moment.
+
+SACRED CANONICAL CHARACTER RULES (NEVER DISTORT OR INVENT CHARACTER TRAITS):
+- Lord Hanuman (बजरंगबली / पवनपुत्र):
+  * Form: Sacred divine Vanara (monkey warrior) form with radiant noble face, powerful muscular physique, long curled tail.
+  * Attire: Golden royal crown (mukut), crimson or saffron/ochre dhoti (langot/pitambar), golden armlets and kundal earrings, sacred Janeu thread across torso, radiating warm golden divine aura.
+  * STRICT NEGATIVE: NEVER give Hanuman wings, feathers, angelic cherub wings, bird appendages, demonic fangs or horns. He flies purely by divine Vayu wind power (anila-putra).
+- Lord Rama (श्री राम):
+  * Form: Maryada Purushottam divine avatar of Vishnu, serene lotus-like eyes (kamalnayan), gentle noble smile, compassionate majestic aura.
+  * Complexion: Soft blue-tinted shyama complexion (cloud-colored / meghashyama).
+  * Attire: Royal golden mukut (crown), yellow silk pitambara dhoti, pearl garland, sacred Janeu thread.
+  * Weapons: Wields the divine Kodanda longbow in left hand, quiver of arrows on back.
+  * STRICT NEGATIVE: Strictly clean-shaven noble royal face with NO beard, NO mustache, NO wrathful demonic distortion.
+- Mata Sita (माँ सीता):
+  * Form: Divine incarnation of Goddess Lakshmi, queenly grace, radiant purity and noble dignity.
+  * Attire: Traditional auspicious Vedic saree, sacred traditional ornaments (maang tikka, bangles, nose ring), modest and noble demeanour.
+  * STRICT NEGATIVE: NO modern, revealing or westernized clothing.
+- Ravana (दशानन रावण):
+  * Form: Mighty ten-headed (Dashanana) demon emperor of Lanka, towering dark warrior king with ten crowned heads, ornate golden royal armor, majestic Lankan throne hall.
+- Lord Shiva (महादेव):
+  * Form: Divine ascetic with matted jata locks holding crescent moon and sacred Ganga, blue throat (Neelkantha), sacred Rudraksha beads, holding Trishula and Damru, serene cosmic stillness.
+- Lord Krishna (श्री कृष्ण):
+  * Form: Luminous dark-blue complexion, peacock feather in golden crown, gentle captivating smile, yellow silk pitambar, holding the sacred divine Bansuri.
+
+ARTISTIC STYLE:
+- Traditional classical Indian devotional oil painting style (Raja Ravi Varma masterwork & Gita Press Ramayana classical illustration).
+- Warm earthy hand-painted pigments (ochre, vermilion, deep crimson, lapis lazuli indigo, burnished gold).
+- Natural dramatic lighting (golden hour sunrise/sunset, warm torchlight, mystical divine aura).
+- Oil-on-canvas texture, authentic devotional reverence.
+- STRICT NEGATIVE: NEVER photorealistic CGI, NEVER 3D render, NEVER cartoon, NEVER anime, NEVER comic book / graphic novel.`,
         },
         {
           role: 'user',
           content: JSON.stringify({
+            instruction: `First, read and analyze these complete lyrics thoroughly. Then create exactly ${beats.length} chronological visual scenes that faithfully visualize the story told in the lyrics while strictly obeying the canonical character rules.`,
             topic,
             mood,
             theme: opts.theme || topic,
-            lines: beats,
+            totalSongDurationSeconds: totalTarget,
+            fullSongLyrics: rawSource,
+            sceneBeats: beats,
+            formatRequirements: [
+              "Output a JSON array of objects matching each scene in chronological order.",
+              "Each object must have:",
+              "  - 'line': The specific lyric line from the song.",
+              "  - 'caption': Concise lyric subtitle for display.",
+              "  - 'sectionType': hook | dialogue | battle | tension | devotion | triumph | climax | finale",
+              "  - 'imageType': Specific framing (e.g. 'Heroic low-angle wide shot', 'Tense throne-room confrontation', 'Dynamic leap across stormy ocean', 'Serene radiant dawn seascape')",
+              "  - 'visualPrompt': Rich descriptive prompt directly visualizing the specific lyric event while strictly obeying the canonical deity rules."
+            ]
           }),
         },
       ],
@@ -1004,9 +1231,8 @@ export async function buildScenesFromScript(opts: {
       return beats.map((line, i) => {
         const ai = parsed[i] || {};
         const fallback = fallbackScenes[i];
-        const safePrompt = String(ai.visualPrompt || fallback.prompt)
-          .replace(/graphic\s+novel/gi, 'cinematic artwork')
-          .trim();
+        const rawPrompt = String(ai.visualPrompt || fallback.prompt).trim();
+        const safePrompt = sanitizeCanonicalMythologyPrompt(rawPrompt);
         const sectionType = String(ai.sectionType || fallback.sectionType || 'dialogue').toLowerCase();
         const imageType = String(ai.imageType || fallback.imageType || 'cinematic shot').trim();
         return {
@@ -1017,7 +1243,7 @@ export async function buildScenesFromScript(opts: {
           effect: EFFECTS[i % EFFECTS.length],
           sectionType,
           imageType,
-          prompt: `${safePrompt}, ${HD_MYTHOLOGY_STYLE}`,
+          prompt: safePrompt,
         };
       });
     }
@@ -1025,7 +1251,10 @@ export async function buildScenesFromScript(opts: {
     console.warn(`[Flow Music Storyboard] Using deterministic scene builder (${err?.message || 'LLM unavailable'})`);
   }
 
-  return fallbackScenes;
+  return fallbackScenes.map((sc) => ({
+    ...sc,
+    prompt: sanitizeCanonicalMythologyPrompt(sc.prompt),
+  }));
 }
 
 /**
@@ -1244,7 +1473,43 @@ export async function startFlowVideoPipeline(
     const audioPath = resolveApprovedAudioPath(scriptId, opts.songUrl);
     const audioDuration = await probeAudioDuration(audioPath);
 
-    // 1b. Beat-synced edit setup — analyze the approved track for beats & drops
+    // 1b. Resolve lyrics FIRST so scene planning, visual character prompts, and subtitle alignment
+    // all have access to the full, authentic spoken & sung song lyrics.
+    const studioDraft = getFlowMusicStudioState();
+    const isMatchingStudioDraft = studioDraft.scriptId === scriptId;
+    let referenceLyrics = (opts.lyrics || (isMatchingStudioDraft ? studioDraft.lyrics : '') || studioDraft.lyrics || '').trim();
+    const metaPath = audioPath.replace(/\.(mp3|wav|m4a|ogg|aac)$/i, '.json');
+
+    if (!referenceLyrics && audioPath) {
+      if (fs.existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          if (meta.lyrics) referenceLyrics = String(meta.lyrics).trim();
+          else if (meta.transcription) referenceLyrics = String(meta.transcription).trim();
+        } catch {}
+      }
+      if (!referenceLyrics) {
+        referenceLyrics = await extractAudioId3Lyrics(audioPath);
+      }
+      if (!referenceLyrics) {
+        job.stage = 'Transcribing sung & spoken lyrics directly from audio with Gemini...';
+        job.progress = 5;
+        job.updatedAt = new Date().toISOString();
+        referenceLyrics = await transcribeAudioLyricsWithGemini(audioPath);
+      }
+      if (referenceLyrics) {
+        try {
+          if (fs.existsSync(metaPath)) {
+            const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            meta.lyrics = referenceLyrics;
+            fs.writeFileSync(metaPath, JSON.stringify(meta, null, 2), 'utf8');
+          }
+          saveFlowMusicStudioState({ lyrics: referenceLyrics });
+        } catch {}
+      }
+    }
+
+    // 1c. Beat-synced edit setup — analyze the approved track for beats & drops
     const beatEditOptions = normalizeBeatEditOptions(opts.beatEdit);
     let beatAnalysis: BeatAnalysis | null = null;
     if (beatEditOptions.enabled) {
@@ -1272,7 +1537,6 @@ export async function startFlowVideoPipeline(
     job.editOptions = beatEditOptions;
 
     // 2. Resolve scenes (explicit custom scenes -> script/lyrics builder -> persisted draft -> preset)
-    const studioDraft = getFlowMusicStudioState();
     let baseScenes: FlowSceneDefinition[];
     if (Array.isArray(opts.scenes) && opts.scenes.length > 0) {
       baseScenes = opts.scenes.map((sc, i) => ({
@@ -1285,21 +1549,20 @@ export async function startFlowVideoPipeline(
           ? String(sc.prompt).replace(/graphic\s+novel/gi, 'cinematic artwork')
           : `Cinematic atmospheric frame illustrating "${sc.line || sc.caption}", ${HD_MYTHOLOGY_STYLE}`,
       }));
-    } else if (opts.lyrics?.trim() || opts.title?.trim() || opts.prompt?.trim()) {
-      baseScenes = await buildScenesFromScript({
-        lyrics: opts.lyrics,
-        topic: opts.title || opts.theme,
-        mood: opts.mood || opts.prompt,
-        theme: opts.theme,
-        targetDuration: opts.duration || audioDuration || 60,
-      });
-    } else if (Array.isArray(studioDraft.scenes) && studioDraft.scenes.length > 0) {
-      baseScenes = studioDraft.scenes;
     } else {
+      const effectiveTopic =
+        opts.title?.trim() ||
+        studioDraft.title?.trim() ||
+        opts.theme?.trim() ||
+        studioDraft.theme?.trim() ||
+        (isLankaDahanTopic(opts.title || '', referenceLyrics) ? 'Lanka Dahan' : 'Epic Cinematic Story');
+
       baseScenes = await buildScenesFromScript({
+        lyrics: referenceLyrics,
         scriptText: opts.prompt || studioDraft.prompt,
-        lyrics: opts.lyrics || studioDraft.lyrics,
-        topic: opts.title || studioDraft.title || 'Cinematic Story',
+        topic: effectiveTopic,
+        mood: opts.mood || studioDraft.mood,
+        theme: opts.theme || studioDraft.theme,
         targetDuration: opts.duration || audioDuration || 60,
       });
     }
@@ -1318,17 +1581,15 @@ export async function startFlowVideoPipeline(
 
     // Align subtitles to actual vocal timings & pacing inside the approved audio track
     let alignedLyrics: LyricAlignmentResult | null = null;
-    const isMatchingStudioDraft = studioDraft.scriptId === scriptId;
-    const referenceLyrics = (opts.lyrics || (isMatchingStudioDraft ? studioDraft.lyrics : '') || '').trim() ||
-      scenes.map((s) => s.caption || s.line).filter(Boolean).join('\n');
-    if (referenceLyrics) {
+    const finalLyricsToAlign = referenceLyrics || scenes.map((s) => s.caption || s.line).filter(Boolean).join('\n');
+    if (finalLyricsToAlign) {
       job.stage = 'Syncing subtitle speed & word timings to actual vocal audio...';
       job.progress = 12;
       job.updatedAt = new Date().toISOString();
       try {
         alignedLyrics = await alignLyricsToAudio({
           audioPath,
-          lyrics: referenceLyrics,
+          lyrics: finalLyricsToAlign,
           scriptId,
         });
         console.log(
@@ -1452,28 +1713,31 @@ export async function startFlowVideoPipeline(
         let reusedShorts = false;
         let reusedLong = false;
         if (opts.reuseImages) {
-          let candidatePath: string | null = null;
-          if (Array.isArray(opts.existingImages) && opts.existingImages[i]) {
-            const item = opts.existingImages[i];
-            const raw = typeof item === 'string' ? item : item.filename || item.url || '';
-            if (raw) {
-              const clean = path.basename(raw.split('?')[0]);
-              const p = path.join(outDir, clean);
-              if (fs.existsSync(p) && fs.statSync(p).size > 1000) {
-                candidatePath = p;
-              }
-            }
-          }
-          if (candidatePath) {
-            try {
-              fs.copyFileSync(candidatePath, shortsImgPath);
+          // Look for dedicated shorts scene image
+          try {
+            const shortsFiles = fs
+              .readdirSync(outDir)
+              .filter((f) => (f.endsWith(`_shorts_scene_${i}.png`) || f.endsWith(`_scene_${i}.png`)) && f !== shortsImgFilename)
+              .map((f) => ({ path: path.join(outDir, f), mtime: fs.statSync(path.join(outDir, f)).mtimeMs }))
+              .sort((a, b) => b.mtime - a.mtime);
+            if (shortsFiles.length > 0 && fs.statSync(shortsFiles[0].path).size > 1000) {
+              fs.copyFileSync(shortsFiles[0].path, shortsImgPath);
               reusedShorts = true;
-            } catch {}
-            try {
-              fs.copyFileSync(candidatePath, longImgPath);
+            }
+          } catch {}
+
+          // Look for dedicated long scene image
+          try {
+            const longFiles = fs
+              .readdirSync(outDir)
+              .filter((f) => (f.endsWith(`_long_scene_${i}.png`) || f.endsWith(`_scene_${i}.png`)) && f !== longImgFilename)
+              .map((f) => ({ path: path.join(outDir, f), mtime: fs.statSync(path.join(outDir, f)).mtimeMs }))
+              .sort((a, b) => b.mtime - a.mtime);
+            if (longFiles.length > 0 && fs.statSync(longFiles[0].path).size > 1000) {
+              fs.copyFileSync(longFiles[0].path, longImgPath);
               reusedLong = true;
-            } catch {}
-          }
+            }
+          } catch {}
         }
 
         if (!reusedShorts) {

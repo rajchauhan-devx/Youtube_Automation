@@ -555,11 +555,21 @@ export function resolveSubtitleFontSize(
   const isShorts = format === 'shorts';
 
   if (typeof subtitleSize === 'number' && !isNaN(subtitleSize) && subtitleSize > 0) {
-    // Custom size meter: clamped between 40px and 320px for 1080x1920 Shorts
-    const shortsPx = Math.min(320, Math.max(40, Math.round(subtitleSize)));
-    // In 1920x1080 Long format, canvas height is 1080 instead of 1920.
-    // 0.75x scales proportional to screen height.
-    return isShorts ? shortsPx : Math.round(shortsPx * 0.75);
+    if (isShorts) {
+      if (style === 'motion') {
+        // Map 40-320 to 70-135px for 1080x1920 vertical shorts
+        return Math.min(135, Math.max(70, Math.round(50 + subtitleSize * 0.38)));
+      }
+      // Map 40-320 to 44-76px
+      return Math.min(76, Math.max(44, Math.round(36 + subtitleSize * 0.18)));
+    } else {
+      if (style === 'motion') {
+        // Map 40-320 to 48-84px for 1920x1080 horizontal widescreen
+        return Math.min(84, Math.max(48, Math.round(38 + subtitleSize * 0.22)));
+      }
+      // Map 40-320 to 34-54px
+      return Math.min(54, Math.max(34, Math.round(28 + subtitleSize * 0.12)));
+    }
   }
 
   const preset =
@@ -568,7 +578,7 @@ export function resolveSubtitleFontSize(
       : 'medium';
 
   const mult = SUBTITLE_SIZE_MULTIPLIERS[preset] ?? 1.0;
-  const baseFontSize = style === 'motion' ? (isShorts ? 96 : 72) : isShorts ? 58 : 46;
+  const baseFontSize = style === 'motion' ? (isShorts ? 96 : 68) : isShorts ? 58 : 46;
   return Math.round(baseFontSize * mult);
 }
 
@@ -611,7 +621,8 @@ function appendPhraseWordsToAss(opts: {
   const { lines, words, windowStart, windowEnd, maxDur, sceneIdx, styleName, fontSize, format, editOptions, analysis, profile } = opts;
   if (words.length === 0) return 0;
 
-  const fadeIn = '\\fad(70,50)';
+  // Crisp 0ms sync entrance: instant display, anti-aliased 15ms micro-fade
+  const fadeIn = '\\fad(15,15)';
   let added = 0;
 
   if (editOptions.subtitleStyle === 'motion') {
@@ -640,8 +651,9 @@ function appendPhraseWordsToAss(opts: {
           : fontSize;
       const sizeTag = effSize !== fontSize ? `\\fs${effSize}` : '';
 
-      const entrance = Math.round(100 + profile.wordPop * (w.onDownbeat ? 1.9 : 1.2));
-      let tags = `${fadeIn}${sizeTag}\\1c${color}\\blur3\\fscx${entrance}\\fscy${entrance}\\t(0,80,\\fscx100\\fscy100\\blur0)`;
+      const entrance = Math.round(100 + profile.wordPop * (w.onDownbeat ? 1.5 : 1.1));
+      // No entrance blur delay for 0ms legibility: instant sharp rendering
+      let tags = `${fadeIn}${sizeTag}\\1c${color}\\fscx${entrance}\\fscy${entrance}\\t(0,60,\\fscx100\\fscy100)`;
 
       const beatsInWord = analysis.beats.filter((b) => b > w.start + 0.09 && b < end - 0.03);
       for (const b of beatsInWord.slice(0, 12)) {
@@ -716,7 +728,7 @@ function appendPhraseWordsToAss(opts: {
         const color = w.onBeat
           ? ASS_HIGHLIGHT_PALETTE[(w.beatIndex >= 0 ? w.beatIndex : sceneIdx) % ASS_HIGHLIGHT_PALETTE.length]
           : ASS_WHITE;
-        tags += `\\1c${color}\\blur3\\bord2\\t(0,260,\\blur0\\bord3)`;
+        tags += `\\1c${color}\\bord2\\t(0,100,\\bord3)`;
       }
 
       lines.push(
@@ -765,19 +777,18 @@ export function buildBeatKaraokeAssSubtitles(opts: {
   const alignedPhrases = opts.alignedLyrics?.phrases;
 
   if (Array.isArray(alignedPhrases) && alignedPhrases.length > 0) {
-    const allAlignedWords: Array<{ w: WordTiming; phraseIdx: number }> = [];
-    for (let pIdx = 0; pIdx < alignedPhrases.length; pIdx++) {
-      const phrase = alignedPhrases[pIdx];
-      const mappedWords: WordTiming[] = phrase.words.map((aw) => {
-        const beat = classifyBeatForTime(aw.start, opts.analysis);
-        return {
-          word: aw.word,
-          start: aw.start,
-          end: aw.end,
-          ...beat,
-        };
-      });
-      if (opts.options.subtitleStyle === 'karaoke') {
+    if (opts.options.subtitleStyle === 'karaoke') {
+      for (let pIdx = 0; pIdx < alignedPhrases.length; pIdx++) {
+        const phrase = alignedPhrases[pIdx];
+        const mappedWords: WordTiming[] = phrase.words.map((aw) => {
+          const beat = classifyBeatForTime(aw.start, opts.analysis);
+          return {
+            word: aw.word,
+            start: aw.start,
+            end: aw.end,
+            ...beat,
+          };
+        });
         eventCount += appendPhraseWordsToAss({
           lines,
           words: mappedWords,
@@ -792,28 +803,49 @@ export function buildBeatKaraokeAssSubtitles(opts: {
           analysis: opts.analysis,
           profile,
         });
-      } else {
-        for (const w of mappedWords) allAlignedWords.push({ w, phraseIdx: pIdx });
       }
-    }
+    } else {
+      // Process strictly phrase-by-phrase to preserve 0ms vocal attack, sentence boundaries & musical pauses
+      for (let pIdx = 0; pIdx < alignedPhrases.length; pIdx++) {
+        const phrase = alignedPhrases[pIdx];
+        const phraseWords: WordTiming[] = phrase.words.map((aw) => {
+          const beat = classifyBeatForTime(aw.start, opts.analysis);
+          return {
+            word: aw.word,
+            start: aw.start,
+            end: aw.end,
+            ...beat,
+          };
+        });
+        if (phraseWords.length === 0) continue;
 
-    if (opts.options.subtitleStyle !== 'karaoke' && allAlignedWords.length > 0) {
-      const rawWords = allAlignedWords.map((item) => item.w);
-      const displayWords = groupWordsIntoDisplayChunks(rawWords, opts.format, opts.analysis);
-      eventCount += appendPhraseWordsToAss({
-        lines,
-        words: displayWords,
-        windowStart: displayWords[0].start,
-        windowEnd: opts.analysis.duration,
-        maxDur: opts.analysis.duration,
-        sceneIdx: 0,
-        styleName,
-        fontSize,
-        format: opts.format,
-        editOptions: opts.options,
-        analysis: opts.analysis,
-        profile,
-      });
+        // If phrase is already a short display chunk (<= 4 words), use directly for 0ms timing precision
+        const displayWords = phraseWords.length <= 4
+          ? [{
+              word: phrase.text,
+              start: phrase.start,
+              end: phrase.end,
+              onBeat: phraseWords.some((w) => w.onBeat),
+              onDownbeat: phraseWords.some((w) => w.onDownbeat),
+              beatIndex: phraseWords[0].beatIndex,
+            }]
+          : groupWordsIntoDisplayChunks(phraseWords, opts.format, opts.analysis);
+
+        eventCount += appendPhraseWordsToAss({
+          lines,
+          words: displayWords,
+          windowStart: phrase.start,
+          windowEnd: phrase.end,
+          maxDur: opts.analysis.duration,
+          sceneIdx: pIdx,
+          styleName,
+          fontSize,
+          format: opts.format,
+          editOptions: opts.options,
+          analysis: opts.analysis,
+          profile,
+        });
+      }
     }
   } else {
     let cursor = 0;

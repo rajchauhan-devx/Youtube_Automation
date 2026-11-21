@@ -161,6 +161,17 @@ export function cleanFlowPrompt(rawPrompt: string, options: { stripLipSync?: boo
   cleaned = cleaned.replace(/\bglowing\s+embers\b/gi, 'golden dust motes');
   cleaned = cleaned.replace(/\bfierce\s+pride\b/gi, 'noble pride');
 
+  // Ensure Hanuman / Ramayana divine monkey warrior prompts in Playwright Flow never hallucinate wings
+  if (/hanuman|bajrangbali|anjaneya|maruti|pawanputra|mahaveer|लक्ष्मण|हनुमान|बजरंगबली/i.test(cleaned)) {
+    cleaned = cleaned.replace(/\b(?:with\s+)?(?:enormous\s+|golden\s+|feathered\s+|giant\s+|angelic\s+|eagle\s+|majestic\s+)?wings?(?:\s+of\s+wind)?\b/gi, 'divine vayu power');
+    cleaned = cleaned.replace(/\b(?:bird|angel|eagle)\s+feathers?\b/gi, '');
+    cleaned = cleaned.replace(/\bfeathers?\b/gi, '');
+    cleaned = cleaned.replace(/\bfeathered\b/gi, '');
+    if (!/no wings/i.test(cleaned)) {
+      cleaned = `${cleaned}, muscular vanara monkey warrior with long curled tail, golden crown and crimson dhoti, strictly NO wings, NO feathers, wingless divine form`;
+    }
+  }
+
   if (STICKMAN_PATTERN.test(cleaned)) {
     // Strip documentary reconstruction headers and photorealistic film LoRA keywords that force realism
     cleaned = cleaned.replace(/Documentary\s+reconstruction\s+style\s+(?:video\s+shot|still\s+image),?\s*(?:vertical\s+9:16\s+aspect\s+ratio\.?)?/gi, 'Stylized cinematic continuous shot concept art animation video, vertical 9:16 aspect ratio.');

@@ -35,6 +35,10 @@ import {
   HANUMAN_SCENE_DEFINITIONS,
 } from '../services/flow-music/flow-music-video-service.js';
 import { analyzeBeats } from '../services/flow-music/beat-detector.js';
+import {
+  extractAudioMetadata,
+  transcribeAudioLyricsWithGemini,
+} from '../services/flow-music/audio-metadata.js';
 import { store } from '../services/store.js';
 import { containedFile } from '../services/paths.js';
 
@@ -335,7 +339,7 @@ flowMusicRouter.post(
     });
     req.on('error', (err) => next(err));
   },
-  (req, res) => {
+  async (req, res) => {
     try {
       const rawBuf: Buffer | undefined = (req as any).rawAudioBuffer;
       const safeDecode = (v: string | undefined): string => {
@@ -383,12 +387,34 @@ flowMusicRouter.post(
       const downloadUrl = `/api/flow-music/downloads/${id}`;
 
       fs.writeFileSync(targetPath, buffer);
+
+      // Extract embedded ID3 tags (lyrics, title, artist) or transcribe from audio
+      let extractedLyrics = '';
+      let effectiveTitle = title;
+      try {
+        const audioMeta = await extractAudioMetadata(targetPath);
+        if (audioMeta.lyrics) extractedLyrics = audioMeta.lyrics;
+        if (audioMeta.title && (!title || title === targetFilename)) effectiveTitle = audioMeta.title;
+      } catch (err) {
+        console.warn('[Flow Music Upload] Failed to extract audio metadata:', err);
+      }
+
+      if (!extractedLyrics) {
+        try {
+          extractedLyrics = await transcribeAudioLyricsWithGemini(targetPath);
+        } catch (err) {
+          console.warn('[Flow Music Upload] Audio transcription fallback failed:', err);
+        }
+      }
+
       fs.writeFileSync(
         path.join(downloadsDir, `${id}.json`),
         JSON.stringify(
           {
             id,
-            title,
+            title: effectiveTitle,
+            lyrics: extractedLyrics || undefined,
+            transcription: extractedLyrics || undefined,
             filename: targetFilename,
             scriptId,
             uploaded: true,
@@ -401,7 +427,24 @@ flowMusicRouter.post(
       );
 
       // User-uploaded audio is automatically approved and ready for short video production
-      setSongApproval(scriptId, true, downloadUrl, title);
+      setSongApproval(scriptId, true, downloadUrl, effectiveTitle);
+
+      // Persist title, theme, and lyrics into studio state so scene planning and image generation
+      // always match the actual lyrics and story.
+      try {
+        const currentState = getFlowMusicStudioState();
+        const update: Partial<any> = {};
+        if (effectiveTitle && (!currentState.title || currentState.title === 'Epic Cinematic Story')) {
+          update.title = effectiveTitle;
+          update.theme = effectiveTitle;
+        }
+        if (extractedLyrics) {
+          update.lyrics = extractedLyrics;
+        }
+        if (Object.keys(update).length > 0) {
+          saveFlowMusicStudioState(update);
+        }
+      } catch {}
 
       res.json({
         success: true,
@@ -410,7 +453,9 @@ flowMusicRouter.post(
           id,
           filename: targetFilename,
           url: downloadUrl,
-          title,
+          title: effectiveTitle,
+          lyrics: extractedLyrics || undefined,
+          transcription: extractedLyrics || undefined,
         },
       });
     } catch (error) {
@@ -462,12 +507,14 @@ flowMusicRouter.get('/latest-track', (_req, res) => {
     const latestId = latestFile.replace(/\.(mp3|wav|m4a|ogg|aac)$/i, '');
     let title = latestId;
     let transcription = '';
+    let lyrics = '';
     const metaPath = path.join(downloadDir, `${latestId}.json`);
     if (fs.existsSync(metaPath)) {
       try {
         const meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
         if (meta?.title) title = meta.title;
         if (meta?.transcription) transcription = meta.transcription;
+        if (meta?.lyrics) lyrics = meta.lyrics;
       } catch {}
     }
 
@@ -477,7 +524,8 @@ flowMusicRouter.get('/latest-track', (_req, res) => {
         id: latestId,
         url: `/api/flow-music/downloads/${latestId}`,
         title,
-        transcription,
+        transcription: transcription || lyrics,
+        lyrics: lyrics || transcription,
       },
     });
   } catch (error) {
