@@ -4,6 +4,7 @@ import path from 'node:path';
 import { flowProfileDir, flowStatus } from './profile.js';
 import { store } from '../store.js';
 import { isConversationalVideoMode } from '../channel-editorial.js';
+import { resolveTtsProvider } from '../omnivoice.js';
 import {
   hasSpeakerDialogueTags,
   extractSpeakerName,
@@ -24,6 +25,7 @@ export interface FlowJobSpec {
   resolution?: '720p' | '1080p';
   dryRun?: boolean;
   referenceImagePath?: string;
+  voiceProvider?: string;
 }
 
 export function findReferenceImageForScene(scriptId: string, sceneIndex: number): string | undefined {
@@ -122,12 +124,28 @@ const STICKMAN_PATTERN =
 
 function stripAccidentalLipSync(text: string): string {
   let out = text;
-  // Strip injected/standalone multi-word lip-sync and spoken dialogue directives
-  out = out.replace(/(?:^|\.\s*|\n\s*)(?:The character speaks clearly|Natural mouth and jaw movements|Clean vocal dialogue audio|Strict(?:ly)? (?:frame-by-frame )?lip-sync)[^.!?\n]*(?:["“”'][\s\S]*?["“”'])?[^.!?\n]*(?:[.!?]+|$)/gi, '. ');
-  // Strip participial/trailing clauses describing moving lips or speech articulation (with or without quoted line)
-  out = out.replace(/,?\s*(?:with\s+)?(?:his|her|their|its)?\s*lips?\s+moving\s+in\s+[^.!?\n]*?(?:["“”'][\s\S]*?["“”']|[.!?]|$)/gi, '');
-  out = out.replace(/,?\s*(?:articulates?|delivering|mouthing)\s+(?:the\s+)?(?:spoken\s+)?(?:Hindi|English)?\s*(?:words?|dialogue|lines?|speech)\s*[:\-]?\s*(?:["“”'‘’][^"“”'‘’]{1,400}["“”'‘’])?/gi, '');
-  out = out.replace(/,?\s*(?:with\s+)?(?:clear|natural|strict|frame-by-frame|expressive|subtle)?\s*lip[-\s]?sync(?:\s+articulation|\s+matching[^.!?\n]*)?/gi, '');
+  // 1. Strip injected/standalone multi-word lip-sync and spoken dialogue directives
+  out = out.replace(/(?:^|\.\s*|\n\s*)(?:The character speaks clearly|Natural mouth and jaw movements|Clean vocal dialogue audio|Strict(?:ly)? (?:frame-by-frame )?lip-sync|Google Flow (?:lip[-\s/]?jaw articulation|character speech|lip-?sync|dialogue))[^.!?\n]*(?:["“”'][\s\S]*?["“”'])?[^.!?\n]*(?:[.!?]+|$)/gi, '. ');
+
+  // 2. Strip speech delivery clauses with quotes (e.g. 'as his lips articulate with dignified gravity: "..."' or 'as he speaks: "..."')
+  out = out.replace(/,?\s*as\s+(?:his|her|their|its|the\s+character['’]?s?|[A-Za-z]+['’]s?)?\s*(?:lips?|mouth|jaw)\s+(?:articulat\w*|deliver\w*|mov\w*|declar\w*)[^:\"“”'‘’.,\n]*(?::\s*["“”'‘’][^"“”'‘’]*?["“”'‘’]|:\s*|(?=[.,;!?]|$))/gi, '');
+  out = out.replace(/,?\s*as\s+(?:he|she|they|the\s+character|[A-Z][a-z]+)\s+(?:speaks?|articulates?|delivers?|says?|declares?)[^:\"“”'‘’.,\n]*(?::\s*["“”'‘’][^"“”'‘’]*?["“”'‘’]|:\s*|(?=[.,;!?]|$))/gi, '');
+  out = out.replace(/,?\s*(?:delivering|speaking|articulat\w*|mouthing|declaring)\s+(?:calmly|softly|solemnly|quietly|his\s+secret\s+request|his\s+words?|the\s+words?|dialogue|speech|lines?|(?:the\s+)?(?:spoken\s+)?(?:Hindi|English)?\s*(?:words?|dialogue|lines?|speech))?\s*[:\-]?\s*(?:["“”'‘’][^"“”'‘’]*?["“”'‘’])?(?:\s+with\s+[a-z\s]+(?=[.,;!?]|$))?/gi, '');
+
+  // 3. Strip any remaining Devanagari Hindi or quoted speech when lip-sync is disabled
+  out = out.replace(/["“”'‘’][^"“”'‘’]*[\u0900-\u097F][^"“”'‘’]*["“”'‘’]/g, '');
+  out = out.replace(/[\u0900-\u097F]+/gu, '');
+
+  // 4. Strip participial/trailing clauses describing moving lips, mouth/jaw articulation, or speech delivery
+  out = out.replace(/,?\s*(?:smooth\s+motion,\s*)?(?:realistic|natural|smooth)?\s*(?:lip[\s\/-]?jaw|jaw|mouth)\s*(?:articulation|movements?)(?:\s+for\s+spoken\s+(?:Hindi|English)\s+words?)?[^.,\n]*/gi, '');
+  out = out.replace(/,?\s*(?:with\s+)?(?:his|her|their|its|the\s+character['’]?s?)?\s*(?:lips?|mouth|jaw)\s+(?:moving|articulation|movements?)[^.,\n]*/gi, '');
+  out = out.replace(/,?\s*(?:with\s+)?(?:Google Flow\s+)?(?:clear|natural|strict|frame-by-frame|expressive|subtle|authentic)?\s*lip[-\s]?sync(?:\s+(?:articulation|matching|animation|commands?)[^.,\n]*)?/gi, '');
+  out = out.replace(/,?\s*realistic\s*lip\/?/gi, '');
+  out = out.replace(/,?\s*clean vocal dialogue audio[^.,\n]*/gi, '');
+  out = out.replace(/,?\s*ambient room tone, no background music/gi, '');
+
+  // 5. Clean punctuation & spacing
+  out = out.replace(/\s*:\s*(?=[.,;!?]|$)/g, '');
   out = out.replace(/,\s*(?=[.,;!?]|$)/g, '');
   out = out.replace(/\.\s*\./g, '.');
   out = out.replace(/^\s*[.,;:]+\s*/, '');
@@ -143,6 +161,15 @@ export function cleanFlowPrompt(rawPrompt: string, options: { stripLipSync?: boo
   cleaned = cleaned.replace(/\n*\s*Evidence\s*\/\s*Disclosure:\s*[\s\S]*?(?=\n\n[A-Z][a-zA-Z\s]+:|$)/i, '');
   cleaned = cleaned.replace(/Disclosure label:[^\n]*/gi, '');
 
+  // Strip Temporal Constraints section (negative/constraint metadata for image engines)
+  cleaned = cleaned.replace(/\n*\s*Temporal Constraints:\s*[\s\S]*?(?=\n\n[A-Z][a-zA-Z\s]+:|$)/gi, '');
+
+  // Strip Continuity Lock section (character bible metadata)
+  cleaned = cleaned.replace(/\n*\s*Continuity Lock:\s*[\s\S]*?(?=\n\n[A-Z][a-zA-Z\s]+:|$)/gi, '');
+
+  // Strip prompt template labels
+  cleaned = cleaned.replace(/\b(?:Initial composition|Continuous camera move|Stable clean final frame|Stable clean terminal frame|Final frame):\s*/gi, '');
+
   if (options.stripLipSync) {
     cleaned = stripAccidentalLipSync(cleaned);
   }
@@ -151,6 +178,20 @@ export function cleanFlowPrompt(rawPrompt: string, options: { stripLipSync?: boo
   cleaned = cleaned.replace(/(delivering the spoken Hindi (?:dialogue|audio):\s*")\s*\[[^\]]+\]\s*[:—–-]?\s*/gi, '$1');
 
   // Google Flow Veo 3.1 safety policy filter sanitization (replaces trigger words that trip false positives)
+  cleaned = cleaned.replace(/\bblood-orange\b/gi, 'amber-orange');
+  cleaned = cleaned.replace(/\bbloody\b/gi, 'crimson');
+  cleaned = cleaned.replace(/\bblood\b/gi, 'crimson');
+  cleaned = cleaned.replace(/\bbleed(?:ing)?\b/gi, 'crimson glow');
+  cleaned = cleaned.replace(/\bcorpses?\b/gi, 'fallen armors');
+  cleaned = cleaned.replace(/\bkill(?:ing)?\b/gi, 'defeat');
+  cleaned = cleaned.replace(/\blethal\b/gi, 'formidable');
+  cleaned = cleaned.replace(/\bdeadly\b/gi, 'mighty');
+  cleaned = cleaned.replace(/\bbrutal\b/gi, 'intense');
+  cleaned = cleaned.replace(/\bslaughter\b/gi, 'vanquish');
+  cleaned = cleaned.replace(/\bdecapitat(?:e|ed|ing)\b/gi, 'vanquished');
+  cleaned = cleaned.replace(/\bsever(?:ed|ing)?\b/gi, 'shattered');
+  cleaned = cleaned.replace(/\bpierc(?:ing|ed)\s+(?:the\s+)?(?:chest|heart|throat|flesh)\b/gi, 'striking the celestial armor');
+  cleaned = cleaned.replace(/\bapocalyptic\s+war\b/gi, 'great epic conflict');
   cleaned = cleaned.replace(/\bburning\s+crimson\b/gi, 'radiant amber');
   cleaned = cleaned.replace(/\bburning\s+orange\b/gi, 'resplendent golden-orange');
   cleaned = cleaned.replace(/\bburning\s+(?:sky|horizon|twilight)\b/gi, 'glowing sunset horizon');
@@ -233,11 +274,13 @@ function findScriptForFlow(scriptId: string): any {
   if (fs.existsSync(accountsDir)) {
     try {
       for (const acc of fs.readdirSync(accountsDir)) {
-        const p = path.join(accountsDir, acc, 'profiles', 'shorts', 'scripts.json');
-        if (fs.existsSync(p)) {
-          const list = JSON.parse(fs.readFileSync(p, 'utf8'));
-          const s = list.find((x: any) => x.id === scriptId);
-          if (s) return s;
+        for (const prof of ['shorts', 'long', 'mixed']) {
+          const p = path.join(accountsDir, acc, 'profiles', prof, 'scripts.json');
+          if (fs.existsSync(p)) {
+            const list = JSON.parse(fs.readFileSync(p, 'utf8'));
+            const s = list.find((x: any) => x.id === scriptId);
+            if (s) return s;
+          }
         }
       }
     } catch {}
@@ -245,14 +288,52 @@ function findScriptForFlow(scriptId: string): any {
   return null;
 }
 
+export function isFlowVoiceEngine(scriptDoc?: any, spec?: FlowJobSpec): boolean {
+  if (spec?.voiceProvider) {
+    return spec.voiceProvider === 'flow';
+  }
+  if (!scriptDoc) return false;
+
+  // 1. autoPilotSettings.voice.provider
+  const apVoice = scriptDoc.autoPilotSettings?.voice?.provider;
+  if (apVoice) {
+    if (apVoice === 'flow') return true;
+    if (apVoice !== 'default') return false;
+  }
+
+  // 2. scriptDoc.voice?.provider
+  const voiceObj = scriptDoc.voice?.provider;
+  if (voiceObj) {
+    if (voiceObj === 'flow') return true;
+    if (voiceObj !== 'default') return false;
+  }
+
+  // 3. scriptDoc.voiceProvider
+  if (scriptDoc.voiceProvider) {
+    if (scriptDoc.voiceProvider === 'flow') return true;
+    if (scriptDoc.voiceProvider !== 'default') return false;
+  }
+
+  // 4. scriptDoc.generatedAudio[0].provider
+  const audioProv = scriptDoc.generatedAudio?.[0]?.provider;
+  if (audioProv) {
+    return audioProv === 'flow';
+  }
+
+  // 5. Default provider
+  return resolveTtsProvider('default') === 'flow';
+}
+
 export async function startFlowJob(spec: FlowJobSpec): Promise<FlowJob> {
   const active = [...jobs.values()].some((job) => job.state === 'queued' || job.state === 'running');
   if (active) throw new Error('A Flow job is already running. Wait or cancel it first (one profile = one writer).');
   let prompt = (spec.prompt || '').trim();
 
-  // ONLY inject native Hindi lip-sync instructions when conversational/Flow-dialogue mode is explicitly active:
+  // ONLY inject native Hindi lip-sync instructions when conversational/Flow-dialogue mode is explicitly active AND Google Flow is the selected voice engine:
   const scriptDoc = findScriptForFlow(spec.scriptId);
-  const isConvFlow = Boolean(scriptDoc && isConversationalVideoMode({ script: scriptDoc }));
+  const isFlowVoice = isFlowVoiceEngine(scriptDoc, spec);
+  const isConv = Boolean(scriptDoc && (isConversationalVideoMode({ script: scriptDoc }) || scriptDoc.conversational === true || scriptDoc.isConversational === true));
+  const isConvFlow = Boolean(isFlowVoice && isConv);
   if (isConvFlow && scriptDoc) {
     const scene = scriptDoc.scenePlan?.scenes?.[spec.sceneIndex] || scriptDoc.scenes?.[spec.sceneIndex];
     if (scene) {

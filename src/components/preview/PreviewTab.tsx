@@ -16,6 +16,7 @@ import {
 import type { PipelineStep, Script } from '../../data';
 import { copyTextToClipboard } from '../../lib/safe';
 import { RetentionPanel } from './RetentionPanel';
+import { WritersRoomPanel } from './WritersRoomPanel';
 import { DynamicMotionStudio } from './DynamicMotionStudio';
 
 interface PreviewTabProps {
@@ -170,6 +171,8 @@ export function PreviewTab({
       </div>
 
       <RetentionPanel script={script} />
+
+      <WritersRoomPanel script={script} onUpdate={onUpdate} />
 
       <div className="px-6 pt-4 pb-0">
         <DynamicMotionStudio script={script} onUpdateScript={onUpdate} />

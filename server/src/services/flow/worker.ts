@@ -27,6 +27,7 @@ export type OverseerCode =
   | 'TIMEOUT'
   | 'UI_CHANGED'
   | 'CANCELLED'
+  | 'POLICY_VIOLATION'
   | 'GENERATION_FAILED'
   | 'UNKNOWN';
 
@@ -68,6 +69,7 @@ function getBrowserChannel(): string | undefined {
 
 export function classifyFailure(message: string, url: string): OverseerCode {
   const text = `${message} ${url}`.toLowerCase();
+  if (/(?:might|may|could)\s+vio|safety\s+polic|polic(?:y|ies)\s+violat|community\s+guideline|offensive|prohibited|violat|content\s+warning|safety\s+filter|prompt\s+blocked|please\s+try\s+a\s+different\s+prompt/i.test(text)) return 'POLICY_VIOLATION';
   if (/accounts\.google|signin\/rejected|choose an account|session expired/i.test(text)) return 'AUTH_EXPIRED';
   if (/profile.*(in use|locked)|singletonlock|user data directory is already in use|could not remove old devtools/i.test(text)) return 'PROFILE_LOCKED';
   if (/recaptcha|unusual traffic|try again later|automated queries/i.test(text)) return 'RECAPTCHA_BLOCKED';
@@ -87,6 +89,7 @@ export function recoveryHint(code: OverseerCode): string {
     case 'CREDIT_DIALOG': return 'A credit confirmation appeared. Approve manually in the profile browser once, or lower the model to Lite/Fast.';
     case 'BUDGET_BLOCKED': return 'Episode credit budget would be exceeded. Raise FLOW_CREDIT_BUDGET_PER_EPISODE or use Lite.';
     case 'RECAPTCHA_BLOCKED': return 'Google challenged the automation. Retry headed (FLOW_HEADLESS=false) once.';
+    case 'POLICY_VIOLATION': return 'Google Flow flagged this prompt for safety policy. Sanitize the prompt or use reference keyframe.';
     case 'GENERATION_FAILED': return 'Google Flow video/audio generation encountered a transient cloud error. Auto-retry triggered.';
     case 'TIMEOUT': return 'Render exceeded 10 minutes.';
     case 'UI_CHANGED': return 'Flow changed its markup. Check the saved screenshot and retry.';
@@ -611,7 +614,7 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
 
       // Check if Flow shows an explicit failure card / alert (e.g. "Audio generation failed", "Failed", etc.)
       const failureCard = page.locator('.error-message, mat-card, [role="alert"]').filter({
-        hasText: /Audio generation failed|Generation failed|Video generation failed|Please try a different prompt/i
+        hasText: /Audio generation failed|Generation failed|Video generation failed|Please try a different prompt|(?:might|may|could)\s+vio|safety\s+polic|policy\s+violat|community\s+guideline|offensive|prohibited/i
       }).first();
       let isFailed = (await failureCard.count()) > 0 && (await failureCard.isVisible().catch(() => false));
       let errorText = '';
@@ -625,6 +628,14 @@ export async function runLiveGeneration(input: LiveRunInput): Promise<{ filePath
 
       if (isFailed && Date.now() - lastRetryAt > 8000) {
         console.warn(`[Flow Worker] Generation failure detected in Flow: ${errorText.replace(/\n+/g, ' ')}`);
+
+        // Check if error is a safety policy violation (NOT a transient error; never auto-retry identical prompt!)
+        const isPolicyViolation = /(?:might|may|could)\s+vio|safety\s+polic|polic(?:y|ies)\s+violat|community\s+guideline|offensive|prohibited|violat|content\s+warning|safety\s+filter|prompt\s+blocked|please\s+try\s+a\s+different\s+prompt/i.test(errorText);
+        if (isPolicyViolation) {
+          console.warn(`[Flow Worker] Prompt rejected by Flow safety policy: ${errorText.replace(/\n+/g, ' ')}`);
+          await shot(page, dir, 'policy-violation');
+          throw fail('generate', new Error(`Flow generation rejected by safety policy: ${errorText.split('\n')[0]}`), page.url());
+        }
 
         // Check for Retry/Regenerate button inside the card or near it
         const retryBtn = page.locator([

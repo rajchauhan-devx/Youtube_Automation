@@ -34,6 +34,8 @@ import { workspaceMutationGuard } from './services/workspace-activity.js';
 
 import { supervisorRouter } from './routes/supervisor.js';
 import { retentionRouter } from './routes/retention.js';
+import { writersRoomRouter } from './routes/writers-room.js';
+import { visionQaRouter } from './routes/vision-qa.js';
 import { mediaImportRouter } from './routes/media-import.js';
 import { extraPopupsRouter } from './routes/extra-popups.js';
 import { flowMusicRouter } from './routes/flow-music.js';
@@ -80,6 +82,9 @@ app.use('/api/blender', blenderRouter);
 app.use('/api/editing', editingRouter);
 app.use('/api/supervisor', supervisorRouter);
 app.use('/api/retention', retentionRouter);
+app.use('/api/writers-room', writersRoomRouter);
+app.use('/api/vision-qa', visionQaRouter);
+app.use('/api/qa', visionQaRouter);
 app.use('/api/media-import', mediaImportRouter);
 app.use('/api/extra-popups', extraPopupsRouter);
 app.use('/api/youtube', youtubeRouter);

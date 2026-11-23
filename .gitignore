@@ -68,3 +68,11 @@ server/data/*-test-*/
 server/data/.upload-jobs/
 server/data/presenter-api-*/
 scratch/
+
+# Local render artifacts
+TEXAS_OIL_RECREATION_*.mp4
+PRETRAINED_BLENDER_DEMO.mp4
+assets/blender_pretrained/
+production_workspace/texas_oil_*/
+production_workspace/pretrained_demo/
+production_workspace/script_generated/

@@ -397,7 +397,7 @@ export function RemotionTemplatePlayer({
     >
       <Thumbnail
         component={Component}
-        frame={clampedFrame}
+        frameToDisplay={clampedFrame}
         compositionWidth={width}
         compositionHeight={height}
         fps={fps}

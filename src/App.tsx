@@ -1288,6 +1288,7 @@ export default function App() {
                       duration: runSettings.media.flowDuration,
                       resolution: runSettings.media.flowResolution,
                       dryRun: false,
+                      voiceProvider: runSettings.voice.provider,
                     }),
                     signal: controller.signal,
                   });
@@ -1330,10 +1331,14 @@ export default function App() {
                       }
                     } else if (jobResult.state === 'error') {
                       const isAuth = jobResult.overseerCode === 'AUTH_EXPIRED' || /auth-expired|login required|signed out/i.test(jobResult.error || '');
+                      const isPolicy = jobResult.overseerCode === 'POLICY_VIOLATION' || /policy|violate|violat|offensive|prohibited/i.test(jobResult.error || '');
                       if (isAuth) {
                         if (videoOnly) throw new Error(`Video-only mode: Google Flow login expired (Scene ${i + 1}). Reconnect Flow and resume.`);
                         flowAvailableThisRun = false;
                         addAutoPilotLog('generate_images', `Google Flow login expired. Using reference keyframes for subsequent video scenes.`, 'warn');
+                        break;
+                      } else if (isPolicy) {
+                        addAutoPilotLog('generate_images', `Scene ${i + 1} video prompt flagged by Google Flow safety policy. Gracefully falling back to reference keyframe for this scene. Continuing video generation for remaining scenes...`, 'warn');
                         break;
                       } else if (videoAttempt < MAX_VIDEO_ATTEMPTS) {
                         addAutoPilotLog('generate_images', `Scene ${i + 1} video attempt ${videoAttempt} error: ${jobResult.error || 'Flow error'}. Retrying video generation...`, 'info');

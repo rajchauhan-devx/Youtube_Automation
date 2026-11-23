@@ -16,17 +16,22 @@ export function stripChannelEditorial(text: string): string {
   return stripped;
 }
 
-const EXPLICIT_CONVERSATIONAL_DIRECTIVE_RE =
-  /\b(?:multi-?character|multi-?voice|100%\s*full\s*video|zero\s*narrator(?:\s*mandate)?|full\s*video\s*only|conversational\s+(?:dialogue|drama|episode|script|template|format|storytelling|mode|multi-character))\b/i;
+const EXPLICIT_CONVERSATIONAL_MANDATE_RE =
+  /\b(?:100%\s*full\s*video\s*only|zero\s*narrator\s*mandate|mandatory\s+multi-character|force\s+(?:full\s+)?(?:multi-character|conversational)|conversational\s+dialogue\s+only|multi-character\s+dialogue\s+only)\b/i;
+
+const TEMPLATE_CONVERSATIONAL_TITLE_RE =
+  /(?:^|\n)#+\s*.*(?:conversational\s+dialogue|multi-character\s+conversational|multi-character\s+drama)\b/i;
 
 /**
  * True ONLY when a template or instruction explicitly mandates a multi-character
- * conversational full-video format (ignores shared editorial blocks and phrases
- * like "Use short, conversational sentences").
+ * conversational full-video format (ignores shared editorial blocks, advisory notes,
+ * and phrases like "For conversational multi-character episodes: ...").
  */
 export function hasExplicitConversationalDirective(template?: string, instructions?: string): boolean {
-  return EXPLICIT_CONVERSATIONAL_DIRECTIVE_RE.test(stripChannelEditorial(template || ''))
-    || EXPLICIT_CONVERSATIONAL_DIRECTIVE_RE.test(instructions || '');
+  if (instructions && EXPLICIT_CONVERSATIONAL_MANDATE_RE.test(instructions)) return true;
+  if (!template) return false;
+  const stripped = stripChannelEditorial(template);
+  return TEMPLATE_CONVERSATIONAL_TITLE_RE.test(stripped) || EXPLICIT_CONVERSATIONAL_MANDATE_RE.test(stripped);
 }
 
 export interface ConversationalScriptInput {

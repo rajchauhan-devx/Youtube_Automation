@@ -13,18 +13,29 @@ SACRED LORE, DICTION & MODE FIDELITY:
 - Rotate topics dynamically across: 1) Ramayana sacred lore, 2) Mahabharata epic moral dilemmas and Gita wisdom, and 3) Ancient India Dharma, Upanishadic philosophy, and revered Vedic Rishis/seekers.
 - Follow the active template's own narration/dialogue format and image/video media mode without altering asset types or adding unrelated top banners, music prompts, or lip-sync mandates.
 - For conversational multi-character episodes: dramatize the episode faithfully through living character dialogue true to the sacred lore of the Ramayana, Mahabharata, or Ancient India Dharma: strictly NEVER include modern science, satellite imagery, or archaeology.
+- CONVERSATIONAL DRAMATIC HINDI (BAN TEXTBOOK SANSKRITIZED STYLE): Output natural, emotional, spoken storytelling Hindi, NOT academic, textbook, or over-Sanskritized prose.
+  - HARD BAN on heavy archaic Sanskritized terms: 'वक्ष विदीर्ण', 'प्रच्छन्न प्रहार', 'स्नुषा गमन', 'मृगया विधि', 'कदापि', 'तदुपरांत', 'तदन्तर', 'अतएव', 'यत्किञ्चित' unless immediately explained in plain spoken words.
+  - Keep sentences short and punchy (8–14 words max per sentence) for natural, rhythmic TTS pacing and dramatic delivery.
 - When ancient gods, avataras, seekers, and epic figures speak (such as Sri Rama, Mata Sita, Lakshmana, Ravana, Hanuman, Sri Krishna, Arjuna, Karna, Bhishma, Draupadi, Nachiketa, Yama, Adi Shankara, Chanakya, ancient Rishis), they must speak with profound scriptural dignity, elevated noble Hindi, and sacred gravitas true to their sacred tradition.
 - BANNED STREET SLANG: Strictly NEVER use cheap modern street-slang, rude informal pronouns, or low-level colloquialisms (such as 'तू', 'तेरा', 'तुझे', 'तूने', 'काय रे', 'अरे').
 
+TITLE & PACKAGING ALIGNMENT:
+- Titles MUST match the spoken audio language. Never generate pure English titles for Hindi audio scripts.
+- For Hindi audio, generate Devanagari Hindi or natural Hinglish curiosity-gap titles (max 55–60 characters for Shorts including #Shorts, max 70 characters for Long-form).
+  - Bad: 'Why Karna Rejected Sri Krishna\'s Offer to Rule Hastinapur #Shorts'
+  - Good: 'श्रीकृष्ण का ऑफर कर्ण ने क्यों ठुकराया? | Mahabharat #Shorts'
+
 ${profile === 'shorts'
-    ? 'SHORTS: Tell one complete dilemma, turning point and resolution for the chosen episode. Start Scene 1 with a specific visual hook matching the active template’s own media tag (<image_prompt1> or <video_prompt1>) and immediate emotional stakes — never override mixed image/video tags or insert unrelated characters.'
-    : 'LONG VIDEOS: Establish the dilemma and viewer promise in the opening few sentences. Develop the chapters through connected sacred episodes, actions and spiritual wisdom. Resolve the central crisis with the decisive action and outcome.'}
-
-ONE VARIED ENGAGEMENT CLOSE:
-After the complete story payoff, include ONE compact Hindi closing invitation asking viewers to like the video, subscribe to Ancient Dharma, and leave ONE episode-relevant comment (e.g. 'कमेंट में अपनी राय लिखिए। कथा अच्छी लगी तो लाइक करें और Ancient Dharma को सब्सक्राइब करें।').
-
-SYNC AND SILENT CHECK:
-Put the closing words once at the end of the voice script and final CTA segment. Check that the opening is specific, the visual prompts match the active template’s exact asset types and numbering, and the close includes like + subscribe + one episode-relevant comment invitation.
+    ? `SHORTS RETENTION STRUCTURE (35–50 SECONDS | 95–130 HINDI WORDS MAX):
+- 0–3s (Hook): Open immediately with high conflict, a moral contradiction, or a sharp curiosity question. Never start with slow chronological backstory or greetings.
+- 3–42s (Body): Fast narrative progression with a visual change every 2–3.5 seconds. Start Scene 1 with a specific visual hook matching the active template's own media tag (<image_prompt1> or <video_prompt1>).
+- Last 2s (Ending): End abruptly on a punchy moral twist or 1-line debate question.
+- HARD BAN ON GENERIC OUTROS: Strictly NEVER add generic 8–10s 'वीडियो को लाइक करें, कमेंट करें और चैनल को सब्सक्राइब करें' outros on Shorts. End sharply on the payoff or question to trigger re-loops.`
+    : `LONG VIDEOS RETENTION STRUCTURE (3–10 MINUTES):
+- 0–15s (Cold Open Hook): Establish the dilemma, stakes, and central mystery before starting the timeline.
+- Pattern interrupts (tone shift, question, dramatic reversal) every 30–45 seconds to sustain retention.
+- Visual progression: In long videos, ensure visual scenes cut every 3–5 seconds (max 3–5s on static shots) using dynamic angle shifts, close-ups, or map/archaeological cuts; avoid lingering on a single still image.
+- Resolve the central crisis with decisive action and outcome, ending with one earned spiritual reflection and a single concise CTA.`}
 ${ANCIENT_DHARMA_EDITORIAL_END}`;
 }
 

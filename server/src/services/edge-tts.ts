@@ -4,7 +4,8 @@ import path from 'path';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { fileURLToPath } from 'url';
-import { TtsError, buildSSML, type VoiceInfo } from './tts-shared.js';
+import { TtsError, buildSSML, cleanScriptForTTS, type VoiceInfo } from './tts-shared.js';
+import { sanitizeHindiForTTS } from './hindi-pronunciation.js';
 
 const execFileAsync = promisify(execFile);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -194,10 +195,12 @@ export async function synthesizeEdgeTts(
   const cfgFile = path.join(tmpDir, 'config.json');
   const outFile = path.join(tmpDir, 'output.mp3');
 
+  const cleanedText = language === 'hi' ? sanitizeHindiForTTS(text) : cleanScriptForTTS(text);
+
   const config = {
     voice,
     output: outFile,
-    text,
+    text: cleanedText,
     rate,
     pitch,
     volume,

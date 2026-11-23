@@ -210,9 +210,10 @@ function FlowAccountModal({ isOpen, onClose, credits, onUpdated }: FlowAccountMo
   );
 }
 
-function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defaultResolution = '720p', disabled, hasReference, onEnsureReference, onImported, onError, onNotice }: {
+function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defaultResolution = '720p', voiceProvider, disabled, hasReference, onEnsureReference, onImported, onError, onNotice }: {
   scriptId: string; sceneIndex: number; prompt: string; duration: number; aspect: 'portrait' | 'landscape';
   defaultResolution?: '720p' | '1080p';
+  voiceProvider?: string;
   disabled: boolean;
   hasReference?: boolean;
   onEnsureReference?: () => Promise<void>;
@@ -267,7 +268,7 @@ function FlowVideoButton({ scriptId, sceneIndex, prompt, duration, aspect, defau
       onNotice('Validating Flow prompt (0 credits)…');
       const res = await globalThis.fetch('/api/flow/jobs', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scriptId, sceneIndex, prompt, model: 'veo-3.1-fast', aspect, duration, resolution, dryRun: false }),
+        body: JSON.stringify({ scriptId, sceneIndex, prompt, model: 'veo-3.1-fast', aspect, duration, resolution, dryRun: false, voiceProvider }),
       });
       const data = await res.json() as FlowJobState & { error?: string };
       if (!res.ok) throw new Error(data.error || 'Flow job failed to start.');
@@ -744,6 +745,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
             duration,
             resolution: flowResolution,
             dryRun: false,
+            voiceProvider: script?.autoPilotSettings?.voice?.provider || script?.voiceProvider || script?.generatedAudio?.[0]?.provider,
           }),
         });
 
@@ -1160,6 +1162,7 @@ export function MixedMediaContent({ script, onUpdate }: { script: Script | null;
               duration={spokenSeconds !== undefined ? Math.min(10, Math.max(4, Math.round(spokenSeconds))) : 8}
               aspect={profile === 'shorts' ? 'portrait' : 'landscape'}
               defaultResolution={flowResolution}
+              voiceProvider={script?.autoPilotSettings?.voice?.provider || script?.voiceProvider || script?.generatedAudio?.[0]?.provider}
               disabled={locked}
               hasReference={Boolean(referenceImageToDisplay)}
               onEnsureReference={async () => {

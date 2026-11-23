@@ -19,6 +19,8 @@ import { flowRouter } from './flow.js';
 import { flowMusicRouter } from './flow-music.js';
 import { supervisorRouter } from './supervisor.js';
 import { retentionRouter } from './retention.js';
+import { writersRoomRouter } from './writers-room.js';
+import { visionQaRouter } from './vision-qa.js';
 import { recoveryRouter } from './recovery.js';
 import { workspaceMutationGuard } from '../services/workspace-activity.js';
 
@@ -47,6 +49,8 @@ workspacesRouter.use('/instagram', instagramRouter);
 workspacesRouter.use('/llm', llmRouter);
 workspacesRouter.use('/supervisor', supervisorRouter);
 workspacesRouter.use('/retention', retentionRouter);
+workspacesRouter.use('/writers-room', writersRoomRouter);
+workspacesRouter.use('/vision-qa', visionQaRouter);
 workspacesRouter.use(((error, _req, res, next) => {
   if (error instanceof StoreCorruptionError) { res.status(409).json({ error: error.message, code: error.code }); return; }
   next(error);

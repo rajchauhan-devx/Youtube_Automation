@@ -10,6 +10,7 @@ import { checkEdgeTtsStatus, previewEdgeTts, generateEdgeAudio, EDGE_ENGLISH_VOI
 import { hasSpeakerDialogueTags, synthesizeConversationalBlock, resolveChannelKey, stripSpeakerTags, type DialogueTurn } from './conversational-tts.js';
 import { store } from './store.js';
 import { runMedia } from './media-process.js';
+import { cleanVoiceAudioBuffer } from './voice-cleanup.js';
 
 export { TtsError, type VoiceInfo } from './tts-shared.js';
 
@@ -277,6 +278,8 @@ export async function generateTTS(params: {
       audioBuffer = concatWavs(parts);
     }
   }
+
+  audioBuffer = await cleanVoiceAudioBuffer(audioBuffer, ext === 'mp3' ? 'mp3' : 'wav');
 
   const filename = `narration_${params.language}_${Date.now()}.${ext}`;
   const dir = path.join(generatedDir(), params.scriptId);

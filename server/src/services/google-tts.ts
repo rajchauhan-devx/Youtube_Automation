@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { getGoogleAuthToken, isAdcConfigured } from './google-adc.js';
 import { cleanScriptForTTS, concatWavs, TtsError, type VoiceInfo } from './tts-shared.js';
+import { sanitizeHindiForTTS } from './hindi-pronunciation.js';
 
 const BASE = 'https://texttospeech.googleapis.com/v1';
 export const GOOGLE_TTS_REVISION = 'chirp3-hd-v1';
@@ -132,7 +133,8 @@ export async function synthesizeGoogleTts(text: string, voice: string | undefine
 
   let cleaned = trimmed;
   if (!isSsml) {
-    cleaned = cleanScriptForTTS(trimmed).replace(/\[\s*(?:pause|break)[^\]]*\]|\(\s*pause[^)]*\)/gi, ', ').replace(/<[^>]*>|\[[^\]]*\]/g, '').trim();
+    const baseCleaned = language === 'hi' ? sanitizeHindiForTTS(trimmed) : cleanScriptForTTS(trimmed);
+    cleaned = baseCleaned.replace(/\[\s*(?:pause|break)[^\]]*\]|\(\s*pause[^)]*\)/gi, ', ').replace(/<[^>]*>|\[[^\]]*\]/g, '').trim();
     if (!/[\p{L}\p{N}]/u.test(cleaned)) {
       return createSilentWav(2, 24000);
     }

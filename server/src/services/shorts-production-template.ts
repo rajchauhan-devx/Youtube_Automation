@@ -43,7 +43,7 @@ Development: every sentence must add necessary context, a cause, obstacle, disco
 
 Re-hook (mandatory for 45s+ Shorts): near the midpoint introduce ONE concrete, source-supported turn: a failed option, discovery, changed constraint or consequential choice. Explain how it changes the next action; never merely announce that a surprise is coming or repeat the opening danger. Plant any necessary clue beforehand. Do not invent hidden motives, facts or new fictional powers to force a twist. For shorter stories, let a natural complication carry the momentum without padding to reach a prescribed moment.
 
-Resolution: answer the opening question with the actual outcome and the decisive reason, action or cost. Deliver the strongest earned payoff in the final story beat, with useful smaller payoffs beforehand; do not stretch an already answered question or hide a known outcome behind fake mystery. End on a concise consequence or an earlier detail whose meaning has changed, without recapping the story or adding a generic moral. For Ancient Dharma, follow the one varied engagement close above, within the selected runtime and after the payoff. For unrelated topics, use one brief relevant CTA only when requested. A callback may reward replay only after a complete resolution; never withhold the answer to force another view. Silently remove lines that add neither necessary context nor a new development, and verify that the opening promise is fulfilled. These are editorial choices, not guaranteed audience metrics.
+Resolution: answer the opening question with the actual outcome and the decisive reason, action or cost. Deliver the strongest earned payoff in the final story beat, with useful smaller payoffs beforehand; do not stretch an already answered question or hide a known outcome behind fake mystery. End on a concise consequence or an earlier detail whose meaning has changed, without recapping the story or adding a generic moral. For Shorts, end abruptly on a punchy moral twist or 1-line debate question: strictly NEVER add generic 8–10s like/subscribe outros on Shorts. For unrelated topics, use one brief relevant CTA only when requested. A callback may reward replay only after a complete resolution; never withhold the answer to force another view. Silently remove lines that add neither necessary context nor a new development, and verify that the opening promise is fulfilled. These are editorial choices, not guaranteed audience metrics.
 
 ## 4. Duration and scene budgeting
 
@@ -71,10 +71,23 @@ Before writing prompts, silently establish a compact continuity bible for the ac
 
 Repeat the essential descriptors in EVERY independent prompt where that subject appears. Never write "same character," "as above," "continue the previous shot" or assume that the external generator remembers an earlier asset. Match palace, exile, travel and captivity clothing to the story moment. Preserve screen direction and spatial relationships across adjacent shots. Change costume, lighting or location only when the narration motivates the change.
 
-For Ancient Dharma imagery (Ramayana, Mahabharata, and Ancient India lore), preserve authentic visual continuity:
-- Ramayana: Rama's blue-dark complexion and dignified bearing, period-appropriate clothing and bow; Sita's radiant golden presence and setting-appropriate attire; Hanuman's recognizable vanara form, devotion and explicit scale; Lakshmana's alert warrior poise.
-- Mahabharata: Krishna's divine blue-dark complexion, peacock feather, pitambari silk, and transcendental serenity; Arjuna's Gandiva bow and warrior chariot attire; Karna's divine golden kavach-kundala; Bhishma's majestic white beard, robes and unyielding royal dignity; Draupadi's fiery, regal beauty in royal silks.
+For Ancient Dharma imagery (Ramayana, Mahabharata, and Ancient India lore), preserve authentic visual continuity and locked character bibles:
+- Ramayana:
+  - Shri Rama: deep blue-dark complexion (megha-shyam), calm powerful eyes, noble dignified bearing, period-appropriate saffron bark-cloth dhoti or royal yellow silk, sacred thread, Sharanga bow, strictly NO peacock feather.
+  - Mata Sita: radiant golden presence, setting-appropriate ancient Vedic attire and subtle celestial ornamentation.
+  - Hanuman: divine vanara warrior, radiant golden-orange fur, powerful muscular physique, golden crown and crimson dhoti, long curled tail, wielding divine golden gada, strictly NO wings, wingless divine form.
+  - Bali / Sugriva: mythological divine vanara kings, radiant golden-armored warriors with celestial golden torque and crown, regal powerful simian countenance, towering muscular vanara physique, strictly NO ordinary monkey, NO gorilla, NO old human man.
+  - Lakshmana: alert warrior poise, deep devotion, twin quiver and bow.
+- Mahabharata:
+  - Shri Krishna: divine dark blue-black complexion, single peacock feather in gold mukut, pitambari golden silk dhoti, Kaustubha gem, transcendental serenity.
+  - Arjuna: Gandiva bow, warrior chariot armor, focused archer countenance.
+  - Karna: radiant golden-bronze complexion, solar aura, divine celestial golden Kavach armor fused to chest, radiant Kundala earrings, crimson warrior attire, golden chariot.
+  - Bhishma: majestic white beard, flowing robes, unyielding royal dignity.
+  - Draupadi: fiery, regal beauty in royal silks.
 - Ancient India Dharma & Sages: Venerable Rishis with ascetic ochre bark garments, sacred rudraksha/janeu, matted hair (jata), peaceful forest hermitage (ashram) backdrops; ancient seekers and kings in authentic Vedic attire; majestic stone temple sanctums with warm diya lighting. Treat these as visual continuity conventions, not fabricated textual quotations.
+
+Strict Negative Constraints (MANDATORY IN EVERY VISUAL PROMPT):
+Strictly NO text, NO captions, NO labels, NO watermarks, NO typography, NO split-screen, NO collage, NO comic panels, NO stacked multi-image grids, NO modern anachronisms (NO modern clothing, NO sunglasses, NO metal tripods, NO electricity, NO modern boats, NO watches).
 
 Default visual language: cinematic, photorealistic textures, purposeful composition, controlled contrast and believable materials. Use warm devotional light, forest tones or dramatic weather when appropriate to the event. Avoid unrelated neon, modern accessories in ancient settings, plastic skin and spectacle that obscures the subject.
 

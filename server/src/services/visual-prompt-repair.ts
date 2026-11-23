@@ -1,6 +1,7 @@
 import { chat } from './gemini.js';
 import { validateScenePlan, type ScenePlan } from './scene-plan.js';
 import { promptMinimumWords, requiresThumbnailMotion } from './script-generation.js';
+import { buildWorldBibleForTopic, injectWorldBibleIntoPrompt } from './world-bible.js';
 
 const words = (text: string) => text.split(/\s+/u).filter(Boolean).length;
 /** Expand only deficient visual fields; never regenerate a valid voice script. */
@@ -21,7 +22,16 @@ export async function repairVisualPrompts(apiKey: string, input: ScenePlan, temp
       id: thumbnailId, narration: '', imagePrompt: plan.thumbnailPrompt, videoPrompt: plan.thumbnailMotionPrompt,
       expandImage: false, expandVideo: true, imageWords: words(plan.thumbnailPrompt), videoWords: words(plan.thumbnailMotionPrompt || ''),
     });
-    if (!pending.length) return plan;
+    if (!pending.length) {
+      const bible = buildWorldBibleForTopic(plan.title || '');
+      for (const scene of plan.scenes) {
+        scene.imagePrompt = injectWorldBibleIntoPrompt(scene.imagePrompt, bible);
+        if (scene.videoPrompt) {
+          scene.videoPrompt = injectWorldBibleIntoPrompt(scene.videoPrompt, bible);
+        }
+      }
+      return plan;
+    }
     const response = await generate(apiKey, { model, signal, max_tokens: 16384, json: true,
       jsonSchema: { type: 'object', properties: { prompts: { type: 'array', items: { type: 'object', properties: {
         id: { type: 'string' }, imagePrompt: { type: 'string' }, videoPrompt: { type: 'string' },
@@ -51,5 +61,12 @@ export async function repairVisualPrompts(apiKey: string, input: ScenePlan, temp
   const invalid = plan.scenes.find(scene => words(scene.imagePrompt) < minimum.image || (scene.mediaType === 'video' && words(scene.videoPrompt || '') < minimum.video));
   if (invalid) throw new Error(`Scene ${invalid.id}: visual prompts still fall below the template minimum after repair.`);
   if (requiresThumbnailMotion(template) && words(plan.thumbnailMotionPrompt || '') < minimum.video) throw new Error('The separate thumbnail motion prompt is still incomplete after repair.');
+  const bible = buildWorldBibleForTopic(plan.title || '');
+  for (const scene of plan.scenes) {
+    scene.imagePrompt = injectWorldBibleIntoPrompt(scene.imagePrompt, bible);
+    if (scene.videoPrompt) {
+      scene.videoPrompt = injectWorldBibleIntoPrompt(scene.videoPrompt, bible);
+    }
+  }
   return validateScenePlan(plan);
 }

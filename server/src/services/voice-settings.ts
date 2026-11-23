@@ -10,7 +10,7 @@ export function normalizeSavedVoiceSettings(settings: unknown): void {
   const record = voice as Record<string, unknown>;
   const keys = new Set(['provider', 'language', 'voiceId', 'rate', 'pitch', 'speed']);
   for (const key of Object.keys(record)) if (!keys.has(key)) delete record[key];
-  if (!['default', 'google', 'edge', 'openrouter', 'omni'].includes(String(record.provider))) record.provider = 'google';
+  if (!['default', 'google', 'edge', 'openrouter', 'omni', 'flow'].includes(String(record.provider))) record.provider = 'google';
   if (record.provider === 'google' || record.provider === 'default') {
     if (!/^(?:hi-IN|en-IN|en-US)-Chirp3-HD-[A-Za-z]+$/.test(String(record.voiceId))) {
       record.voiceId = defaultGoogleVoice(record.language === 'hi' ? 'hi' : 'en');

@@ -185,6 +185,66 @@ teletype_chatter: {
       '-y',
     ],
   },
+  war_drum: {
+    filename: 'war_drum.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=(sin(2*PI*50*exp(-3*t)*t)*0.7+sin(2*PI*100*exp(-5*t)*t)*0.35):s=44100',
+      '-t', '1.2',
+      '-af', 'volume=2.8,afade=t=out:st=0.4:d=0.8',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+  bow_release: {
+    filename: 'bow_release.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=(sin(2*PI*320*exp(-8*t)*t)*0.6+random(0)*0.3*exp(-10*t)):s=44100',
+      '-t', '0.45',
+      '-af', 'highpass=f=180,volume=2.6,afade=t=out:st=0.2:d=0.25',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+  thunder: {
+    filename: 'thunder.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=(random(0)*0.6*exp(-1.5*t)+sin(2*PI*45*t)*0.4*exp(-1.2*t)):s=44100',
+      '-t', '2.2',
+      '-af', 'lowpass=f=450,volume=3.0,afade=t=out:st=1.2:d=1.0',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+  riser: {
+    filename: 'riser.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=sin(2*PI*(80+180*t*t)*t)*0.6:s=44100',
+      '-t', '1.5',
+      '-af', 'volume=2.2,afade=t=in:ss=0:d=0.6,afade=t=out:st=1.2:d=0.3',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
+  ocean_waves: {
+    filename: 'ocean_waves.mp3',
+    args: [
+      '-f', 'lavfi',
+      '-i', 'aevalsrc=random(0)*0.4*(0.5+0.5*sin(2*PI*0.4*t)):s=44100',
+      '-t', '2.5',
+      '-af', 'lowpass=f=900,highpass=f=120,volume=2.4,afade=t=in:ss=0:d=0.5,afade=t=out:st=1.8:d=0.7',
+      '-c:a', 'libmp3lame',
+      '-b:a', '128k',
+      '-y',
+    ],
+  },
 };
 
 export async function ensureDefaultSfx(): Promise<void> {

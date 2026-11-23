@@ -149,6 +149,8 @@ export interface Script {
   retentionPlan?: import('../server/src/services/retention-types').RetentionPlan;
   retentionEdit?: import('../server/src/services/retention-types').RetentionEdit;
   retentionReview?: import('../server/src/services/retention-types').RetentionReview;
+  writersRoomJobId?: string;
+  writersRoomSummary?: import('../server/src/services/editorial/writers-room-types').WritersRoomSummary;
   vettedTopic?: import('../server/src/services/editorial/documentary-topic-vetter').VettedTopicResult;
   /** Legacy template setting. Media types now come from the extracted scene plan. */
   videoImportsEnabled?: boolean;

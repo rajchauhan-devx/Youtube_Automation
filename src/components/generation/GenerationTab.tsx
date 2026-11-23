@@ -761,6 +761,19 @@ function AudioGenerationContent({
   function selectVoice(id: string) {
     setSelectedVoice(id);
     rememberVoice(account.id, selectedLanguage, voiceProviderRef.current, id);
+    if (script?.id) {
+      onUpdate({
+        voiceProvider: selectedProvider,
+        autoPilotSettings: script.autoPilotSettings ? {
+          ...script.autoPilotSettings,
+          voice: {
+            ...script.autoPilotSettings.voice,
+            provider: selectedProvider as any,
+            voiceId: id,
+          },
+        } : undefined,
+      });
+    }
   }
   const [previewVoiceId, setPreviewVoiceId] = useState<string | null>(null);
   const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
@@ -858,7 +871,7 @@ function AudioGenerationContent({
   const generatedAudio = script?.generatedAudio || [];
   const isLocalProvider = providerKind === 'local' || providerName === 'OmniVoice';
   const isGoogle = selectedProvider === 'google' || (selectedProvider === 'default' && providerName.includes('Google Chirp'));
-  const isFlow = selectedProvider === 'flow' || providerName.includes('Google Flow');
+  const isFlow = selectedProvider === 'flow' || (selectedProvider === 'default' && providerName.includes('Google Flow'));
 
   // Format rate and pitch for backend SSML
   const formattedRate = rateOffset >= 0 ? `+${rateOffset}%` : `${rateOffset}%`;
@@ -1289,7 +1302,19 @@ function AudioGenerationContent({
       };
 
       const existing = (script.generatedAudio || []).filter((a) => a.language !== selectedLanguage);
-      onUpdate({ narration: textToGenerate, generatedAudio: [entry, ...existing] });
+      onUpdate({
+        narration: textToGenerate,
+        generatedAudio: [entry, ...existing],
+        voiceProvider: data.provider || selectedProvider,
+        autoPilotSettings: script.autoPilotSettings ? {
+          ...script.autoPilotSettings,
+          voice: {
+            ...script.autoPilotSettings.voice,
+            provider: (data.provider || selectedProvider) as any,
+            voiceId: selectedVoice,
+          },
+        } : undefined,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate audio');
     } finally {
@@ -1409,7 +1434,27 @@ function AudioGenerationContent({
         )}
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <label className="text-xs font-medium text-gray-400">Voice engine<select aria-label="Voice engine" value={selectedProvider} disabled={generating || serverStarting} onChange={event => { if (event.target.value === selectedProvider) return; stopPreview(); setSelectedVoice(''); setVoices([]); setVoicesLoading(true); setSelectedProvider(event.target.value); }} className="ml-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-white"><option value="default">Configured default</option>{voiceEngines.map(engine => <option key={engine.id} value={engine.id}>{engine.name}{engine.configured ? '' : ' · Setup required'}</option>)}</select></label>
+          <label className="text-xs font-medium text-gray-400">Voice engine<select aria-label="Voice engine" value={selectedProvider} disabled={generating || serverStarting} onChange={event => {
+            const nextProvider = event.target.value;
+            if (nextProvider === selectedProvider) return;
+            stopPreview();
+            setSelectedVoice('');
+            setVoices([]);
+            setVoicesLoading(true);
+            setSelectedProvider(nextProvider);
+            if (script?.id) {
+              onUpdate({
+                voiceProvider: nextProvider,
+                autoPilotSettings: script.autoPilotSettings ? {
+                  ...script.autoPilotSettings,
+                  voice: {
+                    ...script.autoPilotSettings.voice,
+                    provider: nextProvider as any,
+                  },
+                } : undefined,
+              });
+            }
+          }} className="ml-2 rounded-lg border border-border bg-surface px-3 py-2 text-sm text-white"><option value="default">Configured default</option>{voiceEngines.map(engine => <option key={engine.id} value={engine.id}>{engine.name}{engine.configured ? '' : ' · Setup required'}</option>)}</select></label>
           <label htmlFor="narration-language" className="text-xs font-medium text-gray-400">Narration language</label>
           <select id="narration-language" value={selectedLanguage} disabled={generating} onChange={e => handleLanguageSwitch(e.target.value as 'en' | 'hi')} className="rounded-lg border border-border bg-surface px-3 py-2 text-sm text-white">
             <option value="en">English</option><option value="hi">Hindi</option>

@@ -171,7 +171,7 @@
         "imageQuality": "standard",
         "seedMode": "random",
         "seed": 42,
-        "flowEnabled": true,
+        "flowEnabled": false,
         "flowResolution": "720p",
         "flowDuration": 8,
         "allowImageFallback": true,
@@ -372,11 +372,11 @@
         "imageQuality": "standard",
         "seedMode": "random",
         "seed": 42,
-        "flowEnabled": true,
+        "flowEnabled": false,
         "flowResolution": "720p",
         "flowDuration": 8,
         "allowImageFallback": false,
-        "videoOnly": true
+        "videoOnly": false
       },
       "voice": {
         "provider": "default",

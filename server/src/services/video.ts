@@ -11,6 +11,7 @@ import { compositePresenter } from './presenter.js';
 import { reservePresenterCaptionSpace, type PresenterSettings } from './presenter-settings.js';
 import type { ScenePlan, NarrationSync } from './scene-plan.js';
 import { autoEditPlan, autoMotionFilter, smoothMotionFilter, autoEditAss, autoAudioGraph, editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
+import { resolveMusicTrack } from './music.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { generatedDir, mediaUrl, currentWorkspace } from './workspace.js';
@@ -230,8 +231,14 @@ export function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]
       const stretch = Math.min(1.25, Math.max(0.75, ratio));
       filterParts.push(`[${i}:v]${framing},setsar=1,fps=${FPS},setpts=(PTS-STARTPTS)*${stretch.toFixed(4)},tpad=stop_mode=clone:stop_duration=5,trim=duration=${(clip.frames / FPS).toFixed(3)},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
     } else {
-      const motion = buildZoompanExpression(sa?.effects?.[i] || 'zoom-in', clip.frames, width, height, zoomFactor);
-      filterParts.push(`[${i}:v]${framing},setsar=1,${motion},trim=end_frame=${clip.frames},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
+      const isDuplicate = i > 0 && resolvedImages[i] === resolvedImages[i - 1];
+      let effect = sa?.effects?.[i] || 'zoom-in';
+      if (isDuplicate) {
+        effect = effect === 'zoom-in' ? 'zoom-out' : effect === 'pan-right' ? 'pan-left' : 'zoom-in';
+      }
+      const motion = buildZoompanExpression(effect, clip.frames, width, height, zoomFactor);
+      const flip = isDuplicate ? ',hflip' : '';
+      filterParts.push(`[${i}:v]${framing},setsar=1${flip},${motion},trim=end_frame=${clip.frames},settb=AVTB,setpts=PTS-STARTPTS[zoomed${i}]`);
     }
     if (i === 0) return;
     const previous = plan[i - 1];
@@ -269,22 +276,23 @@ export function buildFilterComplex(opts: RenderOptions, resolvedImages: string[]
   filterParts.push(`[${lastLabel}]trim=duration=${totalVideoDuration},${postFilters.join(',')}[v]`);
 
   // Handle audio filter complex (Voice + BGM)
-  const hasBgm = Boolean(opts.bgmPath && fs.existsSync(opts.bgmPath));
+  const bgmTrackPath = (opts.bgmPath && fs.existsSync(opts.bgmPath)) ? opts.bgmPath : resolveMusicTrack('devotional_calm');
+  const hasBgm = Boolean(bgmTrackPath && fs.existsSync(bgmTrackPath));
   const voiceIndex = numImages;
   const ttsVol = (opts.ttsVolume ?? 1.0).toFixed(2);
 
   if (opts.polishAudio) {
-    const graph = autoAudioGraph(editingPreset('documentary'), totalVideoDuration, opts.ttsVolume ?? 1, opts.bgmVolume ?? 0.1, hasBgm, []);
+    const graph = autoAudioGraph(editingPreset('documentary'), totalVideoDuration, opts.ttsVolume ?? 1, opts.bgmVolume ?? 0.08, hasBgm, []);
     filterParts.push(graph.replace(/\[([12]):a\]/g, (_match, input) => `[${voiceIndex + Number(input) - 1}:a]`));
-  } else if (hasBgm && opts.bgmPath) {
+  } else if (hasBgm && bgmTrackPath) {
     const bgmIndex = voiceIndex + 1;
-    const bgmVol = (opts.bgmVolume ?? 0.15).toFixed(2);
+    const bgmVol = (opts.bgmVolume ?? 0.08).toFixed(2);
 
     filterParts.push(`[${voiceIndex}:a]volume=${ttsVol}[voice]`);
     // The input is infinitely looped by renderVideo. Trim the repeated stream to
     // the narration length so short music beds cover the whole video and long
     // ones finish exactly with it.
-    filterParts.push(`[${bgmIndex}:a]atrim=duration=${totalVideoDuration},asetpts=PTS-STARTPTS,volume=${bgmVol},afade=t=in:d=${Math.min(1, totalVideoDuration / 4)},afade=t=out:st=${Math.max(0, totalVideoDuration - 1.5)}:d=${Math.min(1.5, totalVideoDuration)}[bgm]`);
+    filterParts.push(`[${bgmIndex}:a]atrim=duration=${totalVideoDuration},asetpts=PTS-STARTPTS,volume=${bgmVol},afade=t=in:d=1.5,afade=t=out:st=${Math.max(0, totalVideoDuration - 2)}:d=${Math.min(2, totalVideoDuration)}[bgm]`);
     filterParts.push(`[voice][bgm]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[a]`);
   } else {
     filterParts.push(`[${voiceIndex}:a]volume=${ttsVol}[a]`);
@@ -330,7 +338,8 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
     opts.videoDurations = vDurs;
   }
 
-  const hasBgm = Boolean(opts.bgmPath && fs.existsSync(opts.bgmPath));
+  const bgmTrackPath = (opts.bgmPath && fs.existsSync(opts.bgmPath)) ? opts.bgmPath : resolveMusicTrack('devotional_calm');
+  const hasBgm = Boolean(bgmTrackPath && fs.existsSync(bgmTrackPath));
 
   const filename = `final_${Date.now()}.mp4`;
   const outputPath = path.join(outputDir, filename);
@@ -350,8 +359,8 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
     });
     cmd.input(resolvedAudio);
 
-    if (hasBgm && opts.bgmPath) {
-      cmd.input(opts.bgmPath).inputOptions(['-stream_loop', '-1']);
+    if (hasBgm && bgmTrackPath) {
+      cmd.input(bgmTrackPath).inputOptions(['-stream_loop', '-1']);
     }
 
     const outputOptions = [
@@ -468,7 +477,15 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         }
       }
       const fitVideo = (framing: string) => `${videoTiming},${framing},setsar=1,fps=${FPS},tpad=stop_mode=clone:stop_duration=${holdDuration.toFixed(2)},trim=duration=${frames / FPS}`;
-      let filter = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1,${buildZoompanExpression(opts.sceneAnalysis?.effects?.[i] || 'zoom-in', frames, width, height, opts.zoomFactor ?? 1.1)}`;
+      const isDuplicate = i > 0 && opts.imagePaths[i] === opts.imagePaths[i - 1];
+      if (isDuplicate) {
+        console.warn(`[video] Clip deduplication: Scene ${i} reuses media from scene ${i - 1} (${opts.imagePaths[i]}). Inverting camera motion and applying horizontal flip to prevent frozen repetition.`);
+      }
+      let effect = opts.sceneAnalysis?.effects?.[i] || 'zoom-in';
+      if (isDuplicate) {
+        effect = effect === 'zoom-in' ? 'zoom-out' : effect === 'pan-right' ? 'pan-left' : 'zoom-in';
+      }
+      let filter = `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2,setsar=1${isDuplicate && scenePlan.scenes[i].mediaType !== 'video' ? ',hflip' : ''},${buildZoompanExpression(effect, frames, width, height, opts.zoomFactor ?? 1.1)}`;
       if (scenePlan.scenes[i].mediaType === 'video') {
         filter = fitVideo(`scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`);
       }
@@ -476,7 +493,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         const framing = editing.framing === 'cover' ? `scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}` : `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`;
         filter = scenePlan.scenes[i].mediaType === 'video'
           ? fitVideo(framing)
-          : `${framing},setsar=1,${autoMotionFilter(decisions[i].motion, frames, width, height, editing.motion)}`;
+          : `${framing},setsar=1${isDuplicate ? ',hflip' : ''},${autoMotionFilter(decisions[i].motion, frames, width, height, editing.motion)}`;
       }
       const grade = editing?.colorLook ?? opts.colorGrade;
       if (grade && COLOR_GRADE_FILTERS[grade]) filter += `,${COLOR_GRADE_FILTERS[grade]}`;
@@ -580,24 +597,27 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
       opts.onProgress?.(Math.round(90 * (i + 1) / scenePlan.scenes.length));
     }
     fs.writeFileSync(containedFile(work, 'concat.txt'), files.join('\n'));
+    const bgmTrackPath = (opts.bgmPath && fs.existsSync(opts.bgmPath)) ? opts.bgmPath : resolveMusicTrack('devotional_calm');
+    const hasBgm = Boolean(bgmTrackPath && fs.existsSync(bgmTrackPath));
+
     if (opts.useNativeVideoAudio) {
       const args = ['-v', 'error', '-y', '-f', 'concat', '-safe', '1', '-i', 'concat.txt'];
       const voiceVolume = opts.ttsVolume ?? 1;
       if (editing && decisions) {
-        if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
+        if (hasBgm && bgmTrackPath) args.push('-stream_loop', '-1', '-i', bgmTrackPath);
         const chapterTimes = decisions.flatMap((decision, i) => i > 0 && decision.chapterStart ? [sync.scenes[i].startSample / sync.sampleRate] : []);
-        const remappedGraph = autoAudioGraph(editing, duration, voiceVolume, opts.bgmVolume ?? 0.12, Boolean(opts.bgmPath), chapterTimes)
+        const remappedGraph = autoAudioGraph(editing, duration, voiceVolume, opts.bgmVolume ?? 0.08, hasBgm, chapterTimes)
           .replace(/\[1:a\]/g, '[0:a]')
           .replace(/\[2:a\]/g, '[1:a]');
         args.push('-filter_complex', remappedGraph);
       } else if (opts.polishAudio) {
-        if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
-        const remappedGraph = autoAudioGraph(editingPreset('documentary'), duration, voiceVolume, opts.bgmVolume ?? 0.1, Boolean(opts.bgmPath), [])
+        if (hasBgm && bgmTrackPath) args.push('-stream_loop', '-1', '-i', bgmTrackPath);
+        const remappedGraph = autoAudioGraph(editingPreset('documentary'), duration, voiceVolume, opts.bgmVolume ?? 0.08, hasBgm, [])
           .replace(/\[1:a\]/g, '[0:a]')
           .replace(/\[2:a\]/g, '[1:a]');
         args.push('-filter_complex', remappedGraph);
-      } else if (opts.bgmPath) {
-        args.push('-stream_loop', '-1', '-i', opts.bgmPath, '-filter_complex', `[0:a]volume=${voiceVolume}[voice];[1:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,volume=${opts.bgmVolume ?? 0.15},afade=t=in:d=${Math.min(1, duration / 4)},afade=t=out:st=${Math.max(0, duration - 1.5)}:d=${Math.min(1.5, duration)}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`);
+      } else if (hasBgm && bgmTrackPath) {
+        args.push('-stream_loop', '-1', '-i', bgmTrackPath, '-filter_complex', `[0:a]volume=${voiceVolume}[voice];[1:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,volume=${opts.bgmVolume ?? 0.08},afade=t=in:d=1.5,afade=t=out:st=${Math.max(0, duration - 2)}:d=${Math.min(2, duration)}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`);
       } else {
         args.push('-filter_complex', `[0:a]volume=${voiceVolume}[a]`);
       }
@@ -607,14 +627,14 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
       const args = ['-v', 'error', '-y', '-f', 'concat', '-safe', '1', '-i', 'concat.txt', '-i', resolveInputPath(opts.audioPath, opts.scriptId)];
       const voiceVolume = opts.ttsVolume ?? 1;
       if (editing && decisions) {
-        if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
+        if (hasBgm && bgmTrackPath) args.push('-stream_loop', '-1', '-i', bgmTrackPath);
         const chapterTimes = decisions.flatMap((decision, i) => i > 0 && decision.chapterStart ? [sync.scenes[i].startSample / sync.sampleRate] : []);
-        args.push('-filter_complex', autoAudioGraph(editing, duration, voiceVolume, opts.bgmVolume ?? 0.12, Boolean(opts.bgmPath), chapterTimes));
+        args.push('-filter_complex', autoAudioGraph(editing, duration, voiceVolume, opts.bgmVolume ?? 0.08, hasBgm, chapterTimes));
       } else if (opts.polishAudio) {
-        if (opts.bgmPath) args.push('-stream_loop', '-1', '-i', opts.bgmPath);
-        args.push('-filter_complex', autoAudioGraph(editingPreset('documentary'), duration, voiceVolume, opts.bgmVolume ?? 0.1, Boolean(opts.bgmPath), []));
-      } else if (opts.bgmPath) {
-        args.push('-stream_loop', '-1', '-i', opts.bgmPath, '-filter_complex', `[1:a]volume=${voiceVolume}[voice];[2:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,volume=${opts.bgmVolume ?? 0.15},afade=t=in:d=${Math.min(1, duration / 4)},afade=t=out:st=${Math.max(0, duration - 1.5)}:d=${Math.min(1.5, duration)}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`);
+        if (hasBgm && bgmTrackPath) args.push('-stream_loop', '-1', '-i', bgmTrackPath);
+        args.push('-filter_complex', autoAudioGraph(editingPreset('documentary'), duration, voiceVolume, opts.bgmVolume ?? 0.08, hasBgm, []));
+      } else if (hasBgm && bgmTrackPath) {
+        args.push('-stream_loop', '-1', '-i', bgmTrackPath, '-filter_complex', `[1:a]volume=${voiceVolume}[voice];[2:a]atrim=duration=${duration},asetpts=PTS-STARTPTS,volume=${opts.bgmVolume ?? 0.08},afade=t=in:d=1.5,afade=t=out:st=${Math.max(0, duration - 2)}:d=${Math.min(2, duration)}[music];[voice][music]amix=inputs=2:duration=first:normalize=0[a]`);
       } else args.push('-filter_complex', `[1:a]volume=${voiceVolume}[a]`);
       args.push('-map', '0:v:0', '-map', '[a]', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-t', String(duration), '-movflags', '+faststart', partial);
       await runMedia('ffmpeg', args, opts.signal, work);

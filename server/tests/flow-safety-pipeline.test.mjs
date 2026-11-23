@@ -25,7 +25,8 @@ const { buildResearchMessages } = await import('../dist/services/script-research
 const { parseSimpleTagPackage, isImageOnlyTemplate } = await import('../dist/services/simple-tag-package.js');
 const { defaultAutoPilotSettings, AutoPilotSettingsSchema } = await import('../dist/services/autopilot-settings.js');
 const { store } = await import('../dist/services/store.js');
-const { startFlowJob } = await import('../dist/services/flow/jobs.js');
+const { startFlowJob, cleanFlowPrompt } = await import('../dist/services/flow/jobs.js');
+const { classifyFailure, recoveryHint } = await import('../dist/services/flow/worker.js');
 const { llmRouter } = await import('../dist/routes/llm.js');
 const accounts = await import('../dist/services/accounts.js');
 const topicNotes = await import('../dist/services/topic-notes.js');
@@ -70,7 +71,9 @@ test('editorial rules and normal mixed scripts never trigger conversational vide
 
   const realScripts = JSON.parse(fs.readFileSync('server/data/scripts.json', 'utf8'));
   const dharmaConv = realScripts.find(s => s.id === 'usr_dharma_conversational_dialogue');
-  const talevoraConv = realScripts.find(s => s.id === 'usr_talevora_conversational_dialogue');
+  const talevoraPath = 'server/data/accounts/acct_c0316a84-3e92-41be-87cd-c44ba1a20e38/profiles/shorts/scripts.json';
+  const accountScripts = fs.existsSync(talevoraPath) ? JSON.parse(fs.readFileSync(talevoraPath, 'utf8')) : [];
+  const talevoraConv = realScripts.find(s => s.id === 'usr_talevora_conversational_dialogue') || accountScripts.find(s => s.id === 'usr_talevora_conversational_dialogue');
   assert.equal(isConversationalVideoMode({ script: dharmaConv }), true);
   assert.equal(isConversationalVideoMode({ script: talevoraConv }), true);
   assert.equal(isConversationalScript(talevoraConv), true);
@@ -195,6 +198,10 @@ test('startFlowJob never injects Hindi lip-sync voice prompts for non-conversati
     name: 'Short — Conversational Dialogue',
     conversational: true,
     isConversational: true,
+    autoPilotSettings: {
+      voice: { provider: 'flow', language: 'hi', voiceId: 'flow-native', rate: 0, pitch: 0, speed: 1 },
+      media: { flowEnabled: true, videoOnly: true },
+    },
     scenePlan: {
       scenes: [{
         id: 'scene_001',
@@ -218,6 +225,53 @@ test('startFlowJob never injects Hindi lip-sync voice prompts for non-conversati
     dryRun: true,
   });
   assert.match(convJob.preview.promptWrapped, /natural lip-sync, delivering the spoken Hindi dialogue/i);
+
+  // Conversational script where user selected Google Chirp (or Edge/Omni) as Voice engine:
+  store.add('scripts', {
+    id: 'conv_with_google_voice',
+    name: 'Short — Conversational Dialogue with Google Voice',
+    conversational: true,
+    isConversational: true,
+    autoPilotSettings: {
+      voice: { provider: 'google', language: 'hi', voiceId: 'hi-IN-Chirp3-HD-Charon', rate: 0, pitch: 0, speed: 1 },
+      media: { flowEnabled: true, videoOnly: true },
+    },
+    scenePlan: {
+      scenes: [{
+        id: 'scene_001',
+        chapter: 'Scene 1',
+        role: 'story',
+        narration: '[लक्ष्मण]: भैया, मैं इस अन्याय को सहन नहीं करूँगा।',
+        speaker: 'लक्ष्मण',
+        mediaType: 'video',
+        imagePrompt: bRollPrompt,
+        videoPrompt: bRollPrompt,
+      }],
+    },
+  });
+
+  const convWithGoogleJob = await startFlowJob({
+    scriptId: 'conv_with_google_voice',
+    sceneIndex: 0,
+    prompt: bRollPrompt,
+    model: 'veo-3.1-fast',
+    duration: 8,
+    dryRun: true,
+  });
+  assert.doesNotMatch(convWithGoogleJob.preview.promptWrapped, /natural lip-sync|delivering the spoken Hindi dialogue/i);
+  assert.match(convWithGoogleJob.preview.promptWrapped, /Silent visual scene only, composed expressions with no speaking or mouth movement/i);
+
+  // When voiceProvider is passed in spec as 'google', it overrides script and never injects lip-sync:
+  const specOverrideJob = await startFlowJob({
+    scriptId: 'explicit_lip_sync',
+    sceneIndex: 0,
+    prompt: bRollPrompt,
+    model: 'veo-3.1-fast',
+    duration: 8,
+    dryRun: true,
+    voiceProvider: 'google',
+  });
+  assert.doesNotMatch(specOverrideJob.preview.promptWrapped, /natural lip-sync|delivering the spoken Hindi dialogue/i);
 });
 
 test('defaultAutoPilotSettings and schema leave paid Flow and Flow Music opt-in by default', () => {
@@ -362,6 +416,42 @@ test('persisted workspace scripts.json and topic-notes.json have safe opt-in def
       assert.notEqual(s.autoPilotSettings?.flowMusic?.enabled, true, `flowMusic must be false on non-conv script ${s.id} in ${file}`);
     }
   }
+});
+
+test('cleanFlowPrompt sanitizes speech clauses with Hindi quotes and strips image constraints', () => {
+  const contaminatedPrompt = `Initial composition: Inside an ornate carved teakwood chariot rolling across dusty plains at sunset outside Hastinapur. Shri Krishna sits opposite Karna, holding forth a gleaming jeweled imperial crown. Continuous camera move: Smooth, slow forward tracking push-in focusing on Shri Krishna as his lips articulate with dignified gravity: "कर्ण, कुंती तुम्हारे ज्येष्ठ भ्राता होने की साक्षी हैं—हस्तिनापुर का मुकुट आज तुम्हारा हो सकता है!" Karna gazes in stunned disbelief. Rendered entirely in classical Indian devotional oil painting, Raja Ravi Varma school, visible brushstrokes, oil-on-canvas texture, warm amber-gold chiaroscuro, luminous divine halo around Krishna, idealized painterly faces, rich pigment depth, sacred ancient Dvapara Yuga atmosphere. Stable clean final frame.
+
+Continuity Lock:
+SHRI KRISHNA: Age 30–35. Transcendent dark blue-black complexion ("megha-shyam"), radiating divine luminescence. Lotus eyes, gentle knowing smile, yellow pitambari silk, gold mukut with single peacock feather, Kaustubha gem.
+KARNA (RADHEYA): Age 30–35. Radiant golden-bronze complexion, solar aura. Towering physique, divine golden Kavach armor, radiant Kundala earrings, crimson warrior attire.
+
+Temporal Constraints:
+No cuts, no morphing, no face drift, no limb glitches, smooth motion, realistic lip/jaw articulation for spoken Hindi words, no text, no style drift, no photorealistic drift, no brush-texture flicker.
+
+Negative Prompt:
+photorealistic, photograph, DSLR photo, hyperrealism, 3d render, CGI, cartoon, anime, cheap flat illustration, modern clothing, light-skinned Krishna, blurry, extra limbs, distorted anatomy.`;
+
+  const cleaned = cleanFlowPrompt(contaminatedPrompt, { stripLipSync: true });
+  assert.equal(/[\u0900-\u097F]/.test(cleaned), false, 'Prompt must contain no Devanagari Hindi quotes');
+  assert.equal(/Continuity Lock:/i.test(cleaned), false, 'Prompt must strip Continuity Lock header');
+  assert.equal(/Temporal Constraints:/i.test(cleaned), false, 'Prompt must strip Temporal Constraints');
+  assert.equal(/Negative Prompt:/i.test(cleaned), false, 'Prompt must strip Negative Prompt');
+  assert.equal(/realistic lip\//i.test(cleaned), false, 'Prompt must not leave broken lip/ syntax');
+  assert.equal(/lip[\s\/-]?jaw articulation/i.test(cleaned), false, 'Prompt must strip lip/jaw articulation');
+  assert.equal(/as his lips articulate/i.test(cleaned), false, 'Prompt must strip articulate clauses');
+  assert.equal(cleaned.includes('Inside an ornate carved teakwood chariot'), true, 'Visual scene description must be preserved');
+  assert.equal(cleaned.includes('Raja Ravi Varma school'), true, 'Artistic style must be preserved');
+});
+
+test('classifyFailure categorizes Veo 3.1 safety policy violations as POLICY_VIOLATION and never transient error', () => {
+  const policyAlert1 = 'warning Failed This prompt might vio';
+  const policyAlert2 = 'Failed: This prompt might violate our safety policies. Please try a different prompt.';
+  const transientAlert = 'Generation failed: Audio generation failed. Please try again.';
+
+  assert.equal(classifyFailure(policyAlert1, 'https://flow.google.com/studio/p1'), 'POLICY_VIOLATION');
+  assert.equal(classifyFailure(policyAlert2, 'https://flow.google.com/studio/p1'), 'POLICY_VIOLATION');
+  assert.equal(classifyFailure(transientAlert, 'https://flow.google.com/studio/p1'), 'GENERATION_FAILED');
+  assert.equal(recoveryHint('POLICY_VIOLATION').includes('safety policy'), true);
 });
 
 test.after(() => {
