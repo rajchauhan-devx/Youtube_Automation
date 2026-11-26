@@ -49,6 +49,7 @@ export function videoEncoderFlags(useNvenc: boolean, crf = 21): string[] {
 
 export interface RenderOptions {
   useNativeVideoAudio?: boolean;
+  captionNativeAudio?: boolean;
   audioSource?: 'tts' | 'flow' | 'native';
   polishAudio?: boolean;
   presenter?: PresenterSettings;
@@ -425,6 +426,7 @@ export async function renderVideo(opts: RenderOptions): Promise<RenderResult> {
 
 export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan, sync: NarrationSync): Promise<RenderResult> {
   const editing = opts.editing?.enabled ? validateEditingSettings(opts.editing) : undefined;
+  const canCaptionAudio = !opts.useNativeVideoAudio || opts.captionNativeAudio === true;
   const decisions = editing ? autoEditPlan(scenePlan, editing) : undefined;
   const dir = getOutputDir(opts.scriptId);
   fs.mkdirSync(dir, { recursive: true });
@@ -536,7 +538,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
           const bar = Math.round(height * 0.065);
           post.push(`drawbox=x=0:y=0:w=iw:h=${bar}:color=black:t=fill`, `drawbox=x=0:y=ih-${bar}:w=iw:h=${bar}:color=black:t=fill`);
         }
-        if (editing.captions && opts.enableSubtitles !== false && !opts.useNativeVideoAudio) {
+        if (editing.captions && opts.enableSubtitles !== false && canCaptionAudio) {
           fs.writeFileSync(containedFile(work, `polish-${i}.ass`), reservePresenterCaptionSpace(autoEditAss(scenePlan.scenes[i].narration, length, '', width, height, editing, true), opts.presenter, presenterSourceSize));
           post.push(`ass=polish-${i}.ass:shaping=complex`);
         }
@@ -568,7 +570,7 @@ export async function renderLongVideo(opts: RenderOptions, scenePlan: ScenePlan,
         opts.onProgress?.(Math.round(90 * (i + 1) / scenePlan.scenes.length));
         continue;
       }
-      if (opts.enableSubtitles && !opts.useNativeVideoAudio) {
+      if (opts.enableSubtitles && canCaptionAudio) {
         const caption = stripBracketCues(scenePlan.scenes[i].narration).replace(/[{}\\\r\n]/g, ' ').replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '').replace(/\s+/g, ' ').trim();
         const vMargin = Math.round(height * (height > width ? 0.20 : 0.08));
         const ass = `[Script Info]\nScriptType: v4.00+\nPlayResX: ${width}\nPlayResY: ${height}\nWrapStyle: 0\n[V4+ Styles]\nFormat: Name,Fontname,Fontsize,PrimaryColour,SecondaryColour,OutlineColour,BackColour,Bold,Italic,Underline,StrikeOut,ScaleX,ScaleY,Spacing,Angle,BorderStyle,Outline,Shadow,Alignment,MarginL,MarginR,MarginV,Encoding\nStyle: Default,Nirmala UI,40,&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,0,0,0,0,100,100,0,0,1,2,0,2,96,96,${vMargin},1\n[Events]\nFormat: Layer,Start,End,Style,Name,MarginL,MarginR,MarginV,Effect,Text\nDialogue: 0,0:00:00.00,${time(frames / FPS)},Default,,0,0,0,,${caption}\n`;

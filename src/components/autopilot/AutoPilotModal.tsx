@@ -22,8 +22,9 @@ import {
   Check,
   Rocket,
 } from 'lucide-react';
-import { AUTO_PILOT_STAGES, type AutoPilotState } from '../../services/autoPilotTypes';
+import { AUTO_PILOT_STAGES, type AutoPilotState, type OpeningApproval } from '../../services/autoPilotTypes';
 import type { Script } from '../../data';
+import { OpeningReviewPanel } from './OpeningReviewPanel';
 
 interface AutoPilotModalProps {
   state: AutoPilotState;
@@ -33,6 +34,8 @@ interface AutoPilotModalProps {
   onToggleMinimize: () => void;
   onClose: () => void;
   onRetryProduction?: () => void;
+  onApproveOpening: (approval: OpeningApproval) => void;
+  onEditOpening: () => void;
   onNavigateTab: (tab: 'scripts' | 'preview' | 'assets' | 'generation' | 'artifacts' | 'review' | 'export') => void;
 }
 
@@ -44,6 +47,8 @@ export function AutoPilotModal({
   onToggleMinimize,
   onClose,
   onRetryProduction,
+  onApproveOpening,
+  onEditOpening,
   onNavigateTab,
 }: AutoPilotModalProps) {
   const terminalEndRef = useRef<HTMLDivElement>(null);
@@ -56,6 +61,11 @@ export function AutoPilotModal({
   }, [state.logs, state.isMinimized]);
 
   if (!state.isActive && state.stage === 'idle') return null;
+
+  if (state.stage === 'upload_youtube' && state.openingReview) {
+    return <OpeningReviewPanel key={state.openingReview.videoUrl} review={state.openingReview}
+      onApprove={onApproveOpening} onEdit={onEditOpening} />;
+  }
 
   // Render minimized floating pill
   if (state.isMinimized) {

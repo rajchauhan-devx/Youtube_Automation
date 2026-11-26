@@ -1,8 +1,14 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import express from 'express';
 import puppeteer from 'puppeteer';
+
+const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tubeflow-opening-review-'));
+const openingFixture = path.join(fixtureDir, 'opening.mp4');
+execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=navy:s=90x160:d=12', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', openingFixture]);
 
 const account = { id: 'default', name: 'Ancient Dharma', youtubeChannelTitle: 'Ancient Dharma', avatar: 'AD', color: '#3b82f6' };
 let script = { id: 'autopilot-test', name: 'Ancient Dharma template', status: 'draft', lastUsed: 'Never', locked: false,
@@ -30,14 +36,7 @@ let failExtraction = false;
 let videoOpening = false;
 let changePromptDuringGeneration = false;
 let diagnoses = 0;
-let recoverVisuals = false, visualsRecovered = false, visualCreates = 0, visualResumes = 0;
-const visualError = 'Rendered vision review has not passed for 2 motion graphic(s). Retry visual review before exporting.';
-const visualPayload = () => ({ stale: false, assets: {}, artifactPreviews: {}, revisions: [],
-  project: { id: 'visual-project', revisionId: visualsRecovered ? 'verified' : 'draft', status: visualsRecovered ? 'partial' : 'draft',
-    inputs: { audioFilename: 'fixture.wav', imageAssets: script.generatedImages || [] }, settings: { visualReview: true },
-    artifacts: visualsRecovered ? [{ id: 'graphic', enabled: true, graphic: { kind: 'composition' }, visualReview: { status: 'passed' } }] : [] },
-  jobs: [{ id: 'visual-job', revisionId: 'draft', operation: 'generate', state: visualsRecovered ? 'partial' : 'failed',
-    error: visualsRecovered ? undefined : visualError, updatedAt: '2026-10-21T12:00:00Z' }] });
+let motionDirectorCalls = 0;
 const imageCalls = [];
 let audioCalls = 0;
 let renderCalls = 0;
@@ -61,7 +60,7 @@ app.use('/api/accounts/default/profiles/shorts', (req, res) => {
   if (req.path === '/retention/edit') { productionCalls.push('edit'); if (failEdit) return res.status(422).json({ error: 'Story edit unavailable for test.' }); script.retentionEdit = edit; return res.json({ edit }); }
   if (req.path === '/retention/review') {
     productionCalls.push('review');
-    const review = { status: blockReview ? 'blocked' : 'passed', summary: blockReview ? 'Narration is inaudible at the opening.' : 'Opening and ending samples fulfill the promise.', findings: blockReview ? [{ severity: 'blocker', category: 'audio', detail: 'Voice is inaudible.' }] : [], duration: 60, sampleTimes: [0, 1.5, 4, 30, 59] };
+    const review = { videoFilename: req.body.videoFilename, status: blockReview ? 'blocked' : 'passed', summary: blockReview ? 'Narration is inaudible at the opening.' : 'Opening and ending samples fulfill the promise.', findings: blockReview ? [{ severity: 'blocker', category: 'audio', detail: 'Voice is inaudible.' }] : [], duration: 60, sampleTimes: [0, 1.5, 4, 30, 59] };
     script.retentionReview = review; return res.json({ review });
   }
   if (req.path === '/llm/autopilot-topic') {
@@ -87,11 +86,7 @@ app.use('/api/accounts/default/profiles/shorts', (req, res) => {
       ...(extractedPlan ? { scenePlan: extractedPlan } : {}) });
   }
   if (req.path === '/supervisor/diagnose') { diagnoses++; return res.json({ recoveryAction: 'retry_stage' }); }
-  if (recoverVisuals && req.path === '/editing/projects') { visualCreates++; return res.json(visualPayload()); }
-  if (recoverVisuals && req.path === '/editing/projects/visual-project') return res.json(visualPayload());
-  if (recoverVisuals && req.path === '/editing/projects/visual-project/generate') return res.json({ jobId: 'visual-job' });
-  if (recoverVisuals && req.path === '/editing/jobs/visual-job/resume') { visualResumes++; visualsRecovered = true; return res.json({ id: 'visual-job', state: 'queued' }); }
-  if (recoverVisuals && req.path === '/editing/jobs/visual-job') return res.json({ state: visualsRecovered ? 'partial' : 'failed', error: visualsRecovered ? undefined : visualError });
+  if (req.path === '/editing/motion-director') { motionDirectorCalls++; return res.status(422).json({ error: 'Optional motion graphics unavailable for test.' }); }
   if (req.path === '/generate/image') {
     imageCalls.push(req.body.index);
     if (changePromptDuringGeneration && req.body.index === 1) {
@@ -108,6 +103,7 @@ app.use('/api/accounts/default/profiles/shorts', (req, res) => {
   if (req.path === '/tts/long/status/autopilot-test') return res.json({ status: 'done', result: { url: '/fixture.wav', filename: 'fixture.wav', voice: 'builtin', language: 'en' } });
   if (req.path === '/render/start') { renderCalls++; return failRender ? res.status(422).json({ error: 'Render unavailable for test.' }) : res.json({ ok: true }); }
   if (req.path === '/render/status/autopilot-test') return res.json({ status: 'done', videos: [{ url: '/api/accounts/default/profiles/shorts/render/file/autopilot-test/final.mp4', filename: 'final.mp4' }] });
+  if (req.path === '/render/file/autopilot-test/final.mp4') return res.sendFile(openingFixture);
   if (req.path === '/youtube/generate-metadata') return res.json({ titles: ['Hanuman’s forgotten strength'], description: 'A traditional story.', tags: ['dharma'] });
   if (req.path === '/youtube/upload') {
     productionCalls.push('upload');
@@ -132,22 +128,53 @@ try {
     if (!button) throw new Error(`Missing button: ${text}`);
     button.click();
   }, text);
+  const reviewTitle = '#opening-review-video-title';
+  const approveOpening = async (newTitle, scheduled = false) => {
+    const uploads = uploadRequests.length;
+    await page.waitForSelector(reviewTitle);
+    assert.equal(uploadRequests.length, uploads, 'a passing AI review must wait for the opening approval');
+    assert.equal(await page.$eval('[aria-labelledby="opening-review-title"] button[type="submit"]', button => button.disabled), true);
+    if (newTitle) {
+      const desktop = page.viewport();
+      await page.setViewport({ width: 390, height: 844 });
+      assert.ok(await page.$eval('[aria-labelledby="opening-review-title"]', dialog => dialog.scrollWidth <= dialog.clientWidth));
+      await page.setViewport(desktop);
+      await page.$eval(reviewTitle, input => { input.focus(); input.select(); });
+      await page.keyboard.type(newTitle);
+    }
+    await page.waitForFunction(() => document.querySelector('video[aria-label="Rendered opening preview"]')?.readyState >= 2);
+    await page.$eval('video[aria-label="Rendered opening preview"]', video => { video.playbackRate = 8; });
+    await click('Play first 10 seconds');
+    await page.waitForFunction(() => !document.querySelector('[aria-labelledby="opening-review-title"] button[type="submit"]').disabled);
+    if (scheduled) {
+      const selectedTime = await page.$eval('#opening-review-schedule', input => Date.parse(input.value));
+      await page.evaluate(time => {
+        window.originalReviewClock = Date.now;
+        Date.now = () => time + 60_000;
+      }, selectedTime);
+      await click('Approve and schedule');
+      await page.waitForFunction(() => document.body.textContent.includes('Choose a new publish time at least five minutes from now.'));
+      assert.equal(uploadRequests.length, uploads, 'an expired schedule must stay in review');
+      await page.evaluate(() => { Date.now = window.originalReviewClock; delete window.originalReviewClock; });
+    }
+    await click(scheduled ? 'Approve and schedule' : 'Approve and upload');
+  };
   await click('Run Auto-Pilot');
   await page.waitForSelector('#run-topic');
   assert.equal(await page.$eval('#run-topic', input => input.required), false);
   assert.equal(await page.$eval('#run-topic', input => input.value), '');
-  assert.equal(await page.$eval('form:has(#run-topic) button[type="submit"]', button => button.disabled), false);
+  assert.equal(await page.$eval('button[form="run-script-modal-form"]', button => button.disabled), false);
   await click('Script only');
-  assert.equal(await page.$eval('form:has(#run-topic) button[type="submit"]', button => button.disabled), true);
+  assert.equal(await page.$eval('button[form="run-script-modal-form"]', button => button.disabled), true);
   await click('Auto-Pilot');
   fs.mkdirSync('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/autopilot-run-desktop.png' });
   await page.setViewport({ width: 390, height: 844 });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
   await page.screenshot({ path: 'artifacts/autopilot-run-mobile.png' });
-  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
-  await page.click('form:has(#run-topic) button[type="submit"]');
-  await page.waitForFunction(() => document.body.textContent.includes('Connect this profile’s YouTube account before running Auto-Pilot.'));
+  await page.waitForFunction(() => { const button = document.querySelector('button[form="run-script-modal-form"]'); return button && !button.disabled; });
+  await page.click('button[form="run-script-modal-form"]');
+  await page.waitForFunction(() => document.body.textContent.includes('Connect this profile’s YouTube account before running Auto-Pilot with YouTube export.'));
   assert.equal(topicRequests.length, 1);
   assert.equal(topicRequests[0].topic, '');
   assert.equal(topicRequests[0].scriptId, script.id);
@@ -157,45 +184,59 @@ try {
   await click('Close');
   await click('Run Auto-Pilot');
   await page.type('#run-topic', 'An already covered topic');
-  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
-  await page.click('form:has(#run-topic) button[type="submit"]');
+  await page.waitForFunction(() => { const button = document.querySelector('button[form="run-script-modal-form"]'); return button && !button.disabled; });
+  await page.click('button[form="run-script-modal-form"]');
   await page.waitForFunction(() => document.body.textContent.includes('This profile already exported this topic.'));
   assert.equal(topicRequests[1].topic, 'An already covered topic');
   await click('Close');
   completeRun = true;
   await click('Run Auto-Pilot');
-  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
-  await page.click('form:has(#run-topic) button[type="submit"]');
+  await page.select('select[aria-label="Publishing"]', 'schedule');
+  await page.waitForFunction(() => { const button = document.querySelector('button[form="run-script-modal-form"]'); return button && !button.disabled; });
+  await page.click('button[form="run-script-modal-form"]');
+  await page.waitForSelector(reviewTitle);
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('tubeflow:autopilot:default:shorts') || '{}').openingReview);
+  assert.equal(uploadRequests.length, 0);
+  const renderCountBeforeApproval = renderCalls;
+  await page.reload({ waitUntil: 'networkidle0' });
+  await click('Resume Auto-Pilot');
+  await approveOpening('Why did Hanuman forget his strength?', true);
   await page.waitForFunction(() => document.body.textContent.includes('Production complete! Video exported to YouTube and topic recorded.'), { timeout: 30000 });
   assert.equal(uploadRequests.length, 1);
   assert.equal(uploadRequests[0].scriptId, script.id);
   assert.equal(uploadRequests[0].videoFilename, 'final.mp4');
   assert.equal(uploadRequests[0].privacyStatus, 'private');
-  assert.equal(uploadRequests[0].title, 'Hanuman’s forgotten strength');
+  assert.equal(uploadRequests[0].title, 'Why did Hanuman forget his strength? #Shorts');
   assert.equal(uploadRequests[0].autoPilot, true);
+  assert.equal(uploadRequests[0].publishAt, script.autoPilotSettings.youtube.scheduledPublishAt);
+  assert.equal(uploadRequests[0].openingReviewed, true);
+  assert.equal(script.autoPilotSettings.captions, 'plain');
+  assert.equal(renderCalls, renderCountBeforeApproval, 'review after reloading should reuse the finished render');
   assert.deepEqual(productionCalls, ['plan', 'script', 'edit', 'review', 'upload']);
   assert.equal(script.topicName, 'Why Hanuman forgot his strength');
   assert.ok(await page.$('a[href="https://youtu.be/fixture-youtube"]'));
   await click('Close');
   // Return to the assistant and verify a failing final review never uploads.
+  script.autoPilotSettings.youtube = { ...script.autoPilotSettings.youtube, publishMode: 'now', scheduledPublishAt: '' };
   await page.evaluate(() => { localStorage.removeItem('tubeflow:v1:default'); localStorage.setItem('tubeflow:v1', JSON.stringify({ channelId: 'default', section: 'shorts', tab: 'preview', selectedScriptId: 'autopilot-test' })); });
   await page.reload({ waitUntil: 'networkidle0' });
   await page.screenshot({ path: 'artifacts/autopilot-retention-plan.png' });
   blockReview = true;
   await click('Run Auto-Pilot');
   await page.$eval('#run-topic', input => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
-  await page.click('form:has(#run-topic) button[type="submit"]');
+  await page.waitForFunction(() => { const button = document.querySelector('button[form="run-script-modal-form"]'); return button && !button.disabled; });
+  await page.click('button[form="run-script-modal-form"]');
   await page.waitForFunction(() => document.body.textContent.includes('Final review needs attention: audio: Voice is inaudible.'), { timeout: 30000 });
   assert.equal(uploadRequests.length, 1, 'blocked final review must prevent a second upload');
   const beforeReviewResume = { production: productionCalls.length, images: imageCalls.length, audio: audioCalls, renders: renderCalls };
   blockReview = false;
   await click('Resume');
+  await approveOpening();
   await page.waitForFunction(() => document.body.textContent.includes('Production complete! Video exported to YouTube and topic recorded.'), { timeout: 30000 });
   assert.deepEqual(productionCalls.slice(beforeReviewResume.production), ['review', 'upload']);
   assert.equal(imageCalls.length, beforeReviewResume.images);
   assert.equal(audioCalls, beforeReviewResume.audio);
-  assert.equal(renderCalls, beforeReviewResume.renders, 'review resume must reuse the finished MP4');
+  assert.equal(renderCalls, beforeReviewResume.renders + 1, 'review resume must rebuild an MP4 with blocking findings');
   await click('Close');
 
   // Fail halfway through images, reload, and keep all completed work on Resume.
@@ -206,8 +247,8 @@ try {
   failImages = true;
   await click('Run Auto-Pilot');
   await page.$eval('#run-topic', input => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
-  await page.click('form:has(#run-topic) button[type="submit"]');
+  await page.waitForFunction(() => { const button = document.querySelector('button[form="run-script-modal-form"]'); return button && !button.disabled; });
+  await page.click('button[form="run-script-modal-form"]');
   await page.waitForFunction(() => document.body.textContent.includes('Pipeline halted: Script generation finished without response content.'), { timeout: 30000 });
   const hooksBeforeResume = productionCalls.filter(call => call === 'plan').length;
   failScript = false;
@@ -247,8 +288,6 @@ try {
 
   const beforeAudioResume = imageCalls.length;
   await page.reload({ waitUntil: 'networkidle0' });
-  assert.ok(await page.evaluate(() => [...document.querySelectorAll('button')].some(button => button.textContent.trim() === 'Resume')));
-  await click('Close');
   failAudio = false;
   failRender = true;
   await click('Resume Auto-Pilot');
@@ -258,6 +297,7 @@ try {
   failRender = false;
   failUpload = true;
   await click('Resume');
+  await approveOpening();
   await page.waitForFunction(() => document.body.textContent.includes('Pipeline halted: YouTube export unavailable for test.'), { timeout: 30000 });
   assert.equal(audioCalls, beforeRenderResume.audio, 'render resume must preserve narration');
   assert.equal(renderCalls, beforeRenderResume.renders + 1);
@@ -265,6 +305,7 @@ try {
   const beforeUploadResume = { audio: audioCalls, renders: renderCalls, production: productionCalls.length };
   failUpload = false;
   await click('Resume');
+  await approveOpening();
   await page.waitForFunction(() => document.body.textContent.includes('Production complete! Video exported to YouTube and topic recorded.'), { timeout: 30000 });
   assert.deepEqual(productionCalls.slice(beforeUploadResume.production), ['upload']);
   assert.equal(audioCalls, beforeUploadResume.audio);
@@ -281,8 +322,9 @@ try {
   const beforeRecovery = { images: imageCalls.length, diagnoses, uploads: uploadRequests.length };
   await click('Run Auto-Pilot');
   await page.$eval('#run-topic', input => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
-  await page.click('form:has(#run-topic) button[type="submit"]');
+  await page.waitForFunction(() => { const button = document.querySelector('button[form="run-script-modal-form"]'); return button && !button.disabled; });
+  await page.click('button[form="run-script-modal-form"]');
+  await approveOpening();
   await page.waitForFunction(() => document.body.textContent.includes('Production complete! Video exported to YouTube and topic recorded.'), { timeout: 30000 });
   assert.deepEqual(imageCalls.slice(beforeRecovery.images), [0, 1, 1], 'automatic scene refresh must reuse the completed opening');
   assert.equal(diagnoses, beforeRecovery.diagnoses, 'a prompt race uses deterministic recovery without model diagnosis');
@@ -295,20 +337,20 @@ try {
   // continues with footage rather than repeatedly halting the production.
   await page.evaluate(() => { localStorage.removeItem('tubeflow:v1:default'); localStorage.setItem('tubeflow:v1', JSON.stringify({ channelId: 'default', section: 'shorts', tab: 'preview', selectedScriptId: 'autopilot-test' })); });
   await page.reload({ waitUntil: 'networkidle0' });
-  recoverVisuals = true;
-  const beforeVisualRecovery = { diagnoses, uploads: uploadRequests.length };
+  const beforeVisualRecovery = { diagnoses, uploads: uploadRequests.length, motionDirectorCalls };
   await click('Run Auto-Pilot');
   await page.click('input[aria-label="Add optional graphics"]');
   await page.$eval('#run-topic', input => { const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; setter.call(input, ''); input.dispatchEvent(new Event('input', { bubbles: true })); });
-  await page.waitForFunction(() => { const button = document.querySelector('form:has(#run-topic) button[type="submit"]'); return button && !button.disabled; });
-  await page.click('form:has(#run-topic) button[type="submit"]');
+  await page.waitForFunction(() => { const button = document.querySelector('button[form="run-script-modal-form"]'); return button && !button.disabled; });
+  await page.click('button[form="run-script-modal-form"]');
+  await approveOpening();
   await page.waitForFunction(() => document.body.textContent.includes('Production complete! Video exported to YouTube and topic recorded.'), { timeout: 30000 });
-  assert.equal(visualCreates, 1, 'visual recovery must not generate another project');
-  assert.equal(visualResumes, 0, 'optional graphics must not trigger a blocking repair loop');
-  assert.equal(diagnoses, beforeVisualRecovery.diagnoses, 'rendered review errors have deterministic recovery');
+  assert.equal(motionDirectorCalls, beforeVisualRecovery.motionDirectorCalls + 1, 'optional graphics must not trigger a blocking retry loop');
+  assert.equal(diagnoses, beforeVisualRecovery.diagnoses, 'optional graphics fall back to scene footage');
   assert.equal(uploadRequests.length, beforeVisualRecovery.uploads + 1);
   await click('Close');
   await page.click('[aria-label="Profile and voices"]');
+  await click('Topic Notes');
   await page.waitForFunction(() => document.body.textContent.includes('70.0% average viewed'), { timeout: 5000 }).catch(async error => {
     console.error(await page.evaluate(() => document.body.innerText));
     throw error;
@@ -323,4 +365,5 @@ try {
 } finally {
   await browser.close();
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+  fs.rmSync(fixtureDir, { recursive: true, force: true });
 }

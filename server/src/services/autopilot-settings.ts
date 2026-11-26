@@ -1,10 +1,15 @@
 import { defaultGoogleVoice } from './voice-settings.js';
+import { detectChannelMotionKey } from '@tubeflow/editing-contracts';
 import { z } from 'zod';
 import { editingPreset, validateEditingSettings, type EditingSettings } from './auto-edit.js';
 import { SELECTIVE_MOTION_DIRECTION, isImageOnlyShorts } from './motion-editorial-policy.js';
 import { defaultPresenter, type PresenterSettings } from './presenter-settings.js';
 
 export const VoiceProvider = z.enum(['default', 'google', 'edge', 'openrouter', 'omni', 'flow']);
+
+export function isAncientDharmaShorts(profile: string, channel: Parameters<typeof detectChannelMotionKey>[0]) {
+  return profile === 'shorts' && detectChannelMotionKey(channel) === 'ancient_dharma';
+}
 
 export const PresenterSettingsSchema = z.strictObject({
   enabled: z.boolean().default(false),
@@ -148,6 +153,17 @@ export function defaultAutoPilotSettings(script: { section?: string; name?: stri
       letterboxBanner: '',
       vfxParticles: false,
     },
+  };
+}
+
+export function autoPilotSettingsForNewRun(script: Parameters<typeof defaultAutoPilotSettings>[0] & { autoPilotSettings?: unknown }, ancientDharmaShorts: boolean): AutoPilotSettings {
+  const saved = AutoPilotSettingsSchema.safeParse(script.autoPilotSettings);
+  const settings = saved.success ? saved.data : defaultAutoPilotSettings(script);
+  if (!ancientDharmaShorts) return settings;
+  return {
+    ...settings,
+    captions: settings.captions === 'off' ? 'plain' : settings.captions,
+    editing: settings.captions === 'off' ? { ...settings.editing, settings: { ...settings.editing.settings, captionStyle: 'boxed', captionWords: 4 } } : settings.editing,
   };
 }
 

@@ -81,9 +81,12 @@ test('hook planning produces exactly three distinct candidates and honest packag
     assert.equal(planned.hooks.length, 3);
     assert.equal(planned.musicMood, 'calm');
     assert.match(payload.contents[0].parts[0].text, /BEFORE the script/);
+    assert.match(payload.contents.at(-1).parts[0].text, /one clear question/);
+    assert.equal(planned.openingTarget, 'first-ten-seconds');
     assert.ok(payload.generationConfig.responseJsonSchema, 'Gemini receives the actual hook response schema');
     assert.match(retention.retentionBrief(planned), /Why did Hanuman forget/);
     assert.match(retention.retentionBrief(planned), /before the CTA/);
+    assert.match(retention.retentionBrief(planned), /a concrete part of the answer/);
     globalThis.fetch = fakeModel({ ...planResult, hooks: planResult.hooks.map(({ reason, ...hook }) => hook) });
     const withoutReasons = await retention.createRetentionPlan(options);
     assert.ok(withoutReasons.hooks.every(hook => hook.reason === ''), 'missing editorial explanations must not halt a valid production');
@@ -301,17 +304,21 @@ test('final review sends actual rendered frames and mixed audio; rejects blocker
     accounts.atomicJson(accounts.tokenPath('default'), { access_token: 'fixture' });
     const app = express(); app.use(express.json()); app.use('/api/accounts/:accountId/profiles/:profile', workspacesRouter);
     const server = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
-    const upload = () => originalFetch(`http://127.0.0.1:${server.address().port}/api/accounts/default/profiles/shorts/youtube/upload`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: script.id, videoFilename: 'final.mp4', title: fullPlan.titles[0], autoPilot: true }),
+    const upload = (openingReviewed = false) => originalFetch(`http://127.0.0.1:${server.address().port}/api/accounts/default/profiles/shorts/youtube/upload`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scriptId: script.id, videoFilename: 'final.mp4', title: fullPlan.titles[0], autoPilot: true, openingReviewed }),
     });
     try {
       store.add('scripts', { ...script, retentionReview: passed });
-      assert.equal((await upload()).status, 409, 'a replaced render invalidates an earlier passing review');
+      assert.equal((await upload(true)).status, 409, 'a replaced render invalidates an earlier passing review');
       assert.equal(uploads, 0);
       block = false;
       const refreshed = await reviewRenderedVideo(script, 'final.mp4', 'fixture');
       store.add('scripts', { ...script, retentionReview: refreshed });
-      const uploaded = await upload();
+      const unapproved = await upload();
+      assert.equal(unapproved.status, 409);
+      assert.match(await unapproved.text(), /approve the opening and YouTube title/);
+      assert.equal(uploads, 0);
+      const uploaded = await upload(true);
       assert.equal(uploaded.status, 200, await uploaded.clone().text());
       assert.equal(uploads, 1);
       const memory = notes.readTopicNotes().topics.find(topic => topic.videoId === 'review-approved-video');

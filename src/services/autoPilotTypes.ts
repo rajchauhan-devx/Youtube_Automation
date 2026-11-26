@@ -21,6 +21,15 @@ export interface AutoPilotLog {
   type: 'info' | 'gemini' | 'success' | 'warn' | 'error';
 }
 
+export interface OpeningReview {
+  title: string;
+  videoUrl: string;
+  visibility: 'private' | 'unlisted' | 'public';
+  publishAt?: string;
+}
+
+export type OpeningApproval = Pick<OpeningReview, 'title' | 'publishAt'>;
+
 export interface AutoPilotState {
   scopeKey?: string;
   instructions?: string;
@@ -41,6 +50,7 @@ export interface AutoPilotState {
   renderedVideoUrl?: string | null;
   youtubeVideoUrl?: string | null;
   manualExport?: boolean;
+  openingReview?: OpeningReview;
   error?: string | null;
 }
 

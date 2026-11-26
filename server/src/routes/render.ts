@@ -340,8 +340,14 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     scriptForPresenter?.voiceProvider === 'flow' ||
     scriptForPresenter?.generatedAudio?.[0]?.provider === 'flow' ||
     (Boolean(scriptForPresenter?.conversational) && imagePaths.some((p: string) => p.endsWith('.mp4')));
+  const captionNativeAudio = useNativeVideoAudio && Boolean(longSync &&
+    scriptForPresenter?.generatedAudio?.[0]?.provider === 'flow' &&
+    scriptForPresenter?.retentionPlan?.openingTarget === 'first-ten-seconds' &&
+    scriptForPresenter?.autoPilotSettings?.captions === 'plain');
+  const canCaptionAudio = !useNativeVideoAudio || captionNativeAudio;
   const renderOptions = {
     useNativeVideoAudio,
+    captionNativeAudio,
     audioSource: useNativeVideoAudio ? 'flow' : 'tts',
     polishAudio: Boolean(scriptForPresenter?.retentionPlan && scriptForPresenter?.retentionEdit && effectiveEditing?.enabled !== false),
     signal: controller.signal,
@@ -354,7 +360,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     transitionDuration,
     timelineConfig,
     sceneAnalysis,
-    enableSubtitles: !useNativeVideoAudio && Boolean(enableSubtitles && !hasVisualArtifacts && (longSync || subtitlePath)),
+    enableSubtitles: canCaptionAudio && Boolean(enableSubtitles && !hasVisualArtifacts && (longSync || subtitlePath)),
     subtitlePath: useNativeVideoAudio ? undefined : subtitlePath,
     bgmPath: resolvedBgm || undefined,
     bgmVolume: typeof bgmVolume === 'number' ? bgmVolume : 0.12,
@@ -362,7 +368,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     colorGrade: typeof colorGrade === 'string' ? colorGrade : undefined,
     enableVignette: enableVignette !== false,
     enableSfx: enableSfx !== false,
-    editing: (useNativeVideoAudio || hasVisualArtifacts) && effectiveEditing ? { ...effectiveEditing, captions: false } : effectiveEditing,
+    editing: (!canCaptionAudio || hasVisualArtifacts) && effectiveEditing ? { ...effectiveEditing, captions: false } : effectiveEditing,
     letterboxBanner: req.body?.letterboxBanner || effectiveEditing?.letterboxBanner || (scriptForPresenter?.autoPilotSettings?.flowMusic?.enabled ? (scriptForPresenter.autoPilotSettings.flowMusic.letterboxBanner || undefined) : undefined),
     presenter,
     presenterSourceSize,
@@ -390,7 +396,7 @@ const startRender: import('express').RequestHandler = async (req, res) => {
     .then(async (result) => {
       try {
         let finalCaptionPath: string | undefined;
-        if (!useNativeVideoAudio && hasVisualArtifacts && enableSubtitles && !savedMotionCaptions && (!effectiveEditing?.enabled || effectiveEditing.captions)) {
+        if (canCaptionAudio && hasVisualArtifacts && enableSubtitles && !savedMotionCaptions && (!effectiveEditing?.enabled || effectiveEditing.captions)) {
           if (longPlan && longSync) {
             finalCaptionPath = path.join(getOutputDir(scriptId), `${result.filename}.captions.ass`);
             fs.writeFileSync(finalCaptionPath, reservePresenterCaptionSpace(synchronizedCaptionAss(longPlan, longSync,

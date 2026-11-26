@@ -146,6 +146,7 @@ export interface InstagramExportData {
 
 export interface Script {
   autoPilotSettings?: import('../server/src/services/autopilot-settings').AutoPilotSettings;
+  voiceProvider?: string;
   retentionPlan?: import('../server/src/services/retention-types').RetentionPlan;
   retentionEdit?: import('../server/src/services/retention-types').RetentionEdit;
   retentionReview?: import('../server/src/services/retention-types').RetentionReview;

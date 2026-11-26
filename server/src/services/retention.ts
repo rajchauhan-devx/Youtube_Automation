@@ -1,5 +1,5 @@
 import { refreshMotionHints } from './script-motion.js';
-import type { AutoPilotSettings } from './autopilot-settings.js';
+import { isAncientDharmaShorts, type AutoPilotSettings } from './autopilot-settings.js';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { validatedModelJson } from './model-json.js';
@@ -14,6 +14,7 @@ import { identifyDocumentaryChannel, type FiveActRetentionStoryMap } from './edi
 import { runIterativeScriptDoctor, type ScriptDoctorResult } from './editorial/professional-script-doctor.js';
 
 const text = z.string().trim().min(1).max(2000);
+const ancientDharmaOpening = 'Build the first ten seconds around the title’s exact promise. Put the event, unusual object, or consequential choice in the first shot, with a close, phone-readable view. Use one short spoken line to name the action. By about ten seconds, show a concrete part of the answer, the character’s response, or visible evidence that moves the story forward. After that, add only the background needed to understand it. Avoid opening with a wide establishing shot, biography, dates, a repeated setup, or a second version of the title question. Keep source distinctions and the template’s spoken format.';
 const PlanOutput = z.object({
   structure: text, viewerPromise: text,
   hooks: z.array(z.object({ openingLine: text.max(500), openingVisual: text, curiosity: text, payoff: text,
@@ -45,6 +46,10 @@ export function retentionEditing(script: { retentionPlan?: RetentionPlan; retent
   if (run?.editing.mode === 'off') return { ...validateEditingSettings(run.editing.settings), enabled: false, captions: run.captions === 'plain' };
   if (!run && script.editing) return validateEditingSettings(script.editing);
   const settings = { ...editingPreset('documentary'), motion: 'balanced' as const, bookendFades: false, captions: script.enableSubtitles === true, colorLook: 'none' as const };
+  if (script.retentionPlan.openingTarget === 'first-ten-seconds' && script.autoPilotSettings?.captions === 'plain') {
+    settings.captionStyle = script.autoPilotSettings.editing.settings.captionStyle;
+    settings.captionWords = script.autoPilotSettings.editing.settings.captionWords;
+  }
   for (const direction of script.retentionEdit.sceneDirections) {
     const m = direction.motion;
     const motion = m === 'slow-zoom-in' || m === 'push-in' ? 'push-in'
@@ -92,6 +97,8 @@ export async function createRetentionPlan(options: {
   storyMap?: FiveActRetentionStoryMap;
 }): Promise<RetentionPlan> {
   const notes = syncTopicNotes();
+  const isShortsProfile = currentWorkspace().profile === 'shorts';
+  const ancientDharmaShorts = isAncientDharmaShorts(currentWorkspace().profile, notes.name);
   const memoryEvidence = retentionMemory(notes, options.duration);
   const isConv = hasExplicitConversationalDirective(options.template, options.instructions);
   const convHookMandate = isConv
@@ -103,10 +110,10 @@ export async function createRetentionPlan(options: {
   const result = await validatedModelJson({ ...options, messages: [
     { role: 'system', content: 'You are a meticulous story editor and YouTube packaging editor. Return only JSON. Quality judgments are editorial hypotheses, never predicted audience retention scores. Never invent historical facts, quotations, metrics or prior episode canon.' },
     { role: 'user', content: `Plan a compelling opening and honest packaging BEFORE the script is written.\nTopic: ${options.topic}\nChannel: ${notes.name}\n${isConv ? notes.guidance : `Channel niche/tone (follow the active template for narration format and image/video media mode): ${notes.guidance}`}\nFormat: ${currentWorkspace().profile}; duration: ${options.duration}s\nPreferred structure: ${storyStructure(notes)}\nTemplate (context, preserve its language, canon, media rules and format):\n${channelEditorialContext(options.template, 16000)}\nUser instructions: ${options.instructions}\nActual profile performance memory: ${memoryEvidence}\n\n${convHookMandate}${storyMapPrompt}\n\nGenerate EXACTLY three DISTINCT opening hooks. Each needs an openingLine in the template’s narration language, an openingVisual the production can show immediately, a curiosity question, a concrete promised payoff, and a reason. No logo intro, generic greetings, fake cliffhangers or unsupported claims. For Shorts, start at the event or anomaly and ensure all three titles and description include the #Shorts hashtag; for long videos establish stakes and the viewer promise early. Choose selectedHookIndex (zero based) using clarity, truth, visual legibility and profile fit. TITLE & LANGUAGE ALIGNMENT: Titles MUST match the spoken audio language. For Hindi narration, generate Devanagari Hindi or natural Hinglish curiosity-gap titles (max 55–60 characters for Shorts including #Shorts, max 70 characters for Long-form). Strictly NEVER generate pure English titles for Hindi audio (e.g. use 'श्रीकृष्ण का ऑफर कर्ण ने क्यों ठुकराया? | Mahabharat #Shorts', not pure English). Plan three truthful titles, one thumbnail concept consistent with the opening, a description and tags. Use the story’s emotion to choose musicMood; silence is allowed.\nReturn JSON: {"structure":"...","viewerPromise":"...","hooks":[{"openingLine":"...","openingVisual":"...","curiosity":"...","payoff":"...","reason":"..."}],"selectedHookIndex":0,"titles":["...","...","..."],"thumbnailConcept":"...","description":"...","tags":["..."],"musicMood":"calm|cinematic|epic|upbeat|none"}` },
+    ...(ancientDharmaShorts ? [{ role: 'user' as const, content: `Ancient Dharma Shorts editorial requirements. ${ancientDharmaOpening} Each candidate title should ask one clear question or state one specific contradiction in everyday language. Put the recognizable person, object, or action up front. Avoid abstract labels like “moral dilemma”, generic adjectives like “ultimate”, and duplicate English subtitles on Hindi titles. All three titles must promise something the selected opening actually begins to deliver.` }] : []),
   ] }, PlanOutput, 'Hook planning');
   if (new Set(result.hooks.map(hook => hook.openingLine.toLocaleLowerCase())).size !== 3) throw new Error('Hook planning returned duplicate openings. Generate three distinct hooks.');
 
-  const isShortsProfile = currentWorkspace().profile === 'shorts';
   const titles = isShortsProfile
     ? result.titles.map(t => /#shorts\b/i.test(t) ? t.trim() : `${t.trim()} #Shorts`)
     : result.titles;
@@ -119,12 +126,13 @@ export async function createRetentionPlan(options: {
 
   return { ...result, titles, description, tags, hooks: result.hooks.map(hook => ({ ...hook, reason: hook.reason || '' })),
     version: 1, topic: options.topic, createdAt: new Date().toISOString(), memoryEvidence,
+    ...(ancientDharmaShorts ? { openingTarget: 'first-ten-seconds' as const } : {}),
     ...(options.storyMap ? { storyMap: options.storyMap } : {}) };
 }
 
 export function retentionBrief(plan: RetentionPlan): string {
   const hook = plan.hooks[plan.selectedHookIndex];
-  return `RETENTION EDITORIAL BRIEF (preserve the template’s exact output format and factual/canon requirements):\nStructure: ${plan.structure}\nOpening narration: ${hook.openingLine}\nOpening visual: ${hook.openingVisual}\nViewer promise: ${plan.viewerPromise}\nEarned payoff: ${hook.payoff}\nTitle promise: ${plan.titles[0]}\nThumbnail concept: ${plan.thumbnailConcept}\nStart directly, remove repeated explanations and unnecessary setup. Each scene must add a discovery, decision, consequence or reveal. Resolve the promised payoff before the CTA. Do not invent facts to fulfill a hook; revise unsupported promises instead. Keep narration speakable and visual descriptions tied to the action. No mandatory rapid cuts or filler to reach the target runtime.`;
+  return `RETENTION EDITORIAL BRIEF (preserve the template’s exact output format and factual/canon requirements):\nStructure: ${plan.structure}\nOpening narration: ${hook.openingLine}\nOpening visual: ${hook.openingVisual}\nViewer promise: ${plan.viewerPromise}\nEarned payoff: ${hook.payoff}\nTitle promise: ${plan.titles[0]}\nThumbnail concept: ${plan.thumbnailConcept}\nStart directly, remove repeated explanations and unnecessary setup. Each scene must add a discovery, decision, consequence or reveal. Resolve the promised payoff before the CTA. Do not invent facts to fulfill a hook; revise unsupported promises instead. Keep narration speakable and visual descriptions tied to the action. No mandatory rapid cuts or filler to reach the target runtime.${plan.openingTarget === 'first-ten-seconds' ? `\n${ancientDharmaOpening}` : ''}`;
 }
 
 export async function editForRetention(options: {

@@ -48,9 +48,9 @@ import { hasCaptionBlocker, hasReviewBlocker, reviewBlockerMessage, waitForRende
 import { parseJsonResponse, isAbortError, safeErrorMessage, safeJsonParse } from './lib/safe';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AutoPilotModal } from './components/autopilot/AutoPilotModal';
-import { AUTO_PILOT_STAGES, type AutoPilotState, type AutoPilotStage } from './services/autoPilotTypes';
+import { AUTO_PILOT_STAGES, type AutoPilotState, type AutoPilotStage, type OpeningApproval } from './services/autoPilotTypes';
 import { editingRequest, type EditingPayload } from './services/editingApi';
-import { AutoPilotSettingsSchema, defaultAutoPilotSettings, narrationOptions, type AutoPilotSettings } from '../server/src/services/autopilot-settings';
+import { AutoPilotSettingsSchema, autoPilotSettingsForNewRun, isAncientDharmaShorts, narrationOptions, type AutoPilotSettings } from '../server/src/services/autopilot-settings';
 import { executeSupervisedStage, runPreflightSupervision } from './services/supervisor';
 
 const DYNAMIC_SCENE_MOTIONS = ['zoom-in', 'pan-right', 'zoom-out', 'pan-left', 'drift-in', 'pan-up', 'drift-out'] as const;
@@ -99,7 +99,7 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
 
 const LS_KEY = 'tubeflow:v1';
 
-function savedProductionStage(script: Script): number {
+function savedProductionStage(script: Script, renderedVideoUrl?: string | null): number {
   if (!script.retentionPlan) return 0;
   if (!script.aiResponse?.trim()) return 1;
   if (!script.retentionEdit) return 2;
@@ -114,7 +114,7 @@ function savedProductionStage(script: Script): number {
     return false;
   })) return 4;
   if (!script.generatedAudio?.[0]?.url) return 5;
-  if (!script.timelineConfig?.renderedVideoUrl && !script.renderedVideoUrl) return 6;
+  if (!renderedVideoUrl && !script.timelineConfig?.renderedVideoUrl && !script.renderedVideoUrl) return 6;
   return 9;
 }
 
@@ -208,6 +208,7 @@ export default function App() {
   });
   const autoPilotAbortRef = useRef<AbortController | null>(null);
   const autoPilotPausedRef = useRef(false);
+  const approveOpeningRef = useRef<((approval: OpeningApproval) => void) | null>(null);
 
   function addAutoPilotLog(
     stage: AutoPilotStage,
@@ -267,6 +268,15 @@ export default function App() {
     } catch {}
   }
 
+  function handleAutoPilotOpeningEdit() {
+    autoPilotAbortRef.current?.abort();
+    autoPilotAbortRef.current = null;
+    setAutoPilotState(prev => ({ ...prev, openingReview: undefined, isActive: false, stage: 'error', stageIndex: 8,
+      statusMessage: 'Opening review saved. Edit and render in the timeline, then resume Auto-Pilot.' }));
+    setSelectedScriptId(autoPilotState.scriptId);
+    setTab('review');
+  }
+
   // Persist lightweight UI state so a refresh restores the workspace.
   useEffect(() => {
     saveUiState({
@@ -290,13 +300,17 @@ export default function App() {
   const scopeScripts = userScripts.filter(script => script.accountId === activeChannel.id && script.section === section);
 
   useEffect(() => {
+    if (autoPilotState.openingReview && autoPilotState.scopeKey !== scopeKey) autoPilotAbortRef.current?.abort();
+  }, [scopeKey, autoPilotState.scopeKey, autoPilotState.openingReview]);
+
+  useEffect(() => {
     // A refresh interrupts the browser orchestrator, but its saved stages remain usable.
     if (autoPilotAbortRef.current) return;
     try {
       const saved = readJson<AutoPilotState>(localStorage.getItem(`tubeflow:autopilot:${scopeKey}`));
       if (!saved || saved.scopeKey !== scopeKey || !saved.scriptId || !Array.isArray(saved.logs) || !Number.isInteger(saved.stageIndex)
         || saved.stageIndex < 0 || saved.stageIndex >= AUTO_PILOT_STAGES.length || saved.stage === 'completed') return;
-      setAutoPilotState({ ...saved, isActive: false, isPaused: false, isMinimized: false, stage: 'error',
+      setAutoPilotState({ ...saved, openingReview: undefined, isActive: false, isPaused: false, isMinimized: false, stage: 'error',
         statusMessage: saved.stage === 'error' ? saved.statusMessage : 'Production interrupted. Resume to continue from the saved stage.' });
     } catch { /* Storage may be disabled in this browser. */ }
   }, [scopeKey]);
@@ -816,7 +830,8 @@ export default function App() {
     autoPilotPausedRef.current = false;
 
     const scriptId = initialScript.id;
-    const runSettings = AutoPilotSettingsSchema.parse(initialScript.autoPilotSettings || defaultAutoPilotSettings(initialScript));
+    const requiresOpeningReview = isAncientDharmaShorts(section, activeChannel);
+    const runSettings = AutoPilotSettingsSchema.parse(initialScript.autoPilotSettings || autoPilotSettingsForNewRun(initialScript, requiresOpeningReview));
     const resuming = resumeFrom !== undefined;
     let startStage = resumeFrom ?? 0;
     const originalInstructions = instructions;
@@ -919,10 +934,19 @@ export default function App() {
         if (startStage >= 2 && currentScript.youtubeExport?.uploadedVideoId) throw new Error('This production has already been exported to YouTube.');
         topic = startStage >= 2 ? currentScript.topicName || topic : topic;
         // Fall back only as far as a missing prerequisite requires.
-        startStage = Math.min(startStage, savedProductionStage(currentScript));
+        if (requiresOpeningReview && startStage >= 8) {
+          const renderResponse = await fetch(`/api/render/status/${encodeURIComponent(scriptId)}`, { signal: controller.signal });
+          if (!renderResponse.ok) throw new Error('Could not check the current render. Resume to try again.');
+          const render = await renderResponse.json();
+          const latestVideo = render.status === 'done' ? render.videos?.[0] : undefined;
+          resumeVideoUrl = latestVideo?.url || null;
+          if (latestVideo && latestVideo.filename !== currentScript.retentionReview?.videoFilename) startStage = 8;
+        }
+        startStage = Math.min(startStage, savedProductionStage(currentScript, requiresOpeningReview ? resumeVideoUrl : undefined));
         if (startStage >= 8 && !resumeVideoUrl) startStage = 7;
         if (startStage >= 9 && currentScript.retentionReview?.status !== 'passed') startStage = 8;
-        if (startStage >= 8 && (hasReviewBlocker(currentScript.retentionReview) || (runSettings.captions !== 'off' && hasCaptionBlocker(currentScript.retentionReview)))) {
+        const reviewMatchesRender = !requiresOpeningReview || decodeURIComponent(resumeVideoUrl?.split('/').pop() || '') === currentScript.retentionReview?.videoFilename;
+        if (startStage >= 8 && reviewMatchesRender && (hasReviewBlocker(currentScript.retentionReview) || (runSettings.captions !== 'off' && hasCaptionBlocker(currentScript.retentionReview)))) {
           startStage = 7;
           resumeVideoUrl = null;
           addAutoPilotLog('render_video', 'The saved MP4 had review findings. Rebuilding video composition before reviewing again.', 'info');
@@ -1865,15 +1889,13 @@ export default function App() {
         return;
       }
       enterStage('upload_youtube');
-      setAutoPilotState(prev => ({ ...prev, stage: 'upload_youtube', stageIndex: 9, progressPercent: 98,
-        statusMessage: 'Final review passed. Exporting the video with its planned title and promise...' }));
       const metadata = retention.plan;
       const exportSettings = initialScript.youtubeExport || {};
       const isShort = section === 'shorts';
       const rawTitle = metadata.titles?.[0] || topic;
-      const finalTitle = isShort && !/#shorts\b/i.test(rawTitle)
+      let finalTitle = isShort && !/#shorts\b/i.test(rawTitle)
         ? (rawTitle.length > 92 ? `${rawTitle.slice(0, 92).trim()} #Shorts` : `${rawTitle.trim()} #Shorts`)
-        : rawTitle;
+        : rawTitle.trim();
       const rawDesc = metadata.description || '';
       const finalDesc = isShort && !/#shorts\b/i.test(rawDesc)
         ? (rawDesc ? `${rawDesc.trim()}\n\n#Shorts` : '#Shorts')
@@ -1884,17 +1906,44 @@ export default function App() {
         : rawTags;
 
       let effectivePublishAt = runSettings.youtube.publishMode === 'schedule' ? runSettings.youtube.scheduledPublishAt : undefined;
-      if (effectivePublishAt) {
+      if (requiresOpeningReview) {
+        const approval = await new Promise<OpeningApproval>((resolve, reject) => {
+          controller.signal.throwIfAborted();
+          const cancel = () => {
+            if (approveOpeningRef.current === approve) approveOpeningRef.current = null;
+            reject(controller.signal.reason);
+          };
+          const approve = (value: OpeningApproval) => {
+            controller.signal.removeEventListener('abort', cancel);
+            approveOpeningRef.current = null;
+            resolve(value);
+          };
+          approveOpeningRef.current = approve;
+          controller.signal.addEventListener('abort', cancel, { once: true });
+          setAutoPilotState(prev => ({ ...prev, isMinimized: false, progressPercent: 98,
+            statusMessage: 'Review the title and first 10 seconds to continue.',
+            openingReview: { title: finalTitle, videoUrl: finalVideoUrl!, visibility: runSettings.youtube.privacyStatus, publishAt: effectivePublishAt },
+          }));
+        });
+        await checkPauseOrAbort();
+        finalTitle = approval.title;
+        effectivePublishAt = approval.publishAt;
+        addAutoPilotLog('upload_youtube', 'Opening and title approved for YouTube export.', 'success');
+      } else if (effectivePublishAt) {
         const parsedSchedule = Date.parse(effectivePublishAt);
         if (Number.isNaN(parsedSchedule) || parsedSchedule <= Date.now() + 5 * 60_000) {
           effectivePublishAt = new Date(Date.now() + 15 * 60_000).toISOString();
         }
       }
 
+      setAutoPilotState(prev => ({ ...prev, openingReview: undefined, progressPercent: 98,
+        statusMessage: 'Exporting the reviewed video to YouTube...' }));
+
       const uploadResponse = await fetch('/api/youtube/upload', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId, videoFilename, autoPilot: true, isShort,
           title: finalTitle, description: finalDesc, tags: finalTags,
+          ...(requiresOpeningReview ? { openingReviewed: true } : {}),
           privacyStatus: runSettings.youtube.privacyStatus, categoryId: exportSettings.categoryId || '22',
           ...(effectivePublishAt ? { publishAt: effectivePublishAt } : {}),
         }),
@@ -1928,10 +1977,12 @@ export default function App() {
       addAutoPilotLog('render_video', `🎉 Full MP4 video successfully rendered: ${finalVideoUrl}`, 'success');
       addAutoPilotLog('upload_youtube', 'Autonomous production and YouTube export finished.', 'success');
     } catch (err) {
+      if (autoPilotAbortRef.current !== controller) return;
       if (controller.signal.aborted) {
         addAutoPilotLog(activeStage, 'Auto-Pilot stopped by user. Manual control restored.', 'warn');
         setAutoPilotState((prev) => ({
           ...prev,
+          openingReview: undefined,
           isActive: false,
           statusMessage: 'Auto-Pilot stopped by user',
         }));
@@ -1960,7 +2011,7 @@ export default function App() {
     if (!runModalScript) return;
     let script = runModalScript;
     if (options?.autoPilot) {
-      const parsed = AutoPilotSettingsSchema.safeParse(options.settings || defaultAutoPilotSettings(script));
+      const parsed = AutoPilotSettingsSchema.safeParse(options.settings || autoPilotSettingsForNewRun(script, isAncientDharmaShorts(section, activeChannel)));
       if (!parsed.success) {
         throw new Error('Invalid production settings: ' + parsed.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join('; '));
       }
@@ -1986,11 +2037,18 @@ export default function App() {
   useEffect(() => {
     (window as any).__autoPilotState = autoPilotState;
     (window as any).__getScopeScripts = () => scopeScripts;
-    (window as any).__runAutoPilot = (targetScriptId?: string, targetTopic?: string, targetSchedule?: string) => {
+    (window as any).__runAutoPilot = async (targetScriptId?: string, targetTopic?: string, targetSchedule?: string) => {
       const s = targetScriptId
         ? scopeScripts.find(item => item.id === targetScriptId)
         : (scopeScripts.find(item => item.id === selectedScriptId) || selectedScript);
       if (!s) throw new Error(`Script not found in workspace: ${targetScriptId || selectedScriptId}`);
+      if (isAncientDharmaShorts(section, activeChannel)) {
+        const settings = autoPilotSettingsForNewRun(s, true);
+        if (targetSchedule) settings.youtube = { ...settings.youtube, scheduledPublishAt: targetSchedule, publishMode: 'schedule' };
+        const patch = { autoPilotSettings: settings, enableSubtitles: settings.captions !== 'off' };
+        if (!await persistScript(s.id, patch)) throw new Error('Could not save production settings.');
+        return runAutoPilotPipeline({ ...s, ...patch }, targetTopic || s.topicName || '', s.aiInstructions || '');
+      }
       if (targetSchedule && s.autoPilotSettings?.youtube) {
         s.autoPilotSettings.youtube.scheduledPublishAt = targetSchedule;
         s.autoPilotSettings.youtube.publishMode = 'schedule';
@@ -2574,6 +2632,8 @@ export default function App() {
           onRetryProduction={autoPilotState.stage === 'error' && autoPilotScript
             ? () => { void runAutoPilotPipeline(autoPilotScript, autoPilotState.topic, autoPilotState.instructions || '', autoPilotState.stageIndex, autoPilotState.renderedVideoUrl); }
             : undefined}
+          onApproveOpening={approval => approveOpeningRef.current?.(approval)}
+          onEditOpening={handleAutoPilotOpeningEdit}
           onNavigateTab={(targetTab) => setTab(targetTab)}
         />
       )}

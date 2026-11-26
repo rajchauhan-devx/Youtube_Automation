@@ -6,7 +6,7 @@ import { google } from 'googleapis';
 import { chat, getGeminiApiKey } from '../services/gemini.js';
 import { youtubeAuthRouter } from './youtube-auth.js';
 import { createOAuth2Client, verifyChannel } from '../services/youtube-auth.js';
-import { tokenPath, atomicJson } from '../services/accounts.js';
+import { tokenPath, atomicJson, getAccount } from '../services/accounts.js';
 import { currentWorkspace, generatedDir, outputDir } from '../services/workspace.js';
 import { safeSegment, containedFile } from '../services/paths.js';
 import { store } from '../services/store.js';
@@ -14,6 +14,7 @@ import { recordUploadedTopic, syncTopicNotes } from '../services/topic-notes.js'
 import { productionHash, productionMemory } from '../services/retention.js';
 import { renderFileHash } from '../services/retention-review.js';
 import { claimUpload, uploadStatus, reconcileUpload, retryUncertainUpload, UploadConflict } from '../services/upload-jobs.js';
+import { isAncientDharmaShorts } from '../services/autopilot-settings.js';
 
 export const youtubeRouter = Router();
 youtubeRouter.use(youtubeAuthRouter);
@@ -178,6 +179,9 @@ youtubeRouter.post('/upload', async (req, res) => {
     || script.retentionReview.videoFilename !== videoFilename || script.retentionReview.renderHash !== renderFileHash(videoPath)
     || script.retentionReview.productionHash !== productionHash(script))) {
     res.status(409).json({ error: 'Auto-Pilot requires a passing review of this exact production and render before YouTube upload.' }); return;
+  }
+  if (req.body?.autoPilot === true && isAncientDharmaShorts(currentWorkspace().profile, getAccount(accountId)) && req.body.openingReviewed !== true) {
+    res.status(409).json({ error: 'Review and approve the opening and YouTube title before uploading this Short.' }); return;
   }
   // Check that history can be read before making an external upload.
   syncTopicNotes();

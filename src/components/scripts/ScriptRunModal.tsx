@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { X, Sparkles, Play, AlertCircle, Loader2 } from 'lucide-react';
 import type { Script } from '../../data';
-import { AutoPilotSettingsSchema, defaultAutoPilotSettings, type AutoPilotSettings } from '../../../server/src/services/autopilot-settings';
+import { AutoPilotSettingsSchema, autoPilotSettingsForNewRun, isAncientDharmaShorts, type AutoPilotSettings } from '../../../server/src/services/autopilot-settings';
+import { useWorkspaceApi } from '../../services/workspaceApi';
 import { AutoPilotSettingsPanel } from './AutoPilotSettingsPanel';
 
 export function ScriptRunModal({
@@ -13,16 +14,17 @@ export function ScriptRunModal({
   onClose: () => void;
   onSubmit: (topic: string, instructions: string, options?: { autoPilot?: boolean; settings?: AutoPilotSettings }) => void | Promise<void>;
 }) {
+  const { account, profile } = useWorkspaceApi();
+  const ancientDharmaShorts = isAncientDharmaShorts(profile, account);
   const [topic, setTopic] = useState(script.youtubeExport?.uploadedVideoId ? '' : (script.topicName || ''));
   const [instructions, setInstructions] = useState(script.aiInstructions || '');
 
   const [mode, setMode] = useState<'auto' | 'script'>('auto');
   const [settings, setSettings] = useState<AutoPilotSettings>(() => {
-    const saved = AutoPilotSettingsSchema.safeParse(script.autoPilotSettings);
-    const initial = saved.success ? saved.data : defaultAutoPilotSettings(script);
+    const initial = autoPilotSettingsForNewRun(script, ancientDharmaShorts);
     if (initial.voice.language === 'auto') {
       const text = script.narration || script.extractedScript || script.content || [script.aiInstructions, ...script.prompts.map(prompt => prompt.content)].filter(Boolean).join('\n');
-      initial.voice.language = /[\u0900-\u097F]|\bHindi\b/i.test(text) ? 'hi' : 'en';
+      initial.voice.language = ancientDharmaShorts || /[\u0900-\u097F]|\bHindi\b/i.test(text) ? 'hi' : 'en';
     }
     if (initial.youtube.publishMode === 'schedule') {
       const ts = initial.youtube.scheduledPublishAt ? Date.parse(initial.youtube.scheduledPublishAt) : NaN;
@@ -138,7 +140,9 @@ export function ScriptRunModal({
           </div>
           {mode === 'auto' && (
             <p className="text-xs leading-relaxed text-muted">
-              Auto-Pilot checks this profile’s topic notes before production. {settings.youtube.enabled ? 'After a successful YouTube export, the topic is saved so it won’t be selected again.' : 'With No Export selected, the video will be rendered for you to export manually.'}
+              Auto-Pilot checks this profile’s topic notes before production. {settings.youtube.enabled
+                ? ancientDharmaShorts ? 'You’ll review the finished opening and title before YouTube export.' : 'After a successful YouTube export, the topic is saved so it won’t be selected again.'
+                : 'With No Export selected, the video will be rendered for you to export manually.'}
             </p>
           )}
           <div className="space-y-2">
@@ -162,7 +166,9 @@ export function ScriptRunModal({
                 <Sparkles className="h-3.5 w-3.5" />
                 Auto-Pilot ({settings.youtube.enabled ? 'Topic Research → YouTube Export' : 'Topic Research → Render & Review, Manual Export'})
               </div>
-              AI selects a fresh topic, compares three hooks, plans the title and thumbnail, edits the story, produces the video{settings.presenter?.enabled ? ` with MuseTalk AI Presenter (${settings.presenter.widthPercent}% size)` : ''}, and reviews sampled final visuals and audio. {settings.youtube.enabled ? 'Uploads directly to YouTube upon passing review.' : 'Final video will be rendered and ready for manual export.'}
+              AI selects a fresh topic, compares three hooks, plans the title and thumbnail, edits the story, produces the video{settings.presenter?.enabled ? ` with MuseTalk AI Presenter (${settings.presenter.widthPercent}% size)` : ''}, and reviews sampled final visuals and audio. {settings.youtube.enabled
+                ? ancientDharmaShorts ? 'You approve the opening and title after the automated review.' : 'Uploads directly to YouTube upon passing review.'
+                : 'Final video will be rendered and ready for manual export.'}
             </div>
           )}
         </form>
@@ -183,9 +189,9 @@ export function ScriptRunModal({
               Cancel
             </button>
             <button
-              type="button"
-              onClick={() => void handleSubmit(mode === 'auto')}
-              disabled={busy}
+              type="submit"
+              form="run-script-modal-form"
+              disabled={busy || (mode === 'script' && !topic.trim())}
               className="studio-btn-primary flex items-center gap-2 text-xs !py-2.5 shadow-glow disabled:opacity-50"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : mode === 'auto' ? <Sparkles className="h-4 w-4" /> : <Play className="h-4 w-4" />}

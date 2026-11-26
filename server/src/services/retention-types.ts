@@ -21,6 +21,7 @@ export interface RetentionPlan {
   tags: string[];
   musicMood: 'calm' | 'cinematic' | 'epic' | 'upbeat' | 'none';
   memoryEvidence: string;
+  openingTarget?: 'first-ten-seconds';
   storyMap?: import('./editorial/documentary-topic-vetter.js').FiveActRetentionStoryMap;
   vettedScorecard?: import('./editorial/documentary-topic-vetter.js').RetentionScorecard;
 }
